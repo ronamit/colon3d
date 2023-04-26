@@ -1,0 +1,64 @@
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import yaml
+
+from colon3d.superpoint_pt.model.superpoint_bn import SuperPointBNNet
+from colon3d.torch_util import get_device
+
+
+def select_top_k(prob, thresh=0, num=100):
+    pts = np.where(prob > thresh)
+    inds = np.argsort(prob[pts])[::-1][:num]
+    pts = (pts[0][inds], pts[1][inds])
+    return pts
+
+
+def to_tensor(image, device):
+    H, W = image.shape
+    image = image.astype("float32") / 255.0
+    image = image.reshape(1, H, W)
+    image = torch.from_numpy(image).view(1, 1, H, W).to(device)
+    return image
+
+
+class KeypointExtractor:
+    def __init__(self):
+        self.device = get_device()
+        with open("superpoint_pt/config/export_descriptors.yaml", encoding="utf8") as fin:
+            config = yaml.safe_load(fin)
+
+        self.model = SuperPointBNNet(config["model"], device=self.device, using_bn=config["model"]["using_bn"])
+        self.model.load_state_dict(torch.load("superpoint_pt/superpoint_bn.pth"))
+        self.model.to(self.device).eval()
+        self.max_num_kp = 300  # maximal number of keypoints to extract
+        self.prob_thresh = 0.05  # threshold for keypoint probability
+
+    def get_keypoints(self, img):
+        img = to_tensor(img, self.device)
+        with torch.no_grad():
+            out = self.model(img)
+            det_outputs = out["det_info"]
+            # desc_outputs = out['desc_info']
+            prob = det_outputs["prob_nms"].cpu().numpy().squeeze()
+        pts = np.where(prob > self.prob_thresh)
+        idx = np.argsort(prob[pts])[::-1][: self.max_num_kp]
+        points = (pts[0][idx], pts[1][idx])
+
+        return points
+
+
+if __name__ == "__main__":
+    # test code
+    img = cv2.imread("data/sample.png")
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # img = img.astype(np.float32) / 255.0
+    # img = torch.from_numpy(img).unsqueeze(0).to(get_device())
+
+    extractor = KeypointExtractor()
+    points = extractor.get_keypoints(img_gray)
+
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.scatter(points[1], points[0], s=1, c="r")
+    plt.show()

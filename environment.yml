@@ -1,0 +1,31 @@
+name: py39
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.9
+  - torchvision
+  - torchaudio
+  - pytorch
+  - pytorch-cuda
+  - conda-build
+  - opencv
+  - pillow
+  - numpy
+  - jupyter
+  - scikit-image
+  - matplotlib
+  - pandas
+  - cython
+  - h5py
+  - mypy
+  - plotly
+  - black
+  - pre-commit
+  - conda-lock
+  - cudatoolkit
+  - numba
+  - setuptools
+prefix: /home/ronamit/miniconda3/envs/py39

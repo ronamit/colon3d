@@ -1,0 +1,185 @@
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def cam_pose_as_hom_matrix(pos, rot_quat):
+    """
+    Changes the format of the camera pose (translation & orientation) from quaternion to 4x4 rigid transformation matrix
+    """
+    # get the rotation matrix from the quaternion
+
+    rot = spr.from_quat(rot_quat)
+    rot_mat = rot.as_matrix()
+    hom_mat = np.eye(4)
+    hom_mat[:3, :3] = rot_mat
+    hom_mat[:3, 3] = pos
+    return hom_mat
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def z_depth_map_to_point_cloud(z_depth_frame, metadata):
+    height, width = z_depth_frame.shape
+    n_pix = height * width
+
+    cx = metadata["cx"]  # middle of the image in x-axis [pixels]
+    cy = metadata["cy"]  # middle of the image in y-axis [pixels]
+    sx = metadata["sx"]  # the with of each pixel's sensor [millimeter/pixel]
+    sy = metadata["sy"]  # the height of each pixel's sensor [millimeter/pixel]
+    focal_length = metadata["focal_length"]  # [millimeter]
+
+    # Get the pixels image coordinates (u, v) of the depth image [pixels]
+    u_cords, v_cords = np.meshgrid(np.arange(0, width), np.arange(0, height))
+    u_cords = u_cords.reshape((n_pix, 1))
+    v_cords = v_cords.reshape((n_pix, 1))
+
+    # get the corresponding coordinates in the camera system fo each pixel's sensor (the z axis is the optical
+    # axis) [millimeter]
+    sensor_cord = np.column_stack(((u_cords - cx) * sx, (v_cords - cy) * sy, focal_length * np.ones((n_pix, 1))))
+
+    # the surface point that each pixel is looking at is at a known z_depth,
+    # and is on the ray connecting the focal point to the pixel's sensor.
+    z_depth = z_depth_frame.reshape((n_pix, 1))
+    surface_cord = sensor_cord * z_depth / focal_length  # the X,Y,Z  in the camera-system
+
+    return surface_cord, sensor_cord
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--raw_sim_out_path",
+        type=str,
+        default="data/unity_sim/raw_sim_output",
+        help="The path to the Unity simulator output",
+    )
+    parser.add_argument(
+        "--path_to_save_dataset",
+        type=str,
+        default="data/unity_sim/sim_data",
+        help="The path to the Unity simulator output",
+    )
+    parser.add_argument(
+        "--fps",
+        type=float,
+        default=0,
+        help="frame rate in Hz of the output videos, if 0 the frame rate will be extracted from the settings file",
+    )
+
+    args = parser.parse_args()
+
+    raw_sim_out_path = Path(args.raw_sim_out_path)
+    path_to_save_dataset = Path(args.path_to_save_dataset)
+    if not os.path.isdir(path_to_save_dataset):
+        os.makedirs(path_to_save_dataset)
+    print(f"Datasets will be saved to {path_to_save_dataset}")
+    seq_paths = glob.glob(str(raw_sim_out_path / "*/"))
+    print("Simulation sequences to be loaded: ", seq_paths)
+
+    for seq_in_path in seq_paths:
+        print("Loading: ", seq_in_path)
+        seq_name = os.path.basename(os.path.normpath(seq_in_path))
+        seq_out_path = path_to_save_dataset / seq_name
+        if not os.path.isdir(seq_out_path):
+            os.makedirs(seq_out_path)
+
+        metadata = create_metadata(seq_in_path, seq_out_path, seq_name, args)
+        fps = metadata["fps"]
+
+        save_ground_truth_depth_and_cam_poses(
+            seq_in_path=seq_in_path,
+            seq_out_path=seq_out_path,
+            metadata=metadata,
+        )
+
+        save_rgb_video(
+            seq_in_path=seq_in_path,
+            seq_out_path=seq_out_path,
+            vid_file_name="Video",
+            fps=fps,
+        )
+
+
+
+    # Save as video
+    if save_depth_video:
+        depth_vid_scale = save_depth_maps_as_video(
+            output_path,
+            depth_files_paths,
+            fps,
+            depth_type,
+            metadata,
+            frame_size,
+        )
+        metadata["depth_vid_scale"] = depth_vid_scale
+
+
+
+
+def save_depth_maps_as_video(
+    output_path,
+    depth_files_paths,
+    fps,
+    depth_type,
+    metadata,
+    frame_size,
+):
+    """
+     Note that the depth values are saved as uint8, so the actual depth values are scaled by depth_vid_scale
+     The presicion of the depth values is lower than saving as h5 format, so use this only for visualization
+     Also note that OpenCV should include unit16 support for video writing, but it is not working for me
+    """
+    # the precision of the depth values in the depth video:
+    depth_value_type = np.uint8
+    max_possible_depth = 500  # [millimeter]  upper limit on the actual depth we can see in a video
+    depth_vid_scale = float(np.iinfo(depth_value_type).max) / max_possible_depth # [1/mm]
+    # [millimeter]  # the saved depth video values should be multiplied by depth_vid_scale to get actual depth in
+    # millimeter (the value was chosen to spread the depth values in the range of uint32)
+    print("Assumed maximum possible depth: ", max_possible_depth, " millimeter")
+    print("Depth values precision: ", 1 / depth_vid_scale, " millimeter")
+    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    out_vid = cv2.VideoWriter(
+        filename=f"{output_path}.mp4",
+        fourcc=fourcc,
+        fps=fps,
+        frameSize=frame_size,
+        isColor=False,
+    )
+    # Iterate over the EXR files and add them to the video
+    for exr_path in depth_files_paths:
+        # All 3 channels are the same (depth), so we only need to read one
+        z_depth_img = read_depth_exr_file(exr_path, depth_type, metadata) # [mm]
+        z_depth_img_scaled = np.round(z_depth_img * depth_vid_scale).astype(depth_value_type) #  [int, unitless]
+        out_vid.write(z_depth_img_scaled)
+    out_vid.release()  # Release the video
+    print(f"Depth video saved to: {output_path}")
+    return depth_vid_scale
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+    if depth_type == "z_depth":
+        pass
+    elif depth_type == "ray_depth":
+        z_depth_img = z_depth_map_to_ray_depth_map(z_depth_img, metadata)
+    else:
+        raise ValueError(f"Unknown depth_type: {depth_type}")
+    return z_depth_img
+
+
+
+    # --------------------------------------------------------------------------------------------------------------------
+def z_depth_map_to_ray_depth_map(z_depth_frame, metadata):
+    height, width = z_depth_frame.shape
+    n_pix = height * width
+    surface_cord, sensor_cord = z_depth_map_to_point_cloud(z_depth_frame, metadata)
+    surface_cord = surface_cord.reshape((n_pix, 3))
+    ray_depth_map = np.linalg.norm(surface_cord - sensor_cord, axis=-1)
+    ray_depth_map = ray_depth_map.reshape((height, width))
+    return ray_depth_map
