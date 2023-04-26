@@ -36,14 +36,5 @@ The simulator has option for stereo cameras, but here we assume it was used with
   * Run
 
 ```bash
-conda develop .
-```
-
-### Setup SiLK - Simple Learned Keypoints
-
-* Clone [SiLK - Simple Learned Keypoints](https://github.com/facebookresearch/silk) to some local dir
-* Run setup in that dir (with the conda env activated):
-
-```bash
-conda develop .
+		conda develop .
 ```
