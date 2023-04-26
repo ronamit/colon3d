@@ -5,7 +5,7 @@ import numpy as np
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.general_util import save_plot_and_close
-from colon3d.rotations_util import get_smallest_angle_between_rotations
+from colon3d.rotations_util import get_smallest_angle_between_rotations_np
 from colon3d.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ class AnalysisLogger:
         for i_frame in range(1, n_frames):
             rot_est = cam_pose_estimates[i_frame, 3:]
             rot_guess = cam_pose_guesses[i_frame, 3:]
-            angle_opt_change[i_frame] = get_smallest_angle_between_rotations(rot_est, rot_guess)
+            angle_opt_change[i_frame] = get_smallest_angle_between_rotations_np(rot_est, rot_guess)
         axs[1, 0].plot(time_vec[1:], np.rad2deg(angle_opt_change[1:]), label="angle change from initial guess")
         axs[1, 0].set(title="Angle change from initial guess", ylabel="[Deg.]")
 
@@ -77,14 +77,17 @@ class AnalysisLogger:
         for i_frame in range(1, n_frames):
             cur_rot = cam_pose_estimates[i_frame, 3:]
             prev_rot = cam_pose_estimates[i_frame - 1, 3:]
-            angle_change[i_frame] = get_smallest_angle_between_rotations(cur_rot, prev_rot)
+            angle_change[i_frame] = get_smallest_angle_between_rotations_np(cur_rot, prev_rot)
         axs[1, 1].plot(
             time_vec[1:],
             np.rad2deg(angle_change[1:]),
             label="change from prev. frame",
         )
         # axs[1, 1].plot(time_vec[1:],  max_angle_change_between_frames_deg * np.ones(n_frames - 1), label="max allowed angle change")
-        axs[1, 1].set(title=f"Change from prev. frame\nangle_limit={max_angle_change_between_frames_deg:.2f}[Deg.]", ylabel="[Deg.]")
+        axs[1, 1].set(
+            title=f"Change from prev. frame\nangle_limit={max_angle_change_between_frames_deg:.2f}[Deg.]",
+            ylabel="[Deg.]",
+        )
 
         fig.tight_layout()
         save_plot_and_close(save_path / "slam_analysis.png")

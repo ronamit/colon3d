@@ -184,17 +184,19 @@ def get_cos_half_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor)
     real_part = torch.abs(quotient[:, 0])
     # find the cosine of half the angle of the rotation
     cos_half_angle_change = real_part
+    cos_half_angle_change = torch.clamp(cos_half_angle_change, -1.0, 1.0)
     return cos_half_angle_change.squeeze()
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_smallest_angle_between_rotations(rot1: np.array, rot2: np.array):
+def get_smallest_angle_between_rotations_np(rot1: np.array, rot2: np.array):
     rot1 = torch.from_numpy(rot1)
     rot2 = torch.from_numpy(rot2)
     cos_half_angle_change = get_cos_half_angle_between_rotations(rot1, rot2)
-    angle = 2 * torch.acos(cos_half_angle_change)
+    cos_half_angle_change_np = cos_half_angle_change.numpy()
+    angle = 2 * np.arccos(cos_half_angle_change_np)
     return angle.item()
 
 

@@ -20,7 +20,7 @@ class AlgorithmParam:
     z_depth_upper_bound: float = 2000  # upper bound to clip the the z-depth estimation (units: mm)
     z_depth_lower_bound: float = 0.0  # lower bound to clip the the z-depth estimation (units: mm)
     opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"
-    opt_max_iter: int = 0  # maximum number of iterations for the optimization
+    opt_max_iter: int = 100  # maximum number of iterations for the optimization
     opt_x_tol: float = 1e-3  # Optimization termination tolerance on function/parameter changes.
     opt_lr: float = 10.  # initial learning rate for the optimization
     detect_bb_kps_ratios = np.array([(0, 0)]) # , (-0.1, 0), (0.1, 0), (0, -0.1), (0, +0.1)],

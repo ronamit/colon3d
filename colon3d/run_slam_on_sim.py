@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         "--alg_fov_ratio",
         type=float,
-        default=1.0,
+        default=0.5,
         help="The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation",
     )
     parser.add_argument(
