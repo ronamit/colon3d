@@ -69,8 +69,8 @@ class AnalysisLogger:
             rot_est = cam_pose_estimates[i_frame, 3:]
             rot_guess = cam_pose_guesses[i_frame, 3:]
             angle_opt_change[i_frame] = get_smallest_angle_between_rotations_np(rot_est, rot_guess)
-        axs[1, 0].plot(time_vec[1:], np.rad2deg(angle_opt_change[1:]), label="angle change from initial guess")
-        axs[1, 0].set(title="Angle change from initial guess", ylabel="[Deg.]")
+        axs[1, 0].plot(time_vec[1:], np.rad2deg(angle_opt_change[1:]), label="diff. from guess")
+        axs[1, 0].set(title="diff. from guess", ylabel="[Deg.]")
 
         # find the angle between the current camera rotation estimate and the previous camera rotation
         angle_change = np.zeros(n_frames)
@@ -81,14 +81,14 @@ class AnalysisLogger:
         axs[1, 1].plot(
             time_vec[1:],
             np.rad2deg(angle_change[1:]),
-            label="change from prev. frame",
+            label="diff. from prev. frame",
         )
         # axs[1, 1].plot(time_vec[1:],  max_angle_change_between_frames_deg * np.ones(n_frames - 1), label="max allowed angle change")
         axs[1, 1].set(
-            title=f"Change from prev. frame\nangle_limit={max_angle_change_between_frames_deg:.2f}[Deg.]",
+            title=f"diff. from prev. frame\nangle_limit={max_angle_change_between_frames_deg:.2f}[Deg.]",
             ylabel="[Deg.]",
         )
-
+        fig.suptitle("SLAM out per frame")
         fig.tight_layout()
         save_plot_and_close(save_path / "slam_analysis.png")
 
