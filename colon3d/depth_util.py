@@ -39,10 +39,10 @@ class DepthEstimator:
         frame_indexes: np.array,
     ):
         """Get the egomotion estimation at a given frame.
-            The egomotion is the transformation from the current frame to the previous frame.
+            The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
             The egomotion is represented as a 7D vector: (x, y, z, q0, qx, qy, qz)
-            x,y,z are the translation in mm
-            The quaternion (q0, qx, qy, qz) represents the rotation from the previous frame to the current frame.
+            x,y,z are the translation in mm.
+            The quaternion (q0, qx, qy, qz) represents the rotation.
         """
         egomotions_est = self.loaded_egomotions[frame_indexes]
         assert egomotions_est.shape[1] == 7  # (x, y, z, q0, qx, qy, qz)

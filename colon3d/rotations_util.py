@@ -204,17 +204,21 @@ def get_smallest_angle_between_rotations_np(rot1: np.array, rot2: np.array):
 def apply_egomotions(prev_poses: torch.Tensor, egomotions: torch.Tensor):
     """Change the camera poses by applying the 6DOF egomotions
     Args:
-        poses of the previous time step (torch.Tensor): [n_cam x 7] each row is the camera pose (x, y, z, q0, qx, qy, qz).
-        egomotions (change) for current time step (torch.Tensor): [n_cam x 7] each row is the camera egomotion (pose change) (x, y, z, q0, qx, qy, qz).
+        poses of the previous time step (torch.Tensor): [n_cam x 7] each row is the camera pose in world system (x, y, z, q0, qx, qy, qz).
+        egomotions (torch.Tensor): [n_cam x 7] each row is the camera egomotion (x, y, z, q0, qx, qy, qz).
+                    The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
     Returns:
-        new_poses (torch.Tensor): [n_cam x 7] each row is the camera pose of the current time step (x, y, z, q0, qx, qy, qz).
+        new_poses (torch.Tensor): [n_cam x 7] each row is the camera pose of the current time step in world system (x, y, z, q0, qx, qy, qz).
     """
-    loc_change = egomotions[:, :3]  # location change vectors
-    rot_change = egomotions[:, 3:]  # unit-quaternion of the rotation change
-    prev_loc = prev_poses[:, :3]  # previous cam positions
-    prev_rot = prev_poses[:, 3:]  # previous rotations as unit-quaternions
-    new_loc = prev_loc + loc_change
-    # combine the rotations, note that the order of multiplication is important (the rotation change is applied second)
+    loc_change = egomotions[:, :3]  # the location of the current camera in the previous camera axes
+    rot_change = egomotions[:, 3:]  # unit-quaternion of the of the current camera axes w.r.t. the previous camera axes
+    prev_loc = prev_poses[:, :3]  # previous cam location in world system
+    prev_rot = prev_poses[:, 3:]  # previous rotations as unit-quaternions in world system
+    trans_in_world = rotate(loc_change, prev_rot)  # rotate the translation vector to the world system
+    new_loc = prev_loc + trans_in_world
+    # transform the rotation to the world system
+    # combine the rotations, note that the order of multiplication is important..
+    # to find the rotation of the current camera w.r.t the world system we first rotate to the previous camera axes, and then apply the rotation of the current cam w.r.t the previous cam
     new_rot = quaternion_raw_multiply(rot_change, prev_rot)
     new_poses = torch.cat((new_loc, new_rot), dim=1)
     return new_poses
@@ -249,7 +253,10 @@ def infer_egomotions(cam_poses: torch.Tensor):
     prev_rot = prev_poses[:, 3:]  # unit-quaternion of the prev cam rotations
     cur_loc = cur_poses[:, :3]  # cur cam positions
     cur_rot = cur_poses[:, 3:]  # unit-quaternion of the cur cam rotations
-    loc_change = cur_loc - prev_loc
+    # find the location change in the world system:
+    loc_change_world = cur_loc - prev_loc
+    # rotate the location change to the previous camera axes:
+    loc_change = rotate(loc_change_world, invert_rotation(prev_rot))
     rot_change = quaternion_raw_multiply(cur_rot, invert_rotation(prev_rot))
     egomotions = torch.zeros_like(cam_poses)  # [n_frames x 7]
     # set the first egomotion to be the identity rotation and zero translation:
