@@ -13,6 +13,7 @@ The simulator generates single-camera colonoscopic images with ground truth of c
   conda update --name base conda
   conda install conda-build
   ```
+
 * To create conda environment with the required packages use:
 
 ```bash
@@ -29,6 +30,7 @@ The simulator generates single-camera colonoscopic images with ground truth of c
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     pip3 install pycuda --user
     ```
+
 * Setup:
 
   * Go to the project root
