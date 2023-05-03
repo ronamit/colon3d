@@ -13,7 +13,6 @@ The simulator generates single-camera colonoscopic images with ground truth of c
   conda update --name base conda
   conda install conda-build
   ```
-
 * To create conda environment with the required packages use:
 
 ```bash
@@ -22,6 +21,7 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 
 * Install [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) from source.
 * *(optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
+
   * *(Install CUDA, and then:*
 
     ```bash
@@ -29,8 +29,8 @@ The simulator generates single-camera colonoscopic images with ground truth of c
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     pip3 install pycuda --user
     ```
-
 * Setup:
+
   * Go to the project root
   * Run
 
@@ -40,8 +40,8 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 
 ## Code use examples
 
-* activate the conda environment and go to the main project dir.
-
+* Here are common examples of how to use the code. See the code for more details on the arguments.
+* First, activate the conda environment and go to the main project dir.
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
@@ -58,4 +58,14 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 
 ```bash
   python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results" --alg_fov_ratio 0.95
+```
+
+* Run SLAM on real data example:
+
+```bash
+  python -m colon3d.run_slam --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/results" --alg_fov_ratio 0.8 --n_frames_lim 0
+```
+
+```bash
+  python -m colon3d.run_slam --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
