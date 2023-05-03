@@ -35,7 +35,7 @@ def main():
         help="The standard deviation of the noise added to the depth maps",
     )
     parser.add_argument(
-        "--`cam_motion_loc_std_mm`",
+        "--cam_motion_loc_std_mm",
         type=float,
         default=0,
         help="The standard deviation of the noise added to the location change component of the camera motion",

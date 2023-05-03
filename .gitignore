@@ -2,3 +2,4 @@ data/*
 colon3d/__pycache__/*
 Undistort_LUTs/*
 colon3d/visuals/__pycache__/*
+colon3d/unity_import/__pycache__/*

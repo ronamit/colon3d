@@ -12,5 +12,80 @@
             "console": "integratedTerminal",
             "justMyCode": true
         }
+        {
+            "name": "run_slam(short)",
+            "type": "python",
+            "request": "launch",
+            "program": "colon3d/run_slam.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--example_path",
+                "data/my_videos/Example_4",
+                "--save_path",
+                "data/my_videos/Example_4/short_results",
+                "--alg_fov_ratio",
+                "0.8",
+                "--n_frames_lim",
+                "11"
+            ]
+        },
+        {
+            "name": "run_slam_on_sim",
+            "type": "python",
+            "request": "launch",
+            "program": "colon3d/run_slam_on_sim.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--n_frames_lim",
+                "0"
+            ]
+        },
+        {
+            "name": "run_slam(full)",
+            "type": "python",
+            "request": "launch",
+            "program": "colon3d/run_slam.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--example_path",
+                "data/my_videos/Example_4",
+                "--save_path",
+                "data/my_videos/Example_4/results",
+                "--alg_fov_ratio",
+                "0.8",
+                "--n_frames_lim",
+                "0"
+            ]
+        },
+        {
+            "name": "run_slam(full Example_4_rotV2)",
+            "type": "python",
+            "request": "launch",
+            "program": "colon3d/run_slam.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--example_path",
+                "data/my_videos/Example_4_rotV2",
+                "--save_path",
+                "data/my_videos/Example_4_rotV2/results",
+                "--alg_fov_ratio",
+                "0.8",
+                "--n_frames_lim",
+                "0"
+            ]
+        },
+        {
+            "name": "show_slam_out",
+            "type": "python",
+            "request": "launch",
+            "program": "colon3d/show_slam_out.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--example_path",
+                "data/my_videos/Example_4",
+                "--save_path",
+                "data/my_videos/Example_4/show_results_new"
+            ]
+        },
     ]
 }
