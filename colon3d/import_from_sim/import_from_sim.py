@@ -1,6 +1,6 @@
 import argparse
 
-from colon3d.unity_import.old_sim_importer import OldSimImporter
+from colon3d.import_from_sim.archive.old_sim_importer import OldSimImporter
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ def main():
     )
         
     parser.add_argument(
-        "--path_to_save_sequence",
+        "--path_to_save_processed_data",
         type=str,
         default="data/sim_data/Seq_00009_short_TEMP",
         help="The path to save the processed simulated sequence",
@@ -41,7 +41,7 @@ def main():
 
     args = parser.parse_args()
     if args.sim_type == "old_sim":
-        sim_importer = OldSimImporter(args.raw_sim_data_path, args.path_to_save_sequence, args.fps_override, args.limit_n_frames)
+        sim_importer = OldSimImporter(args.raw_sim_data_path, args.path_to_save_processed_data, args.fps_override, args.limit_n_frames)
         sim_importer.import_sequence()
     else:
         raise ValueError(f"Unknown simulator type: {args.sim_type}")

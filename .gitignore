@@ -3,3 +3,9 @@ colon3d/__pycache__/*
 Undistort_LUTs/*
 colon3d/visuals/__pycache__/*
 colon3d/unity_import/__pycache__/*
+colon3d/import_from_sim/__pycache__/__init__.cpython-39.pyc
+colon3d/import_from_sim/__pycache__/create_examples.cpython-39.pyc
+colon3d/import_from_sim/__pycache__/import_from_sim.cpython-39.pyc
+colon3d/import_from_sim/__pycache__/old_sim_importer.cpython-39.pyc
+colon3d/import_from_sim/__pycache__/sim_import_util.cpython-39.pyc
+colon3d/import_from_sim/__pycache__/simulate_tracks.cpython-39.pyc

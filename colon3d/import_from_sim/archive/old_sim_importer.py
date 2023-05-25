@@ -49,9 +49,9 @@ def read_depth_exr_file(exr_path, metadata):
 
 class OldSimImporter:
     # --------------------------------------------------------------------------------------------------------------------
-    def __init__(self, raw_sim_data_path: str, path_to_save_sequence: str, limit_n_frames: int, fps_override: float):
+    def __init__(self, raw_sim_data_path: str, path_to_save_processed_data: str, limit_n_frames: int, fps_override: float):
         seq_in_path = Path(raw_sim_data_path)
-        seq_out_path = Path(path_to_save_sequence)
+        seq_out_path = Path(path_to_save_processed_data)
         print("Raw simulated sequences will be be loaded from: ", seq_in_path)
         create_empty_folder(seq_out_path, ask_overwrite=True)
         print(f"The processed sequence will be saved to {seq_out_path}")
