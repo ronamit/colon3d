@@ -19,7 +19,6 @@ class DetectionsTracker:
         # Get the polyp detector results for this video
         if not detections_file_path.is_file():
             print("No detection file found at ", detections_file_path)
-            print("The algorithm will run without detections.")
             self.detections_original = pd.DataFrame(
                 {"frame_idx": [], "track_id": [], "xmin": [], "ymin": [], "xmax": [], "ymax": []},
             )

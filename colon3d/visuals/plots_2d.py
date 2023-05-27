@@ -2,8 +2,10 @@ import os
 
 import cv2
 import matplotlib
+
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import pyplot as plt
 
 from colon3d.data_util import RadialImageCropper, VideoLoader
 from colon3d.detections_util import DetectionsTracker

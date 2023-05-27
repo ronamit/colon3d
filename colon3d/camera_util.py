@@ -6,6 +6,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import (
+    Axes3D,  # noqa: F401 unused import # pylint: disable=unused-import # noqa: F401 unused import # pylint: disable=unused-import 
+)
 
 from colon3d.general_util import is_equal_dicts, save_plot_and_close
 

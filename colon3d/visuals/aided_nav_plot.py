@@ -1,5 +1,7 @@
 import cv2
 import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.data_util import VideoLoader
