@@ -7,8 +7,8 @@ import numpy as np
 from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder
-from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat, infer_egomotions_np
 from colon3d.import_from_sim.simulate_tracks import generate_tracks_gt_3d_loc, get_tracks_detections_per_frame
+from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat, infer_egomotions_np
 
 # --------------------------------------------------------------------------------------------------------------------
 

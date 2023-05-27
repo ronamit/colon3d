@@ -1,6 +1,6 @@
+import json
 import os
 import pickle
-import shutil
 from pathlib import Path
 
 import cv2
@@ -8,141 +8,187 @@ import h5py
 import matplotlib
 import numpy as np
 import yaml
-from matplotlib import pyplot as plt
 
 from colon3d.general_util import (
     create_empty_folder,
-    find_between_str,
-    find_in_file_between_str,
     path_to_str,
-    save_plot_and_close,
 )
 
 matplotlib.use("Agg")  # use a non-interactive backend
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_seq_id_from_path(seq_in_path: Path):
-    """
-    get the 3 letter prefix of the files
-    """
-    first_file_name = next(seq_in_path.glob("*.png")).name
-    seq_id = first_file_name[0:3]
-    return seq_id
-
-
-# --------------------------------------------------------------------------------------------------------------------
-def read_depth_exr_file(exr_path, metadata):
-    # the  values in the loaded EXR files should be multiplied by this value to get the actual depth in mm:
-    EXR_DEPTH_SCALE = metadata["sim_info"]["EXR_DEPTH_SCALE"]
-    z_depth_img = (
-        EXR_DEPTH_SCALE * cv2.imread(path_to_str(exr_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)[:, :, 0]
-    )
-    return z_depth_img
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-class NewSimImporter:
+class SimImporter:
     # --------------------------------------------------------------------------------------------------------------------
-    def __init__(self, raw_sim_data_path: str, path_to_save_processed_data: str, limit_n_frames: int, fps_override: float):
-        seq_in_path = Path(raw_sim_data_path)
-        seq_out_path = Path(path_to_save_processed_data)
-        print("Raw simulated sequences will be be loaded from: ", seq_in_path)
-        create_empty_folder(seq_out_path, ask_overwrite=True)
-        print(f"The processed sequence will be saved to {seq_out_path}")
-        self.seq_in_path = seq_in_path
-        self.seq_out_path = seq_out_path
+    def __init__(
+        self,
+        raw_sim_data_path: str,
+        path_to_save_processed_data: str,
+        limit_n_sequences: int,
+        limit_n_frames: int,
+        fps_override: float,
+        ask_overwrite: bool = True,
+    ):
+        input_data_path = Path(raw_sim_data_path)
+        output_data_path = Path(path_to_save_processed_data)
+        print("Raw simulated sequences will be be loaded from: ", input_data_path)
+        print("Processed simulated sequences will be saved to: ", output_data_path)
+        create_empty_folder(output_data_path, ask_overwrite=ask_overwrite)
+        self.input_data_path = input_data_path
+        self.output_data_path = output_data_path
         self.limit_n_frames = limit_n_frames
+        self.limit_n_sequences = limit_n_sequences
         self.fps_override = fps_override
+        # In our models, 1 Unity distance unit = 100 mm
+        self.UNITY_TO_MM = 100
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def import_sequence(self):
-        metadata, n_frames, fps = self.create_metadata()
-        if self.limit_n_frames > 0:
-            n_frames = min(self.limit_n_frames, n_frames)
-            print(f"Only {n_frames} frames will be processed")
-        else:
-            print(f"All {n_frames} frames will be processed")
-        self.save_rgb_video(
-            vid_file_name="Video",
-            n_frames=n_frames,
-            fps=fps,
-        )
-        self.save_ground_truth_depth_and_cam_poses(
-            metadata=metadata,
-            n_frames=n_frames,
-        )
+    def import_data(self):
+        # gather all the "capture" files
+        paths = [p for p in self.input_data_path.glob("Dataset*") if p.is_dir()]
+        assert len(paths) == 1, "there should be exactly one Dataset* folder"
+        metadata_dir_path = paths[0]
+        print(f"Loading dataset metadata from {metadata_dir_path}")
+        captures = []
+        file_index = 0
+        while True:
+            filename = f"captures_{str(file_index).zfill(3)}.json"
+            f_path = metadata_dir_path / filename
+            if not f_path.exists():
+                break
+            with f_path.open("r") as f:
+                metadata = json.load(f)
+                captures += metadata["captures"]
+            file_index += 1
+
+        # extract the data from the captures
+
+        rgb_frames_paths_per_seq = []  # list of lists
+        depth_frames_paths_per_seq = []  # list of lists
+        # list of lists of the camera translation per frame per sequence, before changing to our format:
+        raw_trans_per_seq = []
+        # list of lists of the camera rotation per frame per sequence, before changing to our format:
+        raw_rot_per_seq = []
+        seen_rgb_dirs = {}  # set of seen rgb dirs
+        seq_names = []  # list of sequence names
+        metadata_per_seq = []  # list of metadata per sequence
+        seq_idx = -1
+        frame_idx = -1
+        for capture in captures:
+            frame_idx += 1
+            rgb_file_path = capture["filename"]
+            # check if we started a new sequence (i.e. a new folder of RGB images)
+            rgb_dir_name = rgb_file_path.split("/")[-2]
+            if rgb_dir_name not in seen_rgb_dirs:
+                # we found a new sequence
+                seen_rgb_dirs[rgb_dir_name] = len(seen_rgb_dirs)
+                seq_idx += 1
+                # check if we reached the limit of sequences
+                if self.limit_n_sequences > 0 and seq_idx >= self.limit_n_sequences:
+                    break
+                seq_name = "Seq_" + str(seq_idx).zfill(5)
+                seq_path = self.output_data_path / seq_name
+                create_empty_folder(seq_path, ask_overwrite=False)
+                print(f"Saving a new sequence to {seq_path}")
+                metadata = self.get_sequence_metadata(capture)
+                metadata_per_seq.append(metadata)
+                seq_names.append(seq_name)
+                rgb_frames_paths_per_seq.append([])
+                depth_frames_paths_per_seq.append([])
+                raw_trans_per_seq.append([])
+                raw_rot_per_seq.append([])
+            elif self.limit_n_frames > 0 and frame_idx >= self.limit_n_frames:
+                # check if we reached or passe te limit of frames per sequence
+                # # in this case, just skip the current capture... until we reach the next sequence
+                continue
+            # extract the current frame data
+            rgb_file_path = capture["filename"]
+            translation = np.array(capture["sensor"]["translation"])
+            rotation = np.array(capture["sensor"]["rotation"])
+            annotations = capture["annotations"]
+            depth_annotation = [a for a in annotations if a["@type"] == "type.unity.com/unity.solo.DepthAnnotation"][0]
+            depth_file_path = depth_annotation["filename"]
+            # store the current frame data:
+            rgb_frames_paths_per_seq[-1].append(rgb_file_path)
+            depth_frames_paths_per_seq[-1].append(depth_file_path)
+            raw_trans_per_seq[-1].append(translation)
+            raw_rot_per_seq[-1].append(rotation)
+        # end for capture in captures
+        n_seq = seq_idx + 1
+        print(f"Number of extracted sequences: {n_seq}")
+
+        # save the camera poses and depth frames for each sequence
+        for i_seq in range(n_seq):
+            seq_path = self.output_data_path / seq_names[i_seq]
+            print(f"Saving sequence #{i_seq} to {seq_path}")
+
+            # save metadata
+            metadata = metadata_per_seq[i_seq]
+            metadata_path = seq_path / "meta_data.yaml"
+            with metadata_path.open("w") as file:
+                yaml.dump(metadata, file)
+            print(f"Saved metadata to {metadata_path}")
+
+            # extract the camera poses in our format
+            cam_poses = self.get_sequence_cam_poses(
+                raw_trans=raw_trans_per_seq[i_seq],
+                raw_rot=raw_rot_per_seq[i_seq],
+            )
+            # extract the depth frames
+            z_depth_frames, depth_info = self.get_ground_truth_depth(
+                depth_frames_paths=depth_frames_paths_per_seq[i_seq],
+                metadata=metadata,
+            )
+
+            # Save RGB video
+            self.save_rgb_video(
+                output_vid_path=seq_path / "Video.mp4",
+                rgb_frames_paths=rgb_frames_paths_per_seq[i_seq],
+                metadata=metadata,
+            )
+
+            # save depth info
+            with (seq_path / "depth_info.pkl").open("wb") as file:
+                pickle.dump(depth_info, file)
+
+            # save h5 file of depth frames and camera poses
+            file_path = seq_path / "gt_depth_and_cam_poses.h5"
+            print(f"Saving depth frames and camera poses to: {file_path}")
+            with h5py.File(file_path, "w") as hf:
+                hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
+                hf.create_dataset("cam_poses", data=cam_poses)
+        print("Done.")
+        
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def create_metadata(self):
-        seq_id = get_seq_id_from_path(self.seq_in_path)
-        sim_settings_path = self.seq_in_path / "MySettings.set"
-        # copy the settings file to the dataset folder
-        shutil.copy2(sim_settings_path, self.seq_out_path / "Sim_GUI_Settings.set")
-        # Extract the settings from the settings file
-        # camera FOV [deg]:
-        camFOV_deg = float(find_in_file_between_str(sim_settings_path, '"camFOV":"float(', ')"'))
-        np.deg2rad(camFOV_deg)  #  [rad]
-        frame_width = int(find_in_file_between_str(sim_settings_path, '"shotResX":"float(', ')"'))  # [pixels]
-        frame_height = int(find_in_file_between_str(sim_settings_path, '"shotResY":"float(', ')"'))  # [pixels]
-        if self.fps_override == 0:
-            fps = float(find_in_file_between_str(sim_settings_path, '"shotPerSec":"float(', ')"'))  # [Hz]
-        else:
+    def get_sequence_metadata(self, capture: dict):
+        cam_intrinsic = [a for a in capture["annotations"] if a["@type"] == "camIntrinsicDef"][0]
+        frame_width = cam_intrinsic["pixelWidth"]  # [pixels]
+        frame_height = cam_intrinsic["pixelHeight"]  # [pixels]
+        # the physical specs of the camera are given in 0.001 Unity distance units
+        total_sensor_size_x_mm = cam_intrinsic["sensorSizeX"] * 0.001 * self.UNITY_TO_MM  # [mm]
+        total_sensor_size_y_mm = cam_intrinsic["sensorSizeY"] * 0.001 * self.UNITY_TO_MM  # [mm]
+        focal_length_mm = cam_intrinsic["focalLength"] * 0.001 * self.UNITY_TO_MM  # [mm]
+        min_vis_z_mm = cam_intrinsic["nearClipPlane"] * self.UNITY_TO_MM  # [mm]
+        assert cam_intrinsic["lensShiftX"] == 0 and cam_intrinsic["lensShiftY"] == 0, "lens shift is not supported"
+        frame_time_interval = cam_intrinsic["simulationDeltaTime"]  # [sec]
+        fps = 1 / frame_time_interval  # [Hz]
+        if self.fps_override != 0:
             fps = self.fps_override
 
-        # Load intrinsics data:
-        intrinsics_data_path = self.seq_in_path / (seq_id + "_Intrinsic Data.txt")
-        shutil.copy2(intrinsics_data_path, self.seq_out_path / "intrinsic_data.txt")
-        focal_length_mm = float(
-            find_in_file_between_str(
-                intrinsics_data_path,
-                before_str=": ",
-                after_str=" \n",
-                line_prefix="Focal Length (mm) :",
-            ),
-        )
-        total_sensor_size_x_mm = float(
-            find_in_file_between_str(
-                intrinsics_data_path,
-                before_str=" X=",
-                after_str=" ",
-                line_prefix="Sensor Size (mm) :",
-            ),
-        )
-        total_sensor_size_y_mm = float(
-            find_in_file_between_str(
-                intrinsics_data_path,
-                before_str=" Y=",
-                after_str=" ",
-                line_prefix="Sensor Size (mm) :",
-            ),
-        )
-        n_frames = int(
-            find_in_file_between_str(
-                intrinsics_data_path,
-                before_str=": ",
-                after_str=" \n",
-                line_prefix="Total Images : ",
-            ),
-        )
-        EXR_DEPTH_SCALE = (
-            5.0  # the  values in the loaded EXR files should be multiplied by this value to get the actual
-        )
-        # depth in mm, according to https://github.com/zsustc/colon_reconstruction_dataset
-        sx_mm = total_sensor_size_x_mm / frame_width  # the with of each pixel's sensor [millimeter/pixel]
-        sy_mm = total_sensor_size_y_mm / frame_height  # the height of each pixel's sensor [millimeter/pixel]
-        fx = focal_length_mm / sx_mm  # [pixels]
-        fy = focal_length_mm / sy_mm  # [pixels]
-        cx = frame_width / 2.0  # middle of the image in x-axis [pixels]
-        cy = frame_height / 2.0  # middle of the image in y-axis [pixels]
-
+        # per-pixel sensor size
+        sx = total_sensor_size_x_mm / frame_width  # [millimeter/pixel]
+        sy = total_sensor_size_y_mm / frame_height  # [millimeter/pixel]
+        # focal-length in pixel units
+        fx = focal_length_mm / sx
+        fy = focal_length_mm / sy
+        # the optical center pixel location
+        cx = frame_width / 2
+        cy = frame_height / 2
         metadata = {
             "frame_width": frame_width,  # [pixels]
             "frame_height": frame_height,  # [pixels]
@@ -152,170 +198,85 @@ class NewSimImporter:
             "cy": cy,  # optical center in y-axis [pixels]
             "fps": fps,  # frame rate [Hz]
             "distort_pram": None,  # simulated images are not distorted
-            "min_vis_z_mm": 0.0,  # in the simulation, the minimal visible z-depth is 0.0
+            "min_vis_z_mm": min_vis_z_mm,  # in the simulation,
             "sim_info": {
-                "EXR_DEPTH_SCALE": EXR_DEPTH_SCALE,  # the  values in the loaded EXR files should be multiplied by this value to get the actual depth in mm(
                 "total_sensor_size_x_mm": total_sensor_size_x_mm,
                 "total_sensor_size_y_mm": total_sensor_size_y_mm,
-                "sx_mm": sx_mm,
-                "sy_mm": sy_mm,
                 "focal_length_mm": float(focal_length_mm),
             },
         }
-        file_name = "meta_data.yaml"
-        metadata_path = self.seq_out_path / file_name
-        with metadata_path.open("w") as file:
-            yaml.dump(metadata, file)
 
-        # copy any screenshots of the simulator GUI, if exist
-        for file_path in self.seq_in_path.glob("Screenshot*.png"):
-            shutil.copy2(file_path, self.seq_out_path / file_path.name)
-
-        return metadata, n_frames, fps
+        return metadata
 
     # --------------------------------------------------------------------------------------------------------------------
-    def save_rgb_video(self, vid_file_name: str, n_frames: int, fps: float):
-        output_path = self.seq_out_path / (vid_file_name + ".mp4")
-        seq_id = get_seq_id_from_path(self.seq_in_path)
-        frames_paths = list(self.seq_in_path.glob(f"{seq_id}_*.png"))
-        frames_paths.sort()
-        assert (
-            len(frames_paths) >= n_frames
-        ), f"Only {len(frames_paths)} frames were found in {self.seq_in_path}, but {n_frames} are required"
-        frames_paths = frames_paths[:n_frames]
-        frame_size = cv2.imread(path_to_str(frames_paths[0])).shape[:2]
+    def get_sequence_cam_poses(self, raw_trans: list, raw_rot: list):
+        # save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames
+        # the 7 values are: x, y, z, q_w, q_x, q_y, q_z
+        #  (x, y, z) is the camera position in the world system (in mm)
+        #  (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system
+
+        cam_trans = np.row_stack(raw_trans)
+        cam_rot = np.row_stack(raw_rot)
+
+        # change quaternion to real-first format:
+        cam_rot = cam_rot[:, [3, 0, 1, 2]]
+
+        # change the units from Unity units to mm
+        cam_trans *= self.UNITY_TO_MM
+
+        # transform from the unity left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
+        # [x,-y,z]-->[x,y,z]
+        cam_trans[:, 1] *= -1
+        #  [qw, qx, qy, qz]-->[ qw, -qx, qy, -qz]
+        cam_rot[:, 1] *= -1
+        cam_rot[:, 3] *= -1
+
+        cam_poses = np.concatenate((cam_trans, cam_rot), axis=1)
+        return cam_poses
+
+    # --------------------------------------------------------------------------------------------------------------------
+    def save_rgb_video(self, rgb_frames_paths: list, output_vid_path: Path, metadata: dict):
+        n_frames = len(rgb_frames_paths)
+        fps = metadata["fps"]
+        frame_height = metadata["frame_height"]
+        frame_width = metadata["frame_width"]
+        frame_size = (frame_height, frame_width)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
         out_video = cv2.VideoWriter(
-            filename=path_to_str(output_path),
+            filename=path_to_str(output_vid_path),
             fourcc=fourcc,
             fps=fps,
             frameSize=frame_size,
             isColor=True,
         )
-        for i_frame, frame_path in enumerate(frames_paths):
-            print(f"Writing RGB frame {i_frame+1}/{n_frames} to video")
-            assert frame_path.name.startswith(
-                f"{seq_id}_{i_frame:05d}",
-            ), f" {frame_path.name} does not match the expected name"
-            im = cv2.imread(path_to_str(frame_path))
+        for i_frame, frame_path in enumerate(rgb_frames_paths):
+            print(f"Writing RGB frame {i_frame+1}/{n_frames} to video", end="\r")
+            im = cv2.imread(path_to_str(self.input_data_path / frame_path))
             out_video.write(im)
         out_video.release()
-        print(f"Video saved to: {output_path}")
+        print(f"Video saved to: {output_vid_path}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def load_camera_motion(self, seq_in_path: Path, n_frames: int):
-        """Load the camera motion from the file 'seq_id_Camera Position Data.txt'
-        Based on the data format description in https://github.com/zsustc/colon_reconstruction_dataset
-        """
-        seq_id = get_seq_id_from_path(seq_in_path)
-        pos_file_path = seq_in_path / (seq_id + "_Camera Position Data.txt")
-        i = 0
-        pos_x = []
-        pos_y = []
-        pos_z = []
-        cm_to_mm = 10
-        with pos_file_path.open() as file:
-            lines = file.readlines()
-            for line in lines:
-                frame_ind = int(find_between_str(line, "Frame ", " "))
-                assert i == frame_ind
-                pos_x.append(cm_to_mm * float(find_between_str(line, "X=", ",")))
-                pos_y.append(cm_to_mm * float(find_between_str(line, "Y=", ",")))
-                pos_z.append(cm_to_mm * float(find_between_str(line, "Z=", " ")))
-                i += 1
-                if i == n_frames:
-                    break
-        print(f"Camera positions were loaded for {len(pos_x)} frames.")
-        rot_file_path = seq_in_path / (seq_id + "_Camera Quaternion Rotation Data.txt")
-        i = 0
-        quat_x = []
-        quat_y = []
-        quat_z = []
-        quat_w = []
-        with rot_file_path.open() as file:
-            lines = file.readlines()
-            for line in lines:
-                frame_ind = int(find_between_str(line, "Frame ", " "))
-                assert i == frame_ind
-                quat_x.append(float(find_between_str(line, "X=", ",")))
-                quat_y.append(float(find_between_str(line, "Y=", ",")))
-                quat_z.append(float(find_between_str(line, "Z=", ",")))
-                quat_w.append(float(find_between_str(line, "W=", " ")))
-                i += 1
-                if i == n_frames:
-                    break
-        print(f"Camera rotations were loaded for {len(quat_x)} frames.")
-        # save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames
-        # the 7 values are: x, y, z, q_w, q_x, q_y, q_z
-        # the world coordinate system is defined by the camera coordinate system at the first frame (the optical axis of the camera is the z-axis)
-
-        # (x, y, z) is the camera position in the world system (in mm)
-        cam_loc = np.column_stack((pos_x, pos_y, pos_z))
-
-        # (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system
-        cam_rot = np.column_stack((quat_w, quat_x, quat_y, quat_z))
-
-        # transform from the unity left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
-        # [x,-y,z]-->[x,y,z]
-        cam_loc[:, 1] *= -1
-
-        #  [qw, qx, qy, qz]-->[ qw, -qx, qy, -qz]
-        cam_rot[:, 1] *= -1
-        cam_rot[:, 3] *= -1
-
-        cam_poses = np.column_stack((cam_loc, cam_rot))
-        return cam_poses
-
-    # --------------------------------------------------------------------------------------------------------------------
-    def save_ground_truth_depth_and_cam_poses(
+    def get_ground_truth_depth(
         self,
+        depth_frames_paths: list,
         metadata: dict,
-        n_frames: int,
     ):
-        """
-        Load a sequence of depth images from a folder
-        """
-
-        seq_id = get_seq_id_from_path(self.seq_in_path)
-        depth_files_paths = list(self.seq_in_path.glob(f"{seq_id}_depth*.exr"))
-        depth_files_paths.sort()
-        depth_files_paths = depth_files_paths[:n_frames]
-        n_frames = len(depth_files_paths)
-        print(f"Number of depth frames: {n_frames}")
-
         # Get the depth maps
-        # find the frame size
-        z_depth_img = read_depth_exr_file(depth_files_paths[0], metadata)
-        depth_map_size = z_depth_img.shape[:2]
-        z_depth_frames = np.zeros((n_frames, depth_map_size[0], depth_map_size[1]), dtype=np.float32)
-        for i_frame, exr_path in enumerate(depth_files_paths):
-            print(f"Loading depth frame {i_frame} from {exr_path}")
-            assert exr_path.name.startswith(
-                f"{seq_id}_depth{i_frame:05d}",
-            ), f"Depth file name is not correct: {exr_path.name}"
+        n_frames = len(depth_frames_paths)
+        frame_height = metadata["frame_height"]
+        frame_width = metadata["frame_width"]
+        z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float32)
+        for i_frame in range(n_frames):
+            depth_file_path = self.input_data_path / depth_frames_paths[i_frame]
+            print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
             # All 3 channels are the same (depth), so we only need to read one
-            z_depth_img = read_depth_exr_file(exr_path, metadata)
-            z_depth_frames[i_frame] = z_depth_img
-
-        # Get the egomotion (transformation of the camera pose from the previous frame to the current frame.)
-        cam_poses = self.load_camera_motion(self.seq_in_path, n_frames)
-
-        # save as h5 file
-        output_path = self.seq_out_path / "gt_depth_and_cam_poses.h5"
-        print(f"Saving depth frames and camera poses to: {output_path}")
-        with h5py.File(output_path, "w") as hf:
-            hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
-            hf.create_dataset("cam_poses", data=cam_poses)
-
-        assert (
-            z_depth_frames.shape[0] == cam_poses.shape[0]
-        ), "Number of depth frames and camera poses should be the same."
-        # print histogram
-        print(f"Z-Depth frames saved to: {output_path}")
-        plt.hist(z_depth_frames.flatten(), bins="auto")
-        save_plot_and_close(self.seq_out_path / "z_depth_histogram.png")
+            depth_img = cv2.imread(path_to_str(depth_file_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+            R_channel_idx = 2  # OpenCV reads in BGR order
+            z_depth_mm = self.UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
+            z_depth_frames[i_frame] = z_depth_mm
 
         # The simulator generates depth maps with the same camera intrinsics as the RGB images.
         fx = metadata["fx"]
@@ -328,10 +289,8 @@ class NewSimImporter:
         depth_info = {
             "K_of_depth_map": K_of_depth_map,
             "n_frames": n_frames,
-            "depth_map_size": {"width": depth_map_size[1], "height": depth_map_size[0]},
+            "depth_map_size": {"width": frame_width, "height": frame_height},
         }
-
-        with (self.seq_out_path / "depth_info.pkl").open("wb") as file:
-            pickle.dump(depth_info, file)
+        return z_depth_frames, depth_info
 
     # --------------------------------------------------------------------------------------------------------------------

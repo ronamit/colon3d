@@ -109,4 +109,5 @@ ignore = ["E501", # line too long (let Black handle this)
           "RET504", #  Unnecessary variable assignment before return statement
           "TRY003", # Avoid specifying long messages outside the exception class
           "TRY301", # raise-within-try
+          "PT018", # assetion should be broken into multiple lines
 ]
