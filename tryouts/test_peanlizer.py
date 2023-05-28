@@ -1,5 +1,3 @@
-import matplotlib
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -10,13 +8,13 @@ if __name__ == "__main__":
     # Test code:
     penalizer = SoftConstraints(
         {
-            "my_up_bound": {'lim_type': "upper", 'lim': 100, 'margin_ratio': 0.1, 'barrier_jump': 30},
+            "my_up_bound": {"lim_type": "upper", "lim": 100, "margin_ratio": 0.1, "barrier_jump": 30},
             "my_low_bound": {
-                'lim_type': "lower",
-                'lim': 10,
-                'barrier_jump': 20,
+                "lim_type": "lower",
+                "lim": 10,
+                "barrier_jump": 20,
             },
-        }
+        },
     )
     n_points = 1000
     grid = np.linspace(start=0, stop=110, num=n_points)
