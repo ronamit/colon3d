@@ -1,6 +1,6 @@
+import cv2
 import numpy as np
 import torch
-from cv2 import cv2
 
 from colon3d.rotations_util import invert_rotation, rotate
 

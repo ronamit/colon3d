@@ -1,5 +1,5 @@
+import cv2
 import numpy as np
-from cv2 import cv2
 
 from colon3d.data_util import VideoLoader
 from colon3d.detections_util import DetectionsTracker

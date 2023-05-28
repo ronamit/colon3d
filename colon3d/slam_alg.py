@@ -2,9 +2,9 @@ import time
 from copy import deepcopy
 from pathlib import Path
 
+import cv2
 import numpy as np
 import torch
-from cv2 import cv2
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.bundle_adjust import run_bundle_adjust

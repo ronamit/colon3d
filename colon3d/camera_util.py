@@ -3,8 +3,8 @@ import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
+import cv2
 import numpy as np
-from cv2 import cv2
 from matplotlib import pyplot as plt
 
 from colon3d.general_util import is_equal_dicts, save_plot_and_close
@@ -178,6 +178,7 @@ def create_undistortion_lut(undistort_config):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def run_undistort_points(undistort_config, points2d):
     #  transforms  normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))

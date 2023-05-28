@@ -3,9 +3,9 @@
 
 import time
 
+import cv2
 import fusion
 import numpy as np
-from cv2 import cv2
 
 if __name__ == "__main__":
     # ======================================================================================================== #

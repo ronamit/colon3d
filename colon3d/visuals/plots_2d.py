@@ -1,9 +1,9 @@
 import os
 
+import cv2
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from cv2 import cv2
 
 from colon3d.data_util import RadialImageCropper, VideoLoader
 from colon3d.detections_util import DetectionsTracker
@@ -58,13 +58,22 @@ def draw_kps(vis_frame, kps, color):
 
 
 def draw_kp_on_img(
-    img, salient_KPs, track_KPs, curr_detections, alg_view_cropper: RadialImageCropper, save_path, i_frame,
+    img,
+    salient_KPs,
+    track_KPs,
+    curr_detections,
+    alg_view_cropper: RadialImageCropper,
+    save_path,
+    i_frame,
 ):
     vis_frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     for track_id in curr_detections:
         cur_detect = curr_detections[track_id]
         vis_frame = draw_detections_on_frame(
-            vis_frame=vis_frame, cur_detect=cur_detect, track_id=track_id, alg_view_cropper=alg_view_cropper,
+            vis_frame=vis_frame,
+            cur_detect=cur_detect,
+            track_id=track_id,
+            alg_view_cropper=alg_view_cropper,
         )
     vis_frame = draw_kps(vis_frame, salient_KPs, color=colors_platte(0, "RGB"))
     for track_id, track_kps in track_KPs.items():
@@ -132,11 +141,17 @@ def draw_matches(
     # draw detections bounding boxes
     for track_id, cur_detect in tracks_in_frameA.items():
         img_A_vis = draw_detections_on_frame(
-            vis_frame=img_A_vis, cur_detect=cur_detect, track_id=track_id, alg_view_cropper=alg_view_cropper,
+            vis_frame=img_A_vis,
+            cur_detect=cur_detect,
+            track_id=track_id,
+            alg_view_cropper=alg_view_cropper,
         )
     for track_id, cur_detect in tracks_in_frameB.items():
         img_B_vis = draw_detections_on_frame(
-            vis_frame=img_B_vis, cur_detect=cur_detect, track_id=track_id, alg_view_cropper=alg_view_cropper,
+            vis_frame=img_B_vis,
+            cur_detect=cur_detect,
+            track_id=track_id,
+            alg_view_cropper=alg_view_cropper,
         )
     # Place images onto the new image.
     new_img[0 : img_A.shape[0], 0 : img_A.shape[1]] = img_A_vis

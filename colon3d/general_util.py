@@ -4,8 +4,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+import cv2
 import numpy as np
-from cv2 import cv2
 from dateutil import tz
 from matplotlib import font_manager
 from matplotlib import pyplot as plt

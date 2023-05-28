@@ -1,10 +1,10 @@
 import argparse
 from pathlib import Path
 
+import cv2
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from cv2 import cv2
 
 from colon3d.data_util import VideoLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader

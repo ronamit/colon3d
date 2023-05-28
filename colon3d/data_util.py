@@ -1,8 +1,8 @@
 from pathlib import Path
 
+import cv2
 import numpy as np
 import yaml
-from cv2 import cv2
 
 from colon3d.camera_util import CamInfo, FishEyeUndistorter
 

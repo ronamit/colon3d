@@ -48,7 +48,7 @@ def plot_3d_arrow(origin, vector, label, color, arrow_len: float = 1):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def plot_xyz_axes(origin_loc: np.array, rot_quat: np.array, arrow_len: float = 1):
+def plot_xyz_axes(origin_loc: np.array, rot_quat: np.array, arrow_len: float = 1, add_legend: bool = True):
     """Return plot objects for the XYZ axes at origin point with rotation according to a unit quaternion"""
 
     x_unit_vec = rotate_np(np.array([1, 0, 0]), rot_quat)
@@ -58,6 +58,34 @@ def plot_xyz_axes(origin_loc: np.array, rot_quat: np.array, arrow_len: float = 1
     y_arrow_objs = plot_3d_arrow(origin_loc, y_unit_vec, "Y", "green", arrow_len)
     z_arrow_objs = plot_3d_arrow(origin_loc, z_unit_vec, "Z", "blue", arrow_len)
     axes3d_objs = x_arrow_objs + y_arrow_objs + z_arrow_objs
+
+    # add custom legend handles
+    if add_legend:
+        axes3d_legend_handles = [
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                name="Cam. X",
+                marker={"size": 7, "color": "red", "symbol": "triangle-up"},
+            ),
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                name="Cam. Y",
+                marker={"size": 7, "color": "green", "symbol": "triangle-up"},
+            ),
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                name="Cam. Z",
+                marker={"size": 7, "color": "blue", "symbol": "triangle-up"},
+            ),
+        ]
+        axes3d_objs += axes3d_legend_handles
+
     return axes3d_objs
 
 
@@ -69,6 +97,7 @@ def plot_fov_cone(
     cam_rot=None,
     label="FOV",
     verbose=False,
+    add_legend=True,
 ):
     """Returns a 3D objects that represents a camera's FOV cone
     by default, it sets the cone apex at (0,0,0) and looking at direction (0, 0, 1)."""
@@ -112,10 +141,10 @@ def plot_fov_cone(
         marker={"color": "blue", "size": 1, "opacity": 0.6},
         showlegend=False,
     )
-    axes3d_objs = plot_xyz_axes(origin_loc=cam_loc, rot_quat=cam_rot, arrow_len=5)
-
+    axes3d_objs1 = plot_xyz_axes(origin_loc=cam_loc, rot_quat=cam_rot, arrow_len=5, add_legend=add_legend)
+    axes3d_objs2 = plot_xyz_axes(origin_loc=cam_loc, rot_quat=cam_rot, arrow_len=5, add_legend=False)
     # Return the Plotly objects (I addeded the axes3d_objs twice, since they sometimes disappeared from the plot)
-    fig_data = [*axes3d_objs, cam_cone, apex_point, *axes3d_objs]
+    fig_data = [*axes3d_objs1, cam_cone, apex_point, *axes3d_objs2]
     return fig_data
 
 
@@ -162,14 +191,16 @@ def plot_cam_and_point_cloud(
             },
         ),
     ]
-    fig_data += plot_fov_cone(
+    fov_cone = plot_fov_cone(
         cone_height=np.max(points_z_depth),
         fov_deg=cam_fov_deg,
         cam_loc=cam_loc,
         cam_rot=cam_rot,
         label="Alg. FOV",
         verbose=verbose,
+        add_legend=True,
     )
+    fig_data += fov_cone
     fig = go.Figure(
         data=fig_data,
     )
@@ -178,7 +209,6 @@ def plot_cam_and_point_cloud(
         margin={"l": 0, "r": 0, "b": 0, "t": 0},
         scene={"xaxis_title": "X [mm]", "yaxis_title": "Y [mm]", "zaxis_title": "Z [mm]"},
     )
-
     if save_path:
         fig.write_html(save_path)
         print("Saved figure at ", save_path)
