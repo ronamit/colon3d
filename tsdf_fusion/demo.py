@@ -3,9 +3,9 @@
 
 import time
 
-import cv2
 import fusion
 import numpy as np
+from cv2 import cv2
 
 if __name__ == "__main__":
     # ======================================================================================================== #
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         tsdf_vol.integrate(color_image, depth_im, cam_intr, cam_pose, obs_weight=1.0)
 
     fps = n_imgs / (time.time() - t0_elapse)
-    print("Average FPS: {:.2f}".format(fps))
+    print(f"Average FPS: {fps:.2f}")
 
     # Get mesh from voxel volume and save to disk (can be viewed with Meshlab)
     print("Saving mesh to mesh.ply...")

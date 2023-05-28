@@ -3,8 +3,8 @@ import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
 import numpy as np
+from cv2 import cv2
 from matplotlib import pyplot as plt
 
 from colon3d.general_util import is_equal_dicts, save_plot_and_close
@@ -44,7 +44,7 @@ class FishEyeUndistorter:
         self.fps = cam_info.fps
         self.undistort_points_lut = self.get_undistort_points_lut()
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------
 
     def get_undistort_points_lut(self):
         """
@@ -96,11 +96,6 @@ class FishEyeUndistorter:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def undistort_img(self, img):
-        return self.image_undistorter.undistort_img(img)
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     def undistort_points(self, points2d):
         """returns the corresponding normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))
         Args:
@@ -128,7 +123,7 @@ class FishEyeUndistorter:
         is_valid = np.any(~np.isnan(undistorted), axis=-1)
         return undistorted, is_valid
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------
 
     def project_from_cam_sys_to_pixels(self, points3d: np.ndarray):
         """
@@ -183,7 +178,6 @@ def create_undistortion_lut(undistort_config):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-
 
 def run_undistort_points(undistort_config, points2d):
     #  transforms  normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))

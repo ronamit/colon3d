@@ -1,15 +1,15 @@
 import argparse
-import pickle
 from pathlib import Path
 
-import cv2
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+from cv2 import cv2
 
 from colon3d.data_util import VideoLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import save_plot_and_close
+from colon3d.rotations_util import get_identity_quaternion_np
 from colon3d.slam_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
@@ -36,10 +36,10 @@ def main():
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
-        "--depth_map_source",
+        "--depth_source",
         type=str,
         default="ground_truth",
-        help="The source of the depth map, can be 'ground_truth' or 'estimated'",
+        help="The source of the depth-map, can be 'ground_truth' or 'estimated'",
     )
     args = parser.parse_args()
     example_path = Path(args.example_path)
@@ -47,9 +47,9 @@ def main():
     video_loader = VideoLoader(
         example_path=example_path,
     )
-    DepthAndEgoMotionLoader(
+    depth_loader = DepthAndEgoMotionLoader(
         example_path=example_path,
-        source=args.depth_map_source,
+        source=args.depth_source,
     )
 
     example_path = Path(args.example_path)
@@ -63,24 +63,24 @@ def main():
     cv2.imwrite(file_path, bgr_frame)
     print(f"Saved RGB frame to {file_path}")
 
-    # save the ground truth depth frame, and its point cloud
-    gt_depth_file_path = example_path / "gt_depth_and_egomotion.h5"
-    if not gt_depth_file_path.exists():
-        print("No ground truth depth file found, skipping this part")
-        return
+    # get the depth map
+    z_depth_frame = depth_loader.get_depth_map_at_frame(frame_idx)
 
-    with h5py.File(gt_depth_file_path, "r") as h5f:
-        gt_depth_maps = h5f["z_depth_map"][:]
-        gt_cam_poses = h5f["cam_poses"][:]
-    z_depth_frame = gt_depth_maps[frame_idx]
-    cam_pose = gt_cam_poses[frame_idx]
+    # if ground-truth camera pose is available, use it for the point cloud plot
+    if args.depth_source == "ground_truth":
+        with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+            gt_cam_poses = h5f["cam_poses"][:]
+            cam_pose = gt_cam_poses[frame_idx]
+    else:
+        # otherwise, set the camera at the origin, and looking at the z-axis direction
+        cam_pose = np.zeros(7)
+        cam_pose[3:] = get_identity_quaternion_np()
 
     plt.figure()
     plt.imshow(z_depth_frame, aspect="equal")
-    save_plot_and_close(example_path / f"{frame_name}_true_depth.png")
+    save_plot_and_close(example_path / f"{frame_name}_depth_{args.depth_source}.png")
 
-    with (example_path / "gt_depth_info.pkl").open("rb") as file:
-        depth_info = pickle.load(file)
+    depth_info = depth_loader.depth_info
     K_of_depth_map = depth_info["K_of_depth_map"]
     fx, fy = K_of_depth_map[0, 0], K_of_depth_map[1, 1]
     frame_height, frame_width = z_depth_frame.shape[:2]
@@ -92,7 +92,7 @@ def main():
         cam_pose=cam_pose,
         cam_fov_deg=fov_deg,
         verbose=True,
-        save_path=example_path / f"{frame_name}_true_point_cloud.html",
+        save_path=example_path / f"{frame_name}_point_cloud_{args.depth_source}.html",
     )
 
 

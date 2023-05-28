@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 
@@ -7,9 +6,7 @@ from colon3d.torch_util import to_numpy
 from colon3d.visuals.animate_util import create_animation_video, create_interactive_3d_animation
 from colon3d.visuals.create_3d_obj import plot_fov_cone
 
-plt.rcParams["animation.html"] = "jshtml"
-
-########################################################################################################################
+# --------------------------------------------------------------------------------------------------------------------
 
 
 def plot_world_sys_per_frame(
@@ -156,7 +153,7 @@ def plot_world_sys_per_frame(
         print("Saved figure at ", file_path)
 
 
-########################################################################################################################
+# --------------------------------------------------------------------------------------------------------------------
 
 
 def plot_camera_sys_per_frame(
@@ -247,4 +244,4 @@ def plot_camera_sys_per_frame(
         fig.show()
 
 
-# ########################################################################################################################
+# --------------------------------------------------------------------------------------------------------------------

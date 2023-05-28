@@ -72,7 +72,7 @@ def plot_fov_cone(
 ):
     """Returns a 3D objects that represents a camera's FOV cone
     by default, it sets the cone apex at (0,0,0) and looking at direction (0, 0, 1)."""
-    n_circle_points = 360
+    n_circle_points = 90  # number of points on the circle
     # index zero is (0,0,0) the rest are on a circle at z=z_depth, with radius = z_depth * tan(FOV/2)
     points = np.zeros((n_circle_points + 1, 3))
     points[1:, 2] = cone_height  # set z values for all points besides the tip
@@ -87,7 +87,9 @@ def plot_fov_cone(
     if cam_rot is None:
         cam_rot = get_identity_quaternion_np()
     if verbose:
-        print(f"Plotted camera location: {cam_loc} [mm], direction vector: {rotate_np(np.array([0, 0, 1]), cam_rot)}, FOV: {fov_deg:.1f} [deg]")
+        print(
+            f"Plotted camera location: {cam_loc} [mm], direction vector: {rotate_np(np.array([0, 0, 1]), cam_rot)}, FOV: {fov_deg:.1f} [deg]",
+        )
     # translate and rotate the cone points:
     points = rotate_np(points, cam_rot) + cam_loc
     cam_cone = go.Mesh3d(
@@ -120,7 +122,23 @@ def plot_fov_cone(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def plot_cam_and_point_cloud(points3d: np.ndarray, cam_pose: np.ndarray, cam_fov_deg: float = 120, verbose=False, show_fig=False, save_path=None):
+def plot_cam_and_point_cloud(
+    points3d: np.ndarray,
+    cam_pose: np.ndarray,
+    cam_fov_deg: float = 120,
+    verbose=False,
+    show_fig=False,
+    save_path=None,
+):
+    """Plot a 3D point cloud and a camera's FOV cone
+    Args:
+        points3d: Nx3 array of 3D points (in world coordinates)
+        cam_pose: 1x7 array of camera pose (location and rotation quaternion) (in world coordinates)
+        cam_fov_deg: camera's FOV in degrees
+        verbose: print camera location and direction vector
+        show_fig: show the figure
+        save_path: save the figure to this path
+    """
     assert cam_pose.ndim == 1
     assert cam_pose.shape[0] == 7
     assert points3d.ndim == 2
@@ -173,11 +191,11 @@ def plot_cam_and_point_cloud(points3d: np.ndarray, cam_pose: np.ndarray, cam_fov
 
 if __name__ == "__main__":
     # Define the origin and vector of the arrow
-    origin = np.array([0, 0, 0])
-    rot_quat = get_identity_quaternion_np()
+    origin_example = np.array([0, 0, 0])
+    rot_quat_example = get_identity_quaternion_np()
 
     # Plot the arrows
-    objs = plot_xyz_axes(origin, rot_quat)
+    objs = plot_xyz_axes(origin_example, rot_quat_example)
 
     # Create a Plotly figure containing the arrow and the cone
     fig = go.Figure(data=objs)

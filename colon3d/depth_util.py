@@ -34,11 +34,28 @@ class DepthAndEgoMotionLoader:
             self.loaded_depth_maps = h5f["z_depth_map"][:]  # load into memory
                 # load the depth estimation info\metadata
         with (self.example_path / info_file_name).open("rb") as file:
-            depth_info = pickle.load(file)
-        self.depth_map_size = depth_info["depth_map_size"]
-        self.de_K = depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
-        self.n_frames = depth_info["n_frames"]
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            self.depth_info = pickle.load(file)
+        self.depth_map_size = self.depth_info["depth_map_size"]
+        self.de_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
+        self.n_frames = self.depth_info["n_frames"]
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def get_depth_map_at_frame(
+        self,
+        frame_idx: int,
+    ):
+        """Get the depth estimation at a given frame.
+
+        Args:
+            frame_idx: the frame index
+
+        Returns:
+            depth_map: the depth estimation map (units: mm)
+        """
+        depth_map = self.loaded_depth_maps[frame_idx]
+        return depth_map
+
+    # --------------------------------------------------------------------------------------------------------------------
 
     def get_egomotions_at_frames(
         self,

@@ -4,8 +4,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-import cv2
 import numpy as np
+from cv2 import cv2
 from dateutil import tz
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
@@ -72,12 +72,11 @@ def find_in_file_between_str(file_path, before_str, after_str, line_prefix=None)
     return matches[0]
 
 
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def save_video_from_func(save_path: Path, file_name: str, make_frame, n_frames: int, fps: float, backend="cv2"):
-    """ Saves a video from a function that generates the frames.
+    """Saves a video from a function that generates the frames.
     Args:
         save_path: the path to save the video to
         file_name: the name of the video file
@@ -107,16 +106,13 @@ def save_video_from_func(save_path: Path, file_name: str, make_frame, n_frames: 
     print(f"Video saved to {file_path}")
 
 
-
-
-
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def save_video(save_path: Path, file_name: str, frames: list, fps: float):
     def make_frame(i_frame) -> np.ndarray:
         return frames[i_frame]
+
     save_video_from_func(save_path, file_name, make_frame, len(frames), fps)
 
 
@@ -265,7 +261,7 @@ class Tee:
 
 def get_time_now_str():
     local_time = datetime.now(tz.gettz())
-    return local_time.strftime('%Y-%m-%d %H:%M %Z %z')
+    return local_time.strftime("%Y-%m-%d %H:%M %Z %z")
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -278,6 +274,7 @@ def convert_sec_to_str(seconds):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
     if folder_path.exists():
@@ -295,9 +292,12 @@ def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
             sys.exit(0)
     folder_path.mkdir(parents=True, exist_ok=True)
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def path_to_str(path: Path):
     return str(path.resolve())
+
 
 # --------------------------------------------------------------------------------------------------------------------

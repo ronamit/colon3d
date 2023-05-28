@@ -1,9 +1,9 @@
 import os
 
-import cv2
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from cv2 import cv2
 
 from colon3d.data_util import RadialImageCropper, VideoLoader
 from colon3d.detections_util import DetectionsTracker
