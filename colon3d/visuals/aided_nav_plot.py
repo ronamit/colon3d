@@ -1,7 +1,4 @@
 import cv2
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.data_util import VideoLoader
@@ -9,7 +6,6 @@ from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_detections_on_frame
 
-matplotlib.use("Agg")  # use a non-interactive backend
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -95,7 +91,9 @@ def draw_aided_nav(
             is_track_in_orig_im = is_track_in_orig_im.squeeze(0)
 
             # check if the track center is in the algorithm view:
-            is_track_center_in_alg_view = np.linalg.norm(track_coord_in_orig_im - orig_im_center, axis=-1) < alg_view_radius
+            is_track_center_in_alg_view = (
+                np.linalg.norm(track_coord_in_orig_im - orig_im_center, axis=-1) < alg_view_radius
+            )
 
             # draw text at top left corner:
             extra_text = " (in front of cam.)" if z_dist > 0 else " (behind cam.)"

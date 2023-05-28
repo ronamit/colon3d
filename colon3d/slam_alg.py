@@ -10,7 +10,7 @@ from colon3d.alg_settings import AlgorithmParam
 from colon3d.bundle_adjust import run_bundle_adjust
 from colon3d.camera_util import FishEyeUndistorter
 from colon3d.data_util import RadialImageCropper, VideoLoader
-from colon3d.depth_util import DepthEstimator
+from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.rotations_util import apply_egomotions, get_identity_quaternion
@@ -107,7 +107,7 @@ class SlamRunner:
         self,
         video_loader: VideoLoader,
         detections_tracker: DetectionsTracker,
-        depth_estimator: DepthEstimator,
+        depth_estimator: DepthAndEgoMotionLoader,
         draw_interval: int,
         save_path: Path,
     ):
@@ -177,7 +177,7 @@ class SlamRunner:
         curr_egomotion: np.array,
         cam_undistorter: FishEyeUndistorter,
         alg_view_cropper: RadialImageCropper,
-        depth_estimator: DepthEstimator,
+        depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
         draw_interval: int,
         save_path: Path,

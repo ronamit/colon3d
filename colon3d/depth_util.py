@@ -10,28 +10,34 @@ from colon3d.slam_util import unproject_normalized_coord_to_world
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class DepthEstimator:
-    def __init__(self, example_path):
+class DepthAndEgoMotionLoader:
+    def __init__(self, example_path, source="estimated"):
         """Wrapper for the depth & ego-motion estimation model.
 
         Args:
             example_path: path to the example folder
+            source: The source of the depth map, can be 'ground_truth' or 'estimated'
         """
         self.example_path = Path(example_path).expanduser()
-        # Get the monocular depth and egomotion estimation results file path
-        file_path = self.example_path / "depth_and_egomotion.h5"
-        assert file_path.is_file(), "Not found depth file: " + str(file_path)
-        print("Using egomotion and z-depth maps from: ", file_path)
-        # load the depth estimation info\metadata
-        with (self.example_path / "depth_info.pkl").open("rb") as file:
+        if source == "ground_truth":
+            data_file_name = "gt_depth_and_egomotion.h5"
+            info_file_name = "gt_depth_info.pkl"
+        elif source == "estimated":
+            data_file_name = "est_depth_and_egomotion.h5"
+            info_file_name = "est_depth_info.pkl"
+        else:
+            raise ValueError("Unknown depth map source: " + source)
+        self.data_file_path = self.example_path / data_file_name
+        print("Using egomotion and z-depth maps from: ", self.data_file_path)
+        with h5py.File(self.data_file_path, "r") as h5f:
+            self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
+            self.loaded_depth_maps = h5f["z_depth_map"][:]  # load into memory
+                # load the depth estimation info\metadata
+        with (self.example_path / info_file_name).open("rb") as file:
             depth_info = pickle.load(file)
         self.depth_map_size = depth_info["depth_map_size"]
-        self.de_K = depth_info["K_of_depth_map"] # the camera matrix of the depth map images
-        self.file_path = file_path
+        self.de_K = depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
         self.n_frames = depth_info["n_frames"]
-        with h5py.File(self.file_path, "r") as h5f:
-            self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_egomotions_at_frames(
@@ -39,17 +45,17 @@ class DepthEstimator:
         frame_indexes: np.array,
     ):
         """Get the egomotion estimation at a given frame.
-            The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
-            The egomotion is represented as a 7D vector: (x, y, z, q0, qx, qy, qz)
-            x,y,z are the translation in mm.
-            The quaternion (q0, qx, qy, qz) represents the rotation.
+        The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
+        The egomotion is represented as a 7D vector: (x, y, z, q0, qx, qy, qz)
+        x,y,z are the translation in mm.
+        The quaternion (q0, qx, qy, qz) represents the rotation.
         """
         egomotions_est = self.loaded_egomotions[frame_indexes]
         assert egomotions_est.shape[1] == 7  # (x, y, z, q0, qx, qy, qz)
         egomotions_est[:, :3] = egomotions_est[:, :3]  # convert units to mm
         return egomotions_est
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_at_nrm_points(
         self,
@@ -66,6 +72,8 @@ class DepthEstimator:
 
         Returns:
             depth_z_est: the depth estimation at the queried point [n_points] (units: mm)
+            
+        Note: Normalized coordinates correspond to a rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
         n_points = queried_points_nrm.shape[0]
         device = queried_points_nrm.device
@@ -86,24 +94,28 @@ class DepthEstimator:
         y = np.clip(y, 0, de_height - 1)
         # get the depth estimation at the queried point from the saved depth maps
         depth_z_est = torch.zeros((n_points), device=device, dtype=dtype)
-        with h5py.File(self.file_path, "r") as h5f:
-            for frame_idx in np.unique(frame_indexes):
-                loaded_depth_maps = h5f["z_depth_map"][frame_idx]
-                depth_out = loaded_depth_maps[y[frame_indexes == frame_idx], x[frame_indexes == frame_idx]]
-                depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
-                depth_z_est[frame_indexes == frame_idx] =  depth_out
+        # with h5py.File(self.file_path, "r") as h5f:
+        for frame_idx in np.unique(frame_indexes):
+            depth_out = self.loaded_depth_maps[frame_idx][y[frame_indexes == frame_idx], x[frame_indexes == frame_idx]]
+            depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
+            depth_z_est[frame_indexes == frame_idx] = depth_out
 
-        del loaded_depth_maps, h5f
+        # del loaded_depth_maps, h5f
+        
         # clip the depth
         depth_z_est[depth_z_est > z_depth_upper_bound] = torch.as_tensor(
-            z_depth_upper_bound, device=device, dtype=dtype,
+            z_depth_upper_bound,
+            device=device,
+            dtype=dtype,
         )
         depth_z_est[depth_z_est < z_depth_lower_bound] = torch.as_tensor(
-            z_depth_lower_bound, device=device, dtype=dtype,
+            z_depth_lower_bound,
+            device=device,
+            dtype=dtype,
         )
         return depth_z_est
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------
 
     def estimate_3d_points(
         self,
@@ -136,4 +148,4 @@ class DepthEstimator:
         )
         return p3d_est
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------

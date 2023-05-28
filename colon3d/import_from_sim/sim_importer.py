@@ -4,9 +4,7 @@ import pickle
 from pathlib import Path
 
 import cv2
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
+import h5py
 import numpy as np
 import yaml
 
@@ -14,8 +12,8 @@ from colon3d.general_util import (
     create_empty_folder,
     path_to_str,
 )
+from colon3d.rotations_util import infer_egomotions_np
 
-matplotlib.use("Agg")  # use a non-interactive backend
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -138,6 +136,10 @@ class SimImporter:
                 raw_trans=raw_trans_per_seq[i_seq],
                 raw_rot=raw_rot_per_seq[i_seq],
             )
+
+            # infer the egomotions (camera pose changes) from the camera poses:
+            egomotions = infer_egomotions_np(cam_poses)
+
             # extract the depth frames
             z_depth_frames, depth_info = self.get_ground_truth_depth(
                 depth_frames_paths=depth_frames_paths_per_seq[i_seq],
@@ -150,19 +152,18 @@ class SimImporter:
                 rgb_frames_paths=rgb_frames_paths_per_seq[i_seq],
                 metadata=metadata,
             )
-
             # save depth info
-            with (seq_path / "depth_info.pkl").open("wb") as file:
+            with (seq_path / "gt_depth_info.pkl").open("wb") as file:
                 pickle.dump(depth_info, file)
 
             # save h5 file of depth frames and camera poses
-            file_path = seq_path / "gt_depth_and_cam_poses.h5"
+            file_path = seq_path / "gt_depth_and_egomotion.h5"
             print(f"Saving depth frames and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
                 hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
                 hf.create_dataset("cam_poses", data=cam_poses)
+                hf.create_dataset("egomotions", data=egomotions)
         print("Done.")
-        
 
     # --------------------------------------------------------------------------------------------------------------------
 

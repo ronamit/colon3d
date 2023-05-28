@@ -257,6 +257,7 @@ def infer_egomotions(cam_poses: torch.Tensor):
     loc_change_world = cur_loc - prev_loc
     # rotate the location change to the previous camera axes:
     loc_change = rotate(loc_change_world, invert_rotation(prev_rot))
+    # find the rotation change in the previous camera axes:
     rot_change = quaternion_raw_multiply(cur_rot, invert_rotation(prev_rot))
     egomotions = torch.zeros_like(cam_poses)  # [n_frames x 7]
     # set the first egomotion to be the identity rotation and zero translation:

@@ -6,9 +6,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import (
-    Axes3D,  # noqa: F401 unused import # pylint: disable=unused-import # noqa: F401 unused import # pylint: disable=unused-import 
-)
 
 from colon3d.general_util import is_equal_dicts, save_plot_and_close
 
@@ -52,7 +49,7 @@ class FishEyeUndistorter:
     def get_undistort_points_lut(self):
         """
             get  a lookup table for undistorting points
-        #  transfirms  normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))
+        #  transforms normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
 
         undistort_config = {

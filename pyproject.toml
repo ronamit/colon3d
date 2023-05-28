@@ -110,6 +110,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "TRY003", # Avoid specifying long messages outside the exception class
           "TRY301", # raise-within-try
           "PT018", # assetion should be broken into multiple lines
-          "E402", # Module level import not at top of file (Ruff)
+          # "E402", # Module level import not at top of file (Ruff)
 
 ]

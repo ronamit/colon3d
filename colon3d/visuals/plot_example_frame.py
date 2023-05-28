@@ -4,16 +4,11 @@ from pathlib import Path
 
 import cv2
 import h5py
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 
-matplotlib.use('agg')
-
-import matplotlib.pyplot as plt
-
 from colon3d.data_util import VideoLoader
-from colon3d.depth_util import DepthEstimator
-from colon3d.detections_util import DetectionsTracker
+from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import save_plot_and_close
 from colon3d.slam_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
@@ -40,18 +35,21 @@ def main():
         default=0,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
+    parser.add_argument(
+        "--depth_map_source",
+        type=str,
+        default="ground_truth",
+        help="The source of the depth map, can be 'ground_truth' or 'estimated'",
+    )
     args = parser.parse_args()
     example_path = Path(args.example_path)
 
     video_loader = VideoLoader(
         example_path=example_path,
     )
-    DetectionsTracker(
+    DepthAndEgoMotionLoader(
         example_path=example_path,
-        video_loader=video_loader,
-    )
-    DepthEstimator(
-        example_path=example_path,
+        source=args.depth_map_source,
     )
 
     example_path = Path(args.example_path)
@@ -66,11 +64,11 @@ def main():
     print(f"Saved RGB frame to {file_path}")
 
     # save the ground truth depth frame, and its point cloud
-    gt_depth_file_path = example_path / "gt_depth_and_cam_poses.h5"
+    gt_depth_file_path = example_path / "gt_depth_and_egomotion.h5"
     if not gt_depth_file_path.exists():
         print("No ground truth depth file found, skipping this part")
         return
-    
+
     with h5py.File(gt_depth_file_path, "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
         gt_cam_poses = h5f["cam_poses"][:]
@@ -81,7 +79,7 @@ def main():
     plt.imshow(z_depth_frame, aspect="equal")
     save_plot_and_close(example_path / f"{frame_name}_true_depth.png")
 
-    with (example_path / "depth_info.pkl").open("rb") as file:
+    with (example_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = pickle.load(file)
     K_of_depth_map = depth_info["K_of_depth_map"]
     fx, fy = K_of_depth_map[0, 0], K_of_depth_map[1, 1]

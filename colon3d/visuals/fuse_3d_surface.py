@@ -58,10 +58,10 @@ def main():
     )
     example_path = Path(args.example_path)
 
-    with h5py.File(example_path / "gt_depth_and_cam_poses.h5", "r") as h5f:
+    with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
         gt_cam_poses = h5f["cam_poses"][:]
-    with (example_path / "depth_info.pkl").open("rb") as file:
+    with (example_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = pickle.load(file)
 
     # The matrix of the camera intrinsics (camera_sys_hom_cord = cam_K_mat @ pixel_hom_cord) [3x3]

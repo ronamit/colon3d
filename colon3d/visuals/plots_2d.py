@@ -2,8 +2,6 @@ import os
 
 import cv2
 import matplotlib
-
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -11,7 +9,6 @@ from colon3d.data_util import RadialImageCropper, VideoLoader
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, coord_to_cv2kp, save_plot_and_close, save_video
 
-matplotlib.use("Agg")  # use a non-interactive backend
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 # --------------------------------------------------------------------------------------------------------------------
 

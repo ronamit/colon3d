@@ -8,7 +8,7 @@ from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder
 from colon3d.import_from_sim.simulate_tracks import generate_tracks_gt_3d_loc, get_tracks_detections_per_frame
-from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat, infer_egomotions_np
+from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -56,22 +56,22 @@ def main():
     examples_dir_path = sequence_path / "Examples"
     print(f"The generated examples will be saved to {examples_dir_path}")
     # load the ground truth depth maps and camera poses:
-    with h5py.File(sequence_path / "gt_depth_and_cam_poses.h5", "r") as h5f:
+    with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
         gt_cam_poses = h5f["cam_poses"][:]
+        gt_egomotions = h5f["egomotions"][:]
     n_frames = gt_depth_maps.shape[0]
     assert n_frames == gt_cam_poses.shape[0], "The number of frames in the depth maps and camera poses is not equal"
-    with (sequence_path / "depth_info.pkl").open("rb") as file:
+    with (sequence_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = pickle.load(file)
-    # infer the egomotions (camera pose changes) from the camera poses:
-    gt_egomotions = infer_egomotions_np(gt_cam_poses)
+
     for i_example in range(n_examples):
         # create subfolder for the example:
         example_path = examples_dir_path / f"{i_example:04d}"
         create_empty_folder(example_path)
         print(f"Generating example {i_example} in {example_path}")
         # create symbolic links in the example folder:
-        for file_name in ["meta_data.yaml", "Video.mp4", "depth_info.pkl", "gt_depth_and_cam_poses.h5"]:
+        for file_name in ["meta_data.yaml", "Video.mp4", "gt_depth_info.pkl", "gt_depth_and_egomotion.h5"]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
         print("Generating egomotion and depth estimations")
         est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
@@ -83,7 +83,7 @@ def main():
             rng=rng,
         )
         # save the estimated depth maps and egomotions to a file:
-        with h5py.File(example_path / "depth_and_egomotion.h5", "w") as hf:
+        with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
             hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
             hf.create_dataset("egomotions", data=est_egomotions)
 
