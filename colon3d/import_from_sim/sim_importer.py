@@ -122,10 +122,13 @@ class SimImporter:
         # save the camera poses and depth frames for each sequence
         for i_seq in range(n_seq):
             seq_path = self.output_data_path / seq_names[i_seq]
-            print(f"Saving sequence #{i_seq} to {seq_path}")
+            metadata = metadata_per_seq[i_seq]
+            print(f"Saving sequence #{i_seq} to {seq_path}... ")
+            n_frames = len(rgb_frames_paths_per_seq[i_seq])
+            time_length = n_frames / metadata["fps"]
+            print(f"Number of frames: {n_frames}, Length {time_length:.2f} seconds")
 
             # save metadata
-            metadata = metadata_per_seq[i_seq]
             metadata_path = seq_path / "meta_data.yaml"
             with metadata_path.open("w") as file:
                 yaml.dump(metadata, file)
