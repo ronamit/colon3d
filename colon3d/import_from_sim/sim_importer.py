@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import shutil
 from pathlib import Path
 
 import cv2
@@ -150,10 +151,11 @@ class SimImporter:
             )
 
             # Save RGB video
-            self.save_rgb_video(
-                output_vid_path=seq_path / "Video.mp4",
+            self.save_rgb_frames(
+                seq_path=seq_path,
                 rgb_frames_paths=rgb_frames_paths_per_seq[i_seq],
                 metadata=metadata,
+                save_video=True,
             )
             # save depth info
             with (seq_path / "gt_depth_info.pkl").open("wb") as file:
@@ -161,7 +163,7 @@ class SimImporter:
 
             # save h5 file of depth frames and camera poses
             file_path = seq_path / "gt_depth_and_egomotion.h5"
-            print(f"Saving depth frames and camera poses to: {file_path}")
+            print(f"Saving depth-maps and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
                 hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
                 hf.create_dataset("cam_poses", data=cam_poses)
@@ -240,27 +242,41 @@ class SimImporter:
         return cam_poses
 
     # --------------------------------------------------------------------------------------------------------------------
-    def save_rgb_video(self, rgb_frames_paths: list, output_vid_path: Path, metadata: dict):
+    def save_rgb_frames(self, rgb_frames_paths: list, seq_path: Path, metadata: dict, save_video: bool=True):
         n_frames = len(rgb_frames_paths)
-        fps = metadata["fps"]
-        frame_height = metadata["frame_height"]
-        frame_width = metadata["frame_width"]
-        frame_size = (frame_height, frame_width)
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
-        out_video = cv2.VideoWriter(
-            filename=path_to_str(output_vid_path),
-            fourcc=fourcc,
-            fps=fps,
-            frameSize=frame_size,
-            isColor=True,
-        )
+        # copy all the rgb frames to the output directory
+        frames_out_path = seq_path / "RGB_Frames"
+        create_empty_folder(frames_out_path, ask_overwrite=False)
         for i_frame, frame_path in enumerate(rgb_frames_paths):
-            print(f"Writing RGB frame {i_frame+1}/{n_frames} to video", end="\r")
-            im = cv2.imread(path_to_str(self.input_data_path / frame_path))
-            out_video.write(im)
-        out_video.release()
-        print(f"Video saved to: {output_vid_path}")
+            frame_name = f"{i_frame:06d}.png"
+            shutil.copy(
+                src=path_to_str(self.input_data_path / frame_path),
+                dst=path_to_str(frames_out_path / frame_name),
+            )
+
+        if save_video:
+            output_vid_path = seq_path / "Video.mp4"
+            fps = metadata["fps"]
+            frame_height = metadata["frame_height"]
+            frame_width = metadata["frame_width"]
+            frame_size = (frame_height, frame_width)
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
+            out_video = cv2.VideoWriter(
+                filename=path_to_str(output_vid_path),
+                fourcc=fourcc,
+                fps=fps,
+                frameSize=frame_size,
+                isColor=True,
+            )
+            for i_frame, frame_path in enumerate(rgb_frames_paths):
+                print(f"Writing RGB frame {i_frame+1}/{n_frames} to video", end="\r")
+                im = cv2.imread(path_to_str(self.input_data_path / frame_path))
+                assert im.shape == (frame_height, frame_width, 3)
+                out_video.write(im)
+            out_video.release()
+            print(f"Video saved to: {output_vid_path}")
 
     # --------------------------------------------------------------------------------------------------------------------
 

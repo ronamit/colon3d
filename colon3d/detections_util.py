@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.data_util import VideoLoader
+from colon3d.data_util import FramesLoader
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ class DetectionsTracker:
     The detections are loaded from the Detections.csv file.
     """
 
-    def __init__(self, example_path, video_loader: VideoLoader):
+    def __init__(self, example_path, frames_loader: FramesLoader):
         self.example_path = Path(example_path).expanduser()
         detections_file_path = self.example_path / "Detections.csv"
         # Get the polyp detector results for this video
@@ -28,8 +28,8 @@ class DetectionsTracker:
             print("Loaded detections from: ", detections_file_path)
         self.frame_inds = self.detections_original["frame_idx"].unique()
         self.n_frames = len(self.frame_inds)
-        self.fps = video_loader.fps
-        self.alg_view_cropper = video_loader.alg_view_cropper
+        self.fps = frames_loader.fps
+        self.alg_view_cropper = frames_loader.alg_view_cropper
         self.truncate_detections_for_alg_view()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -50,10 +50,10 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
     save_path = Path(save_path)
     create_empty_folder(save_path)
     # Extract the relevant variables
-    video_loader = slam_out["video_loader"]
+    frames_loader = slam_out["frames_loader"]
     # over-ride the example folder (in case it was moved)
-    video_loader.example_path = example_path
-    n_frames_orig = video_loader.n_frames
+    frames_loader.example_path = example_path
+    n_frames_orig = frames_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
     kp_frame_idx_all = slam_out["kp_frame_idx_all"]
     kp_px_all = slam_out["kp_px_all"]
@@ -68,7 +68,7 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
     salient_kps_world_loc_per_frame = slam_out["salient_kps_world_loc_per_frame"]
     if stop_frame is None:
         stop_frame = n_frames_orig
-    fps = video_loader.fps  # frames per second
+    fps = frames_loader.fps  # frames per second
     t_interval_sec = 1 / fps  # sec
 
     # ---- Get track estimated location of the track KPs w.r.t. camera system in each frame
@@ -82,7 +82,7 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
 
     # Draw local-aided navigation video
     draw_aided_nav(
-        video_loader=video_loader,
+        frames_loader=frames_loader,
         detections_tracker=detections_tracker,
         tracks_kps_cam_loc_per_frame=tracks_kps_cam_loc_per_frame,
         start_frame=start_frame,
@@ -92,7 +92,7 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
 
     # Draw the keypoints and detections on the video
     draw_keypoints_and_detections(
-        video_loader=video_loader,
+        frames_loader=frames_loader,
         detections_tracker=detections_tracker,
         kp_frame_idx_all=kp_frame_idx_all,
         kp_px_all=kp_px_all,
@@ -107,7 +107,7 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
         start_frame=start_frame,
         stop_frame=stop_frame,
         fps=fps,
-        cam_fov_deg=video_loader.alg_fov_deg,
+        cam_fov_deg=frames_loader.alg_fov_deg,
         show_fig=False,
         save_path=save_path,
     )
@@ -120,7 +120,7 @@ def show_slam_out(slam_out, save_path, example_path, start_frame=0, stop_frame=N
         start_frame=start_frame,
         stop_frame=stop_frame,
         fps=fps,
-        cam_fov_deg=video_loader.alg_fov_deg,
+        cam_fov_deg=frames_loader.alg_fov_deg,
         detections_tracker=detections_tracker,
         save_path=save_path,
     )

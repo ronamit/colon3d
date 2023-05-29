@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.data_util import RadialImageCropper, VideoLoader
+from colon3d.data_util import FramesLoader, RadialImageCropper
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, coord_to_cv2kp, save_plot_and_close, save_video
 
@@ -202,7 +202,7 @@ def draw_matches(
 
 
 def draw_keypoints_and_detections(
-    video_loader: VideoLoader,
+    frames_loader: FramesLoader,
     detections_tracker: DetectionsTracker,
     kp_frame_idx_all,
     kp_px_all,
@@ -211,7 +211,7 @@ def draw_keypoints_and_detections(
 ):
     """Draw keypoints and detections on the full frame.
     Args:
-        video_loader: VideoLoader object.
+        frames_loader: VideoLoader object.
         detections_tracker: DetectionsTracker object.
         kp_frame_idx_all: list of int, the frame index of each keypoint.
         kp_px_all: list of np.array, the pixel coordinates of each keypoint.
@@ -220,16 +220,16 @@ def draw_keypoints_and_detections(
     """
     kp_frame_idx_all = np.array(kp_frame_idx_all)
     kp_px_all = np.stack(kp_px_all, axis=0)
-    frames_generator = video_loader.frames_generator(frame_type="full")
-    alg_view_cropper = video_loader.alg_view_cropper
-    fps = video_loader.fps
+    frames_generator = frames_loader.frames_generator(frame_type="full")
+    alg_view_cropper = frames_loader.alg_view_cropper
+    fps = frames_loader.fps
     vis_frames = []
     kp_id_all = np.array(kp_id_all)
     ### Draw each frame
     for i_frame, frame in enumerate(frames_generator):
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
-        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, video_loader)
+        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
         keypoints = kp_px_all[kp_frame_idx_all == i_frame]
         keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
         # draw bounding boxes for the original detections in the full frame
@@ -309,9 +309,9 @@ def display_image_in_actual_size(im_data, hide_axis=True):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_alg_view_in_the_full_frame(frame, video_loader):
+def draw_alg_view_in_the_full_frame(frame, frames_loader):
     # get the FOV of the alg view
-    alg_view_cropper = video_loader.alg_view_cropper
+    alg_view_cropper = frames_loader.alg_view_cropper
     alg_view_radius = round(alg_view_cropper.view_radius)
     cx_orig = alg_view_cropper.cx_orig
     cy_orig = alg_view_cropper.cy_orig

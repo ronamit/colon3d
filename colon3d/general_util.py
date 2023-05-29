@@ -292,6 +292,12 @@ def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
             sys.exit(0)
     folder_path.mkdir(parents=True, exist_ok=True)
 
+# --------------------------------------------------------------------------------------------------------------------
+
+def create_folder_if_not_exists(folder_path: Path):
+    if not folder_path.exists():
+        folder_path.mkdir(parents=True, exist_ok=True)
+    return folder_path
 
 # --------------------------------------------------------------------------------------------------------------------
 

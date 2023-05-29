@@ -9,7 +9,7 @@ import torch
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.bundle_adjust import run_bundle_adjust
 from colon3d.camera_util import FishEyeUndistorter
-from colon3d.data_util import RadialImageCropper, VideoLoader
+from colon3d.data_util import FramesLoader, RadialImageCropper
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
@@ -105,17 +105,17 @@ class SlamRunner:
 
     def run_on_video(
         self,
-        video_loader: VideoLoader,
+        frames_loader: FramesLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
         draw_interval: int,
         save_path: Path,
     ):
-        frames_generator = video_loader.frames_generator(frame_type="alg_input")
-        cam_undistorter = video_loader.alg_cam_undistorter
-        alg_view_cropper = video_loader.alg_view_cropper
-        n_frames = video_loader.n_frames
-        fps = video_loader.fps
+        frames_generator = frames_loader.frames_generator(frame_type="alg_input")
+        cam_undistorter = frames_loader.alg_cam_undistorter
+        alg_view_cropper = frames_loader.alg_view_cropper
+        n_frames = frames_loader.n_frames
+        fps = frames_loader.fps
 
         # initialize the algorithm
         self.init_algorithm()
@@ -157,7 +157,7 @@ class SlamRunner:
             "kp_id_all": self.kp_id_all,
             "p3d_inds_in_frame": self.p3d_inds_in_frame,
             "map_kp_to_p3d_idx": self.map_kp_to_p3d_idx,
-            "video_loader": video_loader,
+            "frames_loader": frames_loader,
             "detections_tracker": detections_tracker,
             "cam_undistorter": cam_undistorter,
             "depth_estimator": depth_estimator,

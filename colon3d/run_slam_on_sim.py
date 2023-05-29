@@ -3,7 +3,7 @@ import pickle
 from pathlib import Path
 
 from colon3d.alg_settings import AlgorithmParam
-from colon3d.data_util import VideoLoader
+from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import Tee, create_empty_folder
@@ -18,13 +18,13 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/Seq_00009_short/Examples/0000",
+        default="data/sim_data/SimData2/Seq_00000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/Seq_00009_short/Examples/0000/results",
+        default="data/sim_data/SimData2/Seq_00000/results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -53,14 +53,14 @@ def main():
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        video_loader = VideoLoader(
+        frames_loader = FramesLoader(
             example_path=example_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
         )
         detections_tracker = DetectionsTracker(
             example_path=example_path,
-            video_loader=video_loader,
+            frames_loader=frames_loader,
         )
         depth_estimator = DepthAndEgoMotionLoader(
             example_path=example_path,
@@ -71,7 +71,7 @@ def main():
         with (example_path / "tracks_info.pkl").open("rb") as file:
             tracks_info = pickle.load(file)
         print("-" * 20, "\nGround truth tracks info: ", tracks_info)
-        tracks_time = tracks_info["frame_inds"] / video_loader.fps
+        tracks_time = tracks_info["frame_inds"] / frames_loader.fps
         print(f"Frames Times :{tracks_time}[sec]\n", "-" * 20, "\n")
 
         # get the default parameters for the SLAM algorithm
@@ -80,7 +80,7 @@ def main():
         # Run the SLAM algorithm
         slam_runner = SlamRunner(alg_prm)
         slam_out = slam_runner.run_on_video(
-            video_loader=video_loader,
+            frames_loader=frames_loader,
             detections_tracker=detections_tracker,
             depth_estimator=depth_estimator,
             draw_interval=args.draw_interval,

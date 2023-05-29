@@ -6,9 +6,9 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.data_util import VideoLoader
+from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.general_util import save_plot_and_close
+from colon3d.general_util import create_folder_if_not_exists, save_plot_and_close
 from colon3d.rotations_util import get_identity_quaternion_np
 from colon3d.slam_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/ExampleSimOut/Seq_00000",
+        default="data/sim_data/SimData2/Seq_00000",
         help="Path to the sequence folder",
     )
     parser.add_argument(
@@ -32,7 +32,7 @@ def main():
     parser.add_argument(
         "--frame_index",
         type=float,
-        default=0,
+        default=33,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
     example_path = Path(args.example_path)
 
-    video_loader = VideoLoader(
+    frames_loader = FramesLoader(
         example_path=example_path,
     )
     depth_loader = DepthAndEgoMotionLoader(
@@ -53,13 +53,14 @@ def main():
     )
 
     example_path = Path(args.example_path)
-    fps = video_loader.fps
+    plots_path = create_folder_if_not_exists(example_path / "plots")
+    fps = frames_loader.fps
     frame_idx = args.frame_index if args.frame_time == -1 else int(args.frame_time * fps)
     frame_name = f"Frame{frame_idx:04d}"
 
     # save the RGB frame
-    bgr_frame = video_loader.get_frame_at_index(frame_idx, color_type="bgr", frame_type="full")
-    file_path = str((example_path / f"{frame_name}.png").resolve())
+    bgr_frame = frames_loader.get_frame_at_index(frame_idx, color_type="bgr", frame_type="full")
+    file_path = str((plots_path / f"{frame_name}.png").resolve())
     cv2.imwrite(file_path, bgr_frame)
     print(f"Saved RGB frame to {file_path}")
 
@@ -78,7 +79,7 @@ def main():
 
     plt.figure()
     plt.imshow(z_depth_frame, aspect="equal")
-    save_plot_and_close(example_path / f"{frame_name}_depth_{args.depth_source}.png")
+    save_plot_and_close(plots_path / f"{frame_name}_depth_{args.depth_source}.png")
 
     depth_info = depth_loader.depth_info
     K_of_depth_map = depth_info["K_of_depth_map"]
@@ -92,7 +93,7 @@ def main():
         cam_pose=cam_pose,
         cam_fov_deg=fov_deg,
         verbose=True,
-        save_path=example_path / f"{frame_name}_point_cloud_{args.depth_source}.html",
+        save_path=plots_path / f"{frame_name}_point_cloud_{args.depth_source}.html",
     )
 
 

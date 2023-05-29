@@ -8,9 +8,8 @@ from colon3d.camera_util import CamInfo, FishEyeUndistorter
 
 
 # --------------------------------------------------------------------------------------------------------------------
-class VideoLoader:
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+class FramesLoader:
+    # --------------------------------------------------------------------------------------------------------------------
     def __init__(
         self,
         example_path: str,
@@ -24,14 +23,22 @@ class VideoLoader:
             example_path: path to the example folder
             alg_fov_ratio: The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation
             n_frames_lim: limit the number of frames to load
-            fps: if not None, the video will be resampled to this fps≠
+            fps: if not None, the video will be resampled to this fps
         """
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
         self.example_path = Path(example_path).expanduser()
-        video_path = self.example_path / "Video.mp4"
+        
+        if (self.example_path / "RGB_Frames").is_dir():
+            self.rgb_frames_path = self.example_path / "RGB_Frames"
+            self.image_files_paths = sorted(Path(self.example_path / "RGB_Frames").glob("*.png"), key=lambda path: int(path.stem))
+            self.rgb_source = "Images"
+        else:
+            self.video_path = self.example_path / "Video.mp4"
+            assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
+            self.rgb_source = "Video"
+        
         self.alg_fov_ratio = alg_fov_ratio
-        assert video_path.is_file(), f"Video file not found at {video_path}"
         self.n_frames_lim = n_frames_lim
         metadata_path = self.example_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
@@ -86,47 +93,63 @@ class VideoLoader:
         else:
             print(f"Using only the first {n_frames} frames of the video...")
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # --------------------------------------------------------------------------------------------------------------------
 
     def frames_generator(self, color_type="bgr", frame_type="alg_input"):
-        video_path = Path(self.example_path) / "Video.mp4"
-        try:
-            vidcap = cv2.VideoCapture(str(video_path))
-            i_frame = 0
-            while vidcap.isOpened():
+        if self.rgb_source == "Video":
+            video_path = Path(self.example_path) / "Video.mp4"
+            try:
+                vidcap = cv2.VideoCapture(str(video_path))
+                i_frame = 0
+                while vidcap.isOpened():
+                    if self.n_frames_lim != 0 and i_frame >= self.n_frames_lim:
+                        break
+                    frame_exists, curr_frame = vidcap.read()
+                    if not frame_exists:
+                        break
+                    frame = self.adjust_frame(curr_frame, frame_type, color_type)
+                    yield frame
+                    i_frame += 1
+            finally:
+                vidcap.release()
+        elif self.rgb_source == "Images":
+            # sort the image files by the number in their name:
+            for i_frame, image_file in enumerate(self.image_files_paths):
                 if self.n_frames_lim != 0 and i_frame >= self.n_frames_lim:
                     break
-                frame_exists, curr_frame = vidcap.read()
-                if not frame_exists:
-                    break
-                # crop image for algorithm input, if needed:
-                if frame_type == "alg_input":
-                    curr_frame = self.alg_view_cropper.crop_img(curr_frame)
-                elif frame_type == "full":
-                    pass
-                else:
-                    raise ValueError(f"Unknown frame_type: {frame_type}")
-                if color_type == "bgr":
-                    frame = curr_frame
-                elif color_type == "gray":
-                    frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2GRAY)
-                elif color_type == "rgb":
-                    frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
-                else:
-                    raise ValueError(f"Unknown color_type: {color_type}")
+                frame = self.adjust_frame(cv2.imread(str(image_file)), frame_type, color_type)
                 yield frame
-                i_frame += 1
-        finally:
-            vidcap.release()
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def get_frame_at_index(self, i_frame: int, color_type="bgr", frame_type="alg_input"):
-        for i, frame in enumerate(self.frames_generator(color_type=color_type, frame_type=frame_type)):
-            if i == i_frame:
-                return frame
-        return None
+            
+    # --------------------------------------------------------------------------------------------------------------------
+    def adjust_frame(self, frame, frame_type, color_type):
+        # crop image for algorithm input, if needed:
+        if frame_type == "alg_input":
+            frame = self.alg_view_cropper.crop_img(frame)
+        elif frame_type == "full":
+            pass
+        else:
+            raise ValueError(f"Unknown frame_type: {frame_type}")
+        if color_type == "bgr":
+            pass # do nothing
+        elif color_type == "gray":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        elif color_type == "rgb":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        else:
+            raise ValueError(f"Unknown color_type: {color_type}")
+        return frame
 
     # --------------------------------------------------------------------------------------------------------------------
+    def get_frame_at_index(self, i_frame: int, color_type="bgr", frame_type="alg_input"):
+        if self.rgb_source == "Video":
+            for i, frame in enumerate(self.frames_generator(color_type=color_type, frame_type=frame_type)):
+                if i == i_frame:
+                    return frame
+        else:
+            image_file = self.image_files_paths[i_frame]
+            frame = self.adjust_frame(cv2.imread(str(image_file)), frame_type, color_type)
+            return frame
+        return None
 
 
 # --------------------------------------------------------------------------------------------------------------------

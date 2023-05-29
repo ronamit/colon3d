@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation as spat_rot
 
-from colon3d.data_util import VideoLoader
+from colon3d.data_util import FramesLoader
 from tsdf_fusion import fusion
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def main():
     n_frames = len(frames_tp_plot)
     example_path = Path(args.example_path)
 
-    video_loader = VideoLoader(
+    frames_loader = FramesLoader(
         example_path=example_path,
     )
     example_path = Path(args.example_path)
@@ -107,7 +107,7 @@ def main():
         print("Fusing frame %d/%d" % (i + 1, n_frames))
 
         # Read RGB-D image and camera pose
-        color_image = video_loader.get_frame_at_index(frame_idx, color_type="rgb", frame_type="full")
+        color_image = frames_loader.get_frame_at_index(frame_idx, color_type="rgb", frame_type="full")
         depth_im = gt_depth_maps[frame_idx]
 
         # 4x4 rigid transformation matrix
@@ -128,7 +128,7 @@ def main():
     fusion.meshwrite(mesh_filepath, verts, faces, norms, colors)
 
     # Get point cloud from voxel volume and save to disk (can be viewed with Meshlab)
-    pointcloud_filepath = example_path/ "point_cloud.ply"
+    pointcloud_filepath = example_path / "point_cloud.ply"
     print(f"Saving point cloud to {pointcloud_filepath}...")
     point_cloud = tsdf_vol.get_point_cloud()
     fusion.pcwrite(pointcloud_filepath, point_cloud)

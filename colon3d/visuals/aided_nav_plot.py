@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon3d.data_util import VideoLoader
+from colon3d.data_util import FramesLoader
 from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_detections_on_frame
@@ -10,7 +10,7 @@ from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_detec
 
 
 def draw_aided_nav(
-    video_loader: VideoLoader,
+    frames_loader: FramesLoader,
     detections_tracker: DetectionsTracker,
     tracks_kps_cam_loc_per_frame: list,
     start_frame: int,
@@ -19,7 +19,7 @@ def draw_aided_nav(
 ):
     """Draws the aided navigation on the video.
     Args:
-        video_loader: VideoLoader
+        frames_loader: VideoLoader
         detections_tracker: DetectionsTracker
         cam_undistorter: FishEyeUndistorter
         tracks_kps_cam_loc_per_frame: list of the estimated 3d position (in camera system) of the tracked polyps in the seen in each frame (units: mm)
@@ -27,11 +27,11 @@ def draw_aided_nav(
         stop_frame: the frame to stop the aided navigation video
         save_path: str, the path to save the video
     """
-    fps = video_loader.fps  # [Hz]
-    frames_generator = video_loader.frames_generator(frame_type="full")
-    alg_view_cropper = video_loader.alg_view_cropper
-    orig_cam_undistorter = video_loader.orig_cam_undistorter
-    alg_cam_info = video_loader.alg_cam_info
+    fps = frames_loader.fps  # [Hz]
+    frames_generator = frames_loader.frames_generator(frame_type="full")
+    alg_view_cropper = frames_loader.alg_view_cropper
+    orig_cam_undistorter = frames_loader.orig_cam_undistorter
+    alg_cam_info = frames_loader.alg_cam_info
     alg_view_radius = alg_view_cropper.view_radius
     cx_orig = alg_view_cropper.cx_orig
     cy_orig = alg_view_cropper.cy_orig
@@ -44,7 +44,7 @@ def draw_aided_nav(
             continue
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
-        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, video_loader)
+        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
         # draw bounding boxes for the original detections in the full frame
         orig_detections = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id, cur_detect in orig_detections.items():
