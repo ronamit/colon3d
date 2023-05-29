@@ -83,8 +83,8 @@ class SimImporter:
             rgb_dir_name = rgb_file_path.split("/")[-2]
             if rgb_dir_name not in seen_rgb_dirs:
                 # we found a new sequence
-                seen_rgb_dirs[rgb_dir_name] = len(seen_rgb_dirs)
                 seq_idx += 1
+                seen_rgb_dirs[rgb_dir_name] = seq_idx
                 # check if we reached the limit of sequences
                 if self.limit_n_sequences > 0 and seq_idx >= self.limit_n_sequences:
                     break
