@@ -54,7 +54,7 @@ def main():
     example_path = Path(args.example_path)
 
     frames_loader = FramesLoader(
-        example_path=example_path,
+        sequence_path=example_path,
     )
     example_path = Path(args.example_path)
 

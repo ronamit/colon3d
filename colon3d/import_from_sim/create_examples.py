@@ -1,4 +1,5 @@
 import argparse
+import json
 import pickle
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from numpy.random import default_rng
 from colon3d.general_util import create_empty_folder
 from colon3d.import_from_sim.simulate_tracks import generate_tracks_gt_3d_loc, get_tracks_detections_per_frame
 from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat
+from colon3d.visuals.plots_2d import draw_detections_on_video_simple
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -17,44 +19,90 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--sequence_path",
+        "--sim_data_path",
         type=str,
-        default="data/sim_data/Seq_00009_short",
-        help="The path to the processed simulated sequence",
+        default="data/sim_data/SimData2",
+        help="The path to the folder with processed simulated sequences to load",
     )
     parser.add_argument(
-        "--n_examples",
+        "--path_to_save_examples",
+        type=str,
+        default="data/sim_data/SimData2/Examples",
+        help="The path to the folder where the generated examples will be saved",
+    )
+    parser.add_argument(
+        "--n_examples_per_sequence",
         type=int,
         default=1,
-        help="The number of examples to generate from the sequence",
+        help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument(
         "--depth_noise_std_mm",
         type=float,
         default=0,
-        help="The standard deviation of the noise added to the depth maps",
+        help="The standard deviation of the estimation error added to the depth maps",
     )
     parser.add_argument(
         "--cam_motion_loc_std_mm",
         type=float,
         default=0,
-        help="The standard deviation of the noise added to the location change component of the camera motion",
+        help="The standard deviation of the estimation error added to the location change component of the camera motion",
     )
     parser.add_argument(
         "--cam_motion_rot_std_deg",
         type=float,
         default=0,
-        help="The standard deviation of the noise added to the rotation change component of the camera motion",
+        help="The standard deviation of the estimation error added to the rotation change component of the camera motion",
     )
-    parser.add_argument("--rand_seed", type=int, default=0, help="The random seed to use")
+    parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
 
     args = parser.parse_args()
-    n_examples = args.n_examples
-    sequence_path = Path(args.sequence_path)
+    n_examples_per_sequence = args.n_examples_per_sequence
+    sim_data_path = Path(args.sim_data_path)
+    path_to_save_examples = Path(args.path_to_save_examples)
+    print(f"The generated examples will be saved to {path_to_save_examples}")
+    create_empty_folder(path_to_save_examples, ask_overwrite=False)
     rng = default_rng(args.rand_seed)
-    print("The simulated sequence will be be loaded from: ", sequence_path)
-    examples_dir_path = sequence_path / "Examples"
-    print(f"The generated examples will be saved to {examples_dir_path}")
+    examples_prams = {
+        "depth_noise_std_mm": args.depth_noise_std_mm,
+        "cam_motion_loc_std_mm": args.cam_motion_loc_std_mm,
+        "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
+        "rand_seed": args.rand_seed,
+        "n_examples_per_sequence": n_examples_per_sequence,
+    }
+    print("The simulated sequences will be be loaded from: ", sim_data_path)
+    sequences_paths_list = [
+        sequence_path
+        for sequence_path in sim_data_path.iterdir()
+        if sequence_path.is_dir() and sequence_path.name.startswith("Seq_")
+    ]
+    sequences_paths_list.sort()
+    print(f"Found {len(sequences_paths_list)} sequences.")
+    for sequence_path in sequences_paths_list:
+        print(f"Generating examples from sequence {sequence_path}")
+        generate_examples_from_sequence(
+            sequence_path=sequence_path,
+            n_examples_per_sequence=n_examples_per_sequence,
+            examples_prams=examples_prams,
+            path_to_save_examples=path_to_save_examples,
+            rng=rng,
+        )
+    # save the examples parameters to a json file:
+    with (path_to_save_examples / "examples_prams.json").open("w") as file:
+        json.dump(examples_prams, file, indent=4)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def generate_examples_from_sequence(
+    sequence_path: Path,
+    n_examples_per_sequence: int,
+    examples_prams: dict,
+    path_to_save_examples: Path,
+    rng,
+    draw_detections_video=True,
+):
     # load the ground truth depth maps and camera poses:
     with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
@@ -65,21 +113,32 @@ def main():
     with (sequence_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = pickle.load(file)
 
-    for i_example in range(n_examples):
+    for i_example in range(n_examples_per_sequence):
+        sequence_name = sequence_path.name
+        example_name = f"{sequence_name}_{i_example:04d}"
         # create subfolder for the example:
-        example_path = examples_dir_path / f"{i_example:04d}"
+        example_path = path_to_save_examples / example_name
         create_empty_folder(example_path)
-        print(f"Generating example {i_example} in {example_path}")
+        print(
+            f"Generating example {i_example}/{n_examples_per_sequence} for sequence {sequence_name} to save in {example_path}",
+            flush=True,
+        )
         # create symbolic links in the example folder:
-        for file_name in ["meta_data.yaml", "Video.mp4", "gt_depth_info.pkl", "gt_depth_and_egomotion.h5"]:
+        for file_name in [
+            "meta_data.yaml",
+            "Video.mp4",
+            "gt_depth_info.pkl",
+            "gt_depth_and_egomotion.h5",
+            "RGB_Frames",
+        ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
         print("Generating egomotion and depth estimations")
         est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
             gt_depth_maps=gt_depth_maps,
             gt_egomotions=gt_egomotions,
-            depth_noise_std_mm=args.depth_noise_std_mm,
-            cam_motion_loc_std_mm=args.cam_motion_loc_std_mm,
-            cam_motion_rot_std_deg=args.cam_motion_rot_std_deg,
+            depth_noise_std_mm=examples_prams["depth_noise_std_mm"],
+            cam_motion_loc_std_mm=examples_prams["cam_motion_loc_std_mm"],
+            cam_motion_rot_std_deg=examples_prams["cam_motion_rot_std_deg"],
             rng=rng,
         )
         # save the estimated depth maps and egomotions to a file:
@@ -109,6 +168,10 @@ def main():
             tracks_info=tracks_info,
         )
         detections.to_csv(example_path / "Detections.csv", encoding="utf-8-sig", index=False)
+        if draw_detections_video:
+            draw_detections_on_video_simple(
+                sequence_path=sequence_path, detections=detections, video_out_path=example_path / "Detections_Video.mp4"
+            )
 
 
 # --------------------------------------------------------------------------------------------------------------------

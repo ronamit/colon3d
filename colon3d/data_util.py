@@ -12,7 +12,7 @@ class FramesLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def __init__(
         self,
-        example_path: str,
+        sequence_path: str,
         alg_fov_ratio=1.0,
         n_frames_lim=0,
         fps=None,
@@ -20,29 +20,32 @@ class FramesLoader:
         """Initialize the video loader.
 
         Args:
-            example_path: path to the example folder
+            sequence_path: path to the example folder
             alg_fov_ratio: The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation
             n_frames_lim: limit the number of frames to load
             fps: if not None, the video will be resampled to this fps
         """
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
-        self.example_path = Path(example_path).expanduser()
-        
-        if (self.example_path / "RGB_Frames").is_dir():
-            self.rgb_frames_path = self.example_path / "RGB_Frames"
-            self.image_files_paths = sorted(Path(self.example_path / "RGB_Frames").glob("*.png"), key=lambda path: int(path.stem))
+        self.sequence_path = Path(sequence_path).expanduser()
+
+        if (self.sequence_path / "RGB_Frames").is_dir():
+            self.rgb_frames_path = self.sequence_path / "RGB_Frames"
+            self.image_files_paths = sorted(
+                Path(self.sequence_path / "RGB_Frames").glob("*.png"),
+                key=lambda path: int(path.stem),
+            )
             self.rgb_source = "Images"
         else:
-            self.video_path = self.example_path / "Video.mp4"
+            self.video_path = self.sequence_path / "Video.mp4"
             assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
             self.rgb_source = "Video"
-        
+
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
-        metadata_path = self.example_path / "meta_data.yaml"
+        metadata_path = self.sequence_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
-        with (self.example_path / "meta_data.yaml").open() as file:
+        with (self.sequence_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         if fps is None:
             fps = metadata["fps"]
@@ -53,8 +56,8 @@ class FramesLoader:
         distort_pram = np.zeros(4) if distort_pram is None else np.array(distort_pram)
         # get the camera info of the original loaded video:
         self.orig_cam_info = CamInfo(
-            width=metadata["frame_width"],
-            height=metadata["frame_height"],
+            frame_width=metadata["frame_width"],
+            frame_height=metadata["frame_height"],
             cx=metadata["cx"],  # optical center x-coordinate in pixels,
             cy=metadata["cy"],  # optical center y-coordinate in pixels
             fx=metadata["fx"],  # focal length in pixels in the x direction
@@ -68,8 +71,8 @@ class FramesLoader:
         # note:  # since the distort params depend only on the radial distance from optical center, then they are not affected by the crop by a radial crop around the center
         # the fx and fy value doesn't change, since  the focal length divided by sensor size is a physical property of the camera, and not a function of the image size, same for the distortion parameters
         self.alg_cam_info = CamInfo(
-            width=self.alg_view_cropper.width_new,
-            height=self.alg_view_cropper.height_new,
+            frame_width=self.alg_view_cropper.width_new,
+            frame_height=self.alg_view_cropper.height_new,
             cx=self.alg_view_cropper.cx_new,
             cy=self.alg_view_cropper.cy_new,
             fx=metadata["fx"],
@@ -97,7 +100,7 @@ class FramesLoader:
 
     def frames_generator(self, color_type="bgr", frame_type="alg_input"):
         if self.rgb_source == "Video":
-            video_path = Path(self.example_path) / "Video.mp4"
+            video_path = Path(self.sequence_path) / "Video.mp4"
             try:
                 vidcap = cv2.VideoCapture(str(video_path))
                 i_frame = 0
@@ -119,7 +122,7 @@ class FramesLoader:
                     break
                 frame = self.adjust_frame(cv2.imread(str(image_file)), frame_type, color_type)
                 yield frame
-            
+
     # --------------------------------------------------------------------------------------------------------------------
     def adjust_frame(self, frame, frame_type, color_type):
         # crop image for algorithm input, if needed:
@@ -130,7 +133,7 @@ class FramesLoader:
         else:
             raise ValueError(f"Unknown frame_type: {frame_type}")
         if color_type == "bgr":
-            pass # do nothing
+            pass  # do nothing
         elif color_type == "gray":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         elif color_type == "rgb":
@@ -170,7 +173,7 @@ class RadialImageCropper:
     def __init__(self, orig_cam_info: CamInfo, alg_fov_ratio: float):
         self.cx_orig = orig_cam_info.cx
         self.cy_orig = orig_cam_info.cy
-        self.view_radius = 0.5 * min(orig_cam_info.width, orig_cam_info.height) * alg_fov_ratio
+        self.view_radius = 0.5 * min(orig_cam_info.frame_width, orig_cam_info.frame_height) * alg_fov_ratio
         # the box to be cropped (that contains the FOV circle):
         self.x_min = np.floor(self.cx_orig - self.view_radius).astype(int)
         self.x_max = np.ceil(self.cx_orig + self.view_radius).astype(int)
@@ -180,7 +183,7 @@ class RadialImageCropper:
         self.cy_new = self.cy_orig - self.y_min
         self.width_new = self.x_max - self.x_min
         self.height_new = self.y_max - self.y_min
-        print(f"Original image size: {orig_cam_info.width}x{orig_cam_info.height}")
+        print(f"Original image size: {orig_cam_info.frame_width}x{orig_cam_info.frame_height}")
         print(f"Algorithm-view image size: {self.width_new}x{self.height_new}")
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -76,7 +76,7 @@ def get_tracks_detections_per_frame(
     gt_cam_poses: np.ndarray,
     depth_info: dict,
     tracks_info: dict,
-):
+) -> pd.DataFrame:
     """Returns the detections bounding boxes of the tracks in each frame."""
     tracks_point3d = tracks_info["points3d"]
     tracks_radiuses = tracks_info["radiuses"]

@@ -25,14 +25,14 @@ class SimImporter:
     def __init__(
         self,
         raw_sim_data_path: str,
-        path_to_save_processed_data: str,
+        processed_sim_data_path: str,
         limit_n_sequences: int,
         limit_n_frames: int,
         fps_override: float,
         ask_overwrite: bool = True,
     ):
         input_data_path = Path(raw_sim_data_path)
-        output_data_path = Path(path_to_save_processed_data)
+        output_data_path = Path(processed_sim_data_path)
         print("Raw simulated sequences will be be loaded from: ", input_data_path)
         print("Processed simulated sequences will be saved to: ", output_data_path)
         create_empty_folder(output_data_path, ask_overwrite=ask_overwrite)
@@ -242,7 +242,7 @@ class SimImporter:
         return cam_poses
 
     # --------------------------------------------------------------------------------------------------------------------
-    def save_rgb_frames(self, rgb_frames_paths: list, seq_path: Path, metadata: dict, save_video: bool=True):
+    def save_rgb_frames(self, rgb_frames_paths: list, seq_path: Path, metadata: dict, save_video: bool = True):
         n_frames = len(rgb_frames_paths)
 
         # copy all the rgb frames to the output directory

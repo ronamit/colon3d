@@ -1,9 +1,11 @@
 import os
+from pathlib import Path
 
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from colon3d.data_util import FramesLoader, RadialImageCropper
 from colon3d.detections_util import DetectionsTracker
@@ -38,6 +40,40 @@ def draw_detections_on_frame(
     )
     return vis_frame
 
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def draw_detections_on_video_simple(sequence_path: Path, video_out_path: Path, detections: pd.DataFrame):
+    frames_loader = FramesLoader(sequence_path)
+    frames_generator = frames_loader.frames_generator(frame_type="full")
+    frame_width = frames_loader.orig_cam_info.frame_width
+    frame_height = frames_loader.orig_cam_info.frame_height
+    video_out = cv2.VideoWriter(
+        str(video_out_path),
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        frames_loader.fps,
+        (frame_width, frame_height),
+    )
+    for i_frame, frame in enumerate(frames_generator):
+        detections_in_frame = detections.loc[detections["frame_idx"] == i_frame].to_dict("records")
+        vis_frame = frame.copy()
+        for cur_detect in detections_in_frame:
+            top_left = (round(cur_detect["xmin"]), round(cur_detect["ymin"]))
+            bottom_right = (round(cur_detect["xmax"]), round(cur_detect["ymax"]))
+            track_id = cur_detect["track_id"]
+            color = colors_platte(track_id + 1, "BGR")
+            # draw bounding bounding box
+            vis_frame = cv2.rectangle(
+                img=frame,
+                pt1=top_left,
+                pt2=bottom_right,
+                color=color,
+                thickness=2,
+            )
+        video_out.write(vis_frame)
+    video_out.release()
+    print(f"Saved video with detections to {video_out_path}")
 
 # --------------------------------------------------------------------------------------------------------------------
 

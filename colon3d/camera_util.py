@@ -17,8 +17,8 @@ class CamInfo:
     Metadata about the view
     """
 
-    width: int  # image width (unit: pixels)
-    height: int  # image height (units: pixels)
+    frame_width: int  # image width (unit: pixels)
+    frame_height: int  # image height (units: pixels)
     cx: float  # optical center x position in the image (units: pixels)
     cy: float  # optical center y position in the image (units: pixels)
     fx: float  # focal length, normalized by the x-size of a pixel's sensor  (units: pixels)
@@ -39,8 +39,8 @@ class FishEyeUndistorter:
     def __init__(self, cam_info: CamInfo):
         self.cam_K_mat = np.array([[cam_info.fx, 0, cam_info.cx], [0, cam_info.fy, cam_info.cy], [0, 0, 1]])
         self.cam_distort_param = cam_info.distort_pram
-        self.frame_width = cam_info.width
-        self.frame_height = cam_info.height
+        self.frame_width = cam_info.frame_width
+        self.frame_height = cam_info.frame_height
         self.fps = cam_info.fps
         self.undistort_points_lut = self.get_undistort_points_lut()
 

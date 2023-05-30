@@ -53,7 +53,7 @@ def main():
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
         frames_loader = FramesLoader(
-            example_path=args.example_path,
+            sequence_path=args.example_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
         )
