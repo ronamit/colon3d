@@ -16,11 +16,9 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 
 * To create conda environment with the required packages use:
 
-```bash
- conda env create -f environment.yml python=3.9
-```
+ conda env create -f environment.yml
 
-* Install [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) from source.
+<!-- * Install [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) from source. -->
 * *(optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
 
   * *(Install CUDA, and then:*

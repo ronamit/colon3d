@@ -18,13 +18,13 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData2/Seq_00000",
+        default="data/sim_data/SimData2/Examples/Seq_00000_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData2/Seq_00000/results",
+        default="data/sim_data/SimData2/Examples/Seq_00000_0000/Results",
         help="path to the save outputs",
     )
     parser.add_argument(

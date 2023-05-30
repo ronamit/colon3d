@@ -24,7 +24,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/short_results",
+        default="data/my_videos/Example_4/Short_Results",
         help="path to the save outputs",
     )
     parser.add_argument(
