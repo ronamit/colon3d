@@ -80,9 +80,10 @@ def draw_aided_nav(
             angle_deg = np.rad2deg(angle_rad)  # [deg]
             xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
             xy_dir = p3d_cam[0:2] / xy_dist
-            orient_arrow_base = orig_im_center + alg_view_radius * xy_dir  # [px]
+            arrow_base_radius = alg_view_radius * 0.7 # [px] start a little on the inside of the algorithm view circle, so the arrow will be visible
+            orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
             orient_arrow_len = 50
-            orient_arrow_tip = orig_im_center + (alg_view_radius + orient_arrow_len) * xy_dir  # [px]
+            orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]
             # project the 3d point in camera system to the full\original image pixel coordinates  (projective transform + distortion)
             track_coord_in_orig_im, is_track_in_orig_im = orig_cam_undistorter.project_from_cam_sys_to_pixels(
                 points3d=p3d_cam,
@@ -101,27 +102,27 @@ def draw_aided_nav(
                 vis_frame,
                 text=f"z={round(z_dist)} [mm], \u03B1={round(angle_deg)}\xb0" + extra_text,
                 pos=(5, 5 + track_id * 30),
-                font_size=30,
+                font_size=20,
                 fill_color=colors_platte(track_id),
                 stroke_width=2,
                 stroke_fill="black",
             )
             # draw orientation arrow, if the estimated position is outside the algorithm view
             if z_dist > 0 and not is_track_center_in_alg_view:
-                vis_frame = cv2.drawMarker(
-                    vis_frame,
-                    np.round(orient_arrow_base).astype(int),
-                    color=colors_platte(track_id),
-                    markerType=cv2.MARKER_DIAMOND,
-                    markerSize=15,
-                    thickness=2,
-                )
+                # vis_frame = cv2.drawMarker(
+                #     vis_frame,
+                #     np.round(orient_arrow_base).astype(int),
+                #     color=colors_platte(track_id),
+                #     markerType=cv2.MARKER_DIAMOND,
+                #     markerSize=15,
+                #     thickness=2,
+                # )
                 vis_frame = cv2.arrowedLine(
                     vis_frame,
                     np.round(orient_arrow_base).astype(int),
                     np.round(orient_arrow_tip).astype(int),
                     color=colors_platte(track_id),
-                    thickness=4,
+                    thickness=2,
                 )
                 # draw text near the arrow
                 delta_z = z_dist - alg_cam_info.min_vis_z_mm
@@ -131,7 +132,7 @@ def draw_aided_nav(
                     vis_frame,
                     text=f"{round(delta_z):+g}mm\n{round(delta_alpha):+g}\xb0",
                     pos=np.round(orient_arrow_base + 4 * (orient_arrow_tip - orient_arrow_base)).astype(int),
-                    font_size=40,
+                    font_size=10,
                     fill_color=colors_platte(track_id),
                     stroke_width=2,
                     stroke_fill="black",

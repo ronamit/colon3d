@@ -145,6 +145,10 @@ def generate_examples_from_sequence(
         with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
             hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
             hf.create_dataset("egomotions", data=est_egomotions)
+            
+        # save depth info to a file (unchanged from the ground truth):
+        with (example_path / "est_depth_info.pkl").open("wb") as file:
+            pickle.dump(depth_info, file)
 
         # draw some 3D world coordinates on the colon wall, to be used as objects (polyps) to track:
         n_tracks = 1 # we want only one tracked object

@@ -16,13 +16,13 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/my_videos/Example_4",
+        default="data/sim_data/SimData2/Examples/Seq_00000_0000",
         help="path to the video",
     )
     parser.add_argument(
         "--slam_out_path",
         type=str,
-        default="data/my_videos/Example_4/results",
+        default="data/sim_data/SimData2/Examples/Seq_00000_0000/Results",
         help="path to the SLAM algorithm outputs",
     )
     parser.add_argument(
