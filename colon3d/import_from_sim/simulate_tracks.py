@@ -13,7 +13,7 @@ def get_random_3d_surface_points(
     depth_info: dict,
     n_points: int,
 ) -> np.ndarray:
-    """Returns a random 3D point on the surface of the colon.
+    """Returns a random 3D point on the surface of the colon in the first frame of the sequence.
     Args:
         gt_depth_maps: The ground truth depth maps of the simulated sequence.
         gt_cam_poses: The ground truth camera poses of the simulated sequence.
@@ -26,13 +26,12 @@ def get_random_3d_surface_points(
 
     n_frames, frame_width, frame_height = gt_depth_maps.shape
     K_of_depth_map = depth_info["K_of_depth_map"]
-    points3d = np.zeros((n_points, 3))
-    # set the allowed frames range to to select the frames from:
-    start_frame = max(5, int(0.2 * n_frames))
-    stop_frame = min(start_frame + 1, int(0.4 * n_frames))
-    frame_inds = rng.integers(low=start_frame, high=stop_frame, size=n_points)
-    # randomly sample pixels inside a circle with radius max_radius around the center of the image:
-    max_radius = 0.25 * min(frame_width, frame_height)
+
+    # we are going to sample the points that are seen from the first frame of the sequence:
+    frame_inds = np.zeros(n_points, dtype=int)
+
+    # # randomly sample pixels inside a circle with radius max_radius around the center of the image:
+    max_radius = 0.9 * min(frame_width / 2, frame_height / 2)
     radius = rng.uniform(0, max_radius, size=n_points)
     angle = rng.uniform(0, 2 * np.pi, size=n_points)
     pixel_x = ((frame_width / 2) + radius * np.cos(angle)).astype(int)
@@ -52,6 +51,8 @@ def get_random_3d_surface_points(
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
+
 def generate_tracks_gt_3d_loc(
     n_tracks: int,
     gt_depth_maps: np.ndarray,
@@ -83,12 +84,14 @@ def get_tracks_detections_per_frame(
     n_tracks = tracks_point3d.shape[0]
     n_frames, frame_width, frame_height = gt_depth_maps.shape
     K_of_depth_map = depth_info["K_of_depth_map"]
+    tracks_initial_area = {}  # a dictionary that will contain the initial area of each track in each frame [pixels^2]
     xmin_list = []
     ymin_list = []
     xmax_list = []
     ymax_list = []
     frame_idx_list = []
     track_id_list = []
+    discard_track_ratio = 0.5
     for i_frame in range(n_frames):
         cam_pose = gt_cam_poses[i_frame].reshape(1, 7)
         depth_map = gt_depth_maps[i_frame]
@@ -101,7 +104,13 @@ def get_tracks_detections_per_frame(
             track_center = tracks_point3d[i_track]
             track_radius = tracks_radiuses[i_track]
             is_inside = np.linalg.norm(points3d - track_center, axis=1) < track_radius
-            if np.all(~is_inside):
+            n_inside = np.sum(is_inside)
+            if n_inside == 0:
+                continue
+            if i_frame == 0:
+                tracks_initial_area[i_track] = n_inside
+            elif n_inside / tracks_initial_area[i_track] < discard_track_ratio:
+                # if the ratio of the area of the track in the current frame to the initial area is too low - discard it:
                 continue
             # create a new detection of the track:
             # find bounding box of the pixels that are inside the ball:

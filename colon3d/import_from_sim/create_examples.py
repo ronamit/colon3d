@@ -33,7 +33,7 @@ def main():
     parser.add_argument(
         "--n_examples_per_sequence",
         type=int,
-        default=1,
+        default=3,
         help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument(
@@ -146,8 +146,8 @@ def generate_examples_from_sequence(
             hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
             hf.create_dataset("egomotions", data=est_egomotions)
 
-        # simulate the true locations of the tracks (polyps) in the 3D world:
-        n_tracks = 1
+        # draw some 3D world coordinates on the colon wall, to be used as objects (polyps) to track:
+        n_tracks = 1 # we want only one tracked object
         print("Generating", n_tracks, "tracks")
         tracks_info = generate_tracks_gt_3d_loc(
             n_tracks=n_tracks,
@@ -170,9 +170,10 @@ def generate_examples_from_sequence(
         detections.to_csv(example_path / "Detections.csv", encoding="utf-8-sig", index=False)
         if draw_detections_video:
             draw_detections_on_video_simple(
-                sequence_path=sequence_path, detections=detections, video_out_path=example_path / "Detections_Video.mp4"
+                sequence_path=sequence_path,
+                detections=detections,
+                video_out_path=example_path / "Detections_Video.mp4",
             )
-
 
 # --------------------------------------------------------------------------------------------------------------------
 def get_egomotion_and_depth_estimations(
