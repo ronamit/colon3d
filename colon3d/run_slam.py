@@ -71,12 +71,12 @@ def main():
 
         # Run the SLAM algorithm
         slam_runner = SlamRunner(alg_prm)
-        slam_out = slam_runner.run_on_video(
+        slam_out = slam_runner.run(
             frames_loader=frames_loader,
             detections_tracker=detections_tracker,
             depth_estimator=depth_estimator,
-            draw_interval=args.draw_interval,
             save_path=save_path,
+            draw_interval=args.draw_interval,
         )
 
         if save_path:

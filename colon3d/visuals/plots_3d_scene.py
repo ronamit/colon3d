@@ -18,7 +18,7 @@ def plot_world_sys_per_frame(
     fps: float,
     cam_fov_deg: float,
     detections_tracker: DetectionsTracker,
-    speedup_factor: float = 1.0,
+    speedup_factor: float = 5.0,
     show_salient_kps: bool = False,
     save_path=None,
     save_as_video: bool = False,

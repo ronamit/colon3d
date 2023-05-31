@@ -103,13 +103,13 @@ class SlamRunner:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def run_on_video(
+    def run(
         self,
         frames_loader: FramesLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
-        draw_interval: int,
         save_path: Path,
+        draw_interval: int = 0,
     ):
         frames_generator = frames_loader.frames_generator(frame_type="alg_input")
         cam_undistorter = frames_loader.alg_cam_undistorter
@@ -206,7 +206,7 @@ class SlamRunner:
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_detections
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
-        if i_frame % draw_interval == 0:
+        if draw_interval and i_frame % draw_interval == 0:
             draw_kp_on_img(
                 img=img_B,
                 salient_KPs=salient_KPs_B,
@@ -226,7 +226,7 @@ class SlamRunner:
                 self.kp_matcher,
             )
             # -----Draw the matches
-            if i_frame % draw_interval == 0:
+            if draw_interval and i_frame % draw_interval == 0:
                 # draw our inliers (if RANSAC was done) or all good matching keypoints
                 draw_matches(
                     img_A=self.img_A,
