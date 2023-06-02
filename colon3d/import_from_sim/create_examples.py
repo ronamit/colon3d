@@ -8,9 +8,9 @@ import numpy as np
 from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder
-from colon3d.import_from_sim.simulate_tracks import generate_tracks_gt_3d_loc, get_tracks_detections_per_frame
+from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat
-from colon3d.visuals.plots_2d import draw_detections_on_video_simple
+from colon3d.visuals.plots_2d import draw_tracks_on_video_simple
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -55,6 +55,24 @@ def main():
         help="The standard deviation of the estimation error added to the rotation change component of the camera motion",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
+    parser.add_argument(
+        "--min_target_radius_mm",
+        type=float,
+        default=1,
+        help="The minimum radius of the simulated targets (polyps)",
+    )
+    parser.add_argument(
+        "--max_target_radius_mm",
+        type=float,
+        default=3,
+        help="The maximum radius of the simulated targets (polyps)",
+    )
+    parser.add_argument(
+        "--max_dist_from_center_ratio",
+        type=float,
+        default=0.5,
+        help="Number in the range [0,1] that determines the maximum distance of the targets (polyps) from the center of the FOV",
+    )
 
     args = parser.parse_args()
     n_examples_per_sequence = args.n_examples_per_sequence
@@ -69,6 +87,9 @@ def main():
         "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
         "rand_seed": args.rand_seed,
         "n_examples_per_sequence": n_examples_per_sequence,
+        "min_target_radius_mm": args.min_target_radius_mm,
+        "max_target_radius_mm": args.max_target_radius_mm,
+        "max_dist_from_center_ratio": args.max_dist_from_center_ratio,
     }
     print("The simulated sequences will be be loaded from: ", sim_data_path)
     sequences_paths_list = [
@@ -101,7 +122,7 @@ def generate_examples_from_sequence(
     examples_prams: dict,
     path_to_save_examples: Path,
     rng,
-    draw_detections_video=True,
+    draw_tracks_video=True,
 ):
     # load the ground truth depth maps and camera poses:
     with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
@@ -145,39 +166,46 @@ def generate_examples_from_sequence(
         with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
             hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
             hf.create_dataset("egomotions", data=est_egomotions)
-            
+
         # save depth info to a file (unchanged from the ground truth):
         with (example_path / "est_depth_info.pkl").open("wb") as file:
             pickle.dump(depth_info, file)
 
-        # draw some 3D world coordinates on the colon wall, to be used as objects (polyps) to track:
-        n_tracks = 1 # we want only one tracked object
-        print("Generating", n_tracks, "tracks")
-        tracks_info = generate_tracks_gt_3d_loc(
-            n_tracks=n_tracks,
+        # draw some 3D world coordinates on the colon wall, to be used as target objects (polyps) to track:
+        n_targets = 1  # we want only one tracked object
+        print("Generating", n_targets, "targets")
+        targets_info = generate_targets(
+            n_targets=n_targets,
             gt_depth_maps=gt_depth_maps,
             gt_cam_poses=gt_cam_poses,
             rng=rng,
             depth_info=depth_info,
+            min_target_radius_mm=examples_prams["min_target_radius_mm"],
+            max_target_radius_mm=examples_prams["max_target_radius_mm"],
+            max_dist_from_center_ratio=examples_prams["max_dist_from_center_ratio"],
         )
-        print("Tracks info:", tracks_info)
-        with (example_path / "tracks_info.pkl").open("wb") as file:
-            pickle.dump(tracks_info, file)
+        print("Targets info:", targets_info)
+        with (example_path / "targets_info.pkl").open("wb") as file:
+            pickle.dump(targets_info, file)
+        # also save the targets info to a text file:
+        with (example_path / "targets_info.txt").open("w") as file:
+            file.write("Targets info: " + str(targets_info) + "\n")
 
-        # simulate the detections of the tracks in the 2D images:
-        detections = get_tracks_detections_per_frame(
+        # simulate the tracks (bounding boxes) of the targets in the 2D images:
+        tracks = create_tracks_per_frame(
             gt_depth_maps=gt_depth_maps,
             gt_cam_poses=gt_cam_poses,
             depth_info=depth_info,
-            tracks_info=tracks_info,
+            targets_info=targets_info,
         )
-        detections.to_csv(example_path / "Detections.csv", encoding="utf-8-sig", index=False)
-        if draw_detections_video:
-            draw_detections_on_video_simple(
+        tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)
+        if draw_tracks_video:
+            draw_tracks_on_video_simple(
                 sequence_path=sequence_path,
-                detections=detections,
-                video_out_path=example_path / "Detections_Video.mp4",
+                tracks=tracks,
+                video_out_path=example_path / "Tracks_Video.mp4",
             )
+
 
 # --------------------------------------------------------------------------------------------------------------------
 def get_egomotion_and_depth_estimations(

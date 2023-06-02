@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 
 from colon3d.data_util import FramesLoader
-from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video
-from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_detections_on_frame
+from colon3d.tracks_util import DetectionsTracker
+from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_tracks_on_frame
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -46,9 +46,9 @@ def draw_aided_nav(
         # draw the algorithm view circle
         vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
         # draw bounding boxes for the original detections in the full frame
-        orig_detections = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
-        for track_id, cur_detect in orig_detections.items():
-            vis_frame = draw_detections_on_frame(
+        orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
+        for track_id, cur_detect in orig_tracks.items():
+            vis_frame = draw_tracks_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -56,10 +56,10 @@ def draw_aided_nav(
                 convert_from_alg_view_to_full=False,
                 color=colors_platte(track_id),
             )
-        # draw bounding boxes for the detections in the algorithm view (on top of the original detections)
-        alg_view_detections = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
-        for track_id, cur_detect in alg_view_detections.items():
-            vis_frame = draw_detections_on_frame(
+        # draw bounding boxes for the tracks in the algorithm view (on top of the original tracks)
+        alg_view_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
+        for track_id, cur_detect in alg_view_tracks.items():
+            vis_frame = draw_tracks_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -80,7 +80,9 @@ def draw_aided_nav(
             angle_deg = np.rad2deg(angle_rad)  # [deg]
             xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
             xy_dir = p3d_cam[0:2] / xy_dist
-            arrow_base_radius = alg_view_radius * 0.7 # [px] start a little on the inside of the algorithm view circle, so the arrow will be visible
+            arrow_base_radius = (
+                alg_view_radius * 0.7
+            )  # [px] start a little on the inside of the algorithm view circle, so the arrow will be visible
             orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
             orient_arrow_len = 50
             orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]

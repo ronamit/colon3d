@@ -8,14 +8,14 @@ import numpy as np
 import pandas as pd
 
 from colon3d.data_util import FramesLoader, RadialImageCropper
-from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import colors_platte, coord_to_cv2kp, save_plot_and_close, save_video
+from colon3d.tracks_util import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_detections_on_frame(
+def draw_tracks_on_frame(
     vis_frame,
     cur_detect,
     track_id: int,
@@ -44,7 +44,7 @@ def draw_detections_on_frame(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_detections_on_video_simple(sequence_path: Path, video_out_path: Path, detections: pd.DataFrame):
+def draw_tracks_on_video_simple(sequence_path: Path, video_out_path: Path, tracks: pd.DataFrame):
     frames_loader = FramesLoader(sequence_path)
     frames_generator = frames_loader.frames_generator(frame_type="full")
     frame_width = frames_loader.orig_cam_info.frame_width
@@ -56,9 +56,9 @@ def draw_detections_on_video_simple(sequence_path: Path, video_out_path: Path, d
         (frame_width, frame_height),
     )
     for i_frame, frame in enumerate(frames_generator):
-        detections_in_frame = detections.loc[detections["frame_idx"] == i_frame].to_dict("records")
+        tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
         vis_frame = frame.copy()
-        for cur_detect in detections_in_frame:
+        for cur_detect in tracks_in_frame:
             top_left = (round(cur_detect["xmin"]), round(cur_detect["ymin"]))
             bottom_right = (round(cur_detect["xmax"]), round(cur_detect["ymax"]))
             track_id = cur_detect["track_id"]
@@ -74,6 +74,7 @@ def draw_detections_on_video_simple(sequence_path: Path, video_out_path: Path, d
         video_out.write(vis_frame)
     video_out.release()
     print(f"Saved video with detections to {video_out_path}")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -97,15 +98,15 @@ def draw_kp_on_img(
     img,
     salient_KPs,
     track_KPs,
-    curr_detections,
+    curr_tracks,
     alg_view_cropper: RadialImageCropper,
     save_path,
     i_frame,
 ):
     vis_frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    for track_id in curr_detections:
-        cur_detect = curr_detections[track_id]
-        vis_frame = draw_detections_on_frame(
+    for track_id in curr_tracks:
+        cur_detect = curr_tracks[track_id]
+        vis_frame = draw_tracks_on_frame(
             vis_frame=vis_frame,
             cur_detect=cur_detect,
             track_id=track_id,
@@ -176,14 +177,14 @@ def draw_matches(
     img_B_vis = cv2.cvtColor(img_B, cv2.COLOR_BGR2RGB)
     # draw detections bounding boxes
     for track_id, cur_detect in tracks_in_frameA.items():
-        img_A_vis = draw_detections_on_frame(
+        img_A_vis = draw_tracks_on_frame(
             vis_frame=img_A_vis,
             cur_detect=cur_detect,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
     for track_id, cur_detect in tracks_in_frameB.items():
-        img_B_vis = draw_detections_on_frame(
+        img_B_vis = draw_tracks_on_frame(
             vis_frame=img_B_vis,
             cur_detect=cur_detect,
             track_id=track_id,
@@ -268,11 +269,11 @@ def draw_keypoints_and_detections(
         vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
         keypoints = kp_px_all[kp_frame_idx_all == i_frame]
         keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
-        # draw bounding boxes for the original detections in the full frame
-        orig_detections = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
-        for track_id in orig_detections:
-            cur_detect = orig_detections[track_id]
-            vis_frame = draw_detections_on_frame(
+        # draw bounding boxes for the original tracks in the full frame
+        orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
+        for track_id in orig_tracks:
+            cur_detect = orig_tracks[track_id]
+            vis_frame = draw_tracks_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -280,11 +281,11 @@ def draw_keypoints_and_detections(
                 convert_from_alg_view_to_full=False,
                 color=[0, 0, 127],
             )
-        # draw bounding boxes for the detections in the algorithm view
-        cur_detections = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
-        for track_id in cur_detections:
-            cur_detect = cur_detections[track_id]
-            vis_frame = draw_detections_on_frame(
+        # draw bounding boxes for the traacks in the algorithm view
+        cur_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
+        for track_id in cur_tracks:
+            cur_detect = cur_tracks[track_id]
+            vis_frame = draw_tracks_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,

@@ -79,6 +79,8 @@ def main():
 
     plt.figure()
     plt.imshow(z_depth_frame, aspect="equal")
+    plt.xlabel("x [pixels]")
+    plt.ylabel("y [pixels]")
     save_plot_and_close(plots_path / f"{frame_name}_depth_{args.depth_source}.png")
 
     depth_info = depth_loader.depth_info

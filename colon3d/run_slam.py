@@ -5,10 +5,10 @@ from pathlib import Path
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import Tee, create_empty_folder
-from colon3d.show_slam_out import show_slam_out
+from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
+from colon3d.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ def main():
                 pickle.dump(slam_out, file)
                 print(f"Saved the results to {results_file_path}")
         # Show results
-        show_slam_out(slam_out=slam_out, save_path=args.save_path, example_path=args.example_path)
+        save_slam_out_plots(slam_out=slam_out, save_path=args.save_path, example_path=args.example_path)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

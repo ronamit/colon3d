@@ -113,6 +113,7 @@ class DepthAndEgoMotionLoader:
         depth_z_est = torch.zeros((n_points), device=device, dtype=dtype)
         # with h5py.File(self.file_path, "r") as h5f:
         for frame_idx in np.unique(frame_indexes):
+            # notice that the depth image coordinates are (y,x) not (x,y).
             depth_out = self.loaded_depth_maps[frame_idx][y[frame_indexes == frame_idx], x[frame_indexes == frame_idx]]
             depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
             depth_z_est[frame_indexes == frame_idx] = depth_out

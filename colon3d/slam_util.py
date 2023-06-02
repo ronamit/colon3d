@@ -110,12 +110,15 @@ def get_normalized_pixels_np(pixels_x: np.ndarray, pixels_y: np.ndarray, cam_K: 
 
 # --------------------------------------------------------------------------------------------------------------------
 def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray, cam_pose: np.ndarray):
-    """Returns a point cloud for a given depth map and camera pose."""
+    """Returns a point cloud for a given depth map and camera pose. The point cloud is in the world coordinate system.
+        Note: the order of the points is by (y,x) and not (x,y).
+    """
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
 
     # find the world coordinates that each pixel in the depth map corresponds to:
-    pixels_x, pixels_y = np.meshgrid(np.arange(frame_width), np.arange(frame_height))
+    pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width))
+    # notice that the depth image coordinates are (y,x) not (x,y).
     z_depths = z_depth_frame.flatten()
     pixels_x = pixels_x.flatten()
     pixels_y = pixels_y.flatten()

@@ -66,6 +66,11 @@ def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 # --------------------------------------------------------------------------------------------------------------------
+def quaternion_raw_multiply_np(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return quaternion_raw_multiply(torch.as_tensor(a), torch.as_tensor(b)).numpy()
+
+
+# --------------------------------------------------------------------------------------------------------------------
 @torch.jit.script  # disable this for debugging
 def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     """Given a quaternion representing rotation, get the quaternion representing its inverse.
@@ -239,6 +244,34 @@ def apply_egomotions_np(poses: np.array, egomotions: np.array):
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def transform_between_poses(poses1: torch.Tensor, poses2: torch.Tensor):
+    """Find the transformation from poses1 to poses2.
+        Args:
+        poses1, poses2 (torch.Tensor): [N X 7] (x, y, z, q0, qx, qy, qz) each row is the camera pose in world system.
+    """
+    locs1 = poses1[:, :3]
+    locs2 = poses2[:, :3]
+    rots1 = poses1[:, 3:]
+    rots2 = poses2[:, 3:]
+    # find the location change in the world system:
+    loc_changes = locs2 - locs1
+    # rotate the location change to poses1:
+    loc_change = rotate(points3d=loc_changes, rot_vecs=invert_rotation(rots1))
+    # find the rotation change in the previous camera axes:
+    rot_change = quaternion_raw_multiply(rots2, invert_rotation(rots1))
+    poses_change = torch.cat((loc_change, rot_change), dim=1)
+    return poses_change
+# --------------------------------------------------------------------------------------------------------------------
+
+def transform_between_poses_np(poses1: np.array, poses2: np.array):
+    """Find the transformation from poses1 to poses2.
+        Args:
+        poses1, poses2 (np.ndarray): [N X 7] (x, y, z, q0, qx, qy, qz) each row is the camera pose in world
+    """
+    poses_change = transform_between_poses(torch.from_numpy(poses1), torch.from_numpy(poses2))
+    return poses_change.numpy()
+# --------------------------------------------------------------------------------------------------------------------
+
 
 def infer_egomotions(cam_poses: torch.Tensor):
     """infer the egomotions from the previous and current camera poses
@@ -249,24 +282,15 @@ def infer_egomotions(cam_poses: torch.Tensor):
     """
     prev_poses = cam_poses[:-1, :]
     cur_poses = cam_poses[1:, :]
-    prev_loc = prev_poses[:, :3]  # prev cam positions
-    prev_rot = prev_poses[:, 3:]  # unit-quaternion of the prev cam rotations
-    cur_loc = cur_poses[:, :3]  # cur cam positions
-    cur_rot = cur_poses[:, 3:]  # unit-quaternion of the cur cam rotations
-    # find the location change in the world system:
-    loc_change_world = cur_loc - prev_loc
-    # rotate the location change to the previous camera axes:
-    loc_change = rotate(loc_change_world, invert_rotation(prev_rot))
-    # find the rotation change in the previous camera axes:
-    rot_change = quaternion_raw_multiply(cur_rot, invert_rotation(prev_rot))
-    egomotions = torch.zeros_like(cam_poses)  # [n_frames x 7]
+    
+    poses_changes = transform_between_poses(poses1=prev_poses, poses2=cur_poses)
     # set the first egomotion to be the identity rotation and zero translation:
+    egomotions = torch.zeros_like(cam_poses)
     egomotions[0, :3] = 0
     egomotions[0, 3:] = get_identity_quaternion()
     # set the rest of the egomotions:
-    egomotions[1:, :] = torch.cat((loc_change, rot_change), dim=1)
+    egomotions[1:, :] = poses_changes
     return egomotions
-
 
 # ----------------------------------------------------------------------
 
@@ -303,3 +327,79 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
 
 
 # ----------------------------------------------------------------------
+
+
+# def quaternions_to_rotation_matrices(quaternions: np.ndarray) -> np.ndarray:
+#     """
+#     Converts unit-quaternions (real-fist format) to a 3x3 rotation matrices.
+#     Args:
+#         quaternion: [N x 4] unit-quaternions (real-fist format) representing rotations.
+#     Returns:
+#         rot_mats [N x 3 x 3] rotation matrices.
+#     """
+#     assert quaternions.shape[1] == 4
+#     quaternions.shape[0]
+#     # convert to scipy format:  (w, x, y, z) -> (x, y, z, w)
+#     quant_real_last = quaternions[:, [1, 2, 3, 0]]
+#     rot_mats = spr.from_quat(quant_real_last).as_matrix()
+#     return rot_mats
+# # ----------------------------------------------------------------------
+
+# def rotation_matrices_to_quaternions(rot_mats: np.ndarray) -> np.ndarray:
+#     """"
+#     Converts rotation matrices to unit-quaternions (real-fist format).
+#     Args:
+#         rot_mats [N x 3 x 3] rotation matrices.
+#     Returns:
+#         quaternion: [N x 4] unit-quaternions (real-fist format) representing rotations.
+#     """
+#     assert rot_mats.shape[1:] == (3, 3)
+#     # convert to scipy format:  (w, x, y, z) -> (x, y, z, w)
+#     quant_real_last = spr.from_matrix(rot_mats).as_quat()
+#     # convert to pytorch format: (x, y, z, w) -> (w, x, y, z)
+#     quaternions = quant_real_last[:, [3, 0, 1, 2]]
+#     return quaternions
+
+
+# # ----------------------------------------------------------------------
+
+
+# def translations_and_quaternions_to_matrices(translations: np.ndarray, quaternions: np.ndarray) -> np.ndarray:
+#     """
+#     Converts pairs of 3D translation vectors and rotations unit-quaternions to the corresponding 4x4 transformation matrices.
+
+#     Args:
+#         translations: [N x 3] the translation vectors.
+#         quaternions: [N x 4] unit-quaternions (real-fist format) representing rotations.
+
+#     Returns:
+#         transform_mats: [N x 4 x 4] the corresponding transformation matrices.
+#     """
+
+#     # Convert the quaternion to a rotation matrix.
+#     rotation_matrix = quaternions_to_rotation_matrices(quaternions)
+
+#     # Create the translation matrix.
+#     transformation_matrix = np.eye(4)
+#     transformation_matrix[:, :3, 3] = translations
+#     transformation_matrix[:, :3, :3] = rotation_matrix
+
+#     return transformation_matrix
+
+
+# # ----------------------------------------------------------------------
+
+
+# def invert_transformation_mat(transform_mat: np.ndarray) -> np.ndarray:
+#     """"
+#     Inverts a 4x4 transformation matrix.
+#     """
+#     rot_mat = transform_mat[:3, :3]
+#     trans_vec = transform_mat[:3, 3]
+#     inv_transform_mat = np.eye(4)
+#     inv_transform_mat[:3, :3] = rot_mat.T
+#     inv_transform_mat[:3, 3] = -rot_mat.T @ trans_vec
+#     return inv_transform_mat
+
+
+# # ---------------------------------------------------------------------------------------------------------------------

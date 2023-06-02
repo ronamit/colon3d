@@ -1,12 +1,18 @@
 from copy import deepcopy
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from colon3d.alg_settings import AlgorithmParam
+from colon3d.camera_util import FishEyeUndistorter
+from colon3d.data_util import FramesLoader
+from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import save_plot_and_close
 from colon3d.rotations_util import get_smallest_angle_between_rotations_np
 from colon3d.torch_util import to_numpy
+from colon3d.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -118,6 +124,33 @@ def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, tracks_kps_cam_loc
     plt.legend()
     plt.grid(True)
     save_plot_and_close(save_path / "polyps_z.png")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# create a dataclass for the SLAM algorithm output
+
+
+@dataclass
+class SlamOutput:
+    alg_prm: AlgorithmParam  # algorithm parameters
+    cam_poses: torch.Tensor  # (N, 7) tensor of camera poses (quaternion + translation)
+    points_3d: torch.Tensor  # (M, 3) tensor of 3D keypoints
+    kp_frame_idx_all: list[int]  # list of length M, each element is the frame index of the keypoint
+    kp_px_all: torch.Tensor  # (M, 2) tensor of 2D keypoints
+    kp_nrm_all: torch.Tensor  # (M, 2) tensor of 2D keypoints normalized image coordinates
+    kp_p3d_idx_all: torch.Tensor  # (M,) tensor of 3D points corresponding to each keypoint
+    tracks_p3d_inds: list[list[int]]  #  maps a track_id to its associated 3D world points indexes
+    kp_id_all: torch.Tensor  # (M,) tensor of keypoint ids
+    p3d_inds_in_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
+    map_kp_to_p3d_idx: list[int]  # maps a keypoint index to its associated 3D world point index
+    frames_loader: FramesLoader  # frames loader object
+    detections_tracker: DetectionsTracker  # detections tracker object
+    cam_undistorter: FishEyeUndistorter  # camera undistorter object
+    depth_estimator: DepthAndEgoMotionLoader  # depth estimator object
+    analysis_logger: AnalysisLogger  # analysis logger object
+    salient_kps_world_loc_per_frame: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)
+    tracks_kps_world_loc_per_frame: list  # List of the per-step estimates of the 3D locations of the tracks KPs (in the world system)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

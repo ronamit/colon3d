@@ -11,12 +11,12 @@ from colon3d.bundle_adjust import run_bundle_adjust
 from colon3d.camera_util import FishEyeUndistorter
 from colon3d.data_util import FramesLoader, RadialImageCropper
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.detections_util import DetectionsTracker
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.rotations_util import apply_egomotions, get_identity_quaternion
-from colon3d.slam_analysis import AnalysisLogger
+from colon3d.slam_out_analysis import AnalysisLogger, SlamOutput
 from colon3d.slam_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.torch_util import get_device
+from colon3d.tracks_util import DetectionsTracker
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ class SlamRunner:
         depth_estimator: DepthAndEgoMotionLoader,
         save_path: Path,
         draw_interval: int = 0,
-    ):
+    ) -> SlamOutput:
         frames_generator = frames_loader.frames_generator(frame_type="alg_input")
         cam_undistorter = frames_loader.alg_cam_undistorter
         alg_view_cropper = frames_loader.alg_view_cropper
@@ -130,11 +130,11 @@ class SlamRunner:
             # get the current frame
             curr_frame = frames_generator.__next__()
             curr_egomotion = depth_estimator.get_egomotions_at_frames([i_frame])
-            curr_detections = detections_tracker.get_tracks_in_frame(i_frame)
+            curr_tracks = detections_tracker.get_tracks_in_frame(i_frame)
             self.run_on_new_frame(
                 curr_frame,
                 i_frame,
-                curr_detections,
+                curr_tracks,
                 curr_egomotion,
                 cam_undistorter,
                 alg_view_cropper,
@@ -146,25 +146,26 @@ class SlamRunner:
         print("-" * 50, f"\nSLAM algorithm run finished. Time now: {get_time_now_str()}")
         print("Elapsed time: ", convert_sec_to_str(time.time() - runtime_start))
         # ---- Save outputs ----
-        slam_out = {
-            "cam_poses": self.cam_poses,
-            "points_3d": self.points_3d,
-            "kp_frame_idx_all": self.kp_frame_idx_all,
-            "kp_px_all": self.kp_px_all,
-            "kp_nrm_all": self.kp_nrm_all,
-            "kp_p3d_idx_all": self.kp_p3d_idx_all,
-            "tracks_p3d_inds": self.tracks_p3d_inds,
-            "kp_id_all": self.kp_id_all,
-            "p3d_inds_in_frame": self.p3d_inds_in_frame,
-            "map_kp_to_p3d_idx": self.map_kp_to_p3d_idx,
-            "frames_loader": frames_loader,
-            "detections_tracker": detections_tracker,
-            "cam_undistorter": cam_undistorter,
-            "depth_estimator": depth_estimator,
-            "tracks_kps_world_loc_per_frame": self.tracks_kps_world_loc_per_frame,
-            "salient_kps_world_loc_per_frame": self.salient_kps_world_loc_per_frame,
-            "analysis_logger": self.analysis_logger,
-        }
+        slam_out = SlamOutput(
+            alg_prm=self.alg_prm,
+            cam_poses=self.cam_poses,
+            points_3d=self.points_3d,
+            kp_frame_idx_all=self.kp_frame_idx_all,
+            kp_px_all=self.kp_px_all,
+            kp_nrm_all=self.kp_nrm_all,
+            kp_p3d_idx_all=self.kp_p3d_idx_all,
+            tracks_p3d_inds=self.tracks_p3d_inds,
+            kp_id_all=self.kp_id_all,
+            p3d_inds_in_frame=self.p3d_inds_in_frame,
+            map_kp_to_p3d_idx=self.map_kp_to_p3d_idx,
+            frames_loader=frames_loader,
+            detections_tracker=detections_tracker,
+            cam_undistorter=cam_undistorter,
+            depth_estimator=depth_estimator,
+            tracks_kps_world_loc_per_frame=self.tracks_kps_world_loc_per_frame,
+            salient_kps_world_loc_per_frame=self.salient_kps_world_loc_per_frame,
+            analysis_logger=self.analysis_logger,
+        )
         return slam_out
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -173,7 +174,7 @@ class SlamRunner:
         self,
         curr_frame: np.array,
         i_frame: int,
-        curr_detections: dict,
+        curr_tracks: dict,
         curr_egomotion: np.array,
         cam_undistorter: FishEyeUndistorter,
         alg_view_cropper: RadialImageCropper,
@@ -204,14 +205,14 @@ class SlamRunner:
         # compute the descriptors with ORB
         salient_KPs_B, descriptors_B = self.kp_detector.compute(img_B, salient_KPs_B)
         # Find the track-keypoints according to the detection bounding box
-        tracks_in_frameB = curr_detections
+        tracks_in_frameB = curr_tracks
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
         if draw_interval and i_frame % draw_interval == 0:
             draw_kp_on_img(
                 img=img_B,
                 salient_KPs=salient_KPs_B,
                 track_KPs=track_KPs_B,
-                curr_detections=tracks_in_frameB,
+                curr_tracks=tracks_in_frameB,
                 alg_view_cropper=alg_view_cropper,
                 save_path=save_path,
                 i_frame=i_frame,
