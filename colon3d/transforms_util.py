@@ -13,63 +13,6 @@ from colon3d.torch_util import np_func
 # --------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
-def project_world_to_image_normalized_coord(
-    cur_points_3d: torch.Tensor,
-    cur_cam_poses: torch.Tensor,
-) -> torch.Tensor:
-    """Convert 3-D points to 2-D by projecting onto images.
-    assumes camera parameters set a rectilinear image transform from 3d to 2d (i.e., fisheye undistorting was done)
-    Args:
-        cur_points_3d : [n_points x 3] (units: mm)
-        cur_cam_poses : [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
-    Returns:
-        points_2d : [n_points x 2]  (units: normalized image coordinates)
-    """
-    assert cur_points_3d.shape[1] == 3, f"Points are not in 3D, {cur_points_3d.shape}."
-    assert cur_cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cur_cam_poses.shape}."
-    # Rotate & translate to camera system
-    eps = 1e-20
-    cam_loc = cur_cam_poses[:, 0:3]  # [n_points x 3]
-    cam_rot = cur_cam_poses[:, 3:7]  # [n_points x 4]
-    inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]
-    points_cam_sys = rotate(cur_points_3d - cam_loc, inv_cam_rot)
-    # Perspective transform to 2d image-plane
-    # (this transforms to normalized image coordinates, i.e., fx=1, fy=1, cx=0, cy=0)
-    z_cam_sys = points_cam_sys[:, 2]  # [n_points x 1]
-    x_wrt_axis = points_cam_sys[:, 0] / (z_cam_sys + eps)  # [n_points x 1]
-    y_wrt_axis = points_cam_sys[:, 1] / (z_cam_sys + eps)  # [n_points x 1]
-    points_2d_nrm = torch.stack((x_wrt_axis, y_wrt_axis), dim=1)  # [n_points x 2]
-    return points_2d_nrm
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def unproject_image_normalized_coord_to_cam_sys(
-    points_nrm: torch.Tensor,
-    z_depths: torch.Tensor,
-) -> torch.Tensor:
-    """Transforms a normalized image coordinate and a given z depth to a 3D point in camera system coordinates.
-    Args:
-        points_nrm: [n_points x 2] (units: normalized image coordinates)
-        z_depths: [n_points] (units: mm)
-    Returns:
-        points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
-    """
-    assert points_nrm.shape[1] == 2, f"Points are not in 2D, {points_nrm.shape}."
-
-    # normalized coordinate corresponds to fx=1, fy=1, cx=0, cy=0, so we can just multiply by z_depth to get 3d point in the camera system
-    z_cam_sys = z_depths
-    x_cam_sys = points_nrm[:, 0] * z_depths
-    y_cam_sys = points_nrm[:, 1] * z_depths
-    points_3d_cam_sys = torch.stack((x_cam_sys, y_cam_sys, z_cam_sys), dim=1)
-    return points_3d_cam_sys
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
 def transform_points_in_cam_sys_to_world_sys(
     points_3d_cam_sys: torch.Tensor,
     cam_poses: torch.Tensor,
@@ -88,15 +31,15 @@ def transform_points_in_cam_sys_to_world_sys(
     # cam_rot is the rotation from world to camera system, so we need to invert it to transform points from camera system to world system
     inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]
     #  translate & rotate to world system
-    points_3d_world_sys = cam_loc + rotate(points_3d_cam_sys, inv_cam_rot)
-    return points_3d_world_sys
+    points_3d_world = cam_loc + rotate(points_3d_cam_sys, inv_cam_rot)
+    return points_3d_world
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def transform_points_in_world_sys_to_cam_sys(
-    points_3d_world_sys: torch.Tensor,
+    points_3d_world: torch.Tensor,
     cam_poses: torch.Tensor,
 ) -> torch.Tensor:
     """Transforms points in 3D world system to a 3D points in camera system coordinates.
@@ -110,7 +53,7 @@ def transform_points_in_world_sys_to_cam_sys(
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
     # translate & rotate to camera system
-    points_3d_cam_sys = rotate(points_3d_world_sys - cam_loc, cam_rot)
+    points_3d_cam_sys = rotate(points_3d_world - cam_loc, cam_rot)
     return points_3d_cam_sys
 
 
@@ -137,9 +80,15 @@ def transform_pixel_image_coords_to_normalized(
     points_nrm = np.stack((x_nrm, y_nrm), axis=1)
     return points_nrm
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
-def unproject_image_normalized_coord_to_world(points_nrm: torch.Tensor, z_depths: torch.Tensor, cam_poses: torch.Tensor) -> torch.Tensor:
+
+def unproject_image_normalized_coord_to_world(
+    points_nrm: torch.Tensor,
+    z_depths: torch.Tensor,
+    cam_poses: torch.Tensor,
+) -> torch.Tensor:
     """Transforms a normalized image coordinate, camera pose and a given z depth to a 3D point in world system coordinates.
     Args:
         points_nrm: [n_points x 2] (units: normalized image coordinates)
@@ -149,8 +98,90 @@ def unproject_image_normalized_coord_to_world(points_nrm: torch.Tensor, z_depths
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in worlds system coordinates
     """
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)
-    points3d_world_sys = transform_points_in_cam_sys_to_world_sys(points_3d_cam_sys=points3d_cam_sys, cam_poses=cam_poses)
+    points3d_world_sys = transform_points_in_cam_sys_to_world_sys(
+        points_3d_cam_sys=points3d_cam_sys,
+        cam_poses=cam_poses,
+    )
     return points3d_world_sys
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def project_cam_sys_to_image_normalized_coord(
+    points3d_cam_sys: torch.Tensor,
+) -> torch.Tensor:
+    """Projects 3D points in camera system coordinates to normalized image coordinates.
+    Args:
+        points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
+    Returns:
+        points_2d_nrm: [n_points x 2] (units: normalized image coordinates)
+    Notes:
+        No camera intrinsics are needed since we transform to normalized image coordinates (K = I)
+    """
+    # Perspective transform to 2d image-plane
+    # (this transforms to normalized image coordinates, i.e., fx=1, fy=1, cx=0, cy=0)
+    eps = 1e-20
+    z_cam_sys = points3d_cam_sys[:, 2]  # [n_points x 1]
+    x_wrt_axis = points3d_cam_sys[:, 0] / (z_cam_sys + eps)  # [n_points x 1]
+    y_wrt_axis = points3d_cam_sys[:, 1] / (z_cam_sys + eps)  # [n_points x 1]
+    points_2d_nrm = torch.stack((x_wrt_axis, y_wrt_axis), dim=1)  # [n_points x 2]
+    return points_2d_nrm
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+# @torch.jit.script  # disable this for debugging
+def project_world_to_image_normalized_coord(
+    points3d_world: torch.Tensor,
+    cam_poses: torch.Tensor,
+) -> torch.Tensor:
+    """Projects 3D points in world system coordinates to normalized image coordinates.
+    Args:
+        points3d_world : [n_points x 3] (units: mm) 3D points in world coordinates
+        cam_poses : [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+    Returns:
+        points_2d : [n_points x 2]  (units: normalized image coordinates)
+    Notes:
+        Assumes camera parameters set a rectilinear image transform from 3d to 2d (i.e., fisheye undistorting was done)
+    """
+    assert points3d_world.shape[1] == 3, f"Points are not in 3D, {points3d_world.shape}."
+    assert cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cam_poses.shape}."
+
+    # Translate & rotate to camera system
+    points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
+        points_3d_world=points3d_world,
+        cam_poses=cam_poses,
+    )
+    # Perspective transform to 2d image-plane
+    points_2d_nrm = project_cam_sys_to_image_normalized_coord(points3d_cam_sys=points3d_cam_sys)
+    return points_2d_nrm
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def unproject_image_normalized_coord_to_cam_sys(
+    points_nrm: torch.Tensor,
+    z_depths: torch.Tensor,
+) -> torch.Tensor:
+    """Transforms a normalized image coordinate and a given z depth to a 3D point in camera system coordinates.
+    Args:
+        points_nrm: [n_points x 2] (units: normalized image coordinates)
+        z_depths: [n_points] (units: mm)
+    Returns:
+        points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
+    """
+    assert points_nrm.shape[1] == 2, f"Points are not in 2D, {points_nrm.shape}."
+
+    # normalized coordinate corresponds to fx=1, fy=1, cx=0, cy=0, so we can just multiply by z_depth to get 3d point in the camera system
+    z_cam_sys = z_depths
+    x_cam_sys = points_nrm[:, 0] * z_depths
+    y_cam_sys = points_nrm[:, 1] * z_depths
+    points_3d_cam_sys = torch.stack((x_cam_sys, y_cam_sys, z_cam_sys), dim=1)
+    return points_3d_cam_sys
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -208,7 +239,6 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
     """
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
-
     # find the world coordinates that each pixel in the depth map corresponds to:
     pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width))
     # notice that the depth image coordinates are (y,x) not (x,y).
@@ -221,7 +251,6 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
         pixels_y=pixels_y,
         cam_K=K_of_depth_map,
     )
-
     points3d_cam_sys = np_func(unproject_image_normalized_coord_to_cam_sys)(points_nrm=points_nrm, z_depths=z_depths)
 
     if cam_pose is None:
@@ -231,7 +260,6 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
         points_3d_cam_sys=points3d_cam_sys,
         cam_poses=np.tile(cam_pose, (n_pix, 1)),
     )
-
     return points3d_world_sys
 
 

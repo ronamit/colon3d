@@ -50,7 +50,8 @@ def transform_tracks_points_to_cam_frame(tracks_kps_world_loc_per_frame: list, c
         for track_id, track_world_p3d in world_tracks_p3d.items():
             # Rotate & translate to camera view
             track_cam_p3d = transform_points_in_world_sys_to_cam_sys(
-                points_3d_world_sys=track_world_p3d, cam_poses=cam_poses,
+                points_3d_world=track_world_p3d,
+                cam_poses=cam_poses,
             )
             cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
     return cam_p3d_per_frame_per_track
