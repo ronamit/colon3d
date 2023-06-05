@@ -9,8 +9,7 @@ import numpy as np
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import create_folder_if_not_exists, save_plot_and_close
-from colon3d.rotations_util import get_identity_quaternion_np
-from colon3d.slam_util import get_frame_point_cloud
+from colon3d.transforms_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
 
@@ -32,7 +31,7 @@ def main():
     parser.add_argument(
         "--frame_index",
         type=float,
-        default=33,
+        default=0,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
@@ -67,16 +66,6 @@ def main():
     # get the depth map
     z_depth_frame = depth_loader.get_depth_map_at_frame(frame_idx)
 
-    # if ground-truth camera pose is available, use it for the point cloud plot
-    if args.depth_source == "ground_truth":
-        with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-            gt_cam_poses = h5f["cam_poses"][:]
-            cam_pose = gt_cam_poses[frame_idx]
-    else:
-        # otherwise, set the camera at the origin, and looking at the z-axis direction
-        cam_pose = np.zeros(7)
-        cam_pose[3:] = get_identity_quaternion_np()
-
     plt.figure()
     plt.imshow(z_depth_frame, aspect="equal")
     plt.xlabel("x [pixels]")
@@ -89,15 +78,33 @@ def main():
     frame_height, frame_width = z_depth_frame.shape[:2]
     fov_deg = 2 * np.rad2deg(np.arctan(0.5 * min(frame_width / fx, frame_height / fy)))
 
-    points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
-    plot_cam_and_point_cloud(
-        points3d=points3d,
-        cam_pose=cam_pose,
-        cam_fov_deg=fov_deg,
-        verbose=True,
-        save_path=plots_path / f"{frame_name}_point_cloud_{args.depth_source}.html",
-    )
-
+    # if ground-truth camera pose is available, use it for the point cloud plot
+    if args.depth_source == "ground_truth":
+        with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+            gt_cam_poses = h5f["cam_poses"][:]
+            cam_pose = gt_cam_poses[frame_idx]
+            print("Using ground-truth camera pose for the point cloud plot")
+            print(f"(x,y,z)={cam_pose[:3]} [mm]\n (qw,qx,qy,qz)={cam_pose[3:]}")
+        # get the point cloud (in the world coordinate system)
+        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
+        plot_cam_and_point_cloud(
+            points3d=points3d,
+            cam_pose=cam_pose,
+            cam_fov_deg=fov_deg,
+            verbose=True,
+            save_path=plots_path / f"{frame_name}_point_cloud_world_sys_{args.depth_source}.html",
+        )
+        # get the point cloud (in the camera coordinate system)
+        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=None)
+        plot_cam_and_point_cloud(
+            points3d=points3d,
+            cam_pose=None,
+            cam_fov_deg=fov_deg,
+            verbose=True,
+            save_path=plots_path / f"{frame_name}_point_cloud_camera_sys_{args.depth_source}.html",
+        )
+    else:
+        print("No ground-truth camera pose is available, so the point cloud plot will not be saved")
 
 # --------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":

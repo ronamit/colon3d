@@ -1,7 +1,6 @@
 import json
 import os
 import pickle
-import shutil
 from pathlib import Path
 
 import cv2
@@ -13,9 +12,49 @@ from colon3d.general_util import (
     create_empty_folder,
     path_to_str,
 )
-from colon3d.rotations_util import infer_egomotions_np
+from colon3d.torch_util import np_func
+from colon3d.transforms_util import infer_egomotions
+from colon3d.visuals.plot_depth_video import plot_depth_video
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def change_cam_transform_to_right_handed(cam_trans: np.ndarray, cam_rot: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Transforms the camera transform from left-handed to right-handed coordinate system.
+    Args:
+        cam_trans: (N, 3) array of camera translations
+        cam_rot: (N, 4) array of camera rotations (quaternions) in the format (qw, qx, qy, qz)
+    Notes:
+        see - https://gamedev.stackexchange.com/a/201978
+            - https://github.com/zsustc/colon_reconstruction_dataset
+    """
+    # y <- -y
+    cam_trans[:, 1] *= -1
+    # change the rotation accordingly: qy <- -qy
+    cam_rot[:, 2] *= -1
+    # since we switched from LH to RH space, we need to flip the rotation angle sign.
+    cam_rot[:, 1:] *= -1  # (qw, qx, -qy, qz )-> (qw, -qx, qy, -qz)
+
+    return cam_trans, cam_rot
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def change_image_to_right_handed(image: np.ndarray) -> np.ndarray:
+    """
+    Transforms the image from left-handed to right-handed coordinate system.
+    Args:
+        image: (H, W, ..) array of image pixels
+    """
+    #  y <- -y
+    image = np.flip(image, axis=0)  # flip the image vertically
+    return image
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -142,7 +181,7 @@ class SimImporter:
             )
 
             # infer the egomotions (camera pose changes) from the camera poses:
-            egomotions = infer_egomotions_np(cam_poses)
+            egomotions = np_func(infer_egomotions)(cam_poses)
 
             # extract the depth frames
             z_depth_frames, depth_info = self.get_ground_truth_depth(
@@ -161,6 +200,13 @@ class SimImporter:
             with (seq_path / "gt_depth_info.pkl").open("wb") as file:
                 pickle.dump(depth_info, file)
 
+            # save depth video
+            plot_depth_video(
+                depth_frames=z_depth_frames,
+                save_path=seq_path / "gt_depth_video.mp4",
+                fps=metadata["fps"],
+            )
+
             # save h5 file of depth frames and camera poses
             file_path = seq_path / "gt_depth_and_egomotion.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
@@ -168,6 +214,7 @@ class SimImporter:
                 hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
                 hf.create_dataset("cam_poses", data=cam_poses)
                 hf.create_dataset("egomotions", data=egomotions)
+
         print("Done.")
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -216,11 +263,18 @@ class SimImporter:
         return metadata
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_sequence_cam_poses(self, raw_trans: list, raw_rot: list):
-        # save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames
-        # the 7 values are: x, y, z, q_w, q_x, q_y, q_z
-        #  (x, y, z) is the camera position in the world system (in mm)
-        #  (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system
+    def get_sequence_cam_poses(self, raw_trans: list, raw_rot: list) -> np.ndarray:
+        """
+        save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames.
+        the 7 values are: x, y, z, q_w, q_x, q_y, q_z
+        (x, y, z) is the camera position in the world system (in mm)
+        (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system.
+        Args:
+            raw_trans: a list of 3D translation vectors (x, y, z) in Unity units
+            raw_rot: a list of 4D rotation unit-quaternion in Unity units
+        Returns:
+            cam_poses: the camera-poses in out format, a numpy array with shape (N, 7) where N is the number of frames.
+        """
 
         cam_trans = np.row_stack(raw_trans)
         cam_rot = np.row_stack(raw_rot)
@@ -231,12 +285,7 @@ class SimImporter:
         # change the units from Unity units to mm
         cam_trans *= self.UNITY_TO_MM
 
-        # transform from the unity left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
-        # [x,-y,z]-->[x,y,z]
-        cam_trans[:, 1] *= -1
-        #  [qw, qx, qy, qz]-->[ qw, -qx, qy, -qz]
-        cam_rot[:, 1] *= -1
-        cam_rot[:, 3] *= -1
+        cam_trans, cam_rot = change_cam_transform_to_right_handed(cam_trans, cam_rot)
 
         cam_poses = np.concatenate((cam_trans, cam_rot), axis=1)
         return cam_poses
@@ -250,9 +299,12 @@ class SimImporter:
         create_empty_folder(frames_out_path, ask_overwrite=False)
         for i_frame, frame_path in enumerate(rgb_frames_paths):
             frame_name = f"{i_frame:06d}.png"
-            shutil.copy(
-                src=path_to_str(self.input_data_path / frame_path),
-                dst=path_to_str(frames_out_path / frame_name),
+            im = cv2.imread(path_to_str(self.input_data_path / frame_path))
+            im = change_image_to_right_handed(im)
+            # save the image
+            cv2.imwrite(
+                filename=path_to_str(frames_out_path / frame_name),
+                img=im,
             )
 
         if save_video:
@@ -270,9 +322,10 @@ class SimImporter:
                 frameSize=frame_size,
                 isColor=True,
             )
-            for i_frame, frame_path in enumerate(rgb_frames_paths):
+            for i_frame in range(n_frames):
+                frame_name = f"{i_frame:06d}.png"
                 print(f"Writing RGB frame {i_frame+1}/{n_frames} to video", end="\r")
-                im = cv2.imread(path_to_str(self.input_data_path / frame_path))
+                im = cv2.imread(path_to_str(frames_out_path / frame_name))
                 assert im.shape == (frame_height, frame_width, 3)
                 out_video.write(im)
             out_video.release()
@@ -295,6 +348,7 @@ class SimImporter:
             print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
             # All 3 channels are the same (depth), so we only need to read one
             depth_img = cv2.imread(path_to_str(depth_file_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+            depth_img = change_image_to_right_handed(depth_img)
             R_channel_idx = 2  # OpenCV reads in BGR order
             z_depth_mm = self.UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
             z_depth_frames[i_frame] = z_depth_mm

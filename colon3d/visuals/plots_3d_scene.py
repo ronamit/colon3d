@@ -1,8 +1,8 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from colon3d.tracks_util import DetectionsTracker
 from colon3d.torch_util import to_numpy
+from colon3d.tracks_util import DetectionsTracker
 from colon3d.visuals.animate_util import create_animation_video, create_interactive_3d_animation
 from colon3d.visuals.create_3d_obj import plot_fov_cone
 
@@ -49,8 +49,6 @@ def plot_world_sys_per_frame(
     #### create the objects that are dynamics (per-frame) in the scene
     per_step_objs_lists = [[] for _ in range(n_steps)]  # list of lists of object to show per step\frame
     max_dist = 1
-
-    # max_points = 500 # max number of salient points to plot (to avoid overloading the plot)
 
     if show_salient_kps:
         for i_step, i_frame in enumerate(frame_inds):

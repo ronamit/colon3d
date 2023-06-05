@@ -3,8 +3,8 @@ import pickle
 from pathlib import Path
 
 from colon3d.general_util import Tee, create_folder_if_not_exists
+from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.slam_out_analysis import plot_z_dist_from_cam
-from colon3d.slam_util import transform_tracks_points_to_cam_frame
 from colon3d.visuals.aided_nav_plot import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_detections
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
@@ -77,7 +77,9 @@ def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_f
 
     # ---- Plot the estimated tracks z-coordinate in the camera system per fame
     if plot_names is None or "z_dist_from_cam" in plot_names:
-        plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, tracks_kps_cam_loc_per_frame, t_interval_sec, save_path)
+        plot_z_dist_from_cam(
+            tracks_ids, start_frame, stop_frame, tracks_kps_cam_loc_per_frame, t_interval_sec, save_path
+        )
 
     analysis_logger.plot_cam_pose_changes(save_path, t_interval_sec)
 

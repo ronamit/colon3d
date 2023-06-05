@@ -12,11 +12,12 @@ from colon3d.camera_util import FishEyeUndistorter
 from colon3d.data_util import FramesLoader, RadialImageCropper
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
-from colon3d.rotations_util import apply_egomotions, get_identity_quaternion
+from colon3d.keypoints_util import get_kp_matchings, get_tracks_keypoints
+from colon3d.rotations_util import get_identity_quaternion
 from colon3d.slam_out_analysis import AnalysisLogger, SlamOutput
-from colon3d.slam_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.torch_util import get_device
 from colon3d.tracks_util import DetectionsTracker
+from colon3d.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -197,7 +198,7 @@ class SlamRunner:
             # get the estimated 6DOF cam pose change from the previous frame (egomotion)
             egomotion = torch.as_tensor(curr_egomotion, device=self.device)  # [1 x 7]
             prev_cam_pose = self.cam_poses[i_frame - 1, :].unsqueeze(0)  # [1 x 7]
-            cur_guess_cam_pose = apply_egomotions(prev_poses=prev_cam_pose, egomotions=egomotion)
+            cur_guess_cam_pose = apply_pose_change(start_pose=prev_cam_pose, pose_change=egomotion)
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
 
         # find salient keypoints with ORB

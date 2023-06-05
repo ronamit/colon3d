@@ -10,8 +10,8 @@ from colon3d.camera_util import FishEyeUndistorter
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import save_plot_and_close
-from colon3d.rotations_util import get_smallest_angle_between_rotations_np
-from colon3d.torch_util import to_numpy
+from colon3d.rotations_util import get_smallest_angle_between_rotations
+from colon3d.torch_util import np_func, to_numpy
 from colon3d.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ class AnalysisLogger:
         for i_frame in range(1, n_frames):
             rot_est = cam_pose_estimates[i_frame, 3:]
             rot_guess = cam_pose_guesses[i_frame, 3:]
-            angle_opt_change[i_frame] = get_smallest_angle_between_rotations_np(rot_est, rot_guess)
+            angle_opt_change[i_frame] = np_func(get_smallest_angle_between_rotations)(rot_est, rot_guess)
         axs[1, 0].plot(time_vec[1:], np.rad2deg(angle_opt_change[1:]), label="diff. from guess")
         axs[1, 0].set(title="diff. from guess", ylabel="[Deg.]")
 
@@ -83,7 +83,7 @@ class AnalysisLogger:
         for i_frame in range(1, n_frames):
             cur_rot = cam_pose_estimates[i_frame, 3:]
             prev_rot = cam_pose_estimates[i_frame - 1, 3:]
-            angle_change[i_frame] = get_smallest_angle_between_rotations_np(cur_rot, prev_rot)
+            angle_change[i_frame] = np_func(get_smallest_angle_between_rotations)(cur_rot, prev_rot)
         axs[1, 1].plot(
             time_vec[1:],
             np.rad2deg(angle_change[1:]),

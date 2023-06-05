@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
 
-from colon3d.slam_util import get_frame_point_cloud, get_normalized_pixels_np, unproject_normalized_coord_to_world_np
+from colon3d.torch_util import np_func
+from colon3d.transforms_util import (
+    get_frame_point_cloud,
+    transform_pixel_image_coords_to_normalized,
+    unproject_image_normalized_coord_to_world,
+)
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -19,35 +24,54 @@ def generate_targets(
     """generate random 3D points on the surface of the colon, which will be used as the center of the tracks/"""
     n_frames, frame_width, frame_height = gt_depth_maps.shape
     K_of_depth_map = depth_info["K_of_depth_map"]
-    max_radius = max_dist_from_center_ratio * min(frame_width / 2, frame_height / 2)
-    
+    target_center_radius_max = max_dist_from_center_ratio * min(frame_width / 2, frame_height / 2)
+
+    max_attempts = 100
+    i_attempt = 0
+    min_target_pixels = 250
+
     # we are going to sample the points that are seen from the first frame of the sequence:
     i_frame = 0
-    cam_pose = gt_cam_poses[i_frame]
+    cam_pose = gt_cam_poses[i_frame][np.newaxis, :]
     depth_map = gt_depth_maps[i_frame]
-    
+
     # get the point cloud of the first frame (in world coordinate:)
     points3d = get_frame_point_cloud(z_depth_frame=depth_map, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
 
-    # randomly sample pixels inside a circle with radius max_radius around the center of the image:
-    radius = rng.uniform(0, max_radius, size=n_targets)
-    angle = rng.uniform(0, 2 * np.pi, size=n_targets)
-    pixel_x = ((frame_width / 2) + radius * np.cos(angle)).astype(int)
-    pixel_y = ((frame_height / 2) + radius * np.sin(angle)).astype(int)
-    z_depth = depth_map[pixel_y, pixel_x] # notice that the depth image coordinates are (y,x) not (x,y).
+    while i_attempt < max_attempts:
+        # randomly sample pixels inside a circle with radius max_radius around the center of the image:
+        target_center_radius = rng.uniform(0, target_center_radius_max, size=n_targets)
+        angle = rng.uniform(0, 2 * np.pi, size=n_targets)
+        pixel_x = ((frame_width / 2) + target_center_radius * np.cos(angle)).astype(int)
+        pixel_y = ((frame_height / 2) + target_center_radius * np.sin(angle)).astype(int)
+        z_depth = depth_map[pixel_y, pixel_x]  # notice that the depth image coordinates are (y,x) not (x,y).
 
+        # get the 3D point in the world coordinate system of the target center
+        target_center_nrm = transform_pixel_image_coords_to_normalized(
+            pixels_x=pixel_x,
+            pixels_y=pixel_y,
+            cam_K=K_of_depth_map,
+        )
+        target_center_3d = np_func(unproject_image_normalized_coord_to_world)(
+            points_nrm=target_center_nrm,
+            z_depth=z_depth,
+            cam_poses=cam_pose,
+        )
+        # Determine the size of the ball around the target center:
+        target_radius = rng.uniform(min_target_radius_mm, max_target_radius_mm, size=n_targets)
 
-    # get the 3D point in the world coordinate system
-    points_nrm = get_normalized_pixels_np(pixels_x=pixel_x, pixels_y=pixel_y, cam_K=K_of_depth_map)
-    points3d = unproject_normalized_coord_to_world_np(
-        points_nrm=points_nrm,
-        z_depth=z_depth,
-        cam_poses=cam_pose,
-    )
-    # draw the radius of each track from a uniform distribution:
-    target_radius = rng.uniform(min_target_radius_mm, max_target_radius_mm, size=n_targets)
-        
-    targets_info = {"points3d": points3d,  "radiuses": target_radius, "seen_at_pixel": (i_frame, pixel_x, pixel_y)}
+        # check how many points are inside the ball around each target center:
+        n_points_inside = np.sum(
+            np.linalg.norm(points3d - target_center_3d[:, np.newaxis], axis=-1) < target_radius,
+            axis=-1,
+        )
+
+        print(f"i_attempt={i_attempt}, n_points_inside={n_points_inside}")
+        if n_points_inside > min_target_pixels:
+            break
+        i_attempt += 1
+
+    targets_info = {"points3d": target_center_3d, "radiuses": target_radius, "seen_at_pixel": (i_frame, pixel_x, pixel_y)}
     return targets_info
 
 
@@ -81,16 +105,18 @@ def create_tracks_per_frame(
     for i_frame in range(n_frames):
         cam_pose = gt_cam_poses[i_frame].reshape(1, 7)
         depth_map = gt_depth_maps[i_frame]
+        # get the point cloud of the first frame (in world coordinate:)
         points3d = get_frame_point_cloud(z_depth_frame=depth_map, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
         for i_track in range(n_tracks):
             # find the pixels that are inside the ball around each track center:
             track_center = tracks_point3d[i_track]
             track_radius = tracks_radiuses[i_track]
-            is_inside = np.linalg.norm(points3d - track_center, axis=1) < track_radius
+            is_inside = np.linalg.norm(points3d - track_center, axis=-1) < track_radius
             n_inside = np.sum(is_inside)
             if n_inside == 0:
                 continue
             if i_frame == 0:
+                assert n_inside > 0, "the first frame should contain at least one pixel inside the ball"
                 tracks_initial_area[i_track] = n_inside
             elif n_inside / tracks_initial_area[i_track] < discard_track_ratio:
                 # if the ratio of the area of the track in the current frame to the initial area is too low - discard it:

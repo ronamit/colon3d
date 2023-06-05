@@ -9,7 +9,9 @@ from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder
 from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
-from colon3d.rotations_util import apply_egomotions_np, get_random_rot_quat
+from colon3d.rotations_util import get_random_rot_quat
+from colon3d.torch_util import np_func
+from colon3d.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import draw_tracks_on_video_simple
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -151,6 +153,7 @@ def generate_examples_from_sequence(
             "gt_depth_info.pkl",
             "gt_depth_and_egomotion.h5",
             "RGB_Frames",
+            "gt_depth_video.mp4",
         ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
         print("Generating egomotion and depth estimations")
@@ -234,7 +237,7 @@ def get_egomotion_and_depth_estimations(
     rot_err_quat = get_random_rot_quat(rng=rng, angle_std_deg=cam_motion_rot_std_deg, n_vecs=n_frames)
     err_egomotions = np.concatenate([loc_err, rot_err_quat], axis=1)
     # create the estimated egomotions by applying the error egomotions to the ground truth egomotions:
-    est_egomotions = apply_egomotions_np(gt_egomotions, err_egomotions)
+    est_egomotions = np_func(apply_pose_change)(start_pose=gt_egomotions, pose_change=err_egomotions)
     return est_depth_maps, est_egomotions
 
 

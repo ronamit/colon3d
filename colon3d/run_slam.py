@@ -24,7 +24,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/Short_Results",
+        default="data/my_videos/Example_4/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -36,13 +36,13 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=50,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=50,
+        default=100,
         help="plot and save figures each draw_interval frames",
     )
 

@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import torch
 
-from colon3d.slam_util import unproject_normalized_coord_to_world
+from colon3d.transforms_util import unproject_image_normalized_coord_to_world
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -32,12 +32,13 @@ class DepthAndEgoMotionLoader:
         with h5py.File(self.data_file_path, "r") as h5f:
             self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
             self.loaded_depth_maps = h5f["z_depth_map"][:]  # load into memory
-                # load the depth estimation info\metadata
+            # load the depth estimation info\metadata
         with (self.example_path / info_file_name).open("rb") as file:
             self.depth_info = pickle.load(file)
         self.depth_map_size = self.depth_info["depth_map_size"]
         self.de_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
         self.n_frames = self.depth_info["n_frames"]
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_map_at_frame(
@@ -89,7 +90,7 @@ class DepthAndEgoMotionLoader:
 
         Returns:
             depth_z_est: the depth estimation at the queried point [n_points] (units: mm)
-            
+
         Note: Normalized coordinates correspond to a rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
         n_points = queried_points_nrm.shape[0]
@@ -119,7 +120,7 @@ class DepthAndEgoMotionLoader:
             depth_z_est[frame_indexes == frame_idx] = depth_out
 
         # del loaded_depth_maps, h5f
-        
+
         # clip the depth
         depth_z_est[depth_z_est > z_depth_upper_bound] = torch.as_tensor(
             z_depth_upper_bound,
@@ -159,9 +160,9 @@ class DepthAndEgoMotionLoader:
             z_depth_upper_bound=z_depth_upper_bound,
             z_depth_lower_bound=z_depth_lower_bound,
         )
-        p3d_est = unproject_normalized_coord_to_world(
+        p3d_est = unproject_image_normalized_coord_to_world(
             points_nrm=queried_points_nrm,
-            z_depth=depth_z_est,
+            z_depths=depth_z_est,
             cam_poses=cam_poses,
         )
         return p3d_est

@@ -16,6 +16,7 @@ def get_device():
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 def to_numpy(x, dtype=np.float32):
     if isinstance(x, torch.Tensor):
         return x.numpy(force=True).astype(dtype)
@@ -25,10 +26,26 @@ def to_numpy(x, dtype=np.float32):
 # --------------------------------------------------------------------------------------------------------------------
 
 
+def np_func(func):
+    """Decorator that converts all Numpy arrays to PyTorch tensors before calling the function and converts the result back to Numpy array."""
+
+    def wrapper(*args, **kwargs):
+        args = [torch.from_numpy(x) if isinstance(x, np.ndarray) else x for x in args]
+        kwargs = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in kwargs.items()}
+        result = func(*args, **kwargs)
+        return to_numpy(result)
+
+    return wrapper
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 def get_val(x):
     if isinstance(x, torch.Tensor):
         return x.item()
     return x
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -127,7 +144,11 @@ class SoftConstraints:
 
 @torch.jit.script  # disable this for debugging
 def upper_log_barrier(
-    val: torch.Tensor, upper_lim: torch.Tensor, barrier_jump: torch.Tensor, eps: torch.Tensor, margin: torch.Tensor,
+    val: torch.Tensor,
+    upper_lim: torch.Tensor,
+    barrier_jump: torch.Tensor,
+    eps: torch.Tensor,
+    margin: torch.Tensor,
 ) -> torch.Tensor:
     """
     when val < (upper_lim - margin), the penalty is 0
@@ -146,7 +167,11 @@ def upper_log_barrier(
 
 @torch.jit.script  # disable this for debugging
 def lower_log_barrier(
-    val: torch.Tensor, lower_lim: torch.Tensor, barrier_jump: torch.Tensor, eps: torch.Tensor, margin: torch.Tensor,
+    val: torch.Tensor,
+    lower_lim: torch.Tensor,
+    barrier_jump: torch.Tensor,
+    eps: torch.Tensor,
+    margin: torch.Tensor,
 ) -> torch.Tensor:
     """
     when val > (lower_lim + margin), the penalty is 0

@@ -153,14 +153,11 @@ def draw_aided_nav(
     # end for
     if save_path:
         save_video(
-            save_path,
-            file_name="local_aided_nav.mp4",
+            save_path=save_path / "local_aided_nav.mp4",
             frames=nav_vis_frames,
             fps=fps,
         )
     return nav_vis_frames
 
-
-# --------------------------------------------------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------------------------------------------------

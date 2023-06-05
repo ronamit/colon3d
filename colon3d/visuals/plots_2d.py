@@ -315,8 +315,7 @@ def draw_keypoints_and_detections(
 
     if save_path:
         save_video(
-            save_path,
-            file_name="draw_keypoints_and_detections.mp4",
+            save_path=save_path / "draw_keypoints_and_detections.mp4",
             frames=vis_frames,
             fps=fps,
         )

@@ -5,7 +5,8 @@ import plotly.graph_objects as go
 from PIL import Image
 
 from colon3d.general_util import save_video_from_func
-from colon3d.rotations_util import get_identity_quaternion_np
+from colon3d.rotations_util import get_identity_quaternion
+from colon3d.torch_util import np_func
 from colon3d.visuals.create_3d_obj import plot_xyz_axes
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -216,8 +217,7 @@ def create_animation_video(
 
     fps = 1 / step_duration_sec
     save_video_from_func(
-        save_path=save_path,
-        file_name=file_name,
+        save_path=save_path / file_name,
         make_frame=make_frame,
         n_frames=n_steps,
         fps=fps,
@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
     # create the initial plot objects
     loc1 = np.array([0, 0, 0])
-    rot1 = get_identity_quaternion_np()
+    rot1 = np_func(get_identity_quaternion)()
 
     loc2 = np.array([4, 0, 0])
     rot2 = np.array([1, 4, 3, 2])

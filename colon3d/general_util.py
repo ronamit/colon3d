@@ -75,18 +75,16 @@ def find_in_file_between_str(file_path, before_str, after_str, line_prefix=None)
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_video_from_func(save_path: Path, file_name: str, make_frame, n_frames: int, fps: float, backend="cv2"):
+def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float, backend="cv2"):
     """Saves a video from a function that generates the frames.
     Args:
         save_path: the path to save the video to
-        file_name: the name of the video file
         make_frame (function): a function that gets the frame number and returns the frame as a numpy array [H, W, C]
         n_frames (int): the number of frames
         fps: the frames per second
     Note: for faster video creation, see https://github.com/opencv/opencv/wiki/Video-IO-hardware-acceleration
     """
-    print(f"Creating video: {file_name}...")
-    file_path = str(Path(save_path) / file_name)
+    file_path = str(save_path)
     if backend == "cv2":
         frame = make_frame(0)
         height, width = frame.shape[:2]
@@ -109,11 +107,11 @@ def save_video_from_func(save_path: Path, file_name: str, make_frame, n_frames: 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_video(save_path: Path, file_name: str, frames: list, fps: float):
+def save_video(save_path: Path, frames: list, fps: float):
     def make_frame(i_frame) -> np.ndarray:
         return frames[i_frame]
 
-    save_video_from_func(save_path, file_name, make_frame, len(frames), fps)
+    save_video_from_func(save_path, make_frame, len(frames), fps)
 
 
 # --------------------------------------------------------------------------------------------------------------------

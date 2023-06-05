@@ -166,6 +166,7 @@ def rotate_img(img, angle_deg):
     rotated_image = cv2.warpAffine(img, rotation_matrix, (width, height))
     return rotated_image
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class RadialImageCropper:
     """Crop an image to a circular region around the optical center of the camera. The cropped image is resized to a square image where areas outside the circle are filled with zeros."""

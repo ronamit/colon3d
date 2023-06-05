@@ -7,10 +7,10 @@ import torchmin  # https://github.com/rfeinman/pytorch-minimize
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternion
-from colon3d.slam_util import project_world_to_normalized_coord
 from colon3d.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
+from colon3d.transforms_util import project_world_to_image_normalized_coord
 
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512" # prevent cuda out of memory error
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ def compute_cost_function(
     point3d_per_kp = points_3d_c[kp_p3d_idx_u]
 
     # Project the 3D points to to normalized coordinates in the undistorted image system (focal length is 1 and the optical center is at (0,0))
-    projected_point_nrm = project_world_to_normalized_coord(
+    projected_point_nrm = project_world_to_image_normalized_coord(
         cur_points_3d=point3d_per_kp,
         cur_cam_poses=cam_poses_per_kp,
     )

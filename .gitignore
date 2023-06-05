@@ -4,4 +4,4 @@ Undistort_LUTs/*
 colon3d/visuals/__pycache__/*
 colon3d/import_from_sim/__pycache__/*
 build/lib/*
-colon3d.egg-info/*
+colon3d.egg-info
