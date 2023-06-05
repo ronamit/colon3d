@@ -40,14 +40,15 @@ def transform_tracks_points_to_cam_frame(tracks_kps_world_loc_per_frame: list, c
     Return:
         cam_p3d_per_frame_per_track: transformed to the camera system (units: mm)
     """
-    assert cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cam_poses.shape}."
     n_frames = cam_poses.shape[0]
+    if cam_poses.ndim == 1:
+        # if only one camera pose is given, repeat it for all frames
+        cam_poses = cam_poses.repeat(n_frames)
     cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
     for i_frame in range(n_frames):
         world_tracks_p3d = tracks_kps_world_loc_per_frame[i_frame]
         for track_id, track_world_p3d in world_tracks_p3d.items():
             # Rotate & translate to camera view
-            cam_poses = cam_poses[i_frame, :]
             track_cam_p3d = transform_points_in_world_sys_to_cam_sys(
                 points_3d_world_sys=track_world_p3d, cam_poses=cam_poses,
             )

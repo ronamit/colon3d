@@ -22,7 +22,7 @@
                 "--example_path",
                 "data/my_videos/Example_4",
                 "--save_path",
-                "data/my_videos/Example_4/short_results",
+                "data/my_videos/Example_4/Short_Results",
                 "--alg_fov_ratio",
                 "0.8",
                 "--n_frames_lim",
@@ -50,7 +50,7 @@
                 "--example_path",
                 "data/my_videos/Example_4",
                 "--save_path",
-                "data/my_videos/Example_4/results",
+                "data/my_videos/Example_4/Results",
                 "--alg_fov_ratio",
                 "0.8",
                 "--n_frames_lim",
@@ -67,7 +67,7 @@
                 "--example_path",
                 "data/my_videos/Example_4_rotV2",
                 "--save_path",
-                "data/my_videos/Example_4_rotV2/results",
+                "data/my_videos/Example_4_rotV2/Results",
                 "--alg_fov_ratio",
                 "0.8",
                 "--n_frames_lim",
@@ -84,7 +84,7 @@
                 "--example_path",
                 "data/my_videos/Example_4",
                 "--save_path",
-                "data/my_videos/Example_4/show_results_new"
+                "data/my_videos/Example_4/Show_Results"
             ]
         },
     ]

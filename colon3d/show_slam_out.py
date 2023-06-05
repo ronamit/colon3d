@@ -6,7 +6,7 @@ from colon3d.general_util import Tee, create_folder_if_not_exists
 from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.visuals.aided_nav_plot import draw_aided_nav
-from colon3d.visuals.plots_2d import draw_keypoints_and_detections
+from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -78,7 +78,12 @@ def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_f
     # ---- Plot the estimated tracks z-coordinate in the camera system per fame
     if plot_names is None or "z_dist_from_cam" in plot_names:
         plot_z_dist_from_cam(
-            tracks_ids, start_frame, stop_frame, tracks_kps_cam_loc_per_frame, t_interval_sec, save_path
+            tracks_ids,
+            start_frame,
+            stop_frame,
+            tracks_kps_cam_loc_per_frame,
+            t_interval_sec,
+            save_path,
         )
 
     analysis_logger.plot_cam_pose_changes(save_path, t_interval_sec)
@@ -95,8 +100,8 @@ def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_f
         )
 
     # Draw the keypoints and detections on the video
-    if plot_names is None or "keypoints_and_detections" in plot_names:
-        draw_keypoints_and_detections(
+    if plot_names is None or "keypoints_and_tracks" in plot_names:
+        draw_keypoints_and_tracks(
             frames_loader=frames_loader,
             detections_tracker=detections_tracker,
             kp_frame_idx_all=kp_frame_idx_all,

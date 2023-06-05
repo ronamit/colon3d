@@ -238,7 +238,7 @@ def draw_matches(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_keypoints_and_detections(
+def draw_keypoints_and_tracks(
     frames_loader: FramesLoader,
     detections_tracker: DetectionsTracker,
     kp_frame_idx_all,
@@ -315,7 +315,7 @@ def draw_keypoints_and_detections(
 
     if save_path:
         save_video(
-            save_path=save_path / "draw_keypoints_and_detections.mp4",
+            save_path=save_path / "draw_keypoints_and_tracks.mp4",
             frames=vis_frames,
             fps=fps,
         )

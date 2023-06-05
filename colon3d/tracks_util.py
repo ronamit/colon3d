@@ -42,16 +42,16 @@ class DetectionsTracker:
             tracks_in_frame (dict): a dictionary of the detections in the current frame, where the key is the track_id
         """
         if frame_type == "alg_view":
-            detections = self.tracks_for_alg
+            tracks = self.tracks_for_alg
         elif frame_type == "full_view":
-            detections = self.tracks_original
+            tracks = self.tracks_original
         else:
             raise ValueError("Unknown frame_type: " + frame_type)
-        cur_detections = detections[detections["frame_idx"] == frame_idx]
-        track_ids = cur_detections.track_id.unique()
+        cur_tracks = tracks[tracks["frame_idx"] == frame_idx]
+        track_ids = cur_tracks.track_id.unique()
         tracks_in_frame = {}
         for track_id in track_ids:
-            tracks_in_frame[track_id] = cur_detections[cur_detections["track_id"] == track_id].to_dict("records")
+            tracks_in_frame[track_id] = cur_tracks[cur_tracks["track_id"] == track_id].to_dict("records")
             assert len(tracks_in_frame[track_id]) == 1, "There should be only one detection per (track,frame) pair"
             tracks_in_frame[track_id] = tracks_in_frame[track_id][0]  # take the first (and only) element
         return tracks_in_frame
