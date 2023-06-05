@@ -12,6 +12,40 @@ from colon3d.torch_util import np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def assert_2d_tensor(t: torch.Tensor, dim2: int):
+    assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
+    assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
+# --------------------------------------------------------------------------------------------------------------------
+
+def assert_1d_tensor(t: torch.Tensor):
+    assert t.ndim == 1, "Tensor should be 1D."
+# --------------------------------------------------------------------------------------------------------------------
+
+def transform_pixel_image_coords_to_normalized(
+    pixels_x: np.ndarray,
+    pixels_y: np.ndarray,
+    cam_K: np.ndarray,
+) -> np.ndarray:
+    """Transforms pixel coordinates to normalized image coordinates.
+    Assumes the camera is rectilinear with a given K matrix.
+    Args:
+        pixels_x : [n_points] (units: pixels)
+        pixels_y : [n_points] (units: pixels)
+        cam_K: [3 x 3] camera intrinsics matrix (we assume it is of the form [fx, 0, cx; 0, fy, cy; 0, 0, 1])
+    Returns:
+        points_nrm: [n_points x 2] (units: normalized image coordinates)
+    """
+    assert_1d_tensor(pixels_x)
+    assert_1d_tensor(pixels_y)
+    x_nrm = (pixels_x - cam_K[0, 2]) / cam_K[0, 0]  # u_nrm = (u - cx) / fx
+    y_nrm = (pixels_y - cam_K[1, 2]) / cam_K[1, 1]  # v_nrm = (v - cy) / fy
+    points_nrm = np.stack((x_nrm, y_nrm), axis=1)
+    return points_nrm
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 
 def transform_points_in_cam_sys_to_world_sys(
     points_3d_cam_sys: torch.Tensor,
@@ -24,7 +58,8 @@ def transform_points_in_cam_sys_to_world_sys(
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
     """
-    assert cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cam_poses.shape}."
+    assert_2d_tensor(points_3d_cam_sys, 3)
+    assert_2d_tensor(cam_poses, 7)
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
 
@@ -49,36 +84,13 @@ def transform_points_in_world_sys_to_cam_sys(
     Returns:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
-    assert cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cam_poses.shape}."
+    assert_2d_tensor(points_3d_world, 3)
+    assert_2d_tensor(cam_poses, 7)
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
     # translate & rotate to camera system
     points_3d_cam_sys = rotate(points_3d_world - cam_loc, cam_rot)
     return points_3d_cam_sys
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def transform_pixel_image_coords_to_normalized(
-    pixels_x: np.ndarray,
-    pixels_y: np.ndarray,
-    cam_K: np.ndarray,
-) -> np.ndarray:
-    """Transforms pixel coordinates to normalized image coordinates.
-    Assumes the camera is rectilinear with a given K matrix.
-    Args:
-        pixels_x : [n_points] (units: pixels)
-        pixels_y : [n_points] (units: pixels)
-        cam_K: [3 x 3] camera intrinsics matrix (we assume it is of the form [fx, 0, cx; 0, fy, cy; 0, 0, 1])
-    Returns:
-        points_nrm: [n_points x 2] (units: normalized image coordinates)
-    """
-
-    x_nrm = (pixels_x - cam_K[0, 2]) / cam_K[0, 0]  # u_nrm = (u - cx) / fx
-    y_nrm = (pixels_y - cam_K[1, 2]) / cam_K[1, 1]  # v_nrm = (v - cy) / fy
-    points_nrm = np.stack((x_nrm, y_nrm), axis=1)
-    return points_nrm
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -97,6 +109,9 @@ def unproject_image_normalized_coord_to_world(
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in worlds system coordinates
     """
+    assert_2d_tensor(points_nrm, 2)
+    assert_1d_tensor(z_depths)
+    assert_2d_tensor(cam_poses, 7)
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)
     points3d_world_sys = transform_points_in_cam_sys_to_world_sys(
         points_3d_cam_sys=points3d_cam_sys,
@@ -119,13 +134,13 @@ def project_cam_sys_to_image_normalized_coord(
     Notes:
         No camera intrinsics are needed since we transform to normalized image coordinates (K = I)
     """
+    assert_2d_tensor(points3d_cam_sys, 3)
     # Perspective transform to 2d image-plane
     # (this transforms to normalized image coordinates, i.e., fx=1, fy=1, cx=0, cy=0)
-    eps = 1e-20
     z_cam_sys = points3d_cam_sys[:, 2]  # [n_points x 1]
-    x_wrt_axis = points3d_cam_sys[:, 0] / (z_cam_sys + eps)  # [n_points x 1]
-    y_wrt_axis = points3d_cam_sys[:, 1] / (z_cam_sys + eps)  # [n_points x 1]
-    points_2d_nrm = torch.stack((x_wrt_axis, y_wrt_axis), dim=1)  # [n_points x 2]
+    x_nrm = points3d_cam_sys[:, 0] / z_cam_sys  # [n_points x 1]
+    y_nrm = points3d_cam_sys[:, 1] / z_cam_sys  # [n_points x 1]
+    points_2d_nrm = torch.stack((x_nrm, y_nrm), dim=1)  # [n_points x 2]
     return points_2d_nrm
 
 
@@ -146,9 +161,9 @@ def project_world_to_image_normalized_coord(
     Notes:
         Assumes camera parameters set a rectilinear image transform from 3d to 2d (i.e., fisheye undistorting was done)
     """
-    assert points3d_world.shape[1] == 3, f"Points are not in 3D, {points3d_world.shape}."
-    assert cam_poses.shape[1] == 7, f"Cam poses are not in 7D, {cam_poses.shape}."
-
+    assert_2d_tensor(points3d_world, 3)
+    assert_2d_tensor(cam_poses, 7)
+    
     # Translate & rotate to camera system
     points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
         points_3d_world=points3d_world,
@@ -173,7 +188,8 @@ def unproject_image_normalized_coord_to_cam_sys(
     Returns:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
-    assert points_nrm.shape[1] == 2, f"Points are not in 2D, {points_nrm.shape}."
+    assert_2d_tensor(points_nrm, 2)
+    assert_1d_tensor(z_depths)
 
     # normalized coordinate corresponds to fx=1, fy=1, cx=0, cy=0, so we can just multiply by z_depth to get 3d point in the camera system
     z_cam_sys = z_depths
@@ -190,11 +206,19 @@ def apply_pose_change(
     start_pose: torch.Tensor,
     pose_change: torch.Tensor,
 ) -> torch.Tensor:
-    """Applies a pose change to a given pose. (both are given in the same coordinate system)"""
-    start_loc = start_pose[:, 0:3]  # [n_points x 3]
-    start_rot = start_pose[:, 3:7]  # [n_points x 4]
-    change_loc = pose_change[:, 0:3]  # [n_points x 3]
-    rot_change = pose_change[:, 3:7]  # [n_points x 4]
+    """Applies a pose change to a given pose. (both are given in the same coordinate system)
+    Args:
+        start_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+        pose_change: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+    Returns:
+        final_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+    """
+    assert start_pose.ndim == 2, f"Start pose is not 2D, {start_pose.ndim}."
+    assert start_pose.shape[1] == 7, f"Start pose is not in 7D, {start_pose.shape}."
+    start_loc = start_pose[:, 0:3]  # [n x 3]
+    start_rot = start_pose[:, 3:7]  # [n x 4]
+    change_loc = pose_change[:, 0:3]  # [n x 3]
+    rot_change = pose_change[:, 3:7]  # [n x 4]
     final_loc = start_loc + change_loc
     final_rot = apply_rotation_change(start_rot=start_rot, rot_change=rot_change)
     final_pose = torch.cat((final_loc, final_rot), dim=1)
@@ -215,6 +239,8 @@ def find_pose_change(
     Returns:
         pose_change: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     """
+    assert_2d_tensor(start_pose, 7)
+    assert_2d_tensor(final_pose, 7)
     start_loc = start_pose[:, 0:3]  # [n_points x 3]
     start_rot = start_pose[:, 3:7]  # [n_points x 4]
     final_loc = final_pose[:, 0:3]  # [n_points x 3]
@@ -237,6 +263,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
         points3d: [n_points x 3]  (units: mm)
 
     """
+    assert_2d_tensor(cam_pose, 7)
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
     # find the world coordinates that each pixel in the depth map corresponds to:
@@ -273,10 +300,11 @@ def infer_egomotions(cam_poses: torch.Tensor):
     Returns:
         egomotions (torch.Tensor): [n_frames x 7] each row is the camera egomotion (pose change) (x, y, z, q0, qx, qy, qz).
     """
+    assert_2d_tensor(cam_poses, 7)
     prev_poses = cam_poses[:-1, :]
     cur_poses = cam_poses[1:, :]
 
-    poses_changes = find_pose_change(poses1=prev_poses, poses2=cur_poses)
+    poses_changes = find_pose_change(start_pose=prev_poses, final_pose=cur_poses)
     # set the first egomotion to be the identity rotation and zero translation:
     egomotions = torch.zeros_like(cam_poses)
     egomotions[0, :3] = 0

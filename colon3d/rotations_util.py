@@ -69,7 +69,8 @@ def apply_rotation_change(start_rot: torch.Tensor, rot_change: torch.Tensor) -> 
     """
     # note: the order of multiplication is important (https://math.stackexchange.com/questions/331539/combining-rotation-quaternions
     # the first rotation is the right side in the multiplication
-    return quaternion_raw_multiply(a=rot_change, b=start_rot)
+    final_rot = quaternion_raw_multiply(a=rot_change, b=start_rot)
+    return final_rot
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -82,7 +83,8 @@ def find_rotation_change(start_rot: torch.Tensor, final_rot: torch.Tensor) -> to
         final_rot: Final rotation, as a tensor of shape (..., 4), real part first.
     Returns:
         The rotation change, a tensor of quaternions of shape (..., 4)."""
-    rot_change = apply_rotation_change(first=invert_rotation(start_rot), second=final_rot)
+        
+    rot_change = quaternion_raw_multiply(a=final_rot, b=invert_rotation(start_rot))
     return rot_change
 
 
