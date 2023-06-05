@@ -6,20 +6,12 @@ from colon3d.rotations_util import (
     find_rotation_change,
     get_identity_quaternion,
     invert_rotation,
-    rotate,
+    rotate_points,
 )
-from colon3d.torch_util import np_func
+from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 
-def assert_2d_tensor(t: torch.Tensor, dim2: int):
-    assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
-    assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
-# --------------------------------------------------------------------------------------------------------------------
-
-def assert_1d_tensor(t: torch.Tensor):
-    assert t.ndim == 1, "Tensor should be 1D."
-# --------------------------------------------------------------------------------------------------------------------
 
 def transform_pixel_image_coords_to_normalized(
     pixels_x: np.ndarray,
@@ -46,7 +38,6 @@ def transform_pixel_image_coords_to_normalized(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-
 def transform_points_in_cam_sys_to_world_sys(
     points_3d_cam_sys: torch.Tensor,
     cam_poses: torch.Tensor,
@@ -66,7 +57,7 @@ def transform_points_in_cam_sys_to_world_sys(
     # cam_rot is the rotation from world to camera system, so we need to invert it to transform points from camera system to world system
     inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]
     #  translate & rotate to world system
-    points_3d_world = cam_loc + rotate(points_3d_cam_sys, inv_cam_rot)
+    points_3d_world = cam_loc + rotate_points(points_3d_cam_sys, inv_cam_rot)
     return points_3d_world
 
 
@@ -89,7 +80,7 @@ def transform_points_in_world_sys_to_cam_sys(
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
     # translate & rotate to camera system
-    points_3d_cam_sys = rotate(points_3d_world - cam_loc, cam_rot)
+    points_3d_cam_sys = rotate_points(points_3d_world - cam_loc, cam_rot)
     return points_3d_cam_sys
 
 
@@ -163,7 +154,7 @@ def project_world_to_image_normalized_coord(
     """
     assert_2d_tensor(points3d_world, 3)
     assert_2d_tensor(cam_poses, 7)
-    
+
     # Translate & rotate to camera system
     points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
         points_3d_world=points3d_world,

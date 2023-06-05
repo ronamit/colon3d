@@ -17,7 +17,7 @@ def get_device():
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_numpy(x, dtype=np.float32):
+def to_numpy(x, dtype=np.float64):
     if isinstance(x, torch.Tensor):
         return x.numpy(force=True).astype(dtype)
     return x
@@ -46,6 +46,20 @@ def get_val(x):
         return x.item()
     return x
 
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def assert_2d_tensor(t: torch.Tensor, dim2: int):
+    assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
+    assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def assert_1d_tensor(t: torch.Tensor):
+    assert t.ndim == 1, "Tensor should be 1D."
 
 # --------------------------------------------------------------------------------------------------------------------
 

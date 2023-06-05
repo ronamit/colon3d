@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch.nn.functional import normalize
 
+from colon3d.torch_util import assert_2d_tensor
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -83,7 +85,7 @@ def find_rotation_change(start_rot: torch.Tensor, final_rot: torch.Tensor) -> to
         final_rot: Final rotation, as a tensor of shape (..., 4), real part first.
     Returns:
         The rotation change, a tensor of quaternions of shape (..., 4)."""
-        
+
     rot_change = quaternion_raw_multiply(a=final_rot, b=invert_rotation(start_rot))
     return rot_change
 
@@ -137,18 +139,35 @@ def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Ten
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def rotate(points3d: torch.Tensor, rot_vecs: torch.Tensor):
+# @torch.jit.script  # disable this for debugging
+def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """Rotate points by given unit-quaternion rotation vectors.
-        Note that we use "passive rotation", i.e. the rotation is applied to the coordinate system.
     Args:
         points3d (torch.Tensor): [n_points x 3] each row is  (x, y, z) coordinates of a point to be rotated.
         rot_vecs (torch.Tensor): [n_points x 4] each row is the unit-quaternion of the rotation (q0, qx, qy, qz).
     Returns:
         rotated_points3d (np.array): [n_points x 3] rotated points.
     References:
-        https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
+        https://gamedev.stackexchange.com/questions/28395/rotating-vec tor3-by-a-quaternion
     """
-    return quaternion_apply(quaternion=rot_vecs, point=points3d)
+    if points3d.ndim == 1:
+        points3d = points3d.unsqueeze(0) # [1 x 3]
+    assert_2d_tensor(points3d, 3)
+    n_points = points3d.shape[0]
+    if rot_vecs.ndim == 1:
+        # in case we have a single rotation vector, repeat it for all points
+        rot_vecs = rot_vecs.repeat(n_points, 1)
+    assert_2d_tensor(rot_vecs, 4)
+
+    qw = rot_vecs[:, 0].unsqueeze(-1) # [n x 1] real part of quaternion
+    q_v = rot_vecs[:, 1:] # [n x 3] (qx, qy, qz)
+
+    rotated_points = (
+        2 * q_v * torch.sum(q_v * points3d, axis=-1, keepdim=True)
+        + points3d * (qw**2 - torch.sum(q_v * q_v, axis=-1, keepdim=True))
+        + 2 * qw * torch.cross(q_v, points3d, dim=1)
+    )
+    return rotated_points
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -176,6 +195,7 @@ def get_cos_half_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor)
     cos_half_angle_change = torch.clamp(cos_half_angle_change, -1.0, 1.0)
     return cos_half_angle_change.squeeze()
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -183,6 +203,7 @@ def get_smallest_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor)
     cos_half_angle_change = get_cos_half_angle_between_rotations(rot1, rot2)
     angle = 2 * torch.acos(cos_half_angle_change)
     return angle
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from colon3d.rotations_util import get_identity_quaternion, invert_rotation, rotate
+from colon3d.rotations_util import get_identity_quaternion, invert_rotation, rotate_points
 from colon3d.torch_util import np_func
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -52,10 +52,15 @@ def plot_3d_arrow(origin, vector, label, color, arrow_len: float = 1):
 def plot_xyz_axes(origin_loc: np.array, rot_quat: np.array, arrow_len: float = 1, add_legend: bool = True):
     """Return plot objects for the XYZ axes at origin point with rotation according to a unit quaternion"""
 
+    # arrows endpoints in camera coordinate system:
+    axes_vecs = np.eye(3, dtype=np.float64) # 3 x 3 identity matrix
+    
+    # rotate the axes vectors according to the camera rotation.
+    # (inverse rotation of the camera is applied to the axes vectors)
     inv_cam_rot = np_func(invert_rotation)(rot_quat)
-    x_unit_vec = np_func(rotate)(np.array([1, 0, 0]), inv_cam_rot)
-    y_unit_vec = np_func(rotate)(np.array([0, 1, 0]), inv_cam_rot)
-    z_unit_vec = np_func(rotate)(np.array([0, 0, 1]), inv_cam_rot)
+    x_unit_vec = np_func(rotate_points)(axes_vecs[0], inv_cam_rot).squeeze()
+    y_unit_vec = np_func(rotate_points)(axes_vecs[1], inv_cam_rot).squeeze()
+    z_unit_vec = np_func(rotate_points)(axes_vecs[2], inv_cam_rot).squeeze()
     x_arrow_objs = plot_3d_arrow(origin_loc, x_unit_vec, "X", "red", arrow_len)
     y_arrow_objs = plot_3d_arrow(origin_loc, y_unit_vec, "Y", "green", arrow_len)
     z_arrow_objs = plot_3d_arrow(origin_loc, z_unit_vec, "Z", "blue", arrow_len)
@@ -119,11 +124,11 @@ def plot_fov_cone(
         cam_rot = np_func(get_identity_quaternion)()
     if verbose:
         print(
-            f"Plotted camera location: {cam_loc} [mm], direction vector: {np_func(rotate)(np.array([0, 0, 1]), cam_rot)}, FOV: {fov_deg:.1f} [deg]",
+            f"Plotted camera location: {cam_loc} [mm], direction vector: {np_func(rotate_points)(np.array([0, 0, 1]), cam_rot)}, FOV: {fov_deg:.1f} [deg]",
         )
     # translate and rotate the cone points:
     inv_cam_rot = np_func(invert_rotation)(cam_rot)
-    points = np_func(rotate)(points, inv_cam_rot) + cam_loc
+    points = np_func(rotate_points)(points, inv_cam_rot) + cam_loc
     cam_cone = go.Mesh3d(
         x=points[:, 0],
         y=points[:, 1],
@@ -180,7 +185,7 @@ def plot_cam_and_point_cloud(
     cam_rot = cam_pose[3:]
     # get the z-depth of each point in the camera's coordinate system
     # inv_cam_rot = np_func(invert_rotation)(cam_rot[np.newaxis, :])
-    point3_in_cam_sys = np_func(rotate)(points3d - cam_loc, cam_rot)
+    point3_in_cam_sys = np_func(rotate_points)(points3d - cam_loc, cam_rot)
     points_z_depth = point3_in_cam_sys[:, 2]
     # plot the point cloud (in world system)
     fig_data = [
