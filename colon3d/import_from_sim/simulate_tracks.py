@@ -54,7 +54,7 @@ def generate_targets(
         )
         target_center_3d = np_func(unproject_image_normalized_coord_to_world)(
             points_nrm=target_center_nrm,
-            z_depth=z_depth,
+            z_depths=z_depth,
             cam_poses=cam_pose,
         )
         # Determine the size of the ball around the target center:
