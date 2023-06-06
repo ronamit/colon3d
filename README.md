@@ -11,7 +11,16 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 
  conda env create -f environment.yml
 
-<!-- * Install [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) from source. -->
+* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location
+
+```bash
+gh repo clone rfeinman/pytorch-minimize
+```
+* , go to its dir, ,active the environmant,and install with
+
+```bash
+pip install -e .
+```
 
 * *(optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
 
@@ -22,7 +31,6 @@ The simulator generates single-camera colonoscopic images with ground truth of c
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     pip3 install pycuda --user
     ```
-
 * Setup:
 
   * Go to the project root

@@ -4,7 +4,7 @@ import pandas as pd
 from colon3d.torch_util import np_func
 from colon3d.transforms_util import (
     get_frame_point_cloud,
-    transform_pixel_image_coords_to_normalized,
+    transform_rectilinear_image_pixel_coords_to_normalized,
     unproject_image_normalized_coord_to_world,
 )
 
@@ -47,7 +47,7 @@ def generate_targets(
         z_depth = depth_map[pixel_y, pixel_x]  # notice that the depth image coordinates are (y,x) not (x,y).
 
         # get the 3D point in the world coordinate system of the target center
-        target_center_nrm = transform_pixel_image_coords_to_normalized(
+        target_center_nrm = transform_rectilinear_image_pixel_coords_to_normalized(
             pixels_x=pixel_x,
             pixels_y=pixel_y,
             cam_K=K_of_depth_map,
@@ -71,7 +71,11 @@ def generate_targets(
             break
         i_attempt += 1
 
-    targets_info = {"points3d": target_center_3d, "radiuses": target_radius, "seen_at_pixel": (i_frame, pixel_x, pixel_y)}
+    targets_info = {
+        "points3d": target_center_3d,
+        "radiuses": target_radius,
+        "seen_at_pixel": (i_frame, pixel_x, pixel_y),
+    }
     return targets_info
 
 

@@ -71,7 +71,7 @@ def draw_aided_nav(
 
         # go over all ths tracks that have been their location estimated in the cur\rent frame
         for track_id, cur_track_kps_loc_est in tracks_kps_loc_est.items():
-            # the estimated 3d position of the center KP of the current track in the current frame (units: mm)
+            # the estimated 3d position of the center KP of the current track in the current frame (units: mm)  (in camera system)
             p3d_cam = cur_track_kps_loc_est[0].numpy(force=True)  # [mm]
             z_dist = p3d_cam[2]  # [mm]
             # compute  the track position angle with the z axis
@@ -81,8 +81,8 @@ def draw_aided_nav(
             xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
             xy_dir = p3d_cam[0:2] / xy_dist
             arrow_base_radius = (
-                alg_view_radius * 0.7
-            )  # [px] start a little on the inside of the algorithm view circle, so the arrow will be visible
+                alg_view_radius * 0.85
+            )  # [px] start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible
             orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
             orient_arrow_len = 50
             orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]
@@ -124,7 +124,7 @@ def draw_aided_nav(
                     np.round(orient_arrow_base).astype(int),
                     np.round(orient_arrow_tip).astype(int),
                     color=colors_platte(track_id),
-                    thickness=2,
+                    thickness=3,
                 )
                 # draw text near the arrow
                 delta_z = z_dist - alg_cam_info.min_vis_z_mm
@@ -134,7 +134,7 @@ def draw_aided_nav(
                     vis_frame,
                     text=f"{round(delta_z):+g}mm\n{round(delta_alpha):+g}\xb0",
                     pos=np.round(orient_arrow_base + 4 * (orient_arrow_tip - orient_arrow_base)).astype(int),
-                    font_size=20,
+                    font_size=22,
                     fill_color=colors_platte(track_id),
                     stroke_width=2,
                     stroke_fill="black",

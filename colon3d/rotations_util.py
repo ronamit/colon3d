@@ -102,7 +102,6 @@ def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     Returns:
         The inverse, a tensor of quaternions of shape (..., 4).
     """
-
     scaling = torch.tensor([1, -1, -1, -1], device=quaternion.device)
     return quaternion * scaling
 

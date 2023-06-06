@@ -7,6 +7,7 @@ import numpy as np
 class AlgorithmParam:
     n_last_frames_to_opt: int = 1
     optimize_each_n_frames: int = 1
+    add_penalties = True # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 100  # mm/s
     max_angular_vel: float = 1 * np.pi  # rad/s
     w_salient_kp: float = 0.3  # default weighting for the bundle adjustment cost function for salient KPs
@@ -19,9 +20,10 @@ class AlgorithmParam:
     )
     z_depth_upper_bound: float = 2000  # upper bound to clip the the z-depth estimation (units: mm)
     z_depth_lower_bound: float = 0.0  # lower bound to clip the the z-depth estimation (units: mm)
-    opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"
+    opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"]
     opt_max_iter: int = 100  # maximum number of iterations for the optimization
-    opt_x_tol: float = 1e-3  # Optimization termination tolerance on function/parameter changes.
-    opt_lr: float = 10.  # initial learning rate for the optimization
+    opt_x_tol: float = 1e-4  # Optimization termination tolerance on function/parameter changes.
+    opt_g_tol: float = 1e-7  # Optimization termination tolerance on the gradient.
+    # opt_lr: float = 10.  # initial learning rate for the optimization
     detect_bb_kps_ratios = np.array([(0, 0)]) # , (-0.1, 0), (0.1, 0), (0, -0.1), (0, +0.1)],
     # note: do not make the ratio 0.25 or larger, otherwise boxes that are on the edge of the view might cause wrong KP matchings

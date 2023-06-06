@@ -111,6 +111,7 @@ class SlamRunner:
         depth_estimator: DepthAndEgoMotionLoader,
         save_path: Path,
         draw_interval: int = 0,
+        verbose_print_interval: int = 20,
     ) -> SlamOutput:
         frames_generator = frames_loader.frames_generator(frame_type="alg_input")
         cam_undistorter = frames_loader.alg_cam_undistorter
@@ -128,21 +129,18 @@ class SlamRunner:
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print("-" * 50 + f"\ni_frame: {i_frame}/{n_frames-1}")
-            # get the current frame
-            curr_frame = frames_generator.__next__()
-            curr_egomotion = depth_estimator.get_egomotions_at_frames([i_frame])
-            curr_tracks = detections_tracker.get_tracks_in_frame(i_frame)
             self.run_on_new_frame(
-                curr_frame,
-                i_frame,
-                curr_tracks,
-                curr_egomotion,
-                cam_undistorter,
-                alg_view_cropper,
-                depth_estimator,
-                fps,
-                draw_interval,
-                save_path,
+                curr_frame=frames_generator.__next__(),
+                i_frame=i_frame,
+                curr_tracks=detections_tracker.get_tracks_in_frame(i_frame),
+                curr_egomotion=depth_estimator.get_egomotions_at_frames([i_frame]),
+                cam_undistorter=cam_undistorter,
+                alg_view_cropper=alg_view_cropper,
+                depth_estimator=depth_estimator,
+                fps=fps,
+                draw_interval=draw_interval,
+                verbose_print_interval=verbose_print_interval,
+                save_path=save_path,
             )
         print("-" * 50, f"\nSLAM algorithm run finished. Time now: {get_time_now_str()}")
         print("Elapsed time: ", convert_sec_to_str(time.time() - runtime_start))
@@ -182,6 +180,7 @@ class SlamRunner:
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
         draw_interval: int,
+        verbose_print_interval: int,
         save_path: Path,
     ):
         alg_prm = self.alg_prm
@@ -339,6 +338,7 @@ class SlamRunner:
 
         # ---- Run bundle-adjustment:
         if i_frame > 0 and i_frame % alg_prm.optimize_each_n_frames == 0:
+            verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             self.cam_poses, self.points_3d = run_bundle_adjust(
                 cam_poses=self.cam_poses,
@@ -352,6 +352,7 @@ class SlamRunner:
                 alg_prm=alg_prm,
                 fps=fps,
                 SALIENT_KP_ID=self.SALIENT_KP_ID,
+                verbose=verbose,
             )
         # save the currently estimated 3D KP of the tracks that have been seen until now
         for track_id, track_kps_p3d_inds in self.tracks_p3d_inds.items():

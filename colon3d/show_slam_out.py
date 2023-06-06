@@ -17,19 +17,19 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData2/Examples/Seq_00000_0000",
+        default="data/my_videos/Example_4",
         help="path to the video",
     )
     parser.add_argument(
-        "--slam_out_path",
+        "--results_path",
         type=str,
-        default="data/sim_data/SimData2/Examples/Seq_00000_0000/Results",
+        default="data/my_videos/Example_4/Results",
         help="path to the SLAM algorithm outputs",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/show_results_new",
+        default="data/my_videos/Example_4/Results/Show",
         help="path to the save outputs",
     )
 
@@ -38,7 +38,7 @@ def main():
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
         # Load saved results
-        with (Path(args.slam_out_path) / "out_variables.pkl").open("rb") as fid:
+        with (Path(args.results_path) / "out_variables.pkl").open("rb") as fid:
             slam_out = pickle.load(fid)
         # Show the results
         save_slam_out_plots(slam_out, args.save_path, args.example_path)
@@ -47,7 +47,9 @@ def main():
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_frame=None, plot_names=None):
+def save_slam_out_plots(
+    slam_out, save_path, example_path, start_frame=0, stop_frame=None, plot_names=None, max_anim_frames=10,
+):
     save_path = Path(save_path)
     create_folder_if_not_exists(save_path)
     # Extract the relevant variables
@@ -111,12 +113,13 @@ def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_f
         )
 
     # plot the estimated tracks positions in the camera system per fame
+    stop_frame_anim = min(stop_frame, start_frame + max_anim_frames)
     if plot_names is None or "camera_sys" in plot_names:
         plot_camera_sys_per_frame(
             tracks_kps_cam_loc_per_frame=tracks_kps_cam_loc_per_frame,
             detections_tracker=detections_tracker,
             start_frame=start_frame,
-            stop_frame=stop_frame,
+            stop_frame=stop_frame_anim,
             fps=fps,
             cam_fov_deg=frames_loader.alg_fov_deg,
             show_fig=False,
@@ -130,7 +133,7 @@ def save_slam_out_plots(slam_out, save_path, example_path, start_frame=0, stop_f
             salient_kps_world_loc_per_frame=salient_kps_world_loc_per_frame,
             cam_poses=cam_poses,
             start_frame=start_frame,
-            stop_frame=stop_frame,
+            stop_frame=stop_frame_anim,
             fps=fps,
             cam_fov_deg=frames_loader.alg_fov_deg,
             detections_tracker=detections_tracker,

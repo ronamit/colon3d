@@ -42,6 +42,24 @@
 #         translations: [N x 3] the translation vectors.
 #         quaternions: [N x 4] unit-quaternions (real-fist format) representing rotations.
 
+   # # -------- debug prints  --------- #
+    # if verbose:
+    #     track_kps_inds = kp_weights_u == alg_prm.w_track_kp
+    #     track_kps_nrm = kp_nrm_u[track_kps_inds]
+    #     tracks_p3d_est = point3d_per_kp[track_kps_inds]
+    #     track_projected_point_nrm = projected_point_nrm[track_kps_inds]
+    #     if torch.numel(track_kps_nrm) > 0:
+    #         print("-" * 100)
+    #         # get the image coordinates of the track key-points
+    #         n_track_kps = track_projected_point_nrm.shape[0]
+    #         for i in range(n_track_kps):
+    #              reprojected_est = orig_cam_undistorter.project_from_cam_sys_to_pixels(points3d=tracks_p3d_est[i])
+    #             track_projected_point_nrm[i]
+    #              =  
+    #             print(f"Track KP (original fisheye frame): {track_kps_pix[i]}, Estimate re-projection: {track_projected_point_pix[i]}")
+    #         print("-" * 100)
+
+
 #     Returns:
 #         transform_mats: [N x 4 x 4] the corresponding transformation matrices.
 #     """

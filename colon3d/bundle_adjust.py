@@ -8,7 +8,9 @@ import torchmin  # https://github.com/rfeinman/pytorch-minimize
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternion
 from colon3d.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
-from colon3d.transforms_util import project_world_to_image_normalized_coord
+from colon3d.transforms_util import (
+    project_world_to_image_normalized_coord,
+)
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
@@ -83,51 +85,57 @@ def compute_cost_function(
     penalty_lim_vel = 0
     penalty_cam_rot = 0
     penalty_cam_trans = 0
-    for i, frame_idx in enumerate(frames_opt_inds):
-        cur_loc = cam_loc_opt[i]  # the estimated 3D cam location
-        cur_rot = cam_rot_opt[i]  # the estimated unit-quaternion of the cam rotation
+    if alg_prm.add_penalties:
+        for i, frame_idx in enumerate(frames_opt_inds):
+            cur_loc = cam_loc_opt[i]  # the estimated 3D cam location
+            cur_rot = cam_rot_opt[i]  # the estimated unit-quaternion of the cam rotation
 
-        prev_frame_idx = frame_idx - 1
-        # the estimated cam-pose parameters the frame before the i-th optimized frame:
-        # note: we use for prev_pose the pre-optimization values, for stability reasons
-        prev_pose = cam_poses[prev_frame_idx, 0:7]
-        prev_loc = prev_pose[0:3]  # the estimated 3D cam location
-        prev_rot = prev_pose[3:7]  # the estimated unit-quaternion of the cam rotation
+            prev_frame_idx = frame_idx - 1
+            # the estimated cam-pose parameters the frame before the i-th optimized frame:
+            # note: we use for prev_pose the pre-optimization values, for stability reasons
+            prev_pose = cam_poses[prev_frame_idx, 0:7]
+            prev_loc = prev_pose[0:3]  # the estimated 3D cam location
+            prev_rot = prev_pose[3:7]  # the estimated unit-quaternion of the cam rotation
 
-        # the L2 distance between the i-th optimized frame from the previous frame
-        cam_trans_sqr = torch.sum(torch.square(cur_loc - prev_loc))
+            # the L2 distance between the i-th optimized frame from the previous frame
+            cam_trans_sqr = torch.sum(torch.square(cur_loc - prev_loc))
 
-        # penalty term of the l2 norm of the camera translation (from previous frame)
-        penalty_cam_trans += cam_trans_sqr * alg_prm.w_cam_trans
+            # penalty term of the l2 norm of the camera translation (from previous frame)
+            penalty_cam_trans += cam_trans_sqr * alg_prm.w_cam_trans
 
-        # add a log-barrier penalty for violating the max position change bound
-        penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
+            # add a log-barrier penalty for violating the max position change bound
+            penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
 
-        # Find the smallest angle between the two rotations (cur_cam_rot and prev_cam_rot)
-        cos_half_change_angle = get_cos_half_angle_between_rotations(rot1=cur_rot, rot2=prev_rot)
+            # Find the smallest angle between the two rotations (cur_cam_rot and prev_cam_rot)
+            cos_half_change_angle = get_cos_half_angle_between_rotations(rot1=cur_rot, rot2=prev_rot)
 
-        # penalty term of the camera rotation (from previous frame)
-        penalty_cam_rot += (1 - cos_half_change_angle) * alg_prm.w_cam_rot
+            # penalty term of the camera rotation (from previous frame)
+            penalty_cam_rot += (1 - cos_half_change_angle) * alg_prm.w_cam_rot
 
-        # add a log-barrier penalty for violating the max angle change bound:
-        penalty_lim_angular_vel += penalizer.get_penalty(
-            constraint_name="lim_angular_vel",
-            val=cos_half_change_angle,
-        )
+            # add a log-barrier penalty for violating the max angle change bound:
+            penalty_lim_angular_vel += penalizer.get_penalty(
+                constraint_name="lim_angular_vel",
+                val=cos_half_change_angle,
+            )
 
-    # log the cost components
-    cost_components = {
-        "cost_kps": cost_kps,
-        "penalty_max_vel": penalty_lim_vel,
-        "penalty_max_angular_vel": penalty_lim_angular_vel,
-        "penalty_cam_rot": penalty_cam_rot,
-        "penalty_cam_trans": penalty_cam_trans,
-    }
+        # log the cost components
+        cost_components = {
+            "cost_kps": cost_kps,
+            "penalty_max_vel": penalty_lim_vel,
+            "penalty_max_angular_vel": penalty_lim_angular_vel,
+            "penalty_cam_rot": penalty_cam_rot,
+            "penalty_cam_trans": penalty_cam_trans,
+        }
+    else:
+        cost_components = {
+            "cost_kps": cost_kps,
+        }
     # sum the cost components
     tot_cost = 0
     for cost_name, cost_term in cost_components.items():
         tot_cost += cost_term
         assert is_finite(cost_term), f"cost term is not finite: {cost_name}"
+
     return tot_cost, cost_components
 
 
@@ -262,7 +270,7 @@ def run_bundle_adjust(
             max_iter=alg_prm.opt_max_iter,
             tol=alg_prm.opt_x_tol,
             disp=verbose,
-            options={"lr": alg_prm.opt_lr},
+            options={"gtol": alg_prm.opt_g_tol},
         )
     else:
         raise ValueError(f"Unknown opt_method: {alg_prm.opt_method}")

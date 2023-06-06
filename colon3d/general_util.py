@@ -90,7 +90,7 @@ def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float,
         height, width = frame.shape[:2]
         vid_writer = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc("m", "p", "4", "v"), fps, (width, height))
         for i_frame in range(n_frames):
-            print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
+            # print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
             frame = make_frame(i_frame)
             vid_writer.write(frame)
         vid_writer.release()

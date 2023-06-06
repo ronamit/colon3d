@@ -45,6 +45,12 @@ def main():
         default=100,
         help="plot and save figures each draw_interval frames",
     )
+    parser.add_argument(
+        "--verbose_print_interval",
+        type=int,
+        default=10,
+        help="print verbose information each verbose_print_interval frames",
+    )
 
     args = parser.parse_args()
     save_path = Path(args.save_path).expanduser()
@@ -77,6 +83,7 @@ def main():
             depth_estimator=depth_estimator,
             save_path=save_path,
             draw_interval=args.draw_interval,
+            verbose_print_interval=args.verbose_print_interval,
         )
 
         if save_path:

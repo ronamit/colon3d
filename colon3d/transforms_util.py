@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+from colon3d.camera_util import CamInfo
 from colon3d.rotations_util import (
     apply_rotation_change,
     find_rotation_change,
@@ -13,13 +14,13 @@ from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, np_func
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def transform_pixel_image_coords_to_normalized(
+def transform_rectilinear_image_pixel_coords_to_normalized(
     pixels_x: np.ndarray,
     pixels_y: np.ndarray,
     cam_K: np.ndarray,
 ) -> np.ndarray:
     """Transforms pixel coordinates to normalized image coordinates.
-    Assumes the camera is rectilinear with a given K matrix.
+    Assumes the camera is rectilinear with a given K matrix (no fisheye distortion)
     Args:
         pixels_x : [n_points] (units: pixels)
         pixels_y : [n_points] (units: pixels)
@@ -33,6 +34,32 @@ def transform_pixel_image_coords_to_normalized(
     y_nrm = (pixels_y - cam_K[1, 2]) / cam_K[1, 1]  # v_nrm = (v - cy) / fy
     points_nrm = np.stack((x_nrm, y_nrm), axis=1)
     return points_nrm
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def transform_rectilinear_image_norm_coords_to_pixel(
+    points_nrm: np.ndarray,
+    cam_info: CamInfo,
+) -> np.ndarray:
+    """Transforms normalized image coordinates to pixel coordinates.
+    Assumes the camera is rectilinear with a given K matrix (no fisheye distortion)
+    Args:
+        points_nrm: [n_points x 2] (units: normalized image coordinates)
+        cam_K: [3 x 3] camera intrinsics matrix (we assume it is of the form [fx, 0, cx; 0, fy, cy; 0, 0, 1])
+    Returns:
+        points_pix: [n_points x 2] (units: pixels)
+    """
+    assert_2d_tensor(points_nrm, 2)
+    fx = cam_info.fx
+    fy = cam_info.fy
+    cx = cam_info.cx
+    cy = cam_info.cy
+    x_pix = points_nrm[:, 0] * fx + cx  # u = u_nrm * fx + cx
+    y_pix = points_nrm[:, 1] * fy + cy  # v = v_nrm * fy + cy
+    points_pix = torch.stack((x_pix, y_pix), dim=1)
+    return points_pix
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -76,6 +103,8 @@ def transform_points_in_world_sys_to_cam_sys(
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
     assert_2d_tensor(points_3d_world, 3)
+    if cam_poses.ndim == 1:
+        cam_poses = cam_poses.unsqueeze(0)
     assert_2d_tensor(cam_poses, 7)
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
@@ -264,7 +293,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
     pixels_x = pixels_x.flatten()
     pixels_y = pixels_y.flatten()
 
-    points_nrm = transform_pixel_image_coords_to_normalized(
+    points_nrm = transform_rectilinear_image_pixel_coords_to_normalized(
         pixels_x=pixels_x,
         pixels_y=pixels_y,
         cam_K=K_of_depth_map,
