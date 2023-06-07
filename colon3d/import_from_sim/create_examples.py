@@ -5,7 +5,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import yaml
 from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder, to_str

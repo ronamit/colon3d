@@ -204,7 +204,7 @@ class SimImporter:
             # save depth video
             plot_depth_video(
                 depth_frames=z_depth_frames,
-                save_path=seq_path / "gt_depth_video.mp4",
+                save_path=seq_path / "gt_depth_video",
                 fps=metadata["fps"],
             )
 
