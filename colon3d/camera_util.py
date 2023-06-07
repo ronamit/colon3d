@@ -165,7 +165,7 @@ def create_undistortion_lut(undistort_config):
     # create list of all points in the original image
     x = np.arange(frame_width)
     y = np.arange(frame_height)
-    xv, yv = np.meshgrid(x, y)
+    xv, yv = np.meshgrid(x, y, indexing="ij")
     points2d = np.stack([xv.flatten(), yv.flatten()], axis=1)
     # undistort the points
     undistorted, is_valid = run_undistort_points(undistort_config, points2d)

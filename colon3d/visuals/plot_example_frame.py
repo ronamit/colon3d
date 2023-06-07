@@ -8,7 +8,7 @@ import numpy as np
 
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.general_util import create_folder_if_not_exists, save_plot_and_close
+from colon3d.general_util import create_folder_if_not_exists, get_most_common_values, save_plot_and_close
 from colon3d.transforms_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
@@ -19,7 +19,7 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData2/Seq_00000",
+        default="data/sim_data/SimData3/Seq_00000",
         help="Path to the sequence folder",
     )
     parser.add_argument(
@@ -86,6 +86,9 @@ def main():
             print("Using ground-truth camera pose for the point cloud plot")
             print(f"(x,y,z)={cam_pose[:3]} [mm]\n (qw,qx,qy,qz)={cam_pose[3:]}")
         # get the point cloud (in the world coordinate system)
+        print("Max depth value:", np.max(z_depth_frame[:]))
+        print("Min depth value:", np.min(z_depth_frame[:]))
+        print("Most common depth values:", get_most_common_values(z_depth_frame, num_values=5))
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
         plot_cam_and_point_cloud(
             points3d=points3d,
@@ -105,6 +108,7 @@ def main():
         )
     else:
         print("No ground-truth camera pose is available, so the point cloud plot will not be saved")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":

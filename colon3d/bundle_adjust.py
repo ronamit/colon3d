@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 import torch
-import torchmin  # https://github.com/rfeinman/pytorch-minimize
+import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternion

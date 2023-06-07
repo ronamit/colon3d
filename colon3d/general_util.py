@@ -290,12 +290,15 @@ def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
             sys.exit(0)
     folder_path.mkdir(parents=True, exist_ok=True)
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def create_folder_if_not_exists(folder_path: Path):
     if not folder_path.exists():
         folder_path.mkdir(parents=True, exist_ok=True)
     return folder_path
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -303,5 +306,42 @@ def create_folder_if_not_exists(folder_path: Path):
 def path_to_str(path: Path):
     return str(path.resolve())
 
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_most_common_values(array, num_values=5):
+    """
+    Finds the most common values and their count in a NumPy array.
+
+    Args:
+      array: A NumPy array.
+
+    Returns:
+      A tuple of two NumPy arrays, the first containing the most common values,
+      and the second containing their counts.
+    """
+
+    # Get the unique values and their counts.
+    vals, counts = np.unique(array, return_counts=True)
+
+    # Sort the counts array by descending order.
+    sort_idx = np.argsort(-counts)
+
+    return vals[sort_idx][:num_values], counts[sort_idx][:num_values]
+
+
+# ------------------------------------------------------------
+
+def to_str(a):
+    if isinstance(a, tuple):
+        return "(" + (", ".join([to_str(val) for val in a])) + ")"
+    if isinstance(a, list):
+        return "[" + (", ".join([to_str(val) for val in a])) + "]"
+    if isinstance(a, dict):
+        return "{" + (", ".join([f"{key}:{to_str(val)}" for key, val in a.items()])) + "}"
+    if isinstance(a, np.ndarray):
+        return np.array2string(a, separator=",", precision=2, suppress_small=True)
+    return str(a)
 
 # --------------------------------------------------------------------------------------------------------------------

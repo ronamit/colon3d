@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.data_util import FramesLoader, RadialImageCropper
-from colon3d.general_util import colors_platte, coord_to_cv2kp, save_plot_and_close, save_video
+from colon3d.general_util import colors_platte, coord_to_cv2kp, put_unicode_text_on_img, save_plot_and_close, save_video
 from colon3d.tracks_util import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -70,6 +70,17 @@ def draw_tracks_on_video_simple(sequence_path: Path, video_out_path: Path, track
                 pt2=bottom_right,
                 color=color,
                 thickness=2,
+            )
+            # print the bounding box coordinates on the image
+            text = f"ID: {track_id}, x[{int(top_left[0])}:{int(bottom_right[0])}], y[{int(top_left[1])}:{int(bottom_right[1])}]"
+            vis_frame = put_unicode_text_on_img(
+                img=vis_frame,
+                text=text,
+                pos=(0, 0),
+                font_size=20,
+                fill_color=color,
+                stroke_width=1,
+                stroke_fill=(0, 0, 0),
             )
         video_out.write(vis_frame)
     video_out.release()

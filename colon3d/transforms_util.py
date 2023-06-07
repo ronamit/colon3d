@@ -13,6 +13,11 @@ from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_identity_transform():
+    """Returns the identity pose transform (no change)"""
+    return torch.cat((torch.zeros(3), get_identity_quaternion()), dim=0)
+# --------------------------------------------------------------------------------------------------------------------
+
 
 def transform_rectilinear_image_pixel_coords_to_normalized(
     pixels_x: np.ndarray,
@@ -283,11 +288,15 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
         points3d: [n_points x 3]  (units: mm)
 
     """
+    if cam_pose is None:
+        cam_pose = np_func(get_identity_transform)()
+    if cam_pose.ndim == 1:
+        cam_pose = cam_pose[np.newaxis, :]
     assert_2d_tensor(cam_pose, 7)
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
     # find the world coordinates that each pixel in the depth map corresponds to:
-    pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width))
+    pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width), indexing="ij")
     # notice that the depth image coordinates are (y,x) not (x,y).
     z_depths = z_depth_frame.flatten()
     pixels_x = pixels_x.flatten()

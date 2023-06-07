@@ -18,7 +18,6 @@ from colon3d.visuals.plot_depth_video import plot_depth_video
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,12 +31,12 @@ def change_cam_transform_to_right_handed(cam_trans: np.ndarray, cam_rot: np.ndar
         see - https://gamedev.stackexchange.com/a/201978
             - https://github.com/zsustc/colon_reconstruction_dataset
     """
-    # y <- -y
+    # y <-> -y
     cam_trans[:, 1] *= -1
-    # change the rotation accordingly: qy <- -qy
+    # # change the rotation accordingly: qy <-> -qy
     cam_rot[:, 2] *= -1
-    # since we switched from LH to RH space, we need to flip the rotation angle sign.
-    cam_rot[:, 1:] *= -1  # (qw, qx, -qy, qz )-> (qw, -qx, qy, -qz)
+    # # since we switched from LH to RH space, we need to flip the rotation angle sign.
+    cam_rot[:, 1:] *= -1
 
     return cam_trans, cam_rot
 
@@ -51,8 +50,8 @@ def change_image_to_right_handed(image: np.ndarray) -> np.ndarray:
     Args:
         image: (H, W, ..) array of image pixels
     """
-    #  y <- -y
-    image = np.flip(image, axis=0)  # flip the image vertically
+    # rotate the first two dimensions by negative 90 degrees:
+    image = np.rot90(image, k=-1, axes=(0, 1))
     return image
 
 
@@ -73,6 +72,7 @@ class SimImporter:
         input_data_path = Path(raw_sim_data_path)
         output_data_path = Path(processed_sim_data_path)
         print("Raw simulated sequences will be be loaded from: ", input_data_path)
+        assert input_data_path.exists(), "The input path does not exist"
         print("Processed simulated sequences will be saved to: ", output_data_path)
         create_empty_folder(output_data_path, ask_overwrite=ask_overwrite)
         self.input_data_path = input_data_path
@@ -88,7 +88,7 @@ class SimImporter:
     def import_data(self):
         # gather all the "capture" files
         paths = [p for p in self.input_data_path.glob("Dataset*") if p.is_dir()]
-        assert len(paths) == 1, "there should be exactly one Dataset* folder"
+        assert len(paths) == 1, "there should be exactly one Dataset* sub-folder"
         metadata_dir_path = paths[0]
         print(f"Loading dataset metadata from {metadata_dir_path}")
         captures = []
@@ -220,7 +220,7 @@ class SimImporter:
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_sequence_metadata(self, capture: dict):
-        cam_intrinsic = [a for a in capture["annotations"] if a["@type"] == "camIntrinsicDef"][0]
+        cam_intrinsic = [a for a in capture["annotations"] if a["@type"] == "camDataDef"][0]
         frame_width = cam_intrinsic["pixelWidth"]  # [pixels]
         frame_height = cam_intrinsic["pixelHeight"]  # [pixels]
         # the physical specs of the camera are given in 0.001 Unity distance units

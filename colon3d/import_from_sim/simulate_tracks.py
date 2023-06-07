@@ -28,7 +28,7 @@ def generate_targets(
 
     max_attempts = 100
     i_attempt = 0
-    min_target_pixels = 250
+    min_target_pixels = 50
 
     # we are going to sample the points that are seen from the first frame of the sequence:
     i_frame = 0
@@ -56,16 +56,15 @@ def generate_targets(
             points_nrm=target_center_nrm,
             z_depths=z_depth,
             cam_poses=cam_pose,
-        )
+            )
         # Determine the size of the ball around the target center:
         target_radius = rng.uniform(min_target_radius_mm, max_target_radius_mm, size=n_targets)
 
         # check how many points are inside the ball around each target center:
-        n_points_inside = np.sum(
+        n_points_inside= np.sum(
             np.linalg.norm(points3d - target_center_3d[:, np.newaxis], axis=-1) < target_radius,
             axis=-1,
         )
-
         print(f"i_attempt={i_attempt}, n_points_inside={n_points_inside}")
         if n_points_inside > min_target_pixels:
             break
@@ -96,7 +95,7 @@ def create_tracks_per_frame(
     K_of_depth_map = depth_info["K_of_depth_map"]
     tracks_initial_area = {}  # a dictionary that will contain the initial area of each track in each frame [pixels^2]
     # pixel coordinates of all the pixels in the image - we use (y, x) since this is the index order of the depth image
-    pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width))
+    pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width), indexing="ij")
     pixels_x = pixels_x.flatten()
     pixels_y = pixels_y.flatten()
     xmin_list = []
@@ -116,6 +115,8 @@ def create_tracks_per_frame(
             track_center = tracks_point3d[i_track]
             track_radius = tracks_radiuses[i_track]
             is_inside = np.linalg.norm(points3d - track_center, axis=-1) < track_radius
+            pixels_x_inside = pixels_x[is_inside]
+            pixels_y_inside = pixels_y[is_inside]
             n_inside = np.sum(is_inside)
             if n_inside == 0:
                 continue
@@ -127,10 +128,10 @@ def create_tracks_per_frame(
                 continue
             # create a new detection of the track:
             # find bounding box of the pixels that are inside the ball:
-            xmin_list.append(np.min(pixels_x[is_inside]))
-            ymin_list.append(np.min(pixels_y[is_inside]))
-            xmax_list.append(np.max(pixels_x[is_inside]))
-            ymax_list.append(np.max(pixels_y[is_inside]))
+            xmin_list.append(pixels_x_inside.min())
+            ymin_list.append(pixels_y_inside.min())
+            xmax_list.append(pixels_x_inside.max())
+            ymax_list.append(pixels_y_inside.max())
             frame_idx_list.append(i_frame)
             track_id_list.append(i_track)
     detections = pd.DataFrame(

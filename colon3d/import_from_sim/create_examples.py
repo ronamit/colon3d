@@ -7,7 +7,7 @@ import h5py
 import numpy as np
 from numpy.random import default_rng
 
-from colon3d.general_util import create_empty_folder
+from colon3d.general_util import create_empty_folder, to_str
 from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.rotations_util import get_random_rot_quat
 from colon3d.torch_util import np_func
@@ -23,13 +23,13 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData2",
+        default="data/sim_data/SimData3",
         help="The path to the folder with processed simulated sequences to load",
     )
     parser.add_argument(
         "--path_to_save_examples",
         type=str,
-        default="data/sim_data/SimData2/Examples",
+        default="data/sim_data/SimData3/Examples",
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
@@ -187,12 +187,12 @@ def generate_examples_from_sequence(
             max_target_radius_mm=examples_prams["max_target_radius_mm"],
             max_dist_from_center_ratio=examples_prams["max_dist_from_center_ratio"],
         )
-        print("Targets info:", targets_info)
+        print("Targets info:", to_str(targets_info))
         with (example_path / "targets_info.pkl").open("wb") as file:
             pickle.dump(targets_info, file)
         # also save the targets info to a text file:
         with (example_path / "targets_info.txt").open("w") as file:
-            file.write("Targets info: " + str(targets_info) + "\n")
+            file.write("Targets info: " + to_str(targets_info) + "\n")
 
         # simulate the tracks (bounding boxes) of the targets in the 2D images:
         tracks = create_tracks_per_frame(
