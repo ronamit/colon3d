@@ -8,10 +8,32 @@ import numpy as np
 import pandas as pd
 
 from colon3d.data_util import FramesLoader, RadialImageCropper
-from colon3d.general_util import colors_platte, coord_to_cv2kp, put_unicode_text_on_img, save_plot_and_close, save_video
+from colon3d.general_util import (
+    colors_platte,
+    coord_to_cv2kp,
+    create_empty_folder,
+    save_plot_and_close,
+    save_video_from_frames_list,
+)
 from colon3d.tracks_util import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def draw_kps(vis_frame, kps, color):
+    for kp in kps:
+        vis_frame = cv2.circle(
+            vis_frame,
+            (round(kp.pt[0]), round(kp.pt[1])),
+            radius=2,
+            color=color,
+            thickness=-1,
+        )
+    return vis_frame
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -19,7 +41,7 @@ def draw_tracks_on_frame(
     vis_frame,
     cur_detect,
     track_id: int,
-    alg_view_cropper: RadialImageCropper,
+    alg_view_cropper: RadialImageCropper = None,
     convert_from_alg_view_to_full=False,
     color=None,
 ):
@@ -44,62 +66,117 @@ def draw_tracks_on_frame(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_tracks_on_video_simple(sequence_path: Path, video_out_path: Path, tracks: pd.DataFrame):
-    frames_loader = FramesLoader(sequence_path)
-    frames_generator = frames_loader.frames_generator(frame_type="full")
-    frame_width = frames_loader.orig_cam_info.frame_width
-    frame_height = frames_loader.orig_cam_info.frame_height
-    video_out = cv2.VideoWriter(
-        str(video_out_path),
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        frames_loader.fps,
-        (frame_width, frame_height),
-    )
-    for i_frame, frame in enumerate(frames_generator):
+def save_frames_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd.DataFrame):
+    frames_paths = sorted(rgb_frames_path.glob("*.png"))
+    n_frames = len(frames_paths)
+    create_empty_folder(path_to_save)
+
+    def get_frame_with_tracks(i_frame):
+        frame = cv2.imread(str(frames_paths[i_frame]))
+        vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
-        vis_frame = frame.copy()
+        if len(tracks_in_frame) == 0:
+            return None
         for cur_detect in tracks_in_frame:
-            top_left = (round(cur_detect["xmin"]), round(cur_detect["ymin"]))
-            bottom_right = (round(cur_detect["xmax"]), round(cur_detect["ymax"]))
-            track_id = cur_detect["track_id"]
-            color = colors_platte(track_id + 1, "BGR")
-            # draw bounding bounding box
-            vis_frame = cv2.rectangle(
-                img=frame,
-                pt1=top_left,
-                pt2=bottom_right,
-                color=color,
-                thickness=2,
+            vis_frame = draw_tracks_on_frame(
+                vis_frame=vis_frame,
+                cur_detect=cur_detect,
+                track_id=cur_detect["track_id"],
             )
-            # print the bounding box coordinates on the image
-            text = f"ID: {track_id}, x[{int(top_left[0])}:{int(bottom_right[0])}], y[{int(top_left[1])}:{int(bottom_right[1])}]"
-            vis_frame = put_unicode_text_on_img(
-                img=vis_frame,
-                text=text,
-                pos=(0, 0),
-                font_size=20,
-                fill_color=color,
-                stroke_width=1,
-                stroke_fill=(0, 0, 0),
-            )
-        video_out.write(vis_frame)
-    video_out.release()
-    print(f"Saved video with detections to {video_out_path}")
+        return vis_frame
+
+    for i_frame in range(n_frames):
+        vis_frame = get_frame_with_tracks(i_frame)
+        if vis_frame is not None:
+            # in case there tracks in the frame - save it
+            cv2.imwrite(str(path_to_save / f"{i_frame:06d}.png"), vis_frame)
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_kps(vis_frame, kps, color):
-    for kp in kps:
-        vis_frame = cv2.circle(
-            vis_frame,
-            (round(kp.pt[0]), round(kp.pt[1])),
-            radius=2,
-            color=color,
-            thickness=-1,
+def draw_keypoints_and_tracks(
+    frames_loader: FramesLoader,
+    detections_tracker: DetectionsTracker,
+    kp_frame_idx_all,
+    kp_px_all,
+    kp_id_all,
+    save_path=None,
+):
+    """Draw keypoints and detections on the full frame.
+    Args:
+        frames_loader: VideoLoader object.
+        detections_tracker: DetectionsTracker object.
+        kp_frame_idx_all: list of int, the frame index of each keypoint.
+        kp_px_all: list of np.array, the pixel coordinates of each keypoint.
+        kp_id_all: list of int, the track id of each keypoint.
+        save_path: str, the path to save the visualization.
+    """
+    kp_frame_idx_all = np.array(kp_frame_idx_all)
+    kp_px_all = np.stack(kp_px_all, axis=0)
+    frames_generator = frames_loader.frames_generator(frame_type="full")
+    alg_view_cropper = frames_loader.alg_view_cropper
+    fps = frames_loader.fps
+    vis_frames = []
+    kp_id_all = np.array(kp_id_all)
+    ### Draw each frame
+    for i_frame, frame in enumerate(frames_generator):
+        vis_frame = np.copy(frame)
+        # draw the algorithm view circle
+        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
+        keypoints = kp_px_all[kp_frame_idx_all == i_frame]
+        keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
+        # draw bounding boxes for the original tracks in the full frame
+        orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
+        for track_id in orig_tracks:
+            cur_detect = orig_tracks[track_id]
+            vis_frame = draw_tracks_on_frame(
+                vis_frame,
+                cur_detect,
+                track_id,
+                alg_view_cropper=alg_view_cropper,
+                convert_from_alg_view_to_full=False,
+                color=[0, 0, 127],
+            )
+        # draw bounding boxes for the tracks in the algorithm view
+        cur_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
+        for track_id in cur_tracks:
+            cur_detect = cur_tracks[track_id]
+            vis_frame = draw_tracks_on_frame(
+                vis_frame,
+                cur_detect,
+                track_id,
+                alg_view_cropper=alg_view_cropper,
+                convert_from_alg_view_to_full=True,
+            )
+        for i_kp, kp in enumerate(keypoints):
+            kp_x = round(kp[0].item())
+            kp_y = round(kp[1].item())
+            kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=(kp_x, kp_y))
+            kp_id = keypoints_ids[i_kp]
+            kp_color = colors_platte(kp_id + 1, "BGR")
+            #  draw keypoint
+            vis_frame = cv2.drawMarker(
+                vis_frame,
+                kp_xy,
+                color=kp_color,
+                markerType=cv2.MARKER_DIAMOND,
+                markerSize=6,
+                thickness=1,
+                line_type=cv2.LINE_AA,
+            )
+            # end for kp
+        # end if rect
+        vis_frames.append(vis_frame)
+    # end for
+
+    if save_path:
+        save_video_from_frames_list(
+            save_path=save_path / "draw_keypoints_and_tracks",
+            frames=vis_frames,
+            fps=fps,
         )
-    return vis_frame
+    return vis_frames
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -244,93 +321,6 @@ def draw_matches(
     display_image_in_actual_size(new_img)
     if save_path:
         save_plot_and_close(save_path / f"{i_frameA:06d}_{i_frameB:06d}_match.png")
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def draw_keypoints_and_tracks(
-    frames_loader: FramesLoader,
-    detections_tracker: DetectionsTracker,
-    kp_frame_idx_all,
-    kp_px_all,
-    kp_id_all,
-    save_path=None,
-):
-    """Draw keypoints and detections on the full frame.
-    Args:
-        frames_loader: VideoLoader object.
-        detections_tracker: DetectionsTracker object.
-        kp_frame_idx_all: list of int, the frame index of each keypoint.
-        kp_px_all: list of np.array, the pixel coordinates of each keypoint.
-        kp_id_all: list of int, the track id of each keypoint.
-        save_path: str, the path to save the visualization.
-    """
-    kp_frame_idx_all = np.array(kp_frame_idx_all)
-    kp_px_all = np.stack(kp_px_all, axis=0)
-    frames_generator = frames_loader.frames_generator(frame_type="full")
-    alg_view_cropper = frames_loader.alg_view_cropper
-    fps = frames_loader.fps
-    vis_frames = []
-    kp_id_all = np.array(kp_id_all)
-    ### Draw each frame
-    for i_frame, frame in enumerate(frames_generator):
-        vis_frame = np.copy(frame)
-        # draw the algorithm view circle
-        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
-        keypoints = kp_px_all[kp_frame_idx_all == i_frame]
-        keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
-        # draw bounding boxes for the original tracks in the full frame
-        orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
-        for track_id in orig_tracks:
-            cur_detect = orig_tracks[track_id]
-            vis_frame = draw_tracks_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
-                alg_view_cropper=alg_view_cropper,
-                convert_from_alg_view_to_full=False,
-                color=[0, 0, 127],
-            )
-        # draw bounding boxes for the traacks in the algorithm view
-        cur_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
-        for track_id in cur_tracks:
-            cur_detect = cur_tracks[track_id]
-            vis_frame = draw_tracks_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
-                alg_view_cropper=alg_view_cropper,
-                convert_from_alg_view_to_full=True,
-            )
-        for i_kp, kp in enumerate(keypoints):
-            kp_x = round(kp[0].item())
-            kp_y = round(kp[1].item())
-            kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=(kp_x, kp_y))
-            kp_id = keypoints_ids[i_kp]
-            kp_color = colors_platte(kp_id + 1, "BGR")
-            #  draw keypoint
-            vis_frame = cv2.drawMarker(
-                vis_frame,
-                kp_xy,
-                color=kp_color,
-                markerType=cv2.MARKER_DIAMOND,
-                markerSize=6,
-                thickness=1,
-                line_type=cv2.LINE_AA,
-            )
-            # end for kp
-        # end if rect
-        vis_frames.append(vis_frame)
-    # end for
-
-    if save_path:
-        save_video(
-            save_path=save_path / "draw_keypoints_and_tracks.mp4",
-            frames=vis_frames,
-            fps=fps,
-        )
-    return vis_frames
 
 
 # --------------------------------------------------------------------------------------------------------------------

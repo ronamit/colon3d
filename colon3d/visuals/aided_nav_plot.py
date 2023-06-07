@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from colon3d.data_util import FramesLoader
-from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video
+from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
 from colon3d.tracks_util import DetectionsTracker
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_tracks_on_frame
 
@@ -152,8 +152,8 @@ def draw_aided_nav(
         nav_vis_frames.append(vis_frame)
     # end for
     if save_path:
-        save_video(
-            save_path=save_path / "local_aided_nav.mp4",
+        save_video_from_frames_list(
+            save_path=save_path / "local_aided_nav",
             frames=nav_vis_frames,
             fps=fps,
         )

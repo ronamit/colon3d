@@ -5,6 +5,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import yaml
 from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder, to_str
@@ -12,7 +13,7 @@ from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, gen
 from colon3d.rotations_util import get_random_rot_quat
 from colon3d.torch_util import np_func
 from colon3d.transforms_util import apply_pose_change
-from colon3d.visuals.plots_2d import draw_tracks_on_video_simple
+from colon3d.visuals.plots_2d import save_frames_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -124,7 +125,6 @@ def generate_examples_from_sequence(
     examples_prams: dict,
     path_to_save_examples: Path,
     rng,
-    draw_tracks_video=True,
 ):
     # load the ground truth depth maps and camera poses:
     with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
@@ -149,11 +149,11 @@ def generate_examples_from_sequence(
         # create symbolic links in the example folder:
         for file_name in [
             "meta_data.yaml",
-            "Video.mp4",
+            "Video.avi",
             "gt_depth_info.pkl",
             "gt_depth_and_egomotion.h5",
             "RGB_Frames",
-            "gt_depth_video.mp4",
+            "gt_depth_video.avi",
         ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
         print("Generating egomotion and depth estimations")
@@ -173,7 +173,7 @@ def generate_examples_from_sequence(
         # save depth info to a file (unchanged from the ground truth):
         with (example_path / "est_depth_info.pkl").open("wb") as file:
             pickle.dump(depth_info, file)
-
+            
         # draw some 3D world coordinates on the colon wall, to be used as target objects (polyps) to track:
         n_targets = 1  # we want only one tracked object
         print("Generating", n_targets, "targets")
@@ -201,13 +201,15 @@ def generate_examples_from_sequence(
             depth_info=depth_info,
             targets_info=targets_info,
         )
+        # save tracks to a csv file:
         tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)
-        if draw_tracks_video:
-            draw_tracks_on_video_simple(
-                sequence_path=sequence_path,
-                tracks=tracks,
-                video_out_path=example_path / "Tracks_Video.mp4",
-            )
+        
+        # save the frames with the tracks to a folder (for visualization)
+        save_frames_with_tracks(
+            rgb_frames_path=example_path / "RGB_Frames",
+            tracks=tracks,
+            path_to_save=example_path / "Frames_with_tracks",
+        )
 
 
 # --------------------------------------------------------------------------------------------------------------------

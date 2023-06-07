@@ -3,28 +3,19 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from colon3d.general_util import save_video_from_func
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def plot_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
     n_frames = depth_frames.shape[0]
-    save_path_str = str(save_path.resolve())
 
-    video_writer = cv2.VideoWriter(
-        save_path_str,
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        fps,
-        (depth_frames.shape[1], depth_frames.shape[2]),
-    )
-
-    # Loop over frames and create heatmaps.
-    for i in range(n_frames):
+    def get_depth_frame(i):
         heatmap = cv2.applyColorMap(np.array(depth_frames[i], dtype=np.uint8), cv2.COLORMAP_JET)
-        video_writer.write(heatmap)
+        return heatmap
 
-    # Close the video writer.
-    video_writer.release()
-    print(f"Saved depth video to {save_path_str}")
+    save_video_from_func(save_path=save_path, make_frame=get_depth_frame, n_frames=n_frames, fps=fps)
 
 
 # --------------------------------------------------------------------------------------------------------------------

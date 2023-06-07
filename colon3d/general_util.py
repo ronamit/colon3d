@@ -75,39 +75,29 @@ def find_in_file_between_str(file_path, before_str, after_str, line_prefix=None)
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float, backend="cv2"):
+def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float):
     """Saves a video from a function that generates the frames.
     Args:
         save_path: the path to save the video to
         make_frame (function): a function that gets the frame number and returns the frame as a numpy array [H, W, C]
         n_frames (int): the number of frames
         fps: the frames per second
-    Note: for faster video creation, see https://github.com/opencv/opencv/wiki/Video-IO-hardware-acceleration
     """
-    file_path = str(save_path)
-    if backend == "cv2":
-        frame = make_frame(0)
-        height, width = frame.shape[:2]
-        vid_writer = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc("m", "p", "4", "v"), fps, (width, height))
-        for i_frame in range(n_frames):
-            # print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
-            frame = make_frame(i_frame)
-            vid_writer.write(frame)
-        vid_writer.release()
-    # elif backend == "moviepy_nvidia":
-    #     import moviepy.editor as mpy
-    #     duration = n_frames / fps
-    #     animation_clip = mpy.VideoClip(make_frame, duration=duration)
-    #     animation_clip.write_videofile(str(save_path / (file_name + ".mp4")), fps=fps, threads=5, codec="h264_nvenc")
-    else:
-        raise ValueError("Unknown backend")
+    file_path = str(save_path) + ".avi"
+    frame = make_frame(0)
+    height, width = frame.shape[:2]
+    vid_writer = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc(*"XVID"), fps, (width, height))
+    for i_frame in range(n_frames):
+        # print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
+        frame = make_frame(i_frame)
+        vid_writer.write(frame)
     print(f"Video saved to {file_path}")
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_video(save_path: Path, frames: list, fps: float):
+def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
     def make_frame(i_frame) -> np.ndarray:
         return frames[i_frame]
 

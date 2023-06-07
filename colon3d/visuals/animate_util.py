@@ -221,7 +221,6 @@ def create_animation_video(
         make_frame=make_frame,
         n_frames=n_steps,
         fps=fps,
-        backend="moviepy_nvidia",
     )
 
 

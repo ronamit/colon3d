@@ -11,6 +11,7 @@ import yaml
 from colon3d.general_util import (
     create_empty_folder,
     path_to_str,
+    save_video_from_func,
 )
 from colon3d.torch_util import np_func
 from colon3d.transforms_util import infer_egomotions
@@ -294,42 +295,28 @@ class SimImporter:
     def save_rgb_frames(self, rgb_frames_paths: list, seq_path: Path, metadata: dict, save_video: bool = True):
         n_frames = len(rgb_frames_paths)
 
+        # frame loader function
+        def load_rgb_frame(i_frame) -> np.ndarray:
+            frame_path = rgb_frames_paths[i_frame]
+            im = cv2.imread(path_to_str(self.input_data_path / frame_path))
+            im = change_image_to_right_handed(im)
+            return im
+        
         # copy all the rgb frames to the output directory
         frames_out_path = seq_path / "RGB_Frames"
         create_empty_folder(frames_out_path, ask_overwrite=False)
-        for i_frame, frame_path in enumerate(rgb_frames_paths):
+        n_frames = len(rgb_frames_paths)
+        for i_frame in range(n_frames):
+            im = load_rgb_frame(i_frame)
             frame_name = f"{i_frame:06d}.png"
-            im = cv2.imread(path_to_str(self.input_data_path / frame_path))
-            im = change_image_to_right_handed(im)
             # save the image
             cv2.imwrite(
                 filename=path_to_str(frames_out_path / frame_name),
                 img=im,
             )
-
         if save_video:
-            output_vid_path = seq_path / "Video.mp4"
-            fps = metadata["fps"]
-            frame_height = metadata["frame_height"]
-            frame_width = metadata["frame_width"]
-            frame_size = (frame_height, frame_width)
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-
-            out_video = cv2.VideoWriter(
-                filename=path_to_str(output_vid_path),
-                fourcc=fourcc,
-                fps=fps,
-                frameSize=frame_size,
-                isColor=True,
-            )
-            for i_frame in range(n_frames):
-                frame_name = f"{i_frame:06d}.png"
-                print(f"Writing RGB frame {i_frame+1}/{n_frames} to video", end="\r")
-                im = cv2.imread(path_to_str(frames_out_path / frame_name))
-                assert im.shape == (frame_height, frame_width, 3)
-                out_video.write(im)
-            out_video.release()
-            print(f"Video saved to: {output_vid_path}")
+            output_vid_path = seq_path / "Video"
+            save_video_from_func(save_path=output_vid_path, make_frame=load_rgb_frame, n_frames=n_frames, fps=metadata["fps"])
 
     # --------------------------------------------------------------------------------------------------------------------
 
