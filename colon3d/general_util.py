@@ -83,10 +83,10 @@ def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float)
         n_frames (int): the number of frames
         fps: the frames per second
     """
-    file_path = str(save_path) + ".avi"
+    file_path = str(save_path) + ".mp4"
     frame = make_frame(0)
     height, width = frame.shape[:2]
-    vid_writer = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc(*"XVID"), fps, (width, height))
+    vid_writer = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
     for i_frame in range(n_frames):
         # print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
         frame = make_frame(i_frame)

@@ -1,3 +1,15 @@
+    
+
+    
+    
+    
+    # # # since we switched from LH to RH space, we need to flip the rotation angle sign.
+    # cam_rot[:, 1:] *= -1
+
+    # rotate the camera rotation by 90 degrees counter-clockwise around the z-axis (to align with the frame axes)
+    # cam_rot = np_func(rotate_around)(in_quat=cam_rot, rot_axis=(0, 0, 1),  rot_angle=np.pi / 2)
+
+# - -------------
 
 # def quaternions_to_rotation_matrices(quaternions: np.ndarray) -> np.ndarray:
 #     """

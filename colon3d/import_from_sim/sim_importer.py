@@ -36,24 +36,8 @@ def change_cam_transform_to_right_handed(cam_trans: np.ndarray, cam_rot: np.ndar
     cam_trans[:, 1] *= -1
     # # change the rotation accordingly: qy <-> -qy
     cam_rot[:, 2] *= -1
-    # # since we switched from LH to RH space, we need to flip the rotation angle sign.
-    cam_rot[:, 1:] *= -1
 
     return cam_trans, cam_rot
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def change_image_to_right_handed(image: np.ndarray) -> np.ndarray:
-    """
-    Transforms the image from left-handed to right-handed coordinate system.
-    Args:
-        image: (H, W, ..) array of image pixels
-    """
-    # rotate the first two dimensions by negative 90 degrees:
-    image = np.rot90(image, k=-1, axes=(0, 1))
-    return image
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -299,9 +283,8 @@ class SimImporter:
         def load_rgb_frame(i_frame) -> np.ndarray:
             frame_path = rgb_frames_paths[i_frame]
             im = cv2.imread(path_to_str(self.input_data_path / frame_path))
-            im = change_image_to_right_handed(im)
             return im
-        
+
         # copy all the rgb frames to the output directory
         frames_out_path = seq_path / "RGB_Frames"
         create_empty_folder(frames_out_path, ask_overwrite=False)
@@ -316,7 +299,9 @@ class SimImporter:
             )
         if save_video:
             output_vid_path = seq_path / "Video"
-            save_video_from_func(save_path=output_vid_path, make_frame=load_rgb_frame, n_frames=n_frames, fps=metadata["fps"])
+            save_video_from_func(
+                save_path=output_vid_path, make_frame=load_rgb_frame, n_frames=n_frames, fps=metadata["fps"]
+            )
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -335,7 +320,6 @@ class SimImporter:
             print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
             # All 3 channels are the same (depth), so we only need to read one
             depth_img = cv2.imread(path_to_str(depth_file_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-            depth_img = change_image_to_right_handed(depth_img)
             R_channel_idx = 2  # OpenCV reads in BGR order
             z_depth_mm = self.UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
             z_depth_frames[i_frame] = z_depth_mm

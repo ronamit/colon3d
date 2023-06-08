@@ -35,7 +35,7 @@ def main():
     parser.add_argument(
         "--n_examples_per_sequence",
         type=int,
-        default=3,
+        default=1,
         help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument(
@@ -148,11 +148,11 @@ def generate_examples_from_sequence(
         # create symbolic links in the example folder:
         for file_name in [
             "meta_data.yaml",
-            "Video.avi",
+            "Video.mp4",
             "gt_depth_info.pkl",
             "gt_depth_and_egomotion.h5",
             "RGB_Frames",
-            "gt_depth_video.avi",
+            "gt_depth_video.mp4",
         ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
         print("Generating egomotion and depth estimations")

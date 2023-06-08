@@ -20,6 +20,8 @@ from colon3d.tracks_util import DetectionsTracker
 from colon3d.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
+default_type = torch.float64
+torch.set_default_dtype(default_type)
 # ---------------------------------------------------------------------------------------------------------------------
 
 

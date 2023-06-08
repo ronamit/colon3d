@@ -19,7 +19,7 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData3/Seq_00000",
+        default="data/sim_data/TryOuts3_to_Y/Seq_00000",
         help="Path to the sequence folder",
     )
     parser.add_argument(

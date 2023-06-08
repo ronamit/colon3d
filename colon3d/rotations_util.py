@@ -225,3 +225,58 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
 
 
 # ----------------------------------------------------------------------
+
+def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as axis/angle to quaternions.
+
+    Args:
+        axis_angle: Rotations given as a vector in axis angle form,
+            as a tensor of shape (..., 3), where the magnitude is
+            the angle turned anticlockwise in radians around the
+            vector's direction.
+
+    Returns:
+        quaternions with real part first, as tensor of shape (..., 4).
+    Source:
+        https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
+    """
+    angles = torch.norm(axis_angle, p=2, dim=-1, keepdim=True)
+    half_angles = angles * 0.5
+    eps = 1e-6
+    small_angles = angles.abs() < eps
+    sin_half_angles_over_angles = torch.empty_like(angles)
+    sin_half_angles_over_angles[~small_angles] = (
+        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
+    )
+    # for x small, sin(x/2) is about x/2 - (x/2)^3/6
+    # so sin(x/2)/x is about 1/2 - (x*x)/48
+    sin_half_angles_over_angles[small_angles] = (
+        0.5 - (angles[small_angles] * angles[small_angles]) / 48
+    )
+    quaternions = torch.cat(
+        [torch.cos(half_angles), axis_angle * sin_half_angles_over_angles], dim=-1,
+    )
+    return quaternions
+
+# ----------------------------------------------------------------------
+
+def rotate_around(in_quat: torch.tensor, rot_axis: torch.tensor, rot_angle: torch.tensor) -> torch.tensor:
+    """
+    Rotate a quaternion around a given axis by a given angle.
+
+    Args:
+        in_quat: Input quaternion. (qw, qx, qy, qz) unit-quaternion format.
+        rot_axis: Axis to rotate around. [3D unit vector]
+        rot_angle: Angle to rotate by. [radians]
+
+    Returns:
+        Rotated quaternion.
+    """
+    rot_axis = torch.tensor(rot_axis, dtype=in_quat.dtype)
+    axis_angle = rot_axis * rot_angle
+    rot_quat = axis_angle_to_quaternion(axis_angle)
+    out_quat = apply_rotation_change(start_rot=in_quat, rot_change=rot_quat)
+    return out_quat
+
+# ----------------------------------------------------------------------

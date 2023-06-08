@@ -22,13 +22,13 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData2/Examples/Seq_00000_0000",
+        default="data/sim_data/SimData3/Examples/Seq_00000_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData2/Examples/Seq_00000_0000/Results",
+        default="data/sim_data/SimData3/Examples/Seq_00000_0000/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -40,7 +40,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=20,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(

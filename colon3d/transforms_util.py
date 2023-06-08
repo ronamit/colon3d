@@ -238,6 +238,10 @@ def apply_pose_change(
     Returns:
         final_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
+    if start_pose.ndim == 1:
+        start_pose = start_pose.unsqueeze(0)
+    if pose_change.ndim == 1:
+        pose_change = pose_change.unsqueeze(0)
     assert start_pose.ndim == 2, f"Start pose is not 2D, {start_pose.ndim}."
     assert start_pose.shape[1] == 7, f"Start pose is not in 7D, {start_pose.shape}."
     start_loc = start_pose[:, 0:3]  # [n x 3]
@@ -264,6 +268,10 @@ def find_pose_change(
     Returns:
         pose_change: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     """
+    if start_pose.ndim == 1:
+        start_pose = start_pose.unsqueeze(dim=0)
+    if final_pose.ndim == 1:
+        final_pose = final_pose.unsqueeze(dim=0)
     assert_2d_tensor(start_pose, 7)
     assert_2d_tensor(final_pose, 7)
     start_loc = start_pose[:, 0:3]  # [n_points x 3]

@@ -31,12 +31,12 @@ def align_estimated_trajectory(gt_poses: np.ndarray, est_poses: np.ndarray) -> n
     n_frames = gt_poses.shape[0]
     # find the alignment transformation, according to the first frame
     # rotation
-    pose_align = find_pose_change(start_pose=est_poses[0], final_pose=gt_poses[0])
+    pose_align = np_func(find_pose_change)(start_pose=est_poses[0], final_pose=gt_poses[0])
 
     # apply the alignment transformation to the estimated trajectory
     aligned_est_poses = np.zeros_like(est_poses)
     for i in range(n_frames):
-        aligned_est_poses[i] = apply_pose_change(start_pose=est_poses[i], pose_change=pose_align[i])
+        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=est_poses[i], pose_change=pose_align)
     return aligned_est_poses
 
 
@@ -68,7 +68,7 @@ def compute_ATE(gt_poses: np.ndarray, est_poses: np.ndarray):
 
     for i in range(n_frames):
         # find the pose difference (estimation error) (order does not matter, since we take the absolute value of the change)
-        delta_pose = find_pose_change(start_pose=est_poses_aligned[i], final_pose=gt_poses[i])
+        delta_pose = np_func(find_pose_change)(start_pose=est_poses_aligned[i], final_pose=gt_poses[i]).squeeze()
         delta_loc = delta_pose[:3]
         delta_rot = delta_pose[3:]
         ate_rot_all[i] = np.abs(2 * np.arccos(delta_rot[0]))  # [rad] (angle of rotation of the unit-quaternion)
@@ -99,7 +99,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray):
 
     for i in range(n_frames - 1):
         # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
-        delta_pose = np_func(find_pose_change)(start_pose=est_poses[i], final_pose=gt_poses[i])
+        delta_pose = np_func(find_pose_change)(start_pose=est_poses[i], final_pose=gt_poses[i]).squeeze()
         delta_loc = delta_pose[:3]
         delta_rot = delta_pose[3:]
         rpe_trans_all[i] = np.linalg.norm(delta_loc)  # [mm]
