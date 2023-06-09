@@ -49,7 +49,7 @@ def plot_3d_arrow(origin, vector, label, color, arrow_len: float = 1):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def plot_xyz_axes(origin_loc: np.array, rot_quat: np.array, arrow_len: float = 1, add_legend: bool = True):
+def plot_xyz_axes(origin_loc: np.ndarray, rot_quat: np.ndarray, arrow_len: float = 1, add_legend: bool = True):
     """Return plot objects for the XYZ axes at origin point with rotation according to a unit quaternion"""
 
     # arrows endpoints in camera coordinate system:

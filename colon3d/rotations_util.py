@@ -8,9 +8,9 @@ from colon3d.torch_util import assert_2d_tensor
 
 
 @torch.jit.script  # disable this for debugging
-def normalize_quaternion(q_in: torch.Tensor) -> torch.Tensor:
+def normalize_quaternions(q_in: torch.Tensor) -> torch.Tensor:
     """
-    normalize the quaternion to a unit quaternion and convert a standard form: one in which the real
+    normalize the quaternions to unit quaternions and convert a standard form: one in which the real
     part is non negative.
     Args:
         q_in: Quaternions tensor of shape (..., 4).
@@ -19,7 +19,7 @@ def normalize_quaternion(q_in: torch.Tensor) -> torch.Tensor:
     References: https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
     """
     assert q_in.shape[-1] == 4, "quaternions must be of shape (..., 4)"
-    q_out = normalize(q_in, dim=-1, p=2.0, eps=1e-18)
+    q_out = normalize(q_in, dim=-1, p=2.0, eps=1e-20)
     q_out = torch.where(q_out[..., 0:1] < 0, -q_out, q_out)
     return q_out
 

@@ -8,11 +8,8 @@ import h5py
 import numpy as np
 import yaml
 
-from colon3d.general_util import (
-    create_empty_folder,
-    path_to_str,
-    save_video_from_func,
-)
+from colon3d.general_util import create_empty_folder, path_to_str, save_video_from_func
+from colon3d.rotations_util import normalize_quaternions
 from colon3d.torch_util import np_func
 from colon3d.transforms_util import infer_egomotions
 from colon3d.visuals.plot_depth_video import plot_depth_video
@@ -264,13 +261,21 @@ class SimImporter:
         cam_trans = np.row_stack(raw_trans)
         cam_rot = np.row_stack(raw_rot)
 
-        # change quaternion to real-first format:
+        # change quaternion to real-first format (q_w, q_x, q_y, q_z)
         cam_rot = cam_rot[:, [3, 0, 1, 2]]
 
         # change the units from Unity units to mm
         cam_trans *= self.UNITY_TO_MM
 
-        cam_trans, cam_rot = change_cam_transform_to_right_handed(cam_trans, cam_rot)
+        # Change the camera transform from left-handed to right-handed coordinate system.
+
+        # y <-> -y
+        cam_trans[:, 1] *= -1
+        # # change the rotation accordingly: qy <-> -qy
+        cam_rot[:, 2] *= -1
+
+        # ensure that the quaternion is unit
+        cam_rot = np_func(normalize_quaternions)(cam_rot)
 
         cam_poses = np.concatenate((cam_trans, cam_rot), axis=1)
         return cam_poses
@@ -300,7 +305,10 @@ class SimImporter:
         if save_video:
             output_vid_path = seq_path / "Video"
             save_video_from_func(
-                save_path=output_vid_path, make_frame=load_rgb_frame, n_frames=n_frames, fps=metadata["fps"]
+                save_path=output_vid_path,
+                make_frame=load_rgb_frame,
+                n_frames=n_frames,
+                fps=metadata["fps"],
             )
 
     # --------------------------------------------------------------------------------------------------------------------

@@ -26,8 +26,8 @@ def main():
     parser.add_argument(
         "--alg_fov_ratio",
         type=float,
-        default=0.99,
-        help="The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation",
+        default=0,
+        help="If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.",
     )
     parser.add_argument(
         "--n_frames_lim",

@@ -8,13 +8,13 @@ class AlgorithmParam:
     n_last_frames_to_opt: int = 1
     optimize_each_n_frames: int = 1
     add_penalties = True # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
-    max_vel: float = 100  # mm/s
-    max_angular_vel: float = 1 * np.pi  # rad/s
-    w_salient_kp: float = 0.3  # default weighting for the bundle adjustment cost function for salient KPs
+    max_vel: float = 200  # mm/s
+    max_angular_vel: float = 4 * np.pi  # rad/s
+    w_salient_kp: float = 0.5  # default weighting for the bundle adjustment cost function for salient KPs
     w_track_kp: float = 1.0  # default  weighting for the bundle adjustment cost function for track KPs
     w_cam_trans: float = 1e-5  # default weighting for the penalty term of the l2 norm of the camera translation (from previous frame) in the bundle adjustment cost function
     w_cam_rot: float = 1e-6  # default weighting for the penalty term of the camera rotation (from previous frame) in the bundle adjustment cost function
-    w_lim_vel: float = 1e6  # default weighting for the max-velocity penalty term in the bundle adjustment cost function
+    w_lim_vel: float = 1e-6  # default weighting for the max-velocity penalty term in the bundle adjustment cost function
     w_lim_angular_vel: float = (
         1e7  # default weighting for the max-angular-velocity penalty term in the bundle adjustment cost function
     )

@@ -28,23 +28,26 @@ def draw_aided_nav(
         save_path: str, the path to save the video
     """
     fps = frames_loader.fps  # [Hz]
-    frames_generator = frames_loader.frames_generator(frame_type="full")
-    alg_view_cropper = frames_loader.alg_view_cropper
+    full_frames_generator = frames_loader.frames_generator(frame_type="full")
+    orig_cam_info = frames_loader.orig_cam_info
+    alg_view_cropper = frames_loader.alg_view_cropper  # RadialImageCropper or None
     orig_cam_undistorter = frames_loader.orig_cam_undistorter
     alg_cam_info = frames_loader.alg_cam_info
-    alg_view_radius = alg_view_cropper.view_radius
-    cx_orig = alg_view_cropper.cx_orig
-    cy_orig = alg_view_cropper.cy_orig
-    orig_im_center = np.array([cx_orig, cy_orig])  # [px]
+    alg_view_radius = frames_loader.alg_view_radius
+    alg_fov_deg = frames_loader.alg_fov_deg
+    eps = 1e-20  # to avoid division by zero
+
+    orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy])  # [px]
 
     nav_vis_frames = []
     ### Draw the aided navigation for each frame
-    for i_frame, frame in enumerate(frames_generator):
+    for i_frame, frame in enumerate(full_frames_generator):
         if start_frame > i_frame or i_frame >= stop_frame:
             continue
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
-        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
+        if alg_view_cropper is not None:
+            vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
         # draw bounding boxes for the original detections in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id, cur_detect in orig_tracks.items():
@@ -76,13 +79,12 @@ def draw_aided_nav(
             z_dist = p3d_cam[2]  # [mm]
             # compute  the track position angle with the z axis
             ray_dist = np.linalg.norm(p3d_cam[0:3], axis=-1)  # [mm]
-            angle_rad = np.arccos(z_dist / (ray_dist + 1e-20))  # [rad]
+            angle_rad = np.arccos(z_dist / max(ray_dist, eps))  # [rad]
             angle_deg = np.rad2deg(angle_rad)  # [deg]
             xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
-            xy_dir = p3d_cam[0:2] / xy_dist
-            arrow_base_radius = (
-                alg_view_radius * 0.85
-            )  # [px] start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible
+            xy_dir = p3d_cam[0:2] / max(xy_dist, eps)
+            # start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible:
+            arrow_base_radius = alg_view_radius * 0.85 # [px]
             orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
             orient_arrow_len = 50
             orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]
@@ -128,8 +130,7 @@ def draw_aided_nav(
                 )
                 # draw text near the arrow
                 delta_z = z_dist - alg_cam_info.min_vis_z_mm
-                alg_fov = 2 * np.arctan(alg_view_cropper.view_radius / max(alg_cam_info.fx, alg_cam_info.fy))
-                delta_alpha = angle_deg - 0.5 * np.rad2deg(alg_fov)
+                delta_alpha = angle_deg - 0.5 * np.rad2deg(alg_fov_deg)
                 vis_frame = put_unicode_text_on_img(
                     vis_frame,
                     text=f"{round(delta_z):+g}mm\n{round(delta_alpha):+g}\xb0",

@@ -71,6 +71,8 @@ def compute_ATE(gt_poses: np.ndarray, est_poses: np.ndarray):
         delta_pose = np_func(find_pose_change)(start_pose=est_poses_aligned[i], final_pose=gt_poses[i]).squeeze()
         delta_loc = delta_pose[:3]
         delta_rot = delta_pose[3:]
+        assert np.allclose(np.linalg.norm(delta_rot), 1), "delta_rot is not a unit-quaternion"
+        delta_rot = np.clip(delta_rot, -1, 1)  # to avoid numerical errors
         ate_rot_all[i] = np.abs(2 * np.arccos(delta_rot[0]))  # [rad] (angle of rotation of the unit-quaternion)
         ate_trans_all[i] = np.linalg.norm(delta_loc)  # [mm]
 
@@ -100,6 +102,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray):
     for i in range(n_frames - 1):
         # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
         delta_pose = np_func(find_pose_change)(start_pose=est_poses[i], final_pose=gt_poses[i]).squeeze()
+        assert np.allclose(np.linalg.norm(delta_pose[3:]), 1), "delta_rot is not a unit-quaternion"
         delta_loc = delta_pose[:3]
         delta_rot = delta_pose[3:]
         rpe_trans_all[i] = np.linalg.norm(delta_loc)  # [mm]

@@ -5,6 +5,8 @@ import h5py
 import numpy as np
 import torch
 
+from colon3d.rotations_util import normalize_quaternions
+from colon3d.torch_util import np_func
 from colon3d.transforms_util import unproject_image_normalized_coord_to_world
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -46,10 +48,8 @@ class DepthAndEgoMotionLoader:
         frame_idx: int,
     ):
         """Get the depth estimation at a given frame.
-
         Args:
             frame_idx: the frame index
-
         Returns:
             depth_map: the depth estimation map (units: mm)
         """
@@ -60,7 +60,7 @@ class DepthAndEgoMotionLoader:
 
     def get_egomotions_at_frames(
         self,
-        frame_indexes: np.array,
+        frame_indexes: np.ndarray,
     ):
         """Get the egomotion estimation at a given frame.
         The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
@@ -70,14 +70,15 @@ class DepthAndEgoMotionLoader:
         """
         egomotions_est = self.loaded_egomotions[frame_indexes]
         assert egomotions_est.shape[1] == 7  # (x, y, z, q0, qx, qy, qz)
-        egomotions_est[:, :3] = egomotions_est[:, :3]  # convert units to mm
+        # normalize the quaternion (in case it is not normalized)
+        egomotions_est[:, 3:] = np_func(normalize_quaternions)(egomotions_est[:, 3:])
         return egomotions_est
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_at_nrm_points(
         self,
-        frame_indexes: np.array,
+        frame_indexes: np.ndarray,
         queried_points_nrm: torch.Tensor,
         z_depth_upper_bound: float,
         z_depth_lower_bound: float,

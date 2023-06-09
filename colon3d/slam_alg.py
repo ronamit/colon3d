@@ -131,11 +131,12 @@ class SlamRunner:
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print("-" * 50 + f"\ni_frame: {i_frame}/{n_frames-1}")
+            curr_egomotion_est = None if i_frame == 0 else depth_estimator.get_egomotions_at_frames([i_frame])
             self.run_on_new_frame(
                 curr_frame=frames_generator.__next__(),
                 i_frame=i_frame,
                 curr_tracks=detections_tracker.get_tracks_in_frame(i_frame),
-                curr_egomotion=depth_estimator.get_egomotions_at_frames([i_frame]),
+                curr_egomotion_est=curr_egomotion_est,
                 cam_undistorter=cam_undistorter,
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
@@ -176,15 +177,33 @@ class SlamRunner:
         curr_frame: np.array,
         i_frame: int,
         curr_tracks: dict,
-        curr_egomotion: np.array,
+        curr_egomotion_est: np.ndarray | None,
         cam_undistorter: FishEyeUndistorter,
-        alg_view_cropper: RadialImageCropper,
+        alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
         draw_interval: int,
         verbose_print_interval: int,
         save_path: Path,
     ):
+        """ Run the algorithm on a new frame.
+        1. Detect salient keypoints in the new frame
+        2. Match the salient keypoints to the keypoints in the previous frame
+        3. Estimate the 3D location of the matched keypoints
+        5. Run bundle-adjustment to update the 3D points and the camera poses estimates.
+        Args:
+            curr_frame: the current RGB frame
+            i_frame: the index of the current frame
+            curr_tracks: the tracks in the current frame (bounding boxes)
+            curr_egomotion_est: the initially estimated egomotion of the camera between the current frame and the previous frame
+            cam_undistorter: the camera undistorter
+            alg_view_cropper: the view cropper
+            depth_estimator: the depth estimator
+            fps: the FPS of the video [Hz]
+            draw_interval: the interval (in frames) in which to draw the results (0 for no drawing)
+            verbose_print_interval: the interval (in frames) in which to print the results (0 for no printing)
+            save_path: the path to save the results and plots
+        """
         alg_prm = self.alg_prm
         img_B = curr_frame
         # Keep track of the keypoints that are associated with a newly discovered 3D point
@@ -197,7 +216,7 @@ class SlamRunner:
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
         if i_frame > 0:
             # get the estimated 6DOF cam pose change from the previous frame (egomotion)
-            egomotion = torch.as_tensor(curr_egomotion, device=self.device)  # [1 x 7]
+            egomotion = torch.as_tensor(curr_egomotion_est, device=self.device)  # [1 x 7]
             prev_cam_pose = self.cam_poses[i_frame - 1, :].unsqueeze(0)  # [1 x 7]
             cur_guess_cam_pose = apply_pose_change(start_pose=prev_cam_pose, pose_change=egomotion)
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor

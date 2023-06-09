@@ -76,7 +76,12 @@ class DetectionsTracker:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def truncate_tracks_for_alg_view(self):
-        """Truncates the detections to the defined algorithm view."""
+        """Truncates the detections to the defined algorithm view
+        """
+        if self.alg_view_cropper is None:
+            # no algorithm view cropping was defined - using original tracks as is.
+            self.tracks_for_alg = self.tracks_original
+            return
         x_min = self.alg_view_cropper.x_min
         y_min = self.alg_view_cropper.y_min
         view_radius = self.alg_view_cropper.view_radius

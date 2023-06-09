@@ -30,10 +30,10 @@
             ]
         },
         {
-            "name": "run_slam_on_sim",
+            "name": "run_slam_on_sim_example",
             "type": "python",
             "request": "launch",
-            "program": "colon3d/run_slam_on_sim.py",
+            "program": "colon3d/run_slam_on_sim_example.py",
             "console": "integratedTerminal",
             "args": [
                 "--n_frames_lim",

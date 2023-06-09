@@ -41,13 +41,13 @@ def draw_tracks_on_frame(
     vis_frame,
     cur_detect,
     track_id: int,
-    alg_view_cropper: RadialImageCropper = None,
+    alg_view_cropper: RadialImageCropper | None = None,
     convert_from_alg_view_to_full=False,
     color=None,
 ):
     top_left = (round(cur_detect["xmin"]), round(cur_detect["ymin"]))
     bottom_right = (round(cur_detect["xmax"]), round(cur_detect["ymax"]))
-    if convert_from_alg_view_to_full:
+    if alg_view_cropper is not None and convert_from_alg_view_to_full:
         top_left = alg_view_cropper.convert_coord_in_crop_to_full(point2d=top_left)
         bottom_right = alg_view_cropper.convert_coord_in_crop_to_full(point2d=bottom_right)
     if color is None:
@@ -115,7 +115,7 @@ def draw_keypoints_and_tracks(
     kp_frame_idx_all = np.array(kp_frame_idx_all)
     kp_px_all = np.stack(kp_px_all, axis=0)
     frames_generator = frames_loader.frames_generator(frame_type="full")
-    alg_view_cropper = frames_loader.alg_view_cropper
+    alg_view_cropper = frames_loader.alg_view_cropper # RadialImageCropper or None
     fps = frames_loader.fps
     vis_frames = []
     kp_id_all = np.array(kp_id_all)
@@ -152,7 +152,9 @@ def draw_keypoints_and_tracks(
         for i_kp, kp in enumerate(keypoints):
             kp_x = round(kp[0].item())
             kp_y = round(kp[1].item())
-            kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=(kp_x, kp_y))
+            kp_xy = (kp_x, kp_y)
+            if alg_view_cropper is not None:
+                kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=kp_xy)
             kp_id = keypoints_ids[i_kp]
             kp_color = colors_platte(kp_id + 1, "BGR")
             #  draw keypoint
@@ -187,7 +189,7 @@ def draw_kp_on_img(
     salient_KPs,
     track_KPs,
     curr_tracks,
-    alg_view_cropper: RadialImageCropper,
+    alg_view_cropper: RadialImageCropper | None,
     save_path,
     i_frame,
 ):
@@ -229,7 +231,7 @@ def draw_matches(
     i_frameB,
     tracks_in_frameA,
     tracks_in_frameB,
-    alg_view_cropper,
+    alg_view_cropper : RadialImageCropper | None,
     save_path,
 ):
     """Draws lines between matching keypoints of two images.
@@ -348,11 +350,9 @@ def display_image_in_actual_size(im_data, hide_axis=True):
 
 def draw_alg_view_in_the_full_frame(frame, frames_loader):
     # get the FOV of the alg view
-    alg_view_cropper = frames_loader.alg_view_cropper
-    alg_view_radius = round(alg_view_cropper.view_radius)
-    cx_orig = alg_view_cropper.cx_orig
-    cy_orig = alg_view_cropper.cy_orig
-    orig_im_center = np.array([cx_orig, cy_orig]).round().astype(int)  # [px]
+    alg_view_radius = round(frames_loader.alg_view_radius)
+    orig_cam_info = frames_loader.orig_cam_info
+    orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy]).round().astype(int)  # [px]
     frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=(255, 51, 51), thickness=2)
 
     return frame

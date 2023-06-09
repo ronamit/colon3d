@@ -6,11 +6,9 @@ import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
 from colon3d.alg_settings import AlgorithmParam
-from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternion
+from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternions
 from colon3d.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
-from colon3d.transforms_util import (
-    project_world_to_image_normalized_coord,
-)
+from colon3d.transforms_util import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
@@ -22,7 +20,7 @@ def compute_cost_function(
     cam_poses: torch.Tensor,
     points_3d: torch.Tensor,
     frames_opt_flag: np.ndarray,
-    p3d_opt_flag: np.array,
+    p3d_opt_flag: np.ndarray,
     kp_frame_idx_u: np.ndarray,
     kp_p3d_idx_u: np.ndarray,
     kp_nrm_u: torch.Tensor,
@@ -52,7 +50,7 @@ def compute_cost_function(
     cam_rot_opt = cam_poses_opt[:, 3:7]
 
     # normalize the rotation parameters to get a standard unit-quaternion (the optimization steps may take the parameters out of the domain)
-    cam_rot_opt = normalize_quaternion(cam_rot_opt)
+    cam_rot_opt = normalize_quaternions(cam_rot_opt)
 
     # The full (all frames) camera poses tensor where we substitute the currently optimized (in the optimized frames elements)
     cam_poses_full_opt = cam_poses.clone()
@@ -284,7 +282,7 @@ def run_bundle_adjust(
     points_3d_optimized = result.x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3).detach()
 
     # normalize the rotation parameters to get a standard unit-quaternion (the optimization steps may take the parameters out of the domain)
-    cam_poses_optimized[:, 3:7] = normalize_quaternion(cam_poses_optimized[:, 3:7])
+    cam_poses_optimized[:, 3:7] = normalize_quaternions(cam_poses_optimized[:, 3:7])
 
     points_3d[p3d_opt_flag] = points_3d_optimized
     cam_poses[frames_opt_flag] = cam_poses_optimized

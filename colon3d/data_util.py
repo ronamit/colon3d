@@ -13,9 +13,9 @@ class FramesLoader:
     def __init__(
         self,
         sequence_path: str,
-        alg_fov_ratio=1.0,
-        n_frames_lim=0,
-        fps=None,
+        alg_fov_ratio: float = 0,
+        n_frames_lim: int = 0,
+        fps: float | None = None,
     ):
         """Initialize the video loader.
 
@@ -66,26 +66,38 @@ class FramesLoader:
             fps=fps,
             min_vis_z_mm=metadata["min_vis_z_mm"],
         )
-        self.alg_view_cropper = RadialImageCropper(self.orig_cam_info, alg_fov_ratio)
-        # get the camera info of the alg-viewed video:
-        # note:  # since the distort params depend only on the radial distance from optical center, then they are not affected by the crop by a radial crop around the center
-        # the fx and fy value doesn't change, since  the focal length divided by sensor size is a physical property of the camera, and not a function of the image size, same for the distortion parameters
-        self.alg_cam_info = CamInfo(
-            frame_width=self.alg_view_cropper.width_new,
-            frame_height=self.alg_view_cropper.height_new,
-            cx=self.alg_view_cropper.cx_new,
-            cy=self.alg_view_cropper.cy_new,
-            fx=metadata["fx"],
-            fy=metadata["fy"],
-            distort_pram=distort_pram,
-            fps=fps,
-            min_vis_z_mm=metadata["min_vis_z_mm"],
-        )
-        self.alg_fov_deg = 2 * np.rad2deg(
-            np.arctan(self.alg_view_cropper.view_radius / max(self.alg_cam_info.fx, self.alg_cam_info.fy)),
-        )
-        self.alg_cam_undistorter = FishEyeUndistorter(self.alg_cam_info)
         self.orig_cam_undistorter = FishEyeUndistorter(self.orig_cam_info)
+        if alg_fov_ratio == 0:
+            # in this case, the algorithm sees the entire image, so no need to crop it
+            self.alg_view_cropper = None
+            # the camera info of the alg-viewed video is the same as the original video
+            self.alg_cam_info = self.orig_cam_info
+            self.alg_cam_undistorter = self.orig_cam_undistorter
+            # the view radius (for visualization purposes):
+            self.alg_view_radius = min(self.orig_cam_info.frame_width, self.orig_cam_info.frame_height) / 2
+        else:
+            self.alg_view_cropper = RadialImageCropper(self.orig_cam_info, alg_fov_ratio)
+            # get the camera info of the alg-viewed video:
+            # note:  # since the distort params depend only on the radial distance from optical center, then they are not affected by the crop by a radial crop around the center
+            # the fx and fy value doesn't change, since  the focal length divided by sensor size is a physical property of the camera, and not a function of the image size, same for the distortion parameters
+            self.alg_cam_info = CamInfo(
+                frame_width=self.alg_view_cropper.width_new,
+                frame_height=self.alg_view_cropper.height_new,
+                cx=self.alg_view_cropper.cx_new,
+                cy=self.alg_view_cropper.cy_new,
+                fx=metadata["fx"],
+                fy=metadata["fy"],
+                distort_pram=distort_pram,
+                fps=fps,
+                min_vis_z_mm=metadata["min_vis_z_mm"],
+            )
+            self.alg_cam_undistorter = FishEyeUndistorter(self.alg_cam_info)
+            self.alg_view_radius = self.alg_view_cropper.view_radius
+
+        # the FOV of the algorithm (for visualization purposes):
+        self.alg_fov_deg = 2 * np.rad2deg(
+            np.arctan(self.alg_view_radius / max(self.alg_cam_info.fx, self.alg_cam_info.fy)),
+        )
         self.metadata = metadata
         n_frames = 0
         for _ in self.frames_generator():
@@ -126,10 +138,10 @@ class FramesLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def adjust_frame(self, frame, frame_type, color_type):
         # crop image for algorithm input, if needed:
-        if frame_type == "alg_input":
-            frame = self.alg_view_cropper.crop_img(frame)
-        elif frame_type == "full":
+        if frame_type == "full" or self.alg_view_cropper is None:
             pass
+        elif frame_type == "alg_input":
+            frame = self.alg_view_cropper.crop_img(frame)
         else:
             raise ValueError(f"Unknown frame_type: {frame_type}")
         if color_type == "bgr":
@@ -166,12 +178,15 @@ def rotate_img(img, angle_deg):
     rotated_image = cv2.warpAffine(img, rotation_matrix, (width, height))
     return rotated_image
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class RadialImageCropper:
     """Crop an image to a circular region around the optical center of the camera. The cropped image is resized to a square image where areas outside the circle are filled with zeros."""
 
     def __init__(self, orig_cam_info: CamInfo, alg_fov_ratio: float):
+        assert 0 < alg_fov_ratio <= 1
         self.cx_orig = orig_cam_info.cx
         self.cy_orig = orig_cam_info.cy
         self.view_radius = 0.5 * min(orig_cam_info.frame_width, orig_cam_info.frame_height) * alg_fov_ratio

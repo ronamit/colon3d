@@ -96,8 +96,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "PLR0913", # Too many arguments to function call
           "PLR0912", # Too many branches
           "PLR0915", # Too many statements
-          "ANN001", # Missing type annotation
-          "ANN101", # Missing type annotation for class attribute
           "ANN201", #  Missing return type annotation for public function
           "ANN204", # Missing return type annotation
           "W293", # Blank line contains whitespace
@@ -110,7 +108,8 @@ ignore = ["E501", # line too long (let Black handle this)
           "TRY003", # Avoid specifying long messages outside the exception class
           "TRY301", # raise-within-try
           "PT018", # assetion should be broken into multiple lines
-          # "E402", # Module level import not at top of file (Ruff)
+          "ANN001", # Missing type annotation
+          "ANN101", # Missing type annotation for class attribute
           "ANN002", # Missing type annotation 
           "ANN003", # Missing type annotation 
           "ANN202", # Missing type annotation
