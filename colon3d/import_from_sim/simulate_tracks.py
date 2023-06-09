@@ -28,7 +28,7 @@ def generate_targets(
 
     max_attempts = 100
     i_attempt = 0
-    min_target_pixels = 50
+    min_target_pixels = 10 # minimum number of pixels that the target should cover
 
     # we are going to sample the points that are seen from the first frame of the sequence:
     i_frame = 0

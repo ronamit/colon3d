@@ -210,8 +210,8 @@ def generate_examples_from_sequence(
             path_to_save=example_path / "Frames_with_tracks",
         )
 
-
 # --------------------------------------------------------------------------------------------------------------------
+
 def get_egomotion_and_depth_estimations(
     gt_depth_maps: np.ndarray,
     gt_egomotions: np.ndarray,
