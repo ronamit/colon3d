@@ -14,6 +14,7 @@ from colon3d.general_util import (
     create_empty_folder,
     save_plot_and_close,
     save_video_from_frames_list,
+    save_video_from_func,
 )
 from colon3d.tracks_util import DetectionsTracker
 
@@ -66,11 +67,9 @@ def draw_tracks_on_frame(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_frames_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd.DataFrame):
+def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd.DataFrame, fps: float):
     frames_paths = sorted(rgb_frames_path.glob("*.png"))
     n_frames = len(frames_paths)
-    create_empty_folder(path_to_save)
-
     def get_frame_with_tracks(i_frame):
         frame = cv2.imread(str(frames_paths[i_frame]))
         vis_frame = np.copy(frame)
@@ -84,12 +83,14 @@ def save_frames_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: p
                 track_id=cur_detect["track_id"],
             )
         return vis_frame
-
-    for i_frame in range(n_frames):
-        vis_frame = get_frame_with_tracks(i_frame)
-        if vis_frame is not None:
-            # in case there tracks in the frame - save it
-            cv2.imwrite(str(path_to_save / f"{i_frame:06d}.png"), vis_frame)
+    save_video_from_func(save_path=path_to_save, make_frame=get_frame_with_tracks, n_frames=n_frames, fps=fps)
+    
+        # create_empty_folder(path_to_save)
+    # for i_frame in range(n_frames):
+    #     vis_frame = get_frame_with_tracks(i_frame)
+    #     if vis_frame is not None:
+    #         # in case there tracks in the frame - save it
+    #         cv2.imwrite(str(path_to_save / f"{i_frame:06d}.png"), vis_frame)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -115,7 +116,7 @@ def draw_keypoints_and_tracks(
     kp_frame_idx_all = np.array(kp_frame_idx_all)
     kp_px_all = np.stack(kp_px_all, axis=0)
     frames_generator = frames_loader.frames_generator(frame_type="full")
-    alg_view_cropper = frames_loader.alg_view_cropper # RadialImageCropper or None
+    alg_view_cropper = frames_loader.alg_view_cropper  # RadialImageCropper or None
     fps = frames_loader.fps
     vis_frames = []
     kp_id_all = np.array(kp_id_all)
@@ -231,7 +232,7 @@ def draw_matches(
     i_frameB,
     tracks_in_frameA,
     tracks_in_frameB,
-    alg_view_cropper : RadialImageCropper | None,
+    alg_view_cropper: RadialImageCropper | None,
     save_path,
 ):
     """Draws lines between matching keypoints of two images.

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import yaml
 from numpy.random import default_rng
 
 from colon3d.general_util import create_empty_folder, to_str
@@ -12,7 +13,7 @@ from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, gen
 from colon3d.rotations_util import get_random_rot_quat
 from colon3d.torch_util import np_func
 from colon3d.transforms_util import apply_pose_change
-from colon3d.visuals.plots_2d import save_frames_with_tracks
+from colon3d.visuals.plots_2d import save_video_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -172,7 +173,11 @@ def generate_examples_from_sequence(
         # save depth info to a file (unchanged from the ground truth):
         with (example_path / "est_depth_info.pkl").open("wb") as file:
             pickle.dump(depth_info, file)
-            
+
+        # get the FPS:
+        with (sequence_path / "meta_data.yaml").open("r") as file:
+            fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
+
         # draw some 3D world coordinates on the colon wall, to be used as target objects (polyps) to track:
         n_targets = 1  # we want only one tracked object
         print("Generating", n_targets, "targets")
@@ -202,15 +207,18 @@ def generate_examples_from_sequence(
         )
         # save tracks to a csv file:
         tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)
-        
-        # save the frames with the tracks to a folder (for visualization)
-        save_frames_with_tracks(
+
+        # save video with the tracks bounding boxes (for visualization)
+        save_video_with_tracks(
             rgb_frames_path=example_path / "RGB_Frames",
             tracks=tracks,
-            path_to_save=example_path / "Frames_with_tracks",
+            path_to_save=example_path / "Video_with_tracks",
+            fps=fps,
         )
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def get_egomotion_and_depth_estimations(
     gt_depth_maps: np.ndarray,
