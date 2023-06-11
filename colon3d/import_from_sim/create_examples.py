@@ -67,14 +67,38 @@ def main():
     parser.add_argument(
         "--max_target_radius_mm",
         type=float,
-        default=3,
+        default=2,
         help="The maximum radius of the simulated targets (polyps)",
     )
     parser.add_argument(
         "--max_dist_from_center_ratio",
         type=float,
-        default=0.5,
+        default=1.0,
         help="Number in the range [0,1] that determines the maximum distance of the targets (polyps) from the center of the FOV",
+    )
+    parser.add_argument(
+        "--min_dist_from_center_ratio",
+        type=float,
+        default=0.5,
+        help="Number in the range [0,1] that determines the minimum distance of the targets (polyps) from the center of the FOV",
+    )
+    parser.add_argument(
+        "--min_visible_frames",
+        type=int,
+        default=1,
+        help="The minimum number of frames in which the target (polyp) is visible",
+    )
+    parser.add_argument(
+        "--min_non_visible_frames",
+        type=int,
+        default=1,
+        help="The minimum number of frames in which the target (polyp) is not visible",
+    )
+    parser.add_argument(
+        "--min_initial_pixels_in_bb",
+        type=int,
+        default=10,
+        help="The minimum number of pixels in the bounding box of the target (polyp) in the first frame",
     )
 
     args = parser.parse_args()
@@ -93,6 +117,10 @@ def main():
         "min_target_radius_mm": args.min_target_radius_mm,
         "max_target_radius_mm": args.max_target_radius_mm,
         "max_dist_from_center_ratio": args.max_dist_from_center_ratio,
+        "min_dist_from_center_ratio": args.min_dist_from_center_ratio,
+        "min_visible_frames": args.min_visible_frames,
+        "min_non_visible_frames": args.min_non_visible_frames,
+        "min_initial_pixels_in_bb": args.min_initial_pixels_in_bb,
     }
     print("The simulated sequences will be be loaded from: ", sim_data_path)
     sequences_paths_list = [
@@ -160,9 +188,7 @@ def generate_examples_from_sequence(
         est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
             gt_depth_maps=gt_depth_maps,
             gt_egomotions=gt_egomotions,
-            depth_noise_std_mm=examples_prams["depth_noise_std_mm"],
-            cam_motion_loc_std_mm=examples_prams["cam_motion_loc_std_mm"],
-            cam_motion_rot_std_deg=examples_prams["cam_motion_rot_std_deg"],
+            examples_prams=examples_prams,
             rng=rng,
         )
         # save the estimated depth maps and egomotions to a file:
@@ -178,7 +204,7 @@ def generate_examples_from_sequence(
         with (sequence_path / "meta_data.yaml").open("r") as file:
             fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
 
-        # draw some 3D world coordinates on the colon wall, to be used as target objects (polyps) to track:
+        # Generate the targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
         n_targets = 1  # we want only one tracked object
         print("Generating", n_targets, "targets")
         targets_info = generate_targets(
@@ -187,9 +213,7 @@ def generate_examples_from_sequence(
             gt_cam_poses=gt_cam_poses,
             rng=rng,
             depth_info=depth_info,
-            min_target_radius_mm=examples_prams["min_target_radius_mm"],
-            max_target_radius_mm=examples_prams["max_target_radius_mm"],
-            max_dist_from_center_ratio=examples_prams["max_dist_from_center_ratio"],
+            examples_prams=examples_prams,
         )
         print("Targets info:", to_str(targets_info))
         with (example_path / "targets_info.pkl").open("wb") as file:
@@ -215,7 +239,8 @@ def generate_examples_from_sequence(
             path_to_save=example_path / "Video_with_tracks",
             fps=fps,
         )
-
+        print("Done generating examples from sequence", sequence_path.name)
+    print("Done generating examples from all sequences")
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -223,11 +248,12 @@ def generate_examples_from_sequence(
 def get_egomotion_and_depth_estimations(
     gt_depth_maps: np.ndarray,
     gt_egomotions: np.ndarray,
-    depth_noise_std_mm: float,
-    cam_motion_loc_std_mm: float,
-    cam_motion_rot_std_deg: float,
+    examples_prams: dict,
     rng: np.random.Generator,
 ):
+    depth_noise_std_mm = examples_prams["depth_noise_std_mm"]
+    cam_motion_loc_std_mm = examples_prams["cam_motion_loc_std_mm"]
+    cam_motion_rot_std_deg = examples_prams["cam_motion_rot_std_deg"]
     n_frames = gt_depth_maps.shape[0]
     if depth_noise_std_mm > 0:
         # add noise to the depth maps:

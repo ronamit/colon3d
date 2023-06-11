@@ -74,8 +74,6 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
         frame = cv2.imread(str(frames_paths[i_frame]))
         vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
-        if len(tracks_in_frame) == 0:
-            return None
         for cur_detect in tracks_in_frame:
             vis_frame = draw_tracks_on_frame(
                 vis_frame=vis_frame,
