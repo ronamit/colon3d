@@ -12,7 +12,6 @@ dependencies:
   - pandas=2.0.2
   - pillow=9.4.0
   - plotly=5.14.1
-  - py-opencv=4.7.0
   - python=3.11.3
   - pyyaml=6.0
   - scikit-image=0.20.0
