@@ -20,5 +20,3 @@ dependencies:
   - toml=0.10.2
   - yaml=0.2.5
   - matplotlib=3.7.1
-  - pip:
-      - kiwisolver==1.4.4
