@@ -20,21 +20,21 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 ```
 
 * Install [PyTorch](https://pytorch.org/get-started/locally/)  (tested with 2.0.1)
-* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location
+* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location (e.g. ~/repos)
 
 ```bash
 gh repo clone rfeinman/pytorch-minimize
 ```
 
-* , go to its dir, ,active the environmant,and install with
+* go to the cloned dir (e.g. ~/repos/pytorch-minimize) and run setup with
 
 ```bash
 pip install -e .
 ```
 
-* Setup:
+* Final step:
 
-  * Go to the project root
+  * Go to the project main dir (e.g. ~/repos/colon3d)
   * Run
 
 ```bash
