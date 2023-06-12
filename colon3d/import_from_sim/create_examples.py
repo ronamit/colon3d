@@ -40,6 +40,12 @@ def main():
         help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument(
+        "--simulate_depth_and_egomotion_estimation",
+        type=bool,
+        default=False,
+        help="If True, the depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth",
+    )
+    parser.add_argument(
         "--depth_noise_std_mm",
         type=float,
         default=0,
@@ -109,9 +115,7 @@ def main():
     create_empty_folder(path_to_save_examples, ask_overwrite=False)
     rng = default_rng(args.rand_seed)
     examples_prams = {
-        "depth_noise_std_mm": args.depth_noise_std_mm,
-        "cam_motion_loc_std_mm": args.cam_motion_loc_std_mm,
-        "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
+        "simulate_depth_and_egomotion_estimation": args.simulate_depth_and_egomotion_estimation,
         "rand_seed": args.rand_seed,
         "n_examples_per_sequence": n_examples_per_sequence,
         "min_target_radius_mm": args.min_target_radius_mm,
@@ -122,6 +126,14 @@ def main():
         "min_non_visible_frames": args.min_non_visible_frames,
         "min_initial_pixels_in_bb": args.min_initial_pixels_in_bb,
     }
+    if args.simulate_depth_and_egomotion_estimation:
+        print("The depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.")
+        examples_prams = examples_prams | {
+            "depth_noise_std_mm": args.depth_noise_std_mm,
+            "cam_motion_loc_std_mm": args.cam_motion_loc_std_mm,
+            "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
+        }
+
     print("The simulated sequences will be be loaded from: ", sim_data_path)
     sequences_paths_list = [
         sequence_path
@@ -184,21 +196,22 @@ def generate_examples_from_sequence(
             "gt_depth_video.mp4",
         ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
-        print("Generating egomotion and depth estimations")
-        est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
-            gt_depth_maps=gt_depth_maps,
-            gt_egomotions=gt_egomotions,
-            examples_prams=examples_prams,
-            rng=rng,
-        )
-        # save the estimated depth maps and egomotions to a file:
-        with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
-            hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
-            hf.create_dataset("egomotions", data=est_egomotions)
 
-        # save depth info to a file (unchanged from the ground truth):
-        with (example_path / "est_depth_info.pkl").open("wb") as file:
-            pickle.dump(depth_info, file)
+        if examples_prams["simulate_depth_estimation"]:
+            print("Generating egomotion and depth estimations")
+            est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
+                gt_depth_maps=gt_depth_maps,
+                gt_egomotions=gt_egomotions,
+                examples_prams=examples_prams,
+                rng=rng,
+            )
+            # save the estimated depth maps and egomotions to a file:
+            with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
+                hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
+                hf.create_dataset("egomotions", data=est_egomotions)
+            # save depth info to a file (unchanged from the ground truth):
+            with (example_path / "est_depth_info.pkl").open("wb") as file:
+                pickle.dump(depth_info, file)
 
         # get the FPS:
         with (sequence_path / "meta_data.yaml").open("r") as file:
@@ -241,6 +254,7 @@ def generate_examples_from_sequence(
         )
         print("Done generating examples from sequence", sequence_path.name)
     print("Done generating examples from all sequences")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
