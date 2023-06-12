@@ -56,7 +56,7 @@ pip install -e .
 ## Code use examples
 
 * Here are common examples of how to use the code. See the code for more details on the arguments.
-* First, activate the conda environment and go to the main project dir.
+* First, activate the conda environment (e.g., conda activate py3) and go to the main project dir (e.g. ~/repos/colon3d).
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
