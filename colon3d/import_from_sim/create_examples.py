@@ -24,21 +24,72 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData3",
+        default="data/sim_data/SimData4",
         help="The path to the folder with processed simulated sequences to load",
     )
     parser.add_argument(
         "--path_to_save_examples",
         type=str,
-        default="data/sim_data/SimData3/Examples",
+        default="data/sim_data/SimData4/Examples",
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
         "--n_examples_per_sequence",
         type=int,
-        default=1,
+        default=5,
         help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
+    parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
+    parser.add_argument(
+        "--min_pixels_in_bb",
+        type=int,
+        default=20,
+        help="The minimum number of pixels in the bounding box of a target detection",
+    )
+    ## Parameters for simulated targets (polyps) generation
+    parser.add_argument(
+        "--min_target_radius_mm",
+        type=float,
+        default=1,
+        help="The minimum radius of the simulated targets (polyps)",
+    )
+    parser.add_argument(
+        "--max_target_radius_mm",
+        type=float,
+        default=3,
+        help="The maximum radius of the simulated targets (polyps)",
+    )
+    parser.add_argument(
+        "--max_dist_from_center_ratio",
+        type=float,
+        default=1.0,
+        help="Number in the range [0,1] that determines the maximum distance of the targets (polyps) from the center of the FOV",
+    )
+    parser.add_argument(
+        "--min_dist_from_center_ratio",
+        type=float,
+        default=0.,
+        help="Number in the range [0,1] that determines the minimum distance of the targets (polyps) from the center of the FOV",
+    )
+    parser.add_argument(
+        "--min_visible_frames",
+        type=int,
+        default=1,
+        help="The minimum number of frames in which the target (polyp) is visible",
+    )
+    parser.add_argument(
+        "--min_non_visible_frames",
+        type=int,
+        default=20,
+        help="The minimum number of frames in which the target (polyp) is not visible",
+    )
+    parser.add_argument(
+        "--min_initial_pixels_in_bb",
+        type=int,
+        default=10,
+        help="The minimum number of pixels in the bounding box of the target (polyp) in the first frame",
+    )
+    ## Parameters for simulated depth and egomotion estimation
     parser.add_argument(
         "--simulate_depth_and_egomotion_estimation",
         type=bool,
@@ -63,49 +114,6 @@ def main():
         default=0,
         help="The standard deviation of the estimation error added to the rotation change component of the camera motion",
     )
-    parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
-    parser.add_argument(
-        "--min_target_radius_mm",
-        type=float,
-        default=1,
-        help="The minimum radius of the simulated targets (polyps)",
-    )
-    parser.add_argument(
-        "--max_target_radius_mm",
-        type=float,
-        default=2,
-        help="The maximum radius of the simulated targets (polyps)",
-    )
-    parser.add_argument(
-        "--max_dist_from_center_ratio",
-        type=float,
-        default=1.0,
-        help="Number in the range [0,1] that determines the maximum distance of the targets (polyps) from the center of the FOV",
-    )
-    parser.add_argument(
-        "--min_dist_from_center_ratio",
-        type=float,
-        default=0.5,
-        help="Number in the range [0,1] that determines the minimum distance of the targets (polyps) from the center of the FOV",
-    )
-    parser.add_argument(
-        "--min_visible_frames",
-        type=int,
-        default=1,
-        help="The minimum number of frames in which the target (polyp) is visible",
-    )
-    parser.add_argument(
-        "--min_non_visible_frames",
-        type=int,
-        default=1,
-        help="The minimum number of frames in which the target (polyp) is not visible",
-    )
-    parser.add_argument(
-        "--min_initial_pixels_in_bb",
-        type=int,
-        default=10,
-        help="The minimum number of pixels in the bounding box of the target (polyp) in the first frame",
-    )
 
     args = parser.parse_args()
     n_examples_per_sequence = args.n_examples_per_sequence
@@ -125,6 +133,7 @@ def main():
         "min_visible_frames": args.min_visible_frames,
         "min_non_visible_frames": args.min_non_visible_frames,
         "min_initial_pixels_in_bb": args.min_initial_pixels_in_bb,
+        "min_pixels_in_bb": args.min_pixels_in_bb,
     }
     if args.simulate_depth_and_egomotion_estimation:
         print("The depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.")
@@ -197,7 +206,7 @@ def generate_examples_from_sequence(
         ]:
             (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
 
-        if examples_prams["simulate_depth_estimation"]:
+        if examples_prams["simulate_depth_and_egomotion_estimation"]:
             print("Generating egomotion and depth estimations")
             est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
                 gt_depth_maps=gt_depth_maps,
@@ -241,6 +250,7 @@ def generate_examples_from_sequence(
             gt_cam_poses=gt_cam_poses,
             depth_info=depth_info,
             targets_info=targets_info,
+            min_pixels_in_bb = examples_prams["min_pixels_in_bb"],
         )
         # save tracks to a csv file:
         tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)

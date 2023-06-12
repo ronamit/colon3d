@@ -60,20 +60,26 @@ pip install -e .
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
-  python -m colon3d.unity_import.import_from_sim --raw_sim_data_path "data/raw_sim_data/Seq_00009" --path_to_save_sequence "data/sim_data/Seq_00009_short" --limit_n_frames 200
+  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4" 
 ```
 
-* Generating examples based on the imported sequence, with true depth maps and ego-motions as the estimates for the SLAM algorithm use.
+* Generating examples based on the imported sequence, with randomly simulated tracked targets.  
 
 ```bash
-  python -m colon3d.unity_import.create_examples --sequence_path "data/sim_data/Seq_00009_short" --n_examples 1 --depth_noise_std_mm 0 --cam_motion_loc_std_mm 0 --cam_motion_rot_std_deg 0
+  python -m colon3d.import_from_sim.create_examples --sim_data_path "data/sim_data/SimData4" --path_to_save_examples "data/sim_data/SimData4/Examples" --n_examples_per_sequence 5
 ```
 
-* Run SLAM on simulated example:
+* Run SLAM on a single simulated example:
 
 ```bash
-  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results" --alg_fov_ratio 0.95
+  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results" 
 ```
+
+* Run SLAM on a dataset of simulated examples:
+  
+  ```bash
+   -----------
+  ```
 
 * Run SLAM on real data example:
 

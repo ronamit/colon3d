@@ -47,7 +47,7 @@ def generate_targets(
     target_center_radius_max = max_dist_from_center_ratio * frame_radius
     target_center_radius_min = min_dist_from_center_ratio * frame_radius
 
-    max_attempts = 50
+    max_attempts = 500 # maximal number of attempts to generate a valid track
     i_attempt = 0
 
     # we are going to sample the points that are seen from the first frame of the sequence:
@@ -143,6 +143,7 @@ def create_tracks_per_frame(
     gt_cam_poses: np.ndarray,
     depth_info: dict,
     targets_info: TargetsInfo,
+    min_pixels_in_bb: int = 10,
 ) -> pd.DataFrame:
     """Returns the detections bounding boxes of the tracks in each frame.
     Args:
@@ -169,7 +170,6 @@ def create_tracks_per_frame(
     frame_idx_list = []
     track_id_list = []
     n_pix_in_bb_list = []
-    min_pixels_in_bb = 9
 
     for i_frame in range(n_frames):
         cam_pose = gt_cam_poses[i_frame].reshape(1, 7)
