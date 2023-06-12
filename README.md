@@ -1,4 +1,4 @@
-# Code
+# About
 
 This code loads the simulation output from the Simulator:  [https://github.com/zsustc/colon_reconstruction_dataset](https://github.com/zsustc/colon_reconstruction_dataset)
 that is described in "A Template-based 3D Reconstruction of Colon Structures and Textures from Stereo Colonoscopic Images", Zhang et al., IEEE Transactions on Medical Robotics  2022.
@@ -7,20 +7,41 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 ## Setup
 
 * Install Conda \ Miniconda
-* To create conda environment with the required packages use:
+* To create conda environment with the basic required packages use:
 
+```bash
  conda env create -f environment.yml
+```
 
+* activate the enviornment
+
+```bash
+ conda activate py3
+```
+
+* Install [PyTorch](https://pytorch.org/get-started/locally/)  (tested with 2.0.1)
 * Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location
 
 ```bash
 gh repo clone rfeinman/pytorch-minimize
 ```
+
 * , go to its dir, ,active the environmant,and install with
 
 ```bash
 pip install -e .
 ```
+
+* Setup:
+
+  * Go to the project root
+  * Run
+
+```bash
+pip install -e .
+```
+
+## Optional install for faster 3D fuse plot
 
 * *(optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
 
@@ -31,14 +52,6 @@ pip install -e .
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     pip3 install pycuda --user
     ```
-* Setup:
-
-  * Go to the project root
-  * Run
-
-```bash
-pip install -e .
-```
 
 ## Code use examples
 
