@@ -20,13 +20,13 @@ The simulator generates single-camera colonoscopic images with ground truth of c
 ```
 
 * Install [PyTorch](https://pytorch.org/get-started/locally/)  (tested with 2.0.1)
-* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location (e.g. ~/repos)
+* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location *(e.g. ~/repos)*
 
 ```bash
 gh repo clone rfeinman/pytorch-minimize
 ```
 
-* go to the cloned dir (e.g. ~/repos/pytorch-minimize) and run setup with
+* go to the cloned dir *(e.g. ~/repos/pytorch-minimize)* and run setup with
 
 ```bash
 pip install -e .
@@ -56,7 +56,7 @@ pip install -e .
 ## Code use examples
 
 * Here are common examples of how to use the code. See the code for more details on the arguments.
-* First, activate the conda environment (e.g., conda activate py3) and go to the main project dir (e.g. ~/repos/colon3d).
+* First, activate the conda environment *(e.g., conda activate py3)* and go to the main project dir (*e.g. ~/repos/colon3d)*.
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
