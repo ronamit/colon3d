@@ -60,7 +60,7 @@ pip install -e .
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
-  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4" 
+  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
 ```
 
 * Generating examples based on the imported sequence, with randomly simulated tracked targets.
@@ -72,7 +72,7 @@ pip install -e .
 * Run SLAM on a single simulated example:
 
 ```bash
-  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results" 
+  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results"
 ```
 
 * Run SLAM on a dataset of simulated examples:
@@ -80,6 +80,7 @@ pip install -e .
   ```bash
    -----------
   ```
+
 * Run SLAM on real data example:
 
 ```bash
