@@ -24,19 +24,37 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/Results_Short",
+        default="data/my_videos/Example_4/Results",
         help="path to the save outputs",
+    )
+    parser.add_argument(
+        "--depth_maps_source",
+        type=str,
+        default="loaded_estimates",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
+        "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the depth maps estimations will be loaded, "
+        "if 'none' then no depth maps will not be used,",
+    )
+    parser.add_argument(
+        "--egomotions_source",
+        type=str,
+        default="loaded_estimates",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
+        "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the egomotion estimations will be loaded, "
+        "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
         "--alg_fov_ratio",
         type=float,
-        default=0.8,
+        default=0.9,
         help="If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.",
     )
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=50,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
@@ -58,6 +76,10 @@ def main():
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
+        
+        # get the default parameters for the SLAM algorithm
+        alg_prm = AlgorithmParam()
+        
         frames_loader = FramesLoader(
             sequence_path=args.example_path,
             n_frames_lim=args.n_frames_lim,
@@ -69,11 +91,12 @@ def main():
         )
         depth_estimator = DepthAndEgoMotionLoader(
             example_path=args.example_path,
-            source="estimated",
+            depth_maps_source=args.depth_maps_source,
+            egomotions_source=args.egomotions_source,
+            alg_prm=alg_prm,
         )
 
-        # get the default parameters for the SLAM algorithm
-        alg_prm = AlgorithmParam()
+
 
         # Run the SLAM algorithm
         slam_runner = SlamRunner(alg_prm)

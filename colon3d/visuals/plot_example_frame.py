@@ -6,6 +6,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
+from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import create_folder_if_not_exists, get_most_common_values, save_plot_and_close
@@ -48,7 +49,8 @@ def main():
     )
     depth_loader = DepthAndEgoMotionLoader(
         example_path=example_path,
-        source=args.depth_source,
+        depth_ego_source=args.depth_source,
+        alg_prm=AlgorithmParam(),
     )
 
     example_path = Path(args.example_path)

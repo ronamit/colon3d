@@ -349,8 +349,6 @@ class SlamRunner:
                 frame_indexes=frame_inds_of_new,
                 cam_poses=cam_poses_of_new,
                 queried_points_nrm=kp_nrm_of_new,
-                z_depth_upper_bound=alg_prm.z_depth_upper_bound,
-                z_depth_lower_bound=alg_prm.z_depth_lower_bound,
             )
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)
 

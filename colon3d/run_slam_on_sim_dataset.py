@@ -14,14 +14,32 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData3/Examples",
+        default="data/sim_data/SimData4/Examples",
         help="Path to the dataset of examples.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData3/Examples/Results",
+        default="data/sim_data/SimData4/Examples/Results",
         help="path to the save outputs",
+    )
+    parser.add_argument(
+        "--depth_maps_source",
+        type=str,
+        default="none",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
+        "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the depth maps estimations will be loaded, "
+        "if 'none' then no depth maps will not be used,",
+    )
+    parser.add_argument(
+        "--egomotions_source",
+        type=str,
+        default="none",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
+        "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the egomotion estimations will be loaded, "
+        "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
         "--alg_fov_ratio",
@@ -59,6 +77,8 @@ def main():
                 save_path=save_path,
                 n_frames_lim=args.n_frames_lim,
                 alg_fov_ratio=args.alg_fov_ratio,
+                depth_maps_source=args.depth_maps_source,
+                egomotions_source=args.egomotions_source,
                 save_all_plots=False,
                 save_aided_nav_plot=True,
             )
@@ -69,7 +89,7 @@ def main():
     print(f"Error metrics table:\n{err_table}")
     # save the error metrics table to a csv file
     err_table.to_csv(base_save_path / "err_table.csv", index=False)
-            
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 

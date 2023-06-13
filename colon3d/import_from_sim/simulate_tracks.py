@@ -47,7 +47,7 @@ def generate_targets(
     target_center_radius_max = max_dist_from_center_ratio * frame_radius
     target_center_radius_min = min_dist_from_center_ratio * frame_radius
 
-    max_attempts = 500 # maximal number of attempts to generate a valid track
+    max_attempts = 500  # maximal number of attempts to generate a valid track
     i_attempt = 0
 
     # we are going to sample the points that are seen from the first frame of the sequence:
@@ -111,7 +111,9 @@ def generate_targets(
             n_vis_frames_per_target[i_target] = vis_frames_inds.shape[0]
 
             # get the number of pixels in the bounding box of each target in the first frame:
-            initial_pixels_in_bb[i_target] = targ_tracks[targ_tracks["frame_idx"] == 0].n_pix_in_bb.to_numpy()[0]
+            cur_frame_tracks = targ_tracks[targ_tracks["frame_idx"] == 0]
+            if len(cur_frame_tracks) > 0:
+                initial_pixels_in_bb[i_target] = cur_frame_tracks.n_pix_in_bb.to_numpy()[0]
 
         # ensure that the tracks are in-view long enough:
         if np.any(n_vis_frames_per_target < min_visible_frames):

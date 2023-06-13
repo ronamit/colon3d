@@ -22,14 +22,32 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData4/Examples/Seq_00000_0000",
+        default="data/sim_data/SimData4/Examples/Seq_00087_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData4/Examples/Seq_00000_0000/Results",
+        default="data/sim_data/SimData4/Examples/Seq_00087_0000/Results",
         help="path to the save outputs",
+    )
+    parser.add_argument(
+        "--depth_maps_source",
+        type=str,
+        default="none",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
+        "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the depth maps estimations will be loaded, "
+        "if 'none' then no depth maps will not be used,",
+    )
+    parser.add_argument(
+        "--egomotions_source",
+        type=str,
+        default="none",  #  "ground_truth" / "loaded_estimates" / "online_estimates" / "none"
+        help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
+        "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
+        "if 'loaded_estimates' then the egomotion estimations will be loaded, "
+        "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
         "--alg_fov_ratio",
@@ -62,6 +80,8 @@ def main():
             save_path=save_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
+            depth_maps_source=args.depth_maps_source,
+            egomotions_source=args.egomotions_source,
             draw_interval=args.draw_interval,
             save_all_plots=True,
         )
@@ -76,16 +96,19 @@ def run_slam_on_example(
     save_path: Path,
     n_frames_lim: int,
     alg_fov_ratio: float,
+    depth_maps_source: str,
+    egomotions_source: str,
     draw_interval: int = 0,
     save_all_plots: bool = False,
     save_aided_nav_plot: bool = True,
 ):
-    frames_loader = FramesLoader(sequence_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
-    detections_tracker = DetectionsTracker(example_path=example_path, frames_loader=frames_loader)
-    depth_estimator = DepthAndEgoMotionLoader(example_path=example_path, source="estimated")
-
+    
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
+
+    frames_loader = FramesLoader(sequence_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
+    detections_tracker = DetectionsTracker(example_path=example_path, frames_loader=frames_loader)
+    depth_estimator = DepthAndEgoMotionLoader(example_path=example_path, depth_maps_source=depth_maps_source, egomotions_source=egomotions_source, alg_prm=alg_prm)
 
     # Run the SLAM algorithm
     slam_runner = SlamRunner(alg_prm)
@@ -112,7 +135,7 @@ def run_slam_on_example(
     with (example_path / "targets_info.pkl").open("rb") as file:
         pickle.load(file)
 
-    # load the  ground-truth egomotions per frame
+    # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as hf:
         gt_cam_poses = np.array(hf["cam_poses"])
 
