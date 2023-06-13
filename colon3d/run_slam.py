@@ -60,13 +60,13 @@ def main():
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=100,
+        default=200,
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(
         "--verbose_print_interval",
         type=int,
-        default=10,
+        default=0,
         help="print verbose information each verbose_print_interval frames",
     )
 
