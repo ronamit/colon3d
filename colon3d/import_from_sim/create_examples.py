@@ -24,13 +24,13 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData4",
+        default="data/sim_data/SimData6",
         help="The path to the folder with processed simulated sequences to load",
     )
     parser.add_argument(
         "--path_to_save_examples",
         type=str,
-        default="data/sim_data/SimData4/Examples",
+        default="data/sim_data/SimData6/Examples",
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
