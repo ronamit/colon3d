@@ -6,3 +6,4 @@ colon3d/import_from_sim/__pycache__/*
 build/lib/*
 colon3d.egg-info
 .DS_Store
+.vscode/settings.json

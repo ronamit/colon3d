@@ -1,4 +1,7 @@
 {
     "livePreview.defaultPreviewPath": "/data/sim_data/SimData2/Seq_00001/plots/Frame0033_point_cloud_ground_truth.html",
-    "python.analysis.extraPaths": ["/home/repos/pytorch-minimize"],
+    "python.analysis.extraPaths": [
+        "/home/repos/pytorch-minimize"
+    ],
+    "workbench.colorTheme": "Monokai Dimmed",
 }
