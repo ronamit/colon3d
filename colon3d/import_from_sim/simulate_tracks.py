@@ -30,7 +30,7 @@ def generate_targets(
     rng: np.random.Generator,
     depth_info: dict,
     examples_prams: dict,
-) -> TargetsInfo:
+) -> TargetsInfo | None:
     """generate random 3D points on the surface of the colon, which will be used as the center of the tracks/"""
 
     min_target_radius_mm = examples_prams["min_target_radius_mm"]
@@ -47,7 +47,7 @@ def generate_targets(
     target_center_radius_max = max_dist_from_center_ratio * frame_radius
     target_center_radius_min = min_dist_from_center_ratio * frame_radius
 
-    max_attempts = 500  # maximal number of attempts to generate a valid track
+    max_attempts = 200  # maximal number of attempts to generate a valid track
     i_attempt = 0
 
     # we are going to sample the points that are seen from the first frame of the sequence:
@@ -131,7 +131,8 @@ def generate_targets(
         break  # we found a valid target
 
     if i_attempt == max_attempts:
-        raise RuntimeError("Could not create valid targets after {max_attempts} attempts")
+        print("Could not create valid targets after {max_attempts} attempts")
+        return None
     print(f"Found valid targets after {i_attempt} attempts")
     print(f"n_vis_frames_per_target: {n_vis_frames_per_target}")
     return targets_info

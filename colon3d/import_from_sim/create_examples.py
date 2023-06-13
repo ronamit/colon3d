@@ -188,6 +188,22 @@ def generate_examples_from_sequence(
     for i_example in range(n_examples_per_sequence):
         sequence_name = sequence_path.name
         example_name = f"{sequence_name}_{i_example:04d}"
+        print(f"Generating example {i_example}/{n_examples_per_sequence} for sequence {sequence_name}")
+        # Attempt to generate valid targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
+        n_targets = 1  # we currently want only one tracked object
+        print("Generating", n_targets, "targets")
+        targets_info = generate_targets(
+            n_targets=n_targets,
+            gt_depth_maps=gt_depth_maps,
+            gt_cam_poses=gt_cam_poses,
+            rng=rng,
+            depth_info=depth_info,
+            examples_prams=examples_prams,
+        )
+        if targets_info is None:
+            print("Failed to generate valid targets for the sequence {sequence_name}... skipping this sequence.")
+            break
+        
         # create subfolder for the example:
         example_path = path_to_save_examples / example_name
         create_empty_folder(example_path)
@@ -226,17 +242,6 @@ def generate_examples_from_sequence(
         with (sequence_path / "meta_data.yaml").open("r") as file:
             fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
 
-        # Generate the targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
-        n_targets = 1  # we want only one tracked object
-        print("Generating", n_targets, "targets")
-        targets_info = generate_targets(
-            n_targets=n_targets,
-            gt_depth_maps=gt_depth_maps,
-            gt_cam_poses=gt_cam_poses,
-            rng=rng,
-            depth_info=depth_info,
-            examples_prams=examples_prams,
-        )
         print("Targets info:", to_str(targets_info))
         with (example_path / "targets_info.pkl").open("wb") as file:
             pickle.dump(targets_info, file)
