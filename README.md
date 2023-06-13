@@ -19,7 +19,7 @@ The simulator generates single-camera colonoscopic images with ground truth of c
  conda activate py3
 ```
 
-* Install [PyTorch](https://pytorch.org/get-started/locally/)  (tested with 2.0.1)
+* Install [PyTorch](https://pytorch.org/get-started/locally/) (tested with 2.0.1)
 * Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location *(e.g. ~/repos)*
 
 ```bash
@@ -60,10 +60,10 @@ pip install -e .
 * Importing a frame sequence output from the unity simulator, with 200 frames limit
 
 ```bash
-  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4" 
+  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
 ```
 
-* Generating examples based on the imported sequence, with randomly simulated tracked targets.  
+* Generating examples based on the imported sequence, with randomly simulated tracked targets.
 
 ```bash
   python -m colon3d.import_from_sim.create_examples --sim_data_path "data/sim_data/SimData4" --path_to_save_examples "data/sim_data/SimData4/Examples" --n_examples_per_sequence 5
@@ -72,11 +72,11 @@ pip install -e .
 * Run SLAM on a single simulated example:
 
 ```bash
-  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results" 
+  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results"
 ```
 
 * Run SLAM on a dataset of simulated examples:
-  
+
   ```bash
    -----------
   ```
