@@ -103,6 +103,8 @@ class SlamRunner:
         self.salient_KPs_A = None
         self.track_KPs_A = None
         self.tracks_in_frameA = None
+        
+        print("Algorithm parameters: \n", self.alg_prm)
 
     # ---------------------------------------------------------------------------------------------------------------------
 

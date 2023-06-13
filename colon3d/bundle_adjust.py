@@ -83,6 +83,7 @@ def compute_cost_function(
     penalty_lim_vel = 0
     penalty_cam_rot = 0
     penalty_cam_trans = 0
+    penalty_p3d_change = 0
     if alg_prm.add_penalties:
         for i, frame_idx in enumerate(frames_opt_inds):
             cur_loc = cam_loc_opt[i]  # the estimated 3D cam location
@@ -100,6 +101,9 @@ def compute_cost_function(
 
             # penalty term of the l2 norm of the camera translation (from previous frame)
             penalty_cam_trans += cam_trans_sqr * alg_prm.w_cam_trans
+            
+            # penalty term of the 3D points change (from initial values)
+            penalty_p3d_change + alg_prm.w_p3d_change * torch.sum(torch.square(points_3d_opt - points_3d[p3d_opt_flag]))
 
             # add a log-barrier penalty for violating the max position change bound
             penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
@@ -123,6 +127,7 @@ def compute_cost_function(
             "penalty_max_angular_vel": penalty_lim_angular_vel,
             "penalty_cam_rot": penalty_cam_rot,
             "penalty_cam_trans": penalty_cam_trans,
+            "penalty_p3d_change": penalty_p3d_change,
         }
     else:
         cost_components = {

@@ -96,8 +96,6 @@ def main():
             alg_prm=alg_prm,
         )
 
-
-
         # Run the SLAM algorithm
         slam_runner = SlamRunner(alg_prm)
         slam_out = slam_runner.run(
