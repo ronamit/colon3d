@@ -9,7 +9,7 @@ from colon3d.rotations_util import (
     invert_rotation,
     rotate_points,
 )
-from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, np_func
+from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, np_func, get_default_dtype
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -35,9 +35,10 @@ def transform_rectilinear_image_pixel_coords_to_normalized(
     """
     assert_1d_tensor(pixels_x)
     assert_1d_tensor(pixels_y)
+    dtype = get_default_dtype("numpy")
     x_nrm = (pixels_x - cam_K[0, 2]) / cam_K[0, 0]  # u_nrm = (u - cx) / fx
     y_nrm = (pixels_y - cam_K[1, 2]) / cam_K[1, 1]  # v_nrm = (v - cy) / fy
-    points_nrm = np.stack((x_nrm, y_nrm), axis=1)
+    points_nrm = np.stack((x_nrm, y_nrm), axis=1, dtype=dtype)
     return points_nrm
 
 

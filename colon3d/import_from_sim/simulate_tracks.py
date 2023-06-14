@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from colon3d.torch_util import np_func
+from colon3d.torch_util import get_default_dtype, np_func
 from colon3d.transforms_util import (
     get_frame_point_cloud,
     transform_rectilinear_image_pixel_coords_to_normalized,
@@ -40,6 +40,8 @@ def generate_targets(
     min_visible_frames = examples_prams["min_visible_frames"]
     min_non_visible_frames = examples_prams["min_non_visible_frames"]
     min_initial_pixels_in_bb = examples_prams["min_initial_pixels_in_bb"]
+    dtype = get_default_dtype("numpy")
+    dtype_int = get_default_dtype("numpy", num_type="int")
 
     n_frames, frame_width, frame_height = gt_depth_maps.shape
     K_of_depth_map = depth_info["K_of_depth_map"]
@@ -61,10 +63,12 @@ def generate_targets(
 
         # set the targets centers:
         # randomly sample pixels inside a circle with radius max_radius around the center of the image (per target):
-        target_center_radius = rng.uniform(target_center_radius_min, target_center_radius_max, size=n_targets)
-        angle = rng.uniform(0, 2 * np.pi, size=n_targets)
-        pixels_x = ((frame_width / 2) + target_center_radius * np.cos(angle)).astype(int)
-        pixels_y = ((frame_height / 2) + target_center_radius * np.sin(angle)).astype(int)
+        target_center_radius = rng.uniform(target_center_radius_min, target_center_radius_max, size=n_targets).astype(
+            dtype,
+        )
+        angle = rng.uniform(0, 2 * np.pi, size=n_targets).astype(dtype)
+        pixels_x = ((frame_width / 2) + target_center_radius * np.cos(angle)).astype(dtype_int)
+        pixels_y = ((frame_height / 2) + target_center_radius * np.sin(angle)).astype(dtype_int)
 
         # get of the depth target center in the first frame (per target):
         pixels_depth = gt_depth_maps[inspected_frame_idx][pixels_y, pixels_x]

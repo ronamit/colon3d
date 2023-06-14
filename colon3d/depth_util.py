@@ -72,7 +72,7 @@ class DepthAndEgoMotionLoader:
                 self.loaded_depth_maps = h5f["z_depth_map"][:]  # load into memory
             # load the depth estimation info\metadata
             with (self.depth_info_file_path).open("rb") as file:
-                self.depth_info = pickle.load(file)
+                self.depth_info = to_numpy(pickle.load(file))
             self.depth_map_size = self.depth_info["depth_map_size"]
             self.de_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
             self.n_frames = self.depth_info["n_frames"]

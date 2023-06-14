@@ -16,19 +16,34 @@ def get_device():
 
 # --------------------------------------------------------------------------------------------------------------------
 
-def get_default_dtype(package="torch"):
+
+def get_default_dtype(package="torch", num_type="float"):
     if package == "torch":
-        return torch.float32
+        if num_type == "float":
+            return torch.float32
+        if num_type == "int":
+            return torch.int32
+        raise ValueError(f"Unknown num_type: {num_type}")
     if package == "numpy":
-        return np.float32
+        if num_type == "float":
+            return np.float32
+        if num_type == "int":
+            return np.int32
+        raise ValueError(f"Unknown num_type: {num_type}")
     raise ValueError(f"Unknown package: {package}")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def to_numpy(x):
+    dtype = get_default_dtype("numpy")
+    if isinstance(x, dict):
+        return {k: to_numpy(v) for k, v in x.items()}
     if isinstance(x, torch.Tensor):
-        return x.numpy(force=True).astype(get_default_dtype("numpy"))
+        return x.numpy(force=True).astype(dtype)
+    if isinstance(x, np.ndarray):
+        return x.astype(dtype)
     return x
 
 
@@ -69,6 +84,7 @@ def assert_2d_tensor(t: torch.Tensor, dim2: int):
 
 def assert_1d_tensor(t: torch.Tensor):
     assert t.ndim == 1, "Tensor should be 1D."
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

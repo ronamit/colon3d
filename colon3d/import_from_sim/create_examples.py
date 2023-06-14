@@ -11,7 +11,7 @@ from numpy.random import default_rng
 from colon3d.general_util import create_empty_folder, to_str
 from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.rotations_util import get_random_rot_quat
-from colon3d.torch_util import np_func
+from colon3d.torch_util import np_func, to_numpy
 from colon3d.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import save_video_with_tracks
 
@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         "--path_to_save_examples",
         type=str,
-        default="data/sim_data/SimData8/Examples",
+        default="data/sim_data/SimData8_Examples",
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
@@ -68,7 +68,7 @@ def main():
     parser.add_argument(
         "--min_dist_from_center_ratio",
         type=float,
-        default=0.,
+        default=0.0,
         help="Number in the range [0,1] that determines the minimum distance of the targets (polyps) from the center of the FOV",
     )
     parser.add_argument(
@@ -178,17 +178,19 @@ def generate_examples_from_sequence(
     # load the ground truth depth maps and camera poses:
     with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
-        gt_cam_poses = h5f["cam_poses"][:]
-        gt_egomotions = h5f["egomotions"][:]
+        gt_cam_poses = to_numpy(h5f["cam_poses"][:])
+        gt_egomotions = to_numpy(h5f["egomotions"][:])
+
     n_frames = gt_depth_maps.shape[0]
     assert n_frames == gt_cam_poses.shape[0], "The number of frames in the depth maps and camera poses is not equal"
     with (sequence_path / "gt_depth_info.pkl").open("rb") as file:
-        depth_info = pickle.load(file)
+        depth_info = to_numpy(pickle.load(file))
+        
 
     for i_example in range(n_examples_per_sequence):
         sequence_name = sequence_path.name
         example_name = f"{sequence_name}_{i_example:04d}"
-        print(f"Generating example {i_example}/{n_examples_per_sequence} for sequence {sequence_name}")
+        print(f"Generating example {i_example+1}/{n_examples_per_sequence} for sequence {sequence_name}")
         # Attempt to generate valid targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
         n_targets = 1  # we currently want only one tracked object
         print("Generating", n_targets, "targets")
@@ -203,12 +205,12 @@ def generate_examples_from_sequence(
         if targets_info is None:
             print("Failed to generate valid targets for the sequence {sequence_name}... skipping this sequence.")
             break
-        
+
         # create subfolder for the example:
         example_path = path_to_save_examples / example_name
         create_empty_folder(example_path)
         print(
-            f"Generating example {i_example}/{n_examples_per_sequence} for sequence {sequence_name} to save in {example_path}",
+            f"Generating example {i_example+1}/{n_examples_per_sequence} for sequence {sequence_name} to save in {example_path}",
             flush=True,
         )
         # create symbolic links in the example folder:
@@ -255,7 +257,7 @@ def generate_examples_from_sequence(
             gt_cam_poses=gt_cam_poses,
             depth_info=depth_info,
             targets_info=targets_info,
-            min_pixels_in_bb = examples_prams["min_pixels_in_bb"],
+            min_pixels_in_bb=examples_prams["min_pixels_in_bb"],
         )
         # save tracks to a csv file:
         tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)
