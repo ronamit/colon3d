@@ -4,6 +4,8 @@ import torch
 
 from colon3d.transforms_util import transform_points_in_world_sys_to_cam_sys
 
+from colon3d.torch_util import get_default_dtype
+np_dtype = get_default_dtype("numpy")
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -120,8 +122,8 @@ def get_kp_matchings(
         print(f"Matched {n_matches} salient keypoint pairs...")
         # If enough matches are found, we extract the locations of matched keypoints in both the images.
         # They are passed to find the perspective transformation. Once we get this 3x3 transformation matrix,
-        src_pts = np.float32([keypoints_A[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([keypoints_B[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+        src_pts = np.array([keypoints_A[m.queryIdx].pt for m in matches], dtype=np_dtype).reshape(-1, 1, 2)
+        dst_pts = np.array([keypoints_B[m.trainIdx].pt for m in matches], dtype=np_dtype).reshape(-1, 1, 2)
         M_hom, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
         matches_mask = mask.ravel().tolist()
         good_matches = [match for i_match, match in enumerate(matches) if matches_mask[i_match]]

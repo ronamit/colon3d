@@ -24,19 +24,19 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData7",
+        default="data/sim_data/SimData8",
         help="The path to the folder with processed simulated sequences to load",
     )
     parser.add_argument(
         "--path_to_save_examples",
         type=str,
-        default="data/sim_data/SimData7/Examples",
+        default="data/sim_data/SimData8/Examples",
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
         "--n_examples_per_sequence",
         type=int,
-        default=2,
+        default=5,
         help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")

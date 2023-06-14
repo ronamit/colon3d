@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from colon3d.rotations_util import get_identity_quaternion, invert_rotation, rotate_points
-from colon3d.torch_util import np_func
+from colon3d.torch_util import get_default_dtype, np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -53,8 +53,8 @@ def plot_xyz_axes(origin_loc: np.ndarray, rot_quat: np.ndarray, arrow_len: float
     """Return plot objects for the XYZ axes at origin point with rotation according to a unit quaternion"""
 
     # arrows endpoints in camera coordinate system:
-    axes_vecs = np.eye(3, dtype=np.float64) # 3 x 3 identity matrix
-    
+    axes_vecs = np.eye(3, dtype=get_default_dtype("numpy"))  # 3 x 3 identity matrix
+
     # rotate the axes vectors according to the camera rotation.
     # (inverse rotation of the camera is applied to the axes vectors)
     inv_cam_rot = np_func(invert_rotation)(rot_quat)
@@ -123,7 +123,7 @@ def plot_fov_cone(
     if cam_rot is None:
         cam_rot = np_func(get_identity_quaternion)()
     if verbose:
-        cam_forward = np_func(rotate_points)(np.array([0, 0, 1], dtype=np.float64), cam_rot)
+        cam_forward = np_func(rotate_points)(np.array([0, 0, 1], dtype=get_default_dtype("numpy")), cam_rot)
         print(
             f"Plotted camera location: {cam_loc} [mm], direction vector: {cam_forward}, FOV: {fov_deg:.1f} [deg]",
         )

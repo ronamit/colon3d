@@ -3,5 +3,5 @@
     "python.analysis.extraPaths": [
         "/home/repos/pytorch-minimize"
     ],
-    "workbench.colorTheme": "Monokai Dimmed",
+    "workbench.colorTheme": "One Dark Modern",
 }

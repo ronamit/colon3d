@@ -14,13 +14,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData4/Examples",
+        default="data/sim_data/SimData8/Examples",
         help="Path to the dataset of examples.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData4/Examples/Results",
+        default="data/sim_data/SimData8/Examples/Results",
         help="path to the save outputs",
     )
     parser.add_argument(

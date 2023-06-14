@@ -7,3 +7,4 @@ build/lib/*
 colon3d.egg-info
 .DS_Store
 .vscode/settings.json
+.vscode/settings.json

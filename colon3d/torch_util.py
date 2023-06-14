@@ -16,10 +16,19 @@ def get_device():
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_default_dtype(package="torch"):
+    if package == "torch":
+        return torch.float32
+    if package == "numpy":
+        return np.float32
+    raise ValueError(f"Unknown package: {package}")
 
-def to_numpy(x, dtype=np.float64):
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def to_numpy(x):
     if isinstance(x, torch.Tensor):
-        return x.numpy(force=True).astype(dtype)
+        return x.numpy(force=True).astype(get_default_dtype("numpy"))
     return x
 
 

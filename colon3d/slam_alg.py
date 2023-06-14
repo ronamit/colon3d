@@ -15,13 +15,12 @@ from colon3d.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.keypoints_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.rotations_util import get_identity_quaternion
 from colon3d.slam_out_analysis import AnalysisLogger, SlamOutput
-from colon3d.torch_util import get_device
+from colon3d.torch_util import get_default_dtype, get_device
 from colon3d.tracks_util import DetectionsTracker
 from colon3d.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
-default_type = torch.float64
-torch.set_default_dtype(default_type)
+torch.set_default_dtype(get_default_dtype())
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -103,7 +102,7 @@ class SlamRunner:
         self.salient_KPs_A = None
         self.track_KPs_A = None
         self.tracks_in_frameA = None
-        
+
         print("Algorithm parameters: \n", self.alg_prm)
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -188,7 +187,7 @@ class SlamRunner:
         verbose_print_interval: int,
         save_path: Path,
     ):
-        """ Run the algorithm on a new frame.
+        """Run the algorithm on a new frame.
         1. Detect salient keypoints in the new frame
         2. Match the salient keypoints to the keypoints in the previous frame
         3. Estimate the 3D location of the matched keypoints
