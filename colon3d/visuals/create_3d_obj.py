@@ -108,11 +108,12 @@ def plot_fov_cone(
 ):
     """Returns a 3D objects that represents a camera's FOV cone
     by default, it sets the cone apex at (0,0,0) and looking at direction (0, 0, 1)."""
+    dtype = get_default_dtype("numpy")
     n_circle_points = 90  # number of points on the circle
     # index zero is (0,0,0) the rest are on a circle at z=z_depth, with radius = z_depth * tan(FOV/2)
-    points = np.zeros((n_circle_points + 1, 3))
+    points = np.zeros((n_circle_points + 1, 3), dtype=dtype)
     points[1:, 2] = cone_height  # set z values for all points besides the tip
-    theta = np.linspace(0, 2 * np.pi, num=n_circle_points)
+    theta = np.linspace(0, 2 * np.pi, num=n_circle_points, dtype=dtype)
     fov_rad = np.deg2rad(fov_deg)
     radius = cone_height * np.tan(fov_rad / 2)
     # set x,y values for all points besides the tip
@@ -123,7 +124,7 @@ def plot_fov_cone(
     if cam_rot is None:
         cam_rot = np_func(get_identity_quaternion)()
     if verbose:
-        cam_forward = np_func(rotate_points)(np.array([0, 0, 1], dtype=get_default_dtype("numpy")), cam_rot)
+        cam_forward = np_func(rotate_points)(np.array([0, 0, 1], dtype=dtype), cam_rot)
         print(
             f"Plotted camera location: {cam_loc} [mm], direction vector: {cam_forward}, FOV: {fov_deg:.1f} [deg]",
         )

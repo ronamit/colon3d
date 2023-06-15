@@ -72,7 +72,7 @@ pip install -e .
 * Run SLAM on a single simulated example:
 
 ```bash
-  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/results"
+  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Seq_00009_short/Examples/0000" --save_path "data/sim_data/Seq_00009_short/Examples/0000/Results"
 ```
 
 * Run SLAM on a dataset of simulated examples:
@@ -84,9 +84,9 @@ pip install -e .
 * Run SLAM on real data example:
 
 ```bash
-  python -m colon3d.run_slam --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_slam --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
 
 ```bash
-  python -m colon3d.run_slam --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_slam --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```

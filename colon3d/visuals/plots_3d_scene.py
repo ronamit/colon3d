@@ -10,8 +10,8 @@ from colon3d.visuals.create_3d_obj import plot_fov_cone
 
 
 def plot_world_sys_per_frame(
-    tracks_kps_world_loc_per_frame: list,
-    salient_kps_world_loc_per_frame: list,
+    online_est_track_world_loc: list,
+    online_est_salient_kp_world_loc: list,
     cam_poses,
     start_frame,
     stop_frame,
@@ -28,7 +28,7 @@ def plot_world_sys_per_frame(
 
     Args:
     ----
-        tracks_kps_world_loc_per_frame: list of dicts, each dict is a frame, key = track_id, value = 3D position of the track in the world coordinate system
+        online_est_track_world_loc: list of dicts, each dict is a frame, key = track_id, value = 3D position of the track in the world coordinate system
         cam_poses: camera poses in world system
         start_frame: start frame
         stop_frame: stop frame
@@ -52,7 +52,7 @@ def plot_world_sys_per_frame(
 
     if show_salient_kps:
         for i_step, i_frame in enumerate(frame_inds):
-            salient_kps = to_numpy(salient_kps_world_loc_per_frame[i_frame], dtype=np.float16)
+            salient_kps = to_numpy(online_est_salient_kp_world_loc[i_frame], dtype=np.float16)
             if salient_kps.shape[0] == 0:
                 continue
             per_step_objs_lists[i_step].append(
@@ -70,7 +70,7 @@ def plot_world_sys_per_frame(
     # plot the tracks\polyps estimated 3D location in the world system per frame:
 
     for i_step, i_frame in enumerate(frame_inds):
-        for track_id, track_p3d_tensor in tracks_kps_world_loc_per_frame[i_frame].items():
+        for track_id, track_p3d_tensor in online_est_track_world_loc[i_frame].items():
             track_p3d = track_p3d_tensor.numpy(force=True)  # location of the KPs in the world system
             # check if the track is in the view of the algorithm
             is_track_in_view = detections_tracker.is_track_in_alg_view(track_id, [i_frame])[0]

@@ -4,14 +4,15 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import Tee, create_empty_folder
+from colon3d.perfomance_metrics import calc_performance_metrics
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
-from colon3d.slam_metrics import calc_trajectory_err_metrics
 from colon3d.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -22,13 +23,13 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData6/Examples/Seq_00002_0000",
+        default="data/sim_data/SimData8_Examples/Seq_00002_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData6/Examples/Seq_00002_0000/Results",
+        default="data/sim_data/SimData8_Examples/Seq_00002_0000/Results_Temp",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -86,6 +87,9 @@ def main():
             save_all_plots=True,
         )
         print(f"Error metrics: {err_metrics}")
+        err_metrics_pd = pd.DataFrame(err_metrics)
+        # save to csv:
+        err_metrics_pd.to_csv(save_path / "err_metrics.csv", index=False)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -102,13 +106,17 @@ def run_slam_on_example(
     save_all_plots: bool = False,
     save_aided_nav_plot: bool = True,
 ):
-    
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
 
     frames_loader = FramesLoader(sequence_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
     detections_tracker = DetectionsTracker(example_path=example_path, frames_loader=frames_loader)
-    depth_estimator = DepthAndEgoMotionLoader(example_path=example_path, depth_maps_source=depth_maps_source, egomotions_source=egomotions_source, alg_prm=alg_prm)
+    depth_estimator = DepthAndEgoMotionLoader(
+        example_path=example_path,
+        depth_maps_source=depth_maps_source,
+        egomotions_source=egomotions_source,
+        alg_prm=alg_prm,
+    )
 
     # Run the SLAM algorithm
     slam_runner = SlamRunner(alg_prm)
@@ -140,9 +148,7 @@ def run_slam_on_example(
         gt_cam_poses = np.array(hf["cam_poses"])
 
     # calculate performance metrics
-    # Trajectory error metrics
-    est_cam_poses = slam_out.analysis_logger.cam_pose_estimates
-    err_metrics = calc_trajectory_err_metrics(gt_poses=gt_cam_poses, est_poses=est_cam_poses)
+    err_metrics = calc_performance_metrics(gt_poses=gt_cam_poses, slam_out=slam_out)
 
     # Navigation aid metrics
 

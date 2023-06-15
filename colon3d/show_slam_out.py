@@ -48,7 +48,13 @@ def main():
 
 
 def save_slam_out_plots(
-    slam_out, save_path, example_path, start_frame=0, stop_frame=None, plot_names=None, max_anim_frames=10,
+    slam_out,
+    save_path,
+    example_path,
+    start_frame=0,
+    stop_frame=None,
+    plot_names=None,
+    max_anim_frames=10,
 ):
     save_path = Path(save_path)
     create_folder_if_not_exists(save_path)
@@ -60,22 +66,23 @@ def save_slam_out_plots(
     assert n_frames_orig > 0, "No frames were loaded!"
     kp_frame_idx_all = slam_out.kp_frame_idx_all
     kp_px_all = slam_out.kp_px_all
-    cam_poses = slam_out.cam_poses
     tracks_p3d_inds = slam_out.tracks_p3d_inds
     kp_id_all = slam_out.kp_id_all
     detections_tracker = slam_out.detections_tracker
-    analysis_logger = slam_out.analysis_logger
+    online_logger = slam_out.online_logger
+    # Get the online estimated camera poses
+    est_cam_poses = online_logger.cam_poses
     tracks_ids = tracks_p3d_inds.keys()
     #  List of the estimated 3D locations of each track's KPs (in the world system):
-    tracks_kps_world_loc_per_frame = slam_out.tracks_kps_world_loc_per_frame
-    salient_kps_world_loc_per_frame = slam_out.salient_kps_world_loc_per_frame
+    online_est_track_world_loc = slam_out.online_est_track_world_loc
+    online_est_salient_kp_world_loc = slam_out.online_est_salient_kp_world_loc
     if stop_frame is None:
         stop_frame = n_frames_orig
     fps = frames_loader.fps  # frames per second
     t_interval_sec = 1 / fps  # sec
 
     # ---- Get track estimated location of the track KPs w.r.t. camera system in each frame
-    tracks_kps_cam_loc_per_frame = transform_tracks_points_to_cam_frame(tracks_kps_world_loc_per_frame, cam_poses)
+    online_est_track_cam_loc = transform_tracks_points_to_cam_frame(online_est_track_world_loc, est_cam_poses)
 
     # ---- Plot the estimated tracks z-coordinate in the camera system per fame
     if plot_names is None or "z_dist_from_cam" in plot_names:
@@ -83,19 +90,19 @@ def save_slam_out_plots(
             tracks_ids,
             start_frame,
             stop_frame,
-            tracks_kps_cam_loc_per_frame,
+            online_est_track_cam_loc,
             t_interval_sec,
             save_path,
         )
 
-    analysis_logger.plot_cam_pose_changes(save_path, t_interval_sec)
+    online_logger.plot_cam_pose_changes(save_path, t_interval_sec)
 
     # Draw local-aided navigation video
     if plot_names is None or "aided_nav" in plot_names:
         draw_aided_nav(
             frames_loader=frames_loader,
             detections_tracker=detections_tracker,
-            tracks_kps_cam_loc_per_frame=tracks_kps_cam_loc_per_frame,
+            online_est_track_cam_loc=online_est_track_cam_loc,
             start_frame=start_frame,
             stop_frame=stop_frame,
             save_path=save_path,
@@ -116,7 +123,7 @@ def save_slam_out_plots(
     stop_frame_anim = min(stop_frame, start_frame + max_anim_frames)
     if plot_names is None or "camera_sys" in plot_names:
         plot_camera_sys_per_frame(
-            tracks_kps_cam_loc_per_frame=tracks_kps_cam_loc_per_frame,
+            tracks_kps_cam_loc_per_frame=online_est_track_cam_loc,
             detections_tracker=detections_tracker,
             start_frame=start_frame,
             stop_frame=stop_frame_anim,
@@ -129,9 +136,9 @@ def save_slam_out_plots(
     # plot the camera trajectory and the track estimated positions in world system
     if plot_names is None or "world_sys" in plot_names:
         plot_world_sys_per_frame(
-            tracks_kps_world_loc_per_frame=tracks_kps_world_loc_per_frame,
-            salient_kps_world_loc_per_frame=salient_kps_world_loc_per_frame,
-            cam_poses=cam_poses,
+            online_est_track_world_loc=online_est_track_world_loc,
+            online_est_salient_kp_world_loc=online_est_salient_kp_world_loc,
+            cam_poses=est_cam_poses,
             start_frame=start_frame,
             stop_frame=stop_frame_anim,
             fps=fps,

@@ -102,14 +102,14 @@ class AnalysisLogger:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, tracks_kps_cam_loc_per_frame, t_interval_sec, save_path):
+def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, online_est_track_cam_loc, t_interval_sec, save_path):
     plt.figure()
     for track_id in tracks_ids:
         track_est_3d_cam = np.zeros((0, 3))
         vis_frames = []  # the frames in which the track was visible
         for i_frame in range(start_frame, stop_frame):
-            if track_id in tracks_kps_cam_loc_per_frame[i_frame]:
-                cur_track_kps_locs = tracks_kps_cam_loc_per_frame[i_frame][track_id].numpy(force=True)
+            if track_id in online_est_track_cam_loc[i_frame]:
+                cur_track_kps_locs = online_est_track_cam_loc[i_frame][track_id].numpy(force=True)
                 cur_track_center_kp_loc = cur_track_kps_locs[0]  # the center KP
                 track_est_3d_cam = np.concatenate((track_est_3d_cam, cur_track_center_kp_loc[np.newaxis, :]))
                 vis_frames.append(i_frame)
@@ -148,9 +148,9 @@ class SlamOutput:
     detections_tracker: DetectionsTracker  # detections tracker object
     cam_undistorter: FishEyeUndistorter  # camera undistorter object
     depth_estimator: DepthAndEgoMotionLoader  # depth estimator object
-    analysis_logger: AnalysisLogger  # analysis logger object
-    salient_kps_world_loc_per_frame: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)
-    tracks_kps_world_loc_per_frame: list  # List of the per-step estimates of the 3D locations of the tracks KPs (in the world system)
+    online_logger: AnalysisLogger  # analysis logger object
+    online_est_salient_kp_world_loc: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)
+    online_est_track_world_loc: list  # List of the per-step estimates of the 3D locations of the tracks KPs (in the world system)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

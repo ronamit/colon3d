@@ -12,7 +12,7 @@ from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track
 def draw_aided_nav(
     frames_loader: FramesLoader,
     detections_tracker: DetectionsTracker,
-    tracks_kps_cam_loc_per_frame: list,
+    online_est_track_cam_loc: list,
     start_frame: int,
     stop_frame: int,
     save_path=None,
@@ -22,7 +22,7 @@ def draw_aided_nav(
         frames_loader: VideoLoader
         detections_tracker: DetectionsTracker
         cam_undistorter: FishEyeUndistorter
-        tracks_kps_cam_loc_per_frame: list of the estimated 3d position (in camera system) of the tracked polyps in the seen in each frame (units: mm)
+        online_est_track_cam_loc: list of the estimated 3d position (in camera system) of the tracked polyps keypoints, as estimated in each frame
         start_frame: the frame to start the aided navigation video
         stop_frame: the frame to stop the aided navigation video
         save_path: str, the path to save the video
@@ -70,7 +70,7 @@ def draw_aided_nav(
                 convert_from_alg_view_to_full=True,
             )
         # the estimated 3d position (in camera system) of the tracked polyps in the seen in the current frame (units: mm)
-        tracks_kps_loc_est = tracks_kps_cam_loc_per_frame[i_frame]
+        tracks_kps_loc_est = online_est_track_cam_loc[i_frame]
 
         # go over all ths tracks that have been their location estimated in the cur\rent frame
         for track_id, cur_track_kps_loc_est in tracks_kps_loc_est.items():
@@ -84,7 +84,7 @@ def draw_aided_nav(
             xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
             xy_dir = p3d_cam[0:2] / max(xy_dist, eps)
             # start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible:
-            arrow_base_radius = alg_view_radius * 0.85 # [px]
+            arrow_base_radius = alg_view_radius * 0.85  # [px]
             orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
             orient_arrow_len = 50
             orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]

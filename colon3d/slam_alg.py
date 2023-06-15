@@ -69,9 +69,9 @@ class SlamRunner:
         self.kp_frame_idx_all = []  #  List of the keypoint's frame index
         self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
         #  List of the per-step estimates oft the 3D locations of each track's KPs (in the world system):
-        self.tracks_kps_world_loc_per_frame = []
+        self.online_est_track_world_loc = []
         #  List of the per-step estimates oft the 3D locations of the saliency KPs (in the world system):
-        self.salient_kps_world_loc_per_frame = []
+        self.online_est_salient_kp_world_loc = []
         """
         cam_poses = saves for each frame of the estimated 6DOF *change* of the camera pose from its initial pose (in world system)
         Note: the world system is defined such that its origin is in frame #0 is the camera focal point, and its z axis is the initial camera orientation.
@@ -95,7 +95,7 @@ class SlamRunner:
         self.map_kp_to_p3d_idx = {}  # maps a KP (i_frame, i_cord, j_cord) to a an index of a 3D world point
         self.tracks_p3d_inds = {}  # maps a track_id to its associated 3D world points indexes
         self.n_world_points = 0  # number of 3D world points identified so far
-        self.analysis_logger = AnalysisLogger(self.alg_prm)
+        self.online_logger = AnalysisLogger(self.alg_prm)
         # saves data about the previous frame:
         self.img_A = None
         self.descriptors_A = None
@@ -165,9 +165,9 @@ class SlamRunner:
             detections_tracker=detections_tracker,
             cam_undistorter=cam_undistorter,
             depth_estimator=depth_estimator,
-            tracks_kps_world_loc_per_frame=self.tracks_kps_world_loc_per_frame,
-            salient_kps_world_loc_per_frame=self.salient_kps_world_loc_per_frame,
-            analysis_logger=self.analysis_logger,
+            online_est_track_world_loc=self.online_est_track_world_loc,
+            online_est_salient_kp_world_loc=self.online_est_salient_kp_world_loc,
+            online_logger=self.online_logger,
         )
         return slam_out
 
@@ -211,7 +211,7 @@ class SlamRunner:
         kp_inds_of_new = []
         # Initialize the 3D points associated with the tracks in the current frame
         self.p3d_inds_in_frame.append(set())
-        self.tracks_kps_world_loc_per_frame.append({})
+        self.online_est_track_world_loc.append({})
 
         #  guess of cam pose for current frame, based on the last estimate and the egomotion estimation
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
@@ -354,7 +354,7 @@ class SlamRunner:
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)
 
         # save the current camera pose guess
-        self.analysis_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
+        self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:
         if i_frame > 0 and i_frame % alg_prm.optimize_each_n_frames == 0:
@@ -374,15 +374,17 @@ class SlamRunner:
                 SALIENT_KP_ID=self.SALIENT_KP_ID,
                 verbose=verbose,
             )
+            
+        #----  Save online-estimates for the current frame
         # save the currently estimated 3D KP of the tracks that have been seen until now
         for track_id, track_kps_p3d_inds in self.tracks_p3d_inds.items():
-            self.tracks_kps_world_loc_per_frame[i_frame][track_id] = self.points_3d[track_kps_p3d_inds]
+            self.online_est_track_world_loc[i_frame][track_id] = self.points_3d[track_kps_p3d_inds]
+            
         # save the currently estimated 3D world system location of the salient KPs
-        self.salient_kps_world_loc_per_frame.append(deepcopy(self.points_3d))
-        # TODO: save only the salient KPs that are changed in the current frame
+        self.online_est_salient_kp_world_loc.append(deepcopy(self.points_3d))
 
-        # ----- Save the current camera pose
-        self.analysis_logger.save_cam_pose_estimate(self.cam_poses[i_frame, :])
+        # Save the currently estimated camera pose.
+        self.online_logger.save_cam_pose_estimate(self.cam_poses[i_frame, :])
 
         # ----- update variables for the next frame
         self.salient_KPs_A = salient_KPs_B
