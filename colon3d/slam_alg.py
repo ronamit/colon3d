@@ -114,7 +114,7 @@ class SlamRunner:
         depth_estimator: DepthAndEgoMotionLoader,
         save_path: Path,
         draw_interval: int = 0,
-        verbose_print_interval: int = 20,
+        verbose_print_interval: int = 0,
     ) -> SlamOutput:
         frames_generator = frames_loader.frames_generator(frame_type="alg_input")
         cam_undistorter = frames_loader.alg_cam_undistorter

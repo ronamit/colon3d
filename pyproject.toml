@@ -87,6 +87,8 @@ select = [
   "NPY",
   # Ruff-specific rules
   "RUF",
+  # flakke8-type-checking
+  "TCH",
 ]
 
 # Ruff ignores, see https://beta.ruff.rs/docs/rules/

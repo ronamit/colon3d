@@ -48,7 +48,7 @@ class FishEyeUndistorter:
 
     def get_undistort_points_lut(self):
         """
-            get  a lookup table for undistorting points
+        get  a lookup table for undistorting points
         #  transforms normalized coordinates in the undistorted image  (transform to rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
 
