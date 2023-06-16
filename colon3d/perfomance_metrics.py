@@ -2,7 +2,7 @@ import numpy as np
 
 from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.slam_alg import SlamOutput
-from colon3d.torch_util import np_func
+from colon3d.torch_util import np_func, to_numpy
 from colon3d.transforms_util import apply_pose_change, find_pose_change
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -29,8 +29,9 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
     Notes:
         * As both trajectories can be specified in arbitrary coordinate frames, they first need to be aligned.
         We use rigid-body transformation that maps the estimated trajectory onto the ground truth trajectory such that the first frame are aligned.
+                * we assume N < N_gt_frames, i.e. the estimated trajectory is shorter than the ground-truth trajectory.
     """
-    n_frames = gt_cam_poses.shape[0]
+    n_frames = est_cam_poses.shape[0]
     # find the alignment transformation, according to the first frame
     # rotation
     pose_align = np_func(find_pose_change)(start_pose=est_cam_poses[0], final_pose=gt_cam_poses[0])
@@ -48,15 +49,16 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
 def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     """compute the mean and standard deviation ATE (Absolute Trajectory Error) across all frames.
     Args:
-        gt_poses [N x 7] ground-truth poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
+        gt_poses [N_gt_frames x 7] ground-truth poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
         est_poses [N x 7] estimated poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
     Notes:
         * As both trajectories can be specified in arbitrary coordinate frames, they first need to be aligned.
             We use rigid-body transformation that maps the predicted trajectory onto the ground truth trajectory such that the first frame are aligned.
 
         * The ATE per frame is computed as the mean Euclidean distance between the ground-truth and estimated translation vectors.
+        * we assume N < N_gt_frames, i.e. the estimated trajectory is shorter than the ground-truth trajectory, and the error is computed only for the frames where the estimated trajectory is defined.
     """
-    n_frames = gt_cam_poses.shape[0]
+    n_frames = est_cam_poses.shape[0]
 
     # align according to the first frame
     est_poses_aligned = align_estimated_trajectory(gt_cam_poses=gt_cam_poses, est_cam_poses=est_cam_poses)
@@ -98,10 +100,12 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
 def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
     """compute the mean and standard deviation RPE (Relative Pose Error) across all frames.
     Args:
-        gt_poses [N x 7] ground-truth poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
+        gt_poses [N_gt_frames x 7] ground-truth poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
         est_poses [N x 7] estimated poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
+    Notes:
+            * we assume N < N_gt_frames, i.e. the estimated trajectory is shorter than the ground-truth trajectory, and the error is computed only for the frames where the estimated trajectory is defined.
     """
-    n_frames = gt_poses.shape[0]
+    n_frames = est_poses.shape[0]
 
     # the RPE_trans per-frame:
     rpe_trans_all = np.zeros(n_frames - 1)
@@ -143,12 +147,13 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
 def calc_nav_aid_metrics(est_cam_poses: np.ndarray, online_est_track_world_loc: list) -> dict:
     """Calculates the navigation-aid metrics.
     Args:
+        est_cam_poses [N x 7] estimated camera poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
     """
     eps = 1e-20  # to avoid division by zero
     n_frames = est_cam_poses.shape[0]
 
     # Transform to the camera system of each frame (according the estimated camera poses)
-    online_est_track_cam_loc = transform_tracks_points_to_cam_frame(
+    online_est_track_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
         online_est_track_world_loc,
         est_cam_poses,
     )
@@ -159,12 +164,13 @@ def calc_nav_aid_metrics(est_cam_poses: np.ndarray, online_est_track_world_loc: 
         # go over all ths tracks that have been their location estimated in the cur\rent frame
         for _track_id, cur_track_kps_loc_est in tracks_kps_loc_est.items():
             # the estimated 3d position of the center KP of the current track in the current frame (units: mm)  (in est. camera system)
-            p3d_cam = cur_track_kps_loc_est[0].numpy(force=True)  # [mm]
+            p3d_cam = cur_track_kps_loc_est[0] # [mm]
             z_dist = p3d_cam[2]  # [mm]
             # compute  the track position angle with the z axis
             ray_dist = np.linalg.norm(p3d_cam[0:3], axis=-1)  # [mm]
             angle_rad = np.arccos(z_dist / max(ray_dist, eps))  # [rad]
-            np.rad2deg(angle_rad)  # [deg]
+            angle_deg = np.rad2deg(angle_rad)  # [deg]
+            print("angle:", angle_deg)
 
     return {}
 
@@ -182,7 +188,7 @@ def calc_performance_metrics(gt_poses: np.ndarray, slam_out: SlamOutput) -> dict
     est_cam_poses = slam_out.online_logger.cam_pose_estimates
 
     #  List of the estimated 3D locations of each track's KPs (in the world system) per frame
-    online_est_track_world_loc = slam_out.online_est_track_world_loc
+    online_est_track_world_loc = to_numpy(slam_out.online_est_track_world_loc)
 
     # Compute SLAM metrics
     ate_metrics = compute_ATE(gt_cam_poses=gt_poses, est_cam_poses=est_cam_poses)

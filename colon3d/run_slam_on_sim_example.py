@@ -59,7 +59,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=0,
+        default=10,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(

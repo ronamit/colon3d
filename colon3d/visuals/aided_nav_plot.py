@@ -3,6 +3,7 @@ import numpy as np
 
 from colon3d.data_util import FramesLoader
 from colon3d.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
+from colon3d.torch_util import to_numpy
 from colon3d.tracks_util import DetectionsTracker
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_tracks_on_frame
 
@@ -75,7 +76,7 @@ def draw_aided_nav(
         # go over all ths tracks that have been their location estimated in the cur\rent frame
         for track_id, cur_track_kps_loc_est in tracks_kps_loc_est.items():
             # the estimated 3d position of the center KP of the current track in the current frame (units: mm)  (in camera system)
-            p3d_cam = cur_track_kps_loc_est[0].numpy(force=True)  # [mm]
+            p3d_cam = to_numpy(cur_track_kps_loc_est[0])  # [mm]
             z_dist = p3d_cam[2]  # [mm]
             # compute  the track position angle with the z axis
             ray_dist = np.linalg.norm(p3d_cam[0:3], axis=-1)  # [mm]

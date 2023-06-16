@@ -38,14 +38,25 @@ def get_default_dtype(package="torch", num_type="float"):
 
 def to_numpy(x):
     dtype = get_default_dtype("numpy")
-    if isinstance(x, dict):
-        return {k: to_numpy(v) for k, v in x.items()}
-    if isinstance(x, torch.Tensor):
-        return x.numpy(force=True).astype(dtype)
     if isinstance(x, np.ndarray):
         return x.astype(dtype)
+    if isinstance(x, dict):
+        return {k: to_numpy(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [to_numpy(v) for v in x]
+    if isinstance(x, torch.Tensor):
+        return x.numpy(force=True).astype(dtype)
     return x
 
+# --------------------------------------------------------------------------------------------------------------------
+
+def from_numpy(x):
+    dtype = get_default_dtype("torch")
+    if isinstance(x, dict):
+        return {k: from_numpy(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [from_numpy(v) for v in x]
+    return torch.from_numpy(x).to(dtype)
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -54,8 +65,8 @@ def np_func(func):
     """Decorator that converts all Numpy arrays to PyTorch tensors before calling the function and converts the result back to Numpy array."""
 
     def wrapper(*args, **kwargs):
-        args = [torch.from_numpy(x) if isinstance(x, np.ndarray) else x for x in args]
-        kwargs = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in kwargs.items()}
+        args = [from_numpy(x) for x in args]
+        kwargs = {k: from_numpy(v) for k, v in kwargs.items()}
         result = func(*args, **kwargs)
         return to_numpy(result)
 
