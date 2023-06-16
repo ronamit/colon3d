@@ -10,7 +10,7 @@ from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import Tee, create_empty_folder
-from colon3d.perfomance_metrics import calc_performance_metrics
+from colon3d.perfomance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
 from colon3d.tracks_util import DetectionsTracker
@@ -59,7 +59,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=10,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
@@ -86,11 +86,9 @@ def main():
             draw_interval=args.draw_interval,
             save_all_plots=True,
         )
-        print(f"Error metrics: {err_metrics}")
         err_metrics_pd = pd.DataFrame(err_metrics)
         # save to csv:
         err_metrics_pd.to_csv(save_path / "err_metrics.csv", index=False)
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -141,17 +139,16 @@ def run_slam_on_example(
 
     # load the  ground truth targets info
     with (example_path / "targets_info.pkl").open("rb") as file:
-        pickle.load(file)
+        gt_targets_info = pickle.load(file)
 
     # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as hf:
         gt_cam_poses = np.array(hf["cam_poses"])
 
     # calculate performance metrics
-    err_metrics = calc_performance_metrics(gt_poses=gt_cam_poses, slam_out=slam_out)
-
-    # Navigation aid metrics
-
+    err_metrics = calc_performance_metrics(gt_cam_poses=gt_cam_poses, gt_targets_info=gt_targets_info, slam_out=slam_out)
+    plot_trajectory_metrics(err_metrics=err_metrics, save_path=save_path / "trajectory_metrics.png")
+    
     return err_metrics
 
 

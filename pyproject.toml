@@ -13,7 +13,12 @@ requires-python = ">=3.9"
 line-length = 120
 target-version = "py311"
 fix = true
-unfixable = ["E711"]  # None comparison
+# Avoid trying to fix these errors:
+unfixable = [
+  "E711",  # None comparison
+  "F841",  #  local variable is assigned to but never used
+  "ARG001", # Unused argument
+] 
 exclude = [
     ".git",
     'node_modules',
@@ -115,5 +120,5 @@ ignore = ["E501", # line too long (let Black handle this)
           "ANN002", # Missing type annotation 
           "ANN003", # Missing type annotation 
           "ANN202", # Missing type annotation
-
 ]
+

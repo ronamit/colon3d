@@ -111,7 +111,8 @@ def transform_points_in_world_sys_to_cam_sys(
     Returns:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
-    assert_2d_tensor(points_3d_world, 3)
+    if points_3d_world.ndim == 1:
+        points_3d_world = points_3d_world.unsqueeze(0)
     if cam_poses.ndim == 1:
         cam_poses = cam_poses.unsqueeze(0)
     assert_2d_tensor(cam_poses, 7)
