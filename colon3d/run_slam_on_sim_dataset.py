@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from colon3d.general_util import Tee, create_empty_folder, get_time_now_str
@@ -50,13 +51,13 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=0,
+        default=11,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
         "--n_examples_lim",
         type=int,
-        default=0,
+        default=2,
         help="upper limit on the number of examples used, if 0 then all examples are used",
     )
 
@@ -81,7 +82,7 @@ def main():
             )
             save_path = Path(args.save_path).expanduser() / example_path.name
             create_empty_folder(save_path, ask_overwrite=True)
-            
+
             _, metrics_stats = run_slam_on_example(
                 example_path=example_path,
                 save_path=save_path,
@@ -105,7 +106,17 @@ def main():
     metrics_table.to_csv(base_save_path / "err_table.csv", index=[0])
     print(f"Error metrics table saved to {base_save_path / 'err_table.csv'}")
 
+    # compute statistics over all examples
+    numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
+    metrics_summary = {}
+    for col in numeric_columns:
+        mean_val = metrics_table[col].mean()
+        std_val = metrics_table[col].std()
+        n_examples = len(metrics_table[col])
+        confidence_interval = 1.96 * std_val / np.sqrt(n_examples) # 95% confidence interval
+        metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
 
+    print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
 # ---------------------------------------------------------------------------------------------------------------------
 
 
