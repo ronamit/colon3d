@@ -2,4 +2,4 @@
 
 from setuptools import find_packages, setup
 
-setup(name=["colon3d", "tsdf_fusion"], version="1.0", packages=find_packages())
+setup(name=["colon3d", "tsdf_fusion", "EndoSfMLearner"], version="1.0", packages=find_packages())
