@@ -4,16 +4,18 @@
 # which allows for non-commercial use only, the full terms of which are made
 # available in the LICENSE file.
 
-from __future__ import absolute_import, division, print_function
+
+from collections import OrderedDict
 
 import torch
-import torch.nn as nn
-from collections import OrderedDict
+from torch import nn
+
 from .resnet_encoder import *
+
 
 class PoseDecoder(nn.Module):
     def __init__(self, num_ch_enc, num_input_features=1, num_frames_to_predict_for=1, stride=1):
-        super(PoseDecoder, self).__init__()
+        super().__init__()
 
         self.num_ch_enc = num_ch_enc
         self.num_input_features = num_input_features
@@ -52,23 +54,22 @@ class PoseDecoder(nn.Module):
 
 
 class PoseResNet(nn.Module):
-
-    def __init__(self, num_layers = 18, pretrained = True):
-        super(PoseResNet, self).__init__()
-        self.encoder = ResnetEncoder(num_layers = num_layers, pretrained = pretrained, num_input_images=2)
+    def __init__(self, num_layers=18, pretrained=True):
+        super().__init__()
+        self.encoder = ResnetEncoder(num_layers=num_layers, pretrained=pretrained, num_input_images=2)
         self.decoder = PoseDecoder(self.encoder.num_ch_enc)
 
     def init_weights(self):
         pass
 
     def forward(self, img1, img2):
-        x = torch.cat([img1,img2],1)
+        x = torch.cat([img1, img2], 1)
         features = self.encoder(x)
         pose = self.decoder([features])
         return pose
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     model = PoseResNet().cuda()

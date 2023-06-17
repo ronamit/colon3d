@@ -1,14 +1,14 @@
-from __future__ import division
-import torch
 import random
+
 import numpy as np
+import torch
 from PIL import Image
 
-'''Set of tranform random routines that takes list of inputs as arguments,
-in order to have random but coherent transformations.'''
+"""Set of tranform random routines that takes list of inputs as arguments,
+in order to have random but coherent transformations."""
 
 
-class Compose(object):
+class Compose:
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -18,7 +18,7 @@ class Compose(object):
         return images, intrinsics
 
 
-class Normalize(object):
+class Normalize:
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
@@ -30,7 +30,7 @@ class Normalize(object):
         return images, intrinsics
 
 
-class ArrayToTensor(object):
+class ArrayToTensor:
     """Converts a list of numpy.ndarray (H x W x C) along with a intrinsics matrix to a list of torch.FloatTensor of shape (C x H x W) with a intrinsics tensor."""
 
     def __call__(self, images, intrinsics):
@@ -39,11 +39,11 @@ class ArrayToTensor(object):
             # put it from HWC to CHW format
             im = np.transpose(im, (2, 0, 1))
             # handle numpy array
-            tensors.append(torch.from_numpy(im).float()/255)
+            tensors.append(torch.from_numpy(im).float() / 255)
         return tensors, intrinsics
 
 
-class RandomHorizontalFlip(object):
+class RandomHorizontalFlip:
     """Randomly horizontally flips the given numpy array with a probability of 0.5"""
 
     def __call__(self, images, intrinsics):
@@ -59,7 +59,7 @@ class RandomHorizontalFlip(object):
         return output_images, output_intrinsics
 
 
-class RandomScaleCrop(object):
+class RandomScaleCrop:
     """Randomly zooms images up to 15% and crop them to keep same size as before."""
 
     def __call__(self, images, intrinsics):
@@ -72,11 +72,14 @@ class RandomScaleCrop(object):
 
         output_intrinsics[0] *= x_scaling
         output_intrinsics[1] *= y_scaling
-        scaled_images = [np.array(Image.fromarray(im.astype(np.uint8)).resize((scaled_w, scaled_h))).astype(np.float32) for im in images]
+        scaled_images = [
+            np.array(Image.fromarray(im.astype(np.uint8)).resize((scaled_w, scaled_h))).astype(np.float32)
+            for im in images
+        ]
 
         offset_y = np.random.randint(scaled_h - in_h + 1)
         offset_x = np.random.randint(scaled_w - in_w + 1)
-        cropped_images = [im[offset_y:offset_y + in_h, offset_x:offset_x + in_w] for im in scaled_images]
+        cropped_images = [im[offset_y : offset_y + in_h, offset_x : offset_x + in_w] for im in scaled_images]
 
         output_intrinsics[0, 2] -= offset_x
         output_intrinsics[1, 2] -= offset_y

@@ -1,8 +1,15 @@
 # About
 
-This code loads the simulation output from the Simulator:  [https://github.com/zsustc/colon_reconstruction_dataset](https://github.com/zsustc/colon_reconstruction_dataset)
-that is described in "A Template-based 3D Reconstruction of Colon Structures and Textures from Stereo Colonoscopic Images", Zhang et al., IEEE Transactions on Medical Robotics  2022.
-The simulator generates single-camera colonoscopic images with ground truth of camera poses.
+This code loads the simulation output from the Simulator:  The simulator generates single-camera colonoscopic images with ground truth of camera poses.
+
+## References
+
+* [https://github.com/zsustc/colon_reconstruction_dataset](https://github.com/zsustc/colon_reconstruction_dataset)
+  that is described in "A Template-based 3D Reconstruction of Colon Structures and Textures from Stereo Colonoscopic Images", Zhang et al., IEEE Transactions on Medical Robotics  2022.
+* VR-Caps
+* EndoSLAM
+* tsdfusion
+* pytorch-minimize
 
 ## Setup
 
@@ -80,7 +87,6 @@ pip install -e .
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-
 * Run SLAM on real data example:
 
 ```bash

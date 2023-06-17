@@ -4,25 +4,23 @@
 # which allows for non-commercial use only, the full terms of which are made
 # available in the LICENSE file.
 
-from __future__ import absolute_import, division, print_function
 
 import numpy as np
-
 import torch
-import torch.nn as nn
-import torchvision.models as models
-import torch.utils.model_zoo as model_zoo
+from torch import nn
+from torch.utils import model_zoo
+from torchvision import models
 
 
 class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
     """
+
     def __init__(self, block, layers, num_classes=1000, num_input_images=1):
-        super(ResNetMultiImageInput, self).__init__(block, layers)
+        super().__init__(block, layers)
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(
-            num_input_images * 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(num_input_images * 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=False)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -33,7 +31,7 @@ class ResNetMultiImageInput(models.ResNet):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0.2)
@@ -52,60 +50,61 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     model = ResNetMultiImageInput(block_type, blocks, num_input_images=num_input_images)
 
     if pretrained:
-        loaded = model_zoo.load_url(models.resnet.model_urls['resnet{}'.format(num_layers)])
-        loaded['conv1.weight'] = torch.cat(
-            [loaded['conv1.weight']] * num_input_images, 1) / num_input_images
+        loaded = model_zoo.load_url(models.resnet.model_urls[f"resnet{num_layers}"])
+        loaded["conv1.weight"] = torch.cat([loaded["conv1.weight"]] * num_input_images, 1) / num_input_images
         model.load_state_dict(loaded)
     return model
 
+
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=1):
-        super(SpatialAttention, self).__init__()
+        super().__init__()
         kernel_size = 1
         padding = 3 if kernel_size == 7 else 0
-        
+
         self.conv1 = nn.Conv2d(64, 4, kernel_size, padding=padding, bias=False)
-        self.conv2 = nn.Conv2d(4, 4, kernel_size , padding=padding, bias=False)
+        self.conv2 = nn.Conv2d(4, 4, kernel_size, padding=padding, bias=False)
         self.conv3 = nn.Conv2d(4, 64, kernel_size, padding=padding, bias=False)
-        self.maxPooling = nn.MaxPool2d(4,stride=4)
+        self.maxPooling = nn.MaxPool2d(4, stride=4)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
         self.upsample = nn.Upsample(scale_factor=4)
 
     def forward(self, x):
-
         x1 = self.conv1(x)
         x2 = self.maxPooling(x1)
-        reshaped1 = torch.reshape(x2,(x2.shape[0],x2.shape[1],-1,x2.shape[2]))
-        y = torch.matmul(reshaped1,x2)
+        reshaped1 = torch.reshape(x2, (x2.shape[0], x2.shape[1], -1, x2.shape[2]))
+        y = torch.matmul(reshaped1, x2)
         z = self.relu(y)
         z = self.conv2(z)
-        t = self.softmax(z) 
-        out1 = torch.matmul(t,reshaped1)
+        t = self.softmax(z)
+        out1 = torch.matmul(t, reshaped1)
         conv3_out = self.conv3(out1)
         upsample_out = self.upsample(conv3_out)
-        k = torch.reshape(upsample_out,(upsample_out.shape[0],upsample_out.shape[1],-1,upsample_out.shape[2]))
-        output = k + x        
-                
+        k = torch.reshape(upsample_out, (upsample_out.shape[0], upsample_out.shape[1], -1, upsample_out.shape[2]))
+        output = k + x
+
         return output
 
 
 class ResnetEncoder(nn.Module):
-    """Pytorch module for a resnet encoder
-    """
+    """Pytorch module for a resnet encoder"""
+
     def __init__(self, num_layers, pretrained, num_input_images=1):
-        super(ResnetEncoder, self).__init__()
+        super().__init__()
 
         self.num_ch_enc = np.array([64, 64, 128, 256, 512])
 
-        resnets = {18: models.resnet18,
-                   34: models.resnet34,
-                   50: models.resnet50,
-                   101: models.resnet101,
-                   152: models.resnet152}
+        resnets = {
+            18: models.resnet18,
+            34: models.resnet34,
+            50: models.resnet50,
+            101: models.resnet101,
+            152: models.resnet152,
+        }
 
         if num_layers not in resnets:
-            raise ValueError("{} is not a valid number of resnet layers".format(num_layers))
+            raise ValueError(f"{num_layers} is not a valid number of resnet layers")
 
         if num_input_images > 1:
             self.encoder = resnet_multiimage_input(num_layers, pretrained, num_input_images)
@@ -114,7 +113,7 @@ class ResnetEncoder(nn.Module):
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
-        
+
         self.SAB = SpatialAttention()
 
     def forward(self, input_image):
@@ -124,10 +123,9 @@ class ResnetEncoder(nn.Module):
         x = self.encoder.bn1(x)
         self.features.append(self.encoder.relu(x))
 
-        #denemee
-        
-        self.features.append(self.SAB(self.features[-1]))
+        # denemee
 
+        self.features.append(self.SAB(self.features[-1]))
 
         self.features.append(self.encoder.layer1(self.encoder.maxpool(self.features[-1])))
         self.features.append(self.encoder.layer2(self.features[-1]))
@@ -135,4 +133,3 @@ class ResnetEncoder(nn.Module):
         self.features.append(self.encoder.layer4(self.features[-1]))
 
         return self.features
-
