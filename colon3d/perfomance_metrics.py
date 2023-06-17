@@ -173,6 +173,8 @@ def calc_nav_aid_metrics(
     eps = 1e-20  # to avoid division by zero
     n_frames = est_cam_poses.shape[0]
     n_targets = gt_targets_info.n_targets
+    
+    deg_err_thresh = 15  # [deg] the threshold for the angular error to consider a target as "detected"
 
     # Transform to the camera system of each frame (according the estimated camera poses)
     online_est_track_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
@@ -248,7 +250,8 @@ def calc_nav_aid_metrics(
     metrics_stats = {
         "Nav. Angle error RMSE [deg]": angle_err_deg_rmse,
         "Nav. Z error RMSE [mm]": z_err_mm_rmse,
-        "Nav. Z sign error ratio": z_sign_err_ratio,
+        "Nav. Z sign error [%]": 100 * z_sign_err_ratio,
+        f"Nav Angle error less than {deg_err_thresh} deg [%]": np.mean(np.abs(angle_err_deg_avg) < deg_err_thresh) * 100,
     }
     return metrics_per_frame, metrics_stats
 
