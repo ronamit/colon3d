@@ -53,6 +53,12 @@ def main():
         default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
+    parser.add_argument(
+        "--n_examples_lim",
+        type=int,
+        default=0,
+        help="upper limit on the number of examples used, if 0 then all examples are used",
+    )
 
     args = parser.parse_args()
     dataset_path = Path(args.dataset_path).expanduser()
@@ -60,8 +66,11 @@ def main():
     create_empty_folder(base_save_path, ask_overwrite=False)
     print(f"Outputs will be saved to {base_save_path}")
     examples_paths = list(dataset_path.glob("Seq_*"))
+    examples_paths.sort()
+    if args.n_examples_lim:
+        examples_paths = examples_paths[: args.n_examples_lim]
     n_examples = len(examples_paths)
-    err_table = pd.DataFrame(columns=["example_name", "err_metrics"])
+    metrics_table = pd.DataFrame()
     with Tee(base_save_path / "log_run_slam.txt"):  # save the prints to a file
         for i_example, example_path in enumerate(examples_paths):
             save_path = base_save_path / example_path.name
@@ -72,7 +81,8 @@ def main():
             )
             save_path = Path(args.save_path).expanduser() / example_path.name
             create_empty_folder(save_path, ask_overwrite=True)
-            err_metrics = run_slam_on_example(
+            
+            _, metrics_stats = run_slam_on_example(
                 example_path=example_path,
                 save_path=save_path,
                 n_frames_lim=args.n_frames_lim,
@@ -82,13 +92,18 @@ def main():
                 save_all_plots=False,
                 save_aided_nav_plot=True,
             )
-            print(f"Error metrics: {err_metrics}")
-            err_table.loc[i_example] = [example_path.name, err_metrics]
+
+            # add current example to the error metrics table
+            if i_example == 0:
+                metrics_table = pd.DataFrame(metrics_stats, index=[0])
+            else:
+                metrics_table.loc[i_example] = metrics_stats
+
             print("-" * 100)
 
-    print(f"Error metrics table:\n{err_table}")
     # save the error metrics table to a csv file
-    err_table.to_csv(base_save_path / "err_table.csv", index=False)
+    metrics_table.to_csv(base_save_path / "err_table.csv", index=[0])
+    print(f"Error metrics table saved to {base_save_path / 'err_table.csv'}")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

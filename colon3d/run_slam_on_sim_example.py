@@ -4,7 +4,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import pandas as pd
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
@@ -76,7 +75,7 @@ def main():
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        err_metrics = run_slam_on_example(
+        metrics_per_frame, metrics_stats = run_slam_on_example(
             example_path=example_path,
             save_path=save_path,
             n_frames_lim=args.n_frames_lim,
@@ -86,9 +85,6 @@ def main():
             draw_interval=args.draw_interval,
             save_all_plots=True,
         )
-        err_metrics_pd = pd.DataFrame(err_metrics)
-        # save to csv:
-        err_metrics_pd.to_csv(save_path / "err_metrics.csv", index=False)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -146,10 +142,17 @@ def run_slam_on_example(
         gt_cam_poses = np.array(hf["cam_poses"])
 
     # calculate performance metrics
-    err_metrics = calc_performance_metrics(gt_cam_poses=gt_cam_poses, gt_targets_info=gt_targets_info, slam_out=slam_out)
-    plot_trajectory_metrics(err_metrics=err_metrics, save_path=save_path / "trajectory_metrics.png")
-    
-    return err_metrics
+    metrics_per_frame, metrics_stats = calc_performance_metrics(
+        gt_cam_poses=gt_cam_poses,
+        gt_targets_info=gt_targets_info,
+        slam_out=slam_out,
+    )
+    metrics_stats["Example Name"] = example_path.name
+    plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
+
+    print(f"Error metrics stats: {metrics_stats}")
+
+    return metrics_per_frame, metrics_stats
 
 
 # ---------------------------------------------------------------------------------------------------------------------
