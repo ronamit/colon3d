@@ -20,3 +20,7 @@ dependencies:
   - toml=0.10.2
   - yaml=0.2.5
   - matplotlib=3.7.1
+  - pip>=21.3.2
+  - pip:
+    - blessings=1.7
+    - progressbar=2.5
