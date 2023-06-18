@@ -21,11 +21,11 @@ from colon3d.general_util import get_time_now_str
 from colon3d.torch_util import get_device
 
 parser = argparse.ArgumentParser(
-    description="Structure from Motion Learner training on KITTI and CityScapes Dataset",
+    description="Structure from Motion Learner training",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument("data", metavar="DIR", help="path to dataset")
+parser.add_argument("data", metavar="DIR", help="path to dataset", default="/data/sim_data/PairsDataset1")
 parser.add_argument(
     "--folder-type",
     type=str,
@@ -272,7 +272,7 @@ def main():
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["train_loss", "validation_loss"])
 
-    with(args.save_path / args.log_full). open("w") as csvfile:
+    with (args.save_path / args.log_full).open("w") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
 
