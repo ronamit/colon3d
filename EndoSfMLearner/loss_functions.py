@@ -3,7 +3,9 @@ import torch.nn.functional as F
 from inverse_warp import inverse_warp2
 from torch import nn
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+from colon3d.torch_util import get_device
+
+device = get_device()
 
 
 class SSIM(nn.Module):
@@ -42,15 +44,15 @@ class SSIM(nn.Module):
 compute_ssim_loss = SSIM().to(device)
 
 
-def brightnes_equator(source, target):
+def brightness_equator(source, target):
     def image_stats(image):
         # compute the mean and standard deviation of each channel
 
-        l = image[:, 0, :, :]
+        L = image[:, 0, :, :]
         a = image[:, 1, :, :]
         b = image[:, 2, :, :]
 
-        (lMean, lStd) = (torch.mean(torch.squeeze(l)), torch.std(torch.squeeze(l)))
+        (lMean, lStd) = (torch.mean(torch.squeeze(L)), torch.std(torch.squeeze(L)))
 
         (aMean, aStd) = (torch.mean(torch.squeeze(a)), torch.std(torch.squeeze(a)))
 
@@ -69,23 +71,23 @@ def brightnes_equator(source, target):
         (lMeanTar, lStdTar, aMeanTar, aStdTar, bMeanTar, bStdTar) = image_stats(target)
 
         # subtract the means from the target image
-        l = target[:, 0, :, :]
+        L = target[:, 0, :, :]
         a = target[:, 1, :, :]
         b = target[:, 2, :, :]
 
-        l = l - lMeanTar
+        L = L - lMeanTar
         # print("after l",torch.isnan(l))
         a = a - aMeanTar
         b = b - bMeanTar
         # scale by the standard deviations
-        l = (lStdTar / lStdSrc) * l
+        L = (lStdTar / lStdSrc) * L
         a = (aStdTar / aStdSrc) * a
         b = (bStdTar / bStdSrc) * b
         # add in the source mean
-        l = l + lMeanSrc
+        L = L + lMeanSrc
         a = a + aMeanSrc
         b = b + bMeanSrc
-        transfer = torch.cat((l.unsqueeze(1), a.unsqueeze(1), b.unsqueeze(1)), 1)
+        transfer = torch.cat((L.unsqueeze(1), a.unsqueeze(1), b.unsqueeze(1)), 1)
         # print(torch.isnan(transfer))
         return transfer
 
@@ -108,11 +110,23 @@ def compute_photo_and_geometry_loss(
     with_auto_mask,
     padding_mode,
 ):
+    """Compute photo and geometry loss between a pair of (consecutive) images.
+    Args:
+        tgt_img: target image
+        ref_imgs: reference images
+        intrinsics: camera intrinsics
+        tgt_depth: target depth frames
+        ref_depths: reference depth frames
+        poses: poses from target to reference images ???????/
+        poses_inv: poses from reference to target images ??????/
+        max_scales: maximum scale to compute loss ????????
+
+    """
     photo_loss = 0
     geometry_loss = 0
 
     num_scales = min(len(tgt_depth), max_scales)
-    for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, poses, poses_inv):
+    for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, poses, poses_inv, strict=True):
         for s in range(num_scales):
             # # downsample img
             # b, _, h, w = tgt_depth[s].size()
@@ -171,17 +185,31 @@ def compute_photo_and_geometry_loss(
 
 
 def compute_pairwise_loss(
-    tgt_img, ref_img, tgt_depth, ref_depth, pose, intrinsic, with_ssim, with_mask, with_auto_mask, padding_mode
+    tgt_img,
+    ref_img,
+    tgt_depth,
+    ref_depth,
+    pose,
+    intrinsic,
+    with_ssim,
+    with_mask,
+    with_auto_mask,
+    padding_mode,
 ):
     ref_img_warped, valid_mask, projected_depth, computed_depth = inverse_warp2(
-        ref_img, tgt_depth, ref_depth, pose, intrinsic, padding_mode
+        ref_img,
+        tgt_depth,
+        ref_depth,
+        pose,
+        intrinsic,
+        padding_mode,
     )
 
     torch.save(ref_img_warped, "ref_im_warped.pt")
 
     # print("ref_image_warped",ref_img_warped.shape)
 
-    ref_img_warped2 = brightnes_equator(ref_img_warped, tgt_img)
+    ref_img_warped2 = brightness_equator(ref_img_warped, tgt_img)
 
     torch.save(ref_img_warped2, "ref_im_warped2.pt")
 
@@ -243,7 +271,7 @@ def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
 
     loss = get_smooth_loss(tgt_depth[0], tgt_img)
 
-    for ref_depth, ref_img in zip(ref_depths, ref_imgs):
+    for ref_depth, ref_img in zip(ref_depths, ref_imgs, strict=True):
         loss += get_smooth_loss(ref_depth[0], ref_img)
 
     return loss
@@ -273,7 +301,7 @@ def compute_errors(gt, pred, dataset):
         crop_mask[y1:y2, x1:x2] = 1
         max_depth = 10
 
-    for current_gt, current_pred in zip(gt, pred):
+    for current_gt, current_pred in zip(gt, pred, strict=True):
         valid = (current_gt > 0.1) & (current_gt < max_depth)
         valid = valid & crop_mask
 
