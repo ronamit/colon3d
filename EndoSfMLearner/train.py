@@ -1,6 +1,5 @@
 import argparse
 import csv
-import datetime
 import time
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils import save_checkpoint, tensor2array
 
 from colon3d.general_util import get_time_now_str
+from colon3d.torch_util import get_device
 
 parser = argparse.ArgumentParser(
     description="Structure from Motion Learner training on KITTI and CityScapes Dataset",
@@ -145,12 +145,13 @@ parser.add_argument(
 best_error = -1
 n_iter = 0
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+device = get_device()
 torch.autograd.set_detect_anomaly(True)
 
 
 def main():
-    global best_error, n_iter, device
+    global best_error, n_iter
+    device = get_device()
     args = parser.parse_args()
 
     timestamp = get_time_now_str()
@@ -304,10 +305,10 @@ def main():
                 logger,
                 output_writers,
             )
-        error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors))
+        error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
         logger.valid_writer.write(f" * Avg {error_string}")
 
-        for error, name in zip(errors, error_names):
+        for error, name in zip(errors, error_names, strict=True):
             training_writer.add_scalar(name, error, epoch)
 
         # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
@@ -331,14 +332,15 @@ def main():
             is_best,
         )
 
-        with open(args.save_path / args.log_summary, "a") as csvfile:
+        with (args.save_path / args.log_summary).open("a") as csvfile:
             writer = csv.writer(csvfile, delimiter="\t")
             writer.writerow([train_loss, decisive_error])
     logger.epoch_bar.finish()
 
 
 def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger, train_writer):
-    global n_iter, device
+    global n_iter
+    device = get_device()
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter(precision=4)
@@ -407,7 +409,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
         batch_time.update(time.time() - end)
         end = time.time()
 
-        with open(args.save_path / args.log_full, "a") as csvfile:
+        with (args.save_path / args.log_full).open("a") as csvfile:
             writer = csv.writer(csvfile, delimiter="\t")
             writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
         logger.train_bar.update(i + 1)
@@ -422,10 +424,11 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
 
 
 @torch.no_grad()
-def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, output_writers=[]):
-    global device
+def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, output_writers=None):
+    device = get_device()
     batch_time = AverageMeter()
     losses = AverageMeter(i=4, precision=4)
+    output_writers = output_writers or []
     log_outputs = len(output_writers) > 0
 
     # switch to evaluate mode
@@ -497,7 +500,7 @@ def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, out
 
 @torch.no_grad()
 def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[]):
-    global device
+    device = get_device()
     batch_time = AverageMeter()
     error_names = ["abs_diff", "abs_rel", "sq_rel", "a1", "a2", "a3"]
     errors = AverageMeter(i=len(error_names))
