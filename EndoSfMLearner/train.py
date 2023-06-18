@@ -18,6 +18,8 @@ from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 from utils import save_checkpoint, tensor2array
 
+from colon3d.general_util import get_time_now_str
+
 parser = argparse.ArgumentParser(
     description="Structure from Motion Learner training on KITTI and CityScapes Dataset",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -151,13 +153,14 @@ def main():
     global best_error, n_iter, device
     args = parser.parse_args()
 
-    timestamp = datetime.datetime.now().strftime("%m-%d-%H:%M")
+    timestamp = get_time_now_str()
     save_path = Path(args.name)
     args.save_path = "checkpoints" / save_path / timestamp
     print(f"=> will save everything to {args.save_path}")
     args.save_path.makedirs_p()
 
     torch.manual_seed(args.seed)
+    rng = np.random.RandomState(args.seed)
     np.random.seed(args.seed)
     cudnn.deterministic = True
     cudnn.benchmark = True
@@ -264,11 +267,11 @@ def main():
     ]
     optimizer = torch.optim.Adam(optim_params, betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
 
-    with open(args.save_path / args.log_summary, "w") as csvfile:
+    with (args.save_path / args.log_summary).open("w") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["train_loss", "validation_loss"])
 
-    with open(args.save_path / args.log_full, "w") as csvfile:
+    with(args.save_path / args.log_full). open("w") as csvfile:
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
 

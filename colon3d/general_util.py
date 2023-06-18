@@ -247,10 +247,12 @@ class Tee:
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_time_now_str():
-    local_time = datetime.now(tz.gettz())
-    return local_time.strftime("%Y-%m-%d %H:%M %Z %z")
-
+def get_time_now_str(timezone=None):
+    if timezone is None:
+        timezone = datetime.timezone.utc
+    time_now = datetime.now(timezone)
+    time_str = f"{time_now.year}-{time_now.month}-{time_now.day}--{time_now.hour}-{time_now.minute}-{time_now.second}"
+    return time_str
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -305,11 +307,11 @@ def get_most_common_values(array, num_values=5):
     Finds the most common values and their count in a NumPy array.
 
     Args:
-      array: A NumPy array.
+    array: A NumPy array.
 
     Returns:
-      A tuple of two NumPy arrays, the first containing the most common values,
-      and the second containing their counts.
+    A tuple of two NumPy arrays, the first containing the most common values,
+    and the second containing their counts.
     """
 
     # Get the unique values and their counts.
@@ -323,6 +325,7 @@ def get_most_common_values(array, num_values=5):
 
 # ------------------------------------------------------------
 
+
 def to_str(a):
     if isinstance(a, tuple):
         return "(" + (", ".join([to_str(val) for val in a])) + ")"
@@ -333,5 +336,6 @@ def to_str(a):
     if isinstance(a, np.ndarray):
         return np.array2string(a, separator=",", precision=2, suppress_small=True)
     return str(a)
+
 
 # --------------------------------------------------------------------------------------------------------------------
