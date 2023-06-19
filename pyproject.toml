@@ -121,5 +121,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "ANN003", # Missing type annotation 
           "ANN202", # Missing type annotation
           "N812", # lowercase imported as uppercase
+          "UP017", # Use datetime.UTC alias
 ]
 

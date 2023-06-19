@@ -17,15 +17,22 @@ from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 from utils import save_checkpoint, tensor2array
 
-from colon3d.general_util import get_time_now_str
+from colon3d.general_util import get_time_now_str, create_empty_folder
 from colon3d.torch_util import get_device
 
 parser = argparse.ArgumentParser(
     description="Structure from Motion Learner training",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
+parser.add_argument(
+    "--name",
+    dest="name",
+    type=str,
+    default="temp",
+    help="name of the experiment, checkpoints are stored in checpoints/name",
+)
 
-parser.add_argument("data", metavar="DIR", help="path to dataset", default="/data/sim_data/PairsDataset1")
+parser.add_argument("--data", metavar="DIR", help="path to dataset", default="/data/sim_data/PairsDataset1")
 parser.add_argument(
     "--folder-type",
     type=str,
@@ -118,13 +125,7 @@ parser.add_argument(
     metavar="PATH",
     help="path to pre-trained Pose net model",
 )
-parser.add_argument(
-    "--name",
-    dest="name",
-    type=str,
-    required=True,
-    help="name of the experiment, checkpoints are stored in checpoints/name",
-)
+
 parser.add_argument(
     "--padding-mode",
     type=str,
@@ -158,8 +159,7 @@ def main():
     save_path = Path(args.name)
     args.save_path = "checkpoints" / save_path / timestamp
     print(f"=> will save everything to {args.save_path}")
-    args.save_path.makedirs_p()
-
+    create_empty_folder(args.save_path)
     torch.manual_seed(args.seed)
     rng = np.random.RandomState(args.seed)
     np.random.seed(args.seed)

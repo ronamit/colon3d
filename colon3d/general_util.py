@@ -1,12 +1,11 @@
 import shutil
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import cv2
 import numpy as np
-from dateutil import tz
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
@@ -247,12 +246,11 @@ class Tee:
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_time_now_str(timezone=None):
-    if timezone is None:
-        timezone = datetime.timezone.utc
-    time_now = datetime.now(timezone)
+def get_time_now_str(tz=None):
+    time_now = datetime.now(tz=timezone.utc) if tz is None else datetime.now(tz=tz)
     time_str = f"{time_now.year}-{time_now.month}-{time_now.day}--{time_now.hour}-{time_now.minute}-{time_now.second}"
     return time_str
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
