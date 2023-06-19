@@ -12,10 +12,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
-from EndoSfMLearner.dataset_loading import SequenceFolder, ValidationSet
-from EndoSfMLearner.logger import AverageMeter, TermLogger
-from EndoSfMLearner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
-from EndoSfMLearner.utils import save_checkpoint, tensor2array
+from endo_sfm_learner.dataset_loading import SequenceFolder, ValidationSet
+from endo_sfm_learner.logger import AverageMeter, TermLogger
+from endo_sfm_learner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
+from endo_sfm_learner.utils import save_checkpoint, tensor2array
 
 # ---------------------------------------------------------------------------------------------------------------------
 
