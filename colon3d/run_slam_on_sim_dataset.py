@@ -4,14 +4,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.general_util import Tee, create_empty_folder, get_time_now_str
+from colon3d.general_util import Tee, UltimateHelpFormatter, create_empty_folder, get_time_now_str
 from colon3d.run_slam_on_sim_example import run_slam_on_example
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--dataset_path",
         type=str,
@@ -115,10 +115,12 @@ def main():
         mean_val = metrics_table[col].mean()
         std_val = metrics_table[col].std()
         n_examples = len(metrics_table[col])
-        confidence_interval = 1.96 * std_val / np.sqrt(n_examples) # 95% confidence interval
+        confidence_interval = 1.96 * std_val / np.sqrt(n_examples)  # 95% confidence interval
         metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
 
     print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 

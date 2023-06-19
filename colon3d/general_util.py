@@ -1,3 +1,4 @@
+import argparse
 import shutil
 import sys
 import traceback
@@ -9,6 +10,15 @@ import numpy as np
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
+
+# --------------------------------------------------------------------------------------------------------------------
+
+class UltimateHelpFormatter(
+    argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter,
+):
+    # https://stackoverflow.com/a/68260107/10892246
+    pass
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

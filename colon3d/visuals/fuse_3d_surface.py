@@ -10,6 +10,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as spat_rot
 
 from colon3d.data_util import FramesLoader
+from colon3d.general_util import UltimateHelpFormatter
 from tsdf_fusion import fusion
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ def cam_pose_as_hom_matrix(pos: np.ndarray, rot_quat: np.ndarray) -> np.ndarray:
 
 # --------------------------------------------------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,

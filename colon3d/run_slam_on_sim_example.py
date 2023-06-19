@@ -8,7 +8,7 @@ import numpy as np
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.general_util import Tee, create_empty_folder
+from colon3d.general_util import Tee, UltimateHelpFormatter, create_empty_folder
 from colon3d.perfomance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
@@ -18,7 +18,7 @@ from colon3d.tracks_util import DetectionsTracker
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser =argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,

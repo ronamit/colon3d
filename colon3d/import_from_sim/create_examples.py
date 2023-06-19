@@ -8,7 +8,7 @@ import numpy as np
 import yaml
 from numpy.random import default_rng
 
-from colon3d.general_util import create_empty_folder, to_str
+from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, to_str
 from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.rotations_util import get_random_rot_quat
 from colon3d.torch_util import np_func, to_numpy
@@ -19,8 +19,7 @@ from colon3d.visuals.plots_2d import save_video_with_tracks
 
 
 def main():
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--sim_data_path",
         type=str,
@@ -185,7 +184,6 @@ def generate_examples_from_sequence(
     assert n_frames == gt_cam_poses.shape[0], "The number of frames in the depth maps and camera poses is not equal"
     with (sequence_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = to_numpy(pickle.load(file))
-        
 
     for i_example in range(n_examples_per_sequence):
         sequence_name = sequence_path.name

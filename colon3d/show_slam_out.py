@@ -2,7 +2,7 @@ import argparse
 import pickle
 from pathlib import Path
 
-from colon3d.general_util import Tee, create_folder_if_not_exists
+from colon3d.general_util import Tee, UltimateHelpFormatter, create_folder_if_not_exists
 from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.torch_util import from_numpy, get_device
@@ -14,7 +14,7 @@ from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,

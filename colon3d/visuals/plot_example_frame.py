@@ -9,14 +9,19 @@ import numpy as np
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import FramesLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.general_util import create_folder_if_not_exists, get_most_common_values, save_plot_and_close
+from colon3d.general_util import (
+    UltimateHelpFormatter,
+    create_folder_if_not_exists,
+    get_most_common_values,
+    save_plot_and_close,
+)
 from colon3d.transforms_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
 
 # --------------------------------------------------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,
