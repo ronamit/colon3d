@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.alg_settings import AlgorithmParam
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import (
     UltimateHelpFormatter,
@@ -25,8 +25,8 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/TryOuts3_to_Y/Seq_00000",
-        help="Path to the sequence folder",
+        default="data/sim_data/TryOuts3_to_Y/Scene_00000",
+        help="Path to the scene folder",
     )
     parser.add_argument(
         "--frame_time",
@@ -49,8 +49,8 @@ def main():
     args = parser.parse_args()
     example_path = Path(args.example_path)
 
-    frames_loader = FramesLoader(
-        sequence_path=example_path,
+    frames_loader = SceneLoader(
+        scene_path=example_path,
     )
     depth_loader = DepthAndEgoMotionLoader(
         example_path=example_path,

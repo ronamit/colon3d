@@ -122,5 +122,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "ANN202", # Missing type annotation
           "N812", # lowercase imported as uppercase
           "UP017", # Use datetime.UTC alias
+          "NPY002", # Replace legacy `np.random.seed` call with `np.random.Generator`
 ]
 

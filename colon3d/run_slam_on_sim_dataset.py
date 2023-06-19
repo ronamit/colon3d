@@ -68,7 +68,7 @@ def main():
     base_save_path = Path(args.save_path).expanduser()
     create_empty_folder(base_save_path, ask_overwrite=False)
     print(f"Outputs will be saved to {base_save_path}")
-    examples_paths = list(dataset_path.glob("Seq_*"))
+    examples_paths = list(dataset_path.glob("Scene_*"))
     examples_paths.sort()
     if args.n_examples_lim:
         examples_paths = examples_paths[: args.n_examples_lim]

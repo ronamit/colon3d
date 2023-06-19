@@ -3,9 +3,9 @@ import pickle
 from pathlib import Path
 
 from colon3d.alg_settings import AlgorithmParam
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
-from colon3d.general_util import Tee, create_empty_folder, UltimateHelpFormatter
+from colon3d.general_util import Tee, UltimateHelpFormatter, create_empty_folder
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
 from colon3d.tracks_util import DetectionsTracker
@@ -14,7 +14,7 @@ from colon3d.tracks_util import DetectionsTracker
 
 
 def main():
-    parser =argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,
@@ -78,12 +78,11 @@ def main():
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        
         # get the default parameters for the SLAM algorithm
         alg_prm = AlgorithmParam()
-        
-        frames_loader = FramesLoader(
-            sequence_path=args.example_path,
+
+        frames_loader = SceneLoader(
+            scene_path=args.example_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
         )

@@ -5,28 +5,23 @@ from pathlib import Path
 
 import custom_transforms
 import models
-import numpy as np
 import torch
 import torch.optim
 import torch.utils.data
-from datasets.pair_folders import PairFolder
-from datasets.sequence_folders import SequenceFolder
-from logger import AverageMeter, TermLogger
-from loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
-from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
-from utils import save_checkpoint, tensor2array
 
-from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str
+from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
+from EndoSfMLearner.dataset_loading import SequenceFolder, ValidationSet
+from EndoSfMLearner.logger import AverageMeter, TermLogger
+from EndoSfMLearner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
+from EndoSfMLearner.utils import save_checkpoint, tensor2array
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--name",
         dest="name",
@@ -35,13 +30,7 @@ def main():
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
     parser.add_argument("--data", metavar="DIR", help="path to dataset", default="/data/sim_data/PairsDataset1")
-    parser.add_argument(
-        "--folder-type",
-        type=str,
-        choices=["sequence", "pair"],
-        default="sequence",
-        help="the dataset type to train",
-    )
+
     parser.add_argument("--sequence-length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
     parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
@@ -86,10 +75,20 @@ def main():
         help="number of ResNet layers for depth estimation.",
     )
     parser.add_argument(
-        "--num-scales", "--number-of-scales", type=int, help="the number of scales", metavar="W", default=1
+        "--num-scales",
+        "--number-of-scales",
+        type=int,
+        help="the number of scales",
+        metavar="W",
+        default=1,
     )
     parser.add_argument(
-        "-p", "--photo-loss-weight", type=float, help="weight for photometric loss", metavar="W", default=1
+        "-p",
+        "--photo-loss-weight",
+        type=float,
+        help="weight for photometric loss",
+        metavar="W",
+        default=1,
     )
     parser.add_argument(
         "-s",
@@ -116,7 +115,6 @@ def main():
     )
     parser.add_argument("--with-auto-mask", type=int, default=0, help="with the the mask for stationary points")
     parser.add_argument("--with-pretrain", type=int, default=1, help="with or without imagenet pretrain for resnet")
-    parser.add_argument("--dataset", type=str, choices=["kitti", "nyu"], default="kitti", help="the dataset to train")
     parser.add_argument(
         "--pretrained-disp",
         dest="pretrained_disp",
@@ -147,35 +145,26 @@ def main():
         help="use ground truth for validation. \
                         You need to store it in npy 2D arrays see data/kitti_raw_loader.py for an example",
     )
-
+    ### inits
     best_error = -1
     n_iter = 0
-
     device = get_device()
     torch.autograd.set_detect_anomaly(True)
-
     args = parser.parse_args()
-
     timestamp = get_time_now_str()
     save_path = Path(args.name)
     args.save_path = "checkpoints" / save_path / timestamp
     print(f"=> will save everything to {args.save_path}")
     create_empty_folder(args.save_path)
-    torch.manual_seed(args.seed)
-    rng = np.random.RandomState(args.seed)
-    np.random.seed(args.seed)
-    cudnn.deterministic = True
-    cudnn.benchmark = True
-
+    set_rand_seed(args.seed)
     training_writer = SummaryWriter(args.save_path)
     output_writers = []
     if args.log_output:
         for i in range(3):
             output_writers.append(SummaryWriter(args.save_path / "valid" / str(i)))
 
-    # Data loading code
+    # set data transforms
     normalize = custom_transforms.Normalize(mean=[0.45, 0.45, 0.45], std=[0.225, 0.225, 0.225])
-
     train_transform = custom_transforms.Compose(
         [
             custom_transforms.RandomHorizontalFlip(),
@@ -184,35 +173,23 @@ def main():
             normalize,
         ],
     )
-
     valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
-
+    # load training set
     print(f"=> fetching scenes in '{args.data}'")
-    if args.folder_type == "sequence":
-        train_set = SequenceFolder(
-            args.data,
-            transform=train_transform,
-            seed=args.seed,
-            train=True,
-            sequence_length=args.sequence_length,
-            dataset=args.dataset,
-        )
-    else:
-        train_set = PairFolder(
-            args.data,
-            seed=args.seed,
-            train=True,
-            transform=train_transform,
-        )
+    train_set = SequenceFolder(
+        args.data,
+        transform=train_transform,
+        seed=args.seed,
+        train=True,
+        sequence_length=args.sequence_length,
+    )
 
-    # if no Groundtruth is avalaible, Validation set is the same type as training set to measure photometric loss from warping
+
+    # if no Ground-truth is available, Validation set is the same type as training set to measure photometric loss from warping
     if args.with_gt:
-        from datasets.validation_folders import ValidationSet
-
         val_set = ValidationSet(
             args.data,
             transform=valid_transform,
-            dataset=args.dataset,
         )
     else:
         val_set = SequenceFolder(
@@ -221,7 +198,6 @@ def main():
             seed=args.seed,
             train=False,
             sequence_length=args.sequence_length,
-            dataset=args.dataset,
         )
     print(f"{len(train_set)} samples found in {len(train_set.scenes)} train scenes")
     print(f"{len(val_set)} samples found in {len(val_set.scenes)} valid scenes")
@@ -338,6 +314,7 @@ def main():
             writer.writerow([train_loss, decisive_error])
     logger.epoch_bar.finish()
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger, train_writer):
     global n_iter
@@ -423,6 +400,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
 
     return losses.avg[0]
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 @torch.no_grad()
 def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, output_writers=None):
@@ -498,6 +476,7 @@ def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, out
     logger.valid_bar.update(len(val_loader))
     return losses.avg, ["Total loss", "Photo loss", "Smooth loss", "Consistency loss"]
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 @torch.no_grad()
 def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[]):
@@ -559,6 +538,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
     logger.valid_bar.update(len(val_loader))
     return errors.avg, error_names
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 def compute_depth(disp_net, tgt_img, ref_imgs):
     tgt_depth = [1 / disp for disp in disp_net(tgt_img)]
@@ -570,6 +550,7 @@ def compute_depth(disp_net, tgt_img, ref_imgs):
 
     return tgt_depth, ref_depths
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
     poses = []
@@ -580,6 +561,7 @@ def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
 
     return poses, poses_inv
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()

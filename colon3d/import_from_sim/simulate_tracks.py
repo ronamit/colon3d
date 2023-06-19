@@ -52,7 +52,7 @@ def generate_targets(
     max_attempts = 200  # maximal number of attempts to generate a valid track
     i_attempt = 0
 
-    # we are going to sample the points that are seen from the first frame of the sequence:
+    # we are going to sample the points that are seen from the first frame of the scene:
 
     while i_attempt < max_attempts:
         i_attempt += 1
@@ -154,8 +154,8 @@ def create_tracks_per_frame(
 ) -> pd.DataFrame:
     """Returns the detections bounding boxes of the tracks in each frame.
     Args:
-        gt_depth_maps: the depth maps of the sequence
-        gt_cam_poses: the camera poses of the sequence
+        gt_depth_maps: the depth maps of the scene
+        gt_cam_poses: the camera poses of the scene
         depth_info: a dictionary containing the depth map information
         targets_info: a TargetsInfo object containing the targets information
     Returns:

@@ -46,21 +46,21 @@ class SimImporter:
         self,
         raw_sim_data_path: str,
         processed_sim_data_path: str,
-        limit_n_sequences: int,
+        limit_n_scenes: int,
         limit_n_frames: int,
         fps_override: float,
         ask_overwrite: bool = True,
     ):
         input_data_path = Path(raw_sim_data_path)
         output_data_path = Path(processed_sim_data_path)
-        print("Raw simulated sequences will be be loaded from: ", input_data_path)
+        print("Raw simulated scenes will be be loaded from: ", input_data_path)
         assert input_data_path.exists(), "The input path does not exist"
-        print("Processed simulated sequences will be saved to: ", output_data_path)
+        print("Processed simulated scenes will be saved to: ", output_data_path)
         create_empty_folder(output_data_path, ask_overwrite=ask_overwrite)
         self.input_data_path = input_data_path
         self.output_data_path = output_data_path
         self.limit_n_frames = limit_n_frames
-        self.limit_n_sequences = limit_n_sequences
+        self.limit_n_scenes = limit_n_scenes
         self.fps_override = fps_override
         # In our models, 1 Unity distance unit = 100 mm
         self.UNITY_TO_MM = 100
@@ -87,43 +87,43 @@ class SimImporter:
 
         # extract the data from the captures
 
-        rgb_frames_paths_per_seq = []  # list of lists
-        depth_frames_paths_per_seq = []  # list of lists
-        # list of lists of the camera translation per frame per sequence, before changing to our format:
-        raw_trans_per_seq = []
-        # list of lists of the camera rotation per frame per sequence, before changing to our format:
-        raw_rot_per_seq = []
+        rgb_frames_paths_per_scene = []  # list of lists
+        depth_frames_paths_per_scene = []  # list of lists
+        # list of lists of the camera translation per frame per scene, before changing to our format:
+        raw_trans_per_scene = []
+        # list of lists of the camera rotation per frame per scene, before changing to our format:
+        raw_rot_per_scene = []
         seen_rgb_dirs = {}  # set of seen rgb dirs
-        seq_names = []  # list of sequence names
-        metadata_per_seq = []  # list of metadata per sequence
-        seq_idx = -1
+        scenes_names = []  # list of scene names
+        metadata_per_scene = []  # list of metadata per scene
+        scene_idx = -1
         frame_idx = -1
         for capture in captures:
             frame_idx += 1
             rgb_file_path = capture["filename"]
-            # check if we started a new sequence (i.e. a new folder of RGB images)
+            # check if we started a new scene (i.e. a new folder of RGB images)
             rgb_dir_name = rgb_file_path.split("/")[-2]
             if rgb_dir_name not in seen_rgb_dirs:
-                # we found a new sequence
-                seq_idx += 1
-                seen_rgb_dirs[rgb_dir_name] = seq_idx
-                # check if we reached the limit of sequences
-                if self.limit_n_sequences > 0 and seq_idx >= self.limit_n_sequences:
+                # we found a new scene
+                scene_idx += 1
+                seen_rgb_dirs[rgb_dir_name] = scene_idx
+                # check if we reached the limit of scenes
+                if self.limit_n_scenes > 0 and scene_idx >= self.limit_n_scenes:
                     break
-                seq_name = "Seq_" + str(seq_idx).zfill(5)
-                seq_path = self.output_data_path / seq_name
-                create_empty_folder(seq_path, ask_overwrite=False)
-                print(f"Saving a new sequence to {seq_path}")
-                metadata = self.get_sequence_metadata(capture)
-                metadata_per_seq.append(metadata)
-                seq_names.append(seq_name)
-                rgb_frames_paths_per_seq.append([])
-                depth_frames_paths_per_seq.append([])
-                raw_trans_per_seq.append([])
-                raw_rot_per_seq.append([])
+                scene_name = "Scene_" + str(scene_idx).zfill(5)
+                scene_path = self.output_data_path / scene_name
+                create_empty_folder(scene_path, ask_overwrite=False)
+                print(f"Saving a new scene to {scene_path}")
+                metadata = self.get_scene_metadata(capture)
+                metadata_per_scene.append(metadata)
+                scenes_names.append(scene_name)
+                rgb_frames_paths_per_scene.append([])
+                depth_frames_paths_per_scene.append([])
+                raw_trans_per_scene.append([])
+                raw_rot_per_scene.append([])
             elif self.limit_n_frames > 0 and frame_idx >= self.limit_n_frames:
-                # check if we reached or passe te limit of frames per sequence
-                # # in this case, just skip the current capture... until we reach the next sequence
+                # check if we reached or passe te limit of frames per scene
+                # # in this case, just skip the current capture... until we reach the next scene
                 continue
             # extract the current frame data
             rgb_file_path = capture["filename"]
@@ -133,33 +133,33 @@ class SimImporter:
             depth_annotation = [a for a in annotations if a["@type"] == "type.unity.com/unity.solo.DepthAnnotation"][0]
             depth_file_path = depth_annotation["filename"]
             # store the current frame data:
-            rgb_frames_paths_per_seq[-1].append(rgb_file_path)
-            depth_frames_paths_per_seq[-1].append(depth_file_path)
-            raw_trans_per_seq[-1].append(translation)
-            raw_rot_per_seq[-1].append(rotation)
+            rgb_frames_paths_per_scene[-1].append(rgb_file_path)
+            depth_frames_paths_per_scene[-1].append(depth_file_path)
+            raw_trans_per_scene[-1].append(translation)
+            raw_rot_per_scene[-1].append(rotation)
         # end for capture in captures
-        n_seq = seq_idx + 1
-        print(f"Number of extracted sequences: {n_seq}")
+        n_scenes = scene_idx + 1
+        print(f"Number of extracted scenes: {n_scenes}")
 
-        # save the camera poses and depth frames for each sequence
-        for i_seq in range(n_seq):
-            seq_path = self.output_data_path / seq_names[i_seq]
-            metadata = metadata_per_seq[i_seq]
-            print(f"Saving sequence #{i_seq} to {seq_path}... ")
-            n_frames = len(rgb_frames_paths_per_seq[i_seq])
+        # save the camera poses and depth frames for each scene
+        for i_scene in range(n_scenes):
+            scene_path = self.output_data_path / scenes_names[i_scene]
+            metadata = metadata_per_scene[i_scene]
+            print(f"Saving scene #{i_scene} to {scene_path}... ")
+            n_frames = len(rgb_frames_paths_per_scene[i_scene])
             time_length = n_frames / metadata["fps"]
             print(f"Number of frames: {n_frames}, Length {time_length:.2f} seconds")
 
             # save metadata
-            metadata_path = seq_path / "meta_data.yaml"
+            metadata_path = scene_path / "meta_data.yaml"
             with metadata_path.open("w") as file:
                 yaml.dump(metadata, file)
             print(f"Saved metadata to {metadata_path}")
 
             # extract the camera poses in our format
-            cam_poses = self.get_sequence_cam_poses(
-                raw_trans=raw_trans_per_seq[i_seq],
-                raw_rot=raw_rot_per_seq[i_seq],
+            cam_poses = self.get_scene_cam_poses(
+                raw_trans=raw_trans_per_scene[i_scene],
+                raw_rot=raw_rot_per_scene[i_scene],
             )
 
             # infer the egomotions (camera pose changes) from the camera poses:
@@ -167,30 +167,30 @@ class SimImporter:
 
             # extract the depth frames
             z_depth_frames, depth_info = self.get_ground_truth_depth(
-                depth_frames_paths=depth_frames_paths_per_seq[i_seq],
+                depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                 metadata=metadata,
             )
 
             # Save RGB video
             self.save_rgb_frames(
-                seq_path=seq_path,
-                rgb_frames_paths=rgb_frames_paths_per_seq[i_seq],
+                scene_path=scene_path,
+                rgb_frames_paths=rgb_frames_paths_per_scene[i_scene],
                 metadata=metadata,
                 save_video=True,
             )
             # save depth info
-            with (seq_path / "gt_depth_info.pkl").open("wb") as file:
+            with (scene_path / "gt_depth_info.pkl").open("wb") as file:
                 pickle.dump(depth_info, file)
 
             # save depth video
             plot_depth_video(
                 depth_frames=z_depth_frames,
-                save_path=seq_path / "gt_depth_video",
+                save_path=scene_path / "gt_depth_video",
                 fps=metadata["fps"],
             )
 
             # save h5 file of depth frames and camera poses
-            file_path = seq_path / "gt_depth_and_egomotion.h5"
+            file_path = scene_path / "gt_depth_and_egomotion.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
                 hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
@@ -201,7 +201,7 @@ class SimImporter:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def get_sequence_metadata(self, capture: dict):
+    def get_scene_metadata(self, capture: dict):
         cam_intrinsic = [a for a in capture["annotations"] if a["@type"] == "camDataDef"][0]
         frame_width = cam_intrinsic["pixelWidth"]  # [pixels]
         frame_height = cam_intrinsic["pixelHeight"]  # [pixels]
@@ -245,7 +245,7 @@ class SimImporter:
         return metadata
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_sequence_cam_poses(self, raw_trans: list, raw_rot: list) -> np.ndarray:
+    def get_scene_cam_poses(self, raw_trans: list, raw_rot: list) -> np.ndarray:
         """
         save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames.
         the 7 values are: x, y, z, q_w, q_x, q_y, q_z
@@ -281,7 +281,7 @@ class SimImporter:
         return cam_poses
 
     # --------------------------------------------------------------------------------------------------------------------
-    def save_rgb_frames(self, rgb_frames_paths: list, seq_path: Path, metadata: dict, save_video: bool = True):
+    def save_rgb_frames(self, rgb_frames_paths: list, scene_path: Path, metadata: dict, save_video: bool = True):
         n_frames = len(rgb_frames_paths)
 
         # frame loader function
@@ -291,7 +291,7 @@ class SimImporter:
             return im
 
         # copy all the rgb frames to the output directory
-        frames_out_path = seq_path / "RGB_Frames"
+        frames_out_path = scene_path / "RGB_Frames"
         create_empty_folder(frames_out_path, ask_overwrite=False)
         n_frames = len(rgb_frames_paths)
         for i_frame in range(n_frames):
@@ -303,7 +303,7 @@ class SimImporter:
                 img=im,
             )
         if save_video:
-            output_vid_path = seq_path / "Video"
+            output_vid_path = scene_path / "Video"
             save_video_from_func(
                 save_path=output_vid_path,
                 make_frame=load_rgb_frame,

@@ -9,7 +9,7 @@ import torch
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.bundle_adjust import run_bundle_adjust
 from colon3d.camera_util import FishEyeUndistorter
-from colon3d.data_util import FramesLoader, RadialImageCropper
+from colon3d.data_util import RadialImageCropper, SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.keypoints_util import get_kp_matchings, get_tracks_keypoints
@@ -109,7 +109,7 @@ class SlamRunner:
 
     def run(
         self,
-        frames_loader: FramesLoader,
+        frames_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
         save_path: Path,
@@ -374,12 +374,12 @@ class SlamRunner:
                 SALIENT_KP_ID=self.SALIENT_KP_ID,
                 verbose=verbose,
             )
-            
-        #----  Save online-estimates for the current frame
+
+        # ----  Save online-estimates for the current frame
         # save the currently estimated 3D KP of the tracks that have been seen until now
         for track_id, track_kps_p3d_inds in self.tracks_p3d_inds.items():
             self.online_est_track_world_loc[i_frame][track_id] = self.points_3d[track_kps_p3d_inds]
-            
+
         # save the currently estimated 3D world system location of the salient KPs
         self.online_est_salient_kp_world_loc.append(deepcopy(self.points_3d))
 

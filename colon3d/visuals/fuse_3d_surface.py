@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation as spat_rot
 
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 from colon3d.general_util import UltimateHelpFormatter
 from tsdf_fusion import fusion
 
@@ -42,7 +42,7 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/Seq_00009_short/Examples/0000",
+        default="data/sim_data/Scene_00009_short/Examples/0000",
         help="path to the video",
     )
     parser.add_argument("--start_frame", type=int, default=0, help="the index of the first frame to plot")
@@ -54,8 +54,8 @@ def main():
     n_frames = len(frames_tp_plot)
     example_path = Path(args.example_path)
 
-    frames_loader = FramesLoader(
-        sequence_path=example_path,
+    frames_loader = SceneLoader(
+        scene_path=example_path,
     )
     example_path = Path(args.example_path)
 

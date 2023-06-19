@@ -7,7 +7,7 @@ import torch
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.camera_util import FishEyeUndistorter
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import save_plot_and_close
 from colon3d.rotations_util import get_smallest_angle_between_rotations
@@ -144,7 +144,7 @@ class SlamOutput:
     kp_id_all: torch.Tensor  # (M,) tensor of keypoint ids
     p3d_inds_in_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
     map_kp_to_p3d_idx: list[int]  # maps a keypoint index to its associated 3D world point index
-    frames_loader: FramesLoader  # frames loader object
+    frames_loader: SceneLoader  # frames loader object
     detections_tracker: DetectionsTracker  # detections tracker object
     cam_undistorter: FishEyeUndistorter  # camera undistorter object
     depth_estimator: DepthAndEgoMotionLoader  # depth estimator object

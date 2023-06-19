@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 
 from colon3d.alg_settings import AlgorithmParam
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import Tee, UltimateHelpFormatter, create_empty_folder
 from colon3d.perfomance_metrics import calc_performance_metrics, plot_trajectory_metrics
@@ -18,17 +18,17 @@ from colon3d.tracks_util import DetectionsTracker
 
 
 def main():
-    parser =argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData8_Examples/Seq_00002_0000",
+        default="data/sim_data/SimData8_Examples/Scene_00002_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData8_Examples/Seq_00002_0000/Results_Temp",
+        default="data/sim_data/SimData8_Examples/Scene_00002_0000/Results_Temp",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -88,6 +88,7 @@ def main():
             save_all_plots=True,
         )
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -105,7 +106,7 @@ def run_slam_on_example(
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
 
-    frames_loader = FramesLoader(sequence_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
+    frames_loader = SceneLoader(scene_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
     detections_tracker = DetectionsTracker(example_path=example_path, frames_loader=frames_loader)
     depth_estimator = DepthAndEgoMotionLoader(
         example_path=example_path,

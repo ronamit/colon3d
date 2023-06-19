@@ -24,7 +24,7 @@ def main():
         "--sim_data_path",
         type=str,
         default="data/sim_data/SimData8",
-        help="The path to the folder with processed simulated sequences to load",
+        help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
         "--path_to_save_examples",
@@ -33,10 +33,10 @@ def main():
         help="The path to the folder where the generated examples will be saved",
     )
     parser.add_argument(
-        "--n_examples_per_sequence",
+        "--n_examples_per_scene",
         type=int,
         default=5,
-        help="The number of examples to generate from each sequence (with random polyp locations, estimation noise etc.)",
+        help="The number of examples to generate from each scene (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
     parser.add_argument(
@@ -115,7 +115,7 @@ def main():
     )
 
     args = parser.parse_args()
-    n_examples_per_sequence = args.n_examples_per_sequence
+    n_examples_per_scene = args.n_examples_per_scene
     sim_data_path = Path(args.sim_data_path)
     path_to_save_examples = Path(args.path_to_save_examples)
     print(f"The generated examples will be saved to {path_to_save_examples}")
@@ -124,7 +124,7 @@ def main():
     examples_prams = {
         "simulate_depth_and_egomotion_estimation": args.simulate_depth_and_egomotion_estimation,
         "rand_seed": args.rand_seed,
-        "n_examples_per_sequence": n_examples_per_sequence,
+        "n_examples_per_scene": n_examples_per_scene,
         "min_target_radius_mm": args.min_target_radius_mm,
         "max_target_radius_mm": args.max_target_radius_mm,
         "max_dist_from_center_ratio": args.max_dist_from_center_ratio,
@@ -142,19 +142,19 @@ def main():
             "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
         }
 
-    print("The simulated sequences will be be loaded from: ", sim_data_path)
-    sequences_paths_list = [
-        sequence_path
-        for sequence_path in sim_data_path.iterdir()
-        if sequence_path.is_dir() and sequence_path.name.startswith("Seq_")
+    print("The simulated scnes will be be loaded from: ", sim_data_path)
+    scenes_paths_list = [
+        scene_path
+        for scene_path in sim_data_path.iterdir()
+        if scene_path.is_dir() and scene_path.name.startswith("Scene_")
     ]
-    sequences_paths_list.sort()
-    print(f"Found {len(sequences_paths_list)} sequences.")
-    for sequence_path in sequences_paths_list:
-        print(f"Generating examples from sequence {sequence_path}")
-        generate_examples_from_sequence(
-            sequence_path=sequence_path,
-            n_examples_per_sequence=n_examples_per_sequence,
+    scenes_paths_list.sort()
+    print(f"Found {len(scenes_paths_list)} scenes.")
+    for scene_path in scenes_paths_list:
+        print(f"Generating examples from scene {scene_path}")
+        generate_examples_from_scene(
+            scene_path=scene_path,
+            n_examples_per_scene=n_examples_per_scene,
             examples_prams=examples_prams,
             path_to_save_examples=path_to_save_examples,
             rng=rng,
@@ -167,28 +167,28 @@ def main():
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def generate_examples_from_sequence(
-    sequence_path: Path,
-    n_examples_per_sequence: int,
+def generate_examples_from_scene(
+    scene_path: Path,
+    n_examples_per_scene: int,
     examples_prams: dict,
     path_to_save_examples: Path,
     rng,
 ):
     # load the ground truth depth maps and camera poses:
-    with h5py.File(sequence_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+    with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
         gt_cam_poses = to_numpy(h5f["cam_poses"][:])
         gt_egomotions = to_numpy(h5f["egomotions"][:])
 
     n_frames = gt_depth_maps.shape[0]
     assert n_frames == gt_cam_poses.shape[0], "The number of frames in the depth maps and camera poses is not equal"
-    with (sequence_path / "gt_depth_info.pkl").open("rb") as file:
+    with (scene_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = to_numpy(pickle.load(file))
 
-    for i_example in range(n_examples_per_sequence):
-        sequence_name = sequence_path.name
-        example_name = f"{sequence_name}_{i_example:04d}"
-        print(f"Generating example {i_example+1}/{n_examples_per_sequence} for sequence {sequence_name}")
+    for i_example in range(n_examples_per_scene):
+        scene_name = scene_path.name
+        example_name = f"{scene_name}_{i_example:04d}"
+        print(f"Generating example {i_example+1}/{n_examples_per_scene} for scene {scene_name}")
         # Attempt to generate valid targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
         n_targets = 1  # we currently want only one tracked object
         print("Generating", n_targets, "targets")
@@ -201,14 +201,14 @@ def generate_examples_from_sequence(
             examples_prams=examples_prams,
         )
         if targets_info is None:
-            print("Failed to generate valid targets for the sequence {sequence_name}... skipping this sequence.")
+            print(f"Failed to generate valid targets for the scene {scene_name}... skipping this scene.")
             break
 
         # create subfolder for the example:
         example_path = path_to_save_examples / example_name
         create_empty_folder(example_path)
         print(
-            f"Generating example {i_example+1}/{n_examples_per_sequence} for sequence {sequence_name} to save in {example_path}",
+            f"Generating example {i_example+1}/{n_examples_per_scene} for scene {scene_name} to save in {example_path}",
             flush=True,
         )
         # create symbolic links in the example folder:
@@ -220,7 +220,7 @@ def generate_examples_from_sequence(
             "RGB_Frames",
             "gt_depth_video.mp4",
         ]:
-            (example_path / file_name).symlink_to((sequence_path / file_name).resolve())
+            (example_path / file_name).symlink_to((scene_path / file_name).resolve())
 
         if examples_prams["simulate_depth_and_egomotion_estimation"]:
             print("Generating egomotion and depth estimations")
@@ -239,7 +239,7 @@ def generate_examples_from_sequence(
                 pickle.dump(depth_info, file)
 
         # get the FPS:
-        with (sequence_path / "meta_data.yaml").open("r") as file:
+        with (scene_path / "meta_data.yaml").open("r") as file:
             fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
 
         print("Targets info:", to_str(targets_info))
@@ -267,8 +267,8 @@ def generate_examples_from_sequence(
             path_to_save=example_path / "Video_with_tracks",
             fps=fps,
         )
-        print("Done generating examples from sequence", sequence_path.name)
-    print("Done generating examples from all sequences")
+        print("Done generating examples from scene", scene_path.name)
+    print("Done generating examples from all scenes")
 
 
 # --------------------------------------------------------------------------------------------------------------------

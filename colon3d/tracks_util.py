@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.data_util import FramesLoader
+from colon3d.data_util import SceneLoader
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ from colon3d.data_util import FramesLoader
 class DetectionsTracker:
     """This class is used to track the detections of the polyp detector over time."""
 
-    def __init__(self, example_path, frames_loader: FramesLoader):
+    def __init__(self, example_path, frames_loader: SceneLoader):
         self.example_path = Path(example_path).expanduser()
         tracks_file_path = self.example_path / "Tracks.csv"
         # Get the polyp detector results for this video
@@ -76,8 +76,7 @@ class DetectionsTracker:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def truncate_tracks_for_alg_view(self):
-        """Truncates the detections to the defined algorithm view
-        """
+        """Truncates the detections to the defined algorithm view"""
         if self.alg_view_cropper is None:
             # no algorithm view cropping was defined - using original tracks as is.
             self.tracks_for_alg = self.tracks_original

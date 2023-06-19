@@ -7,14 +7,29 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import torch
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
+from torch.backends import cudnn
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
+def set_rand_seed(seed):
+    # Set random seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    cudnn.deterministic = True
+    cudnn.benchmark = False
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 class UltimateHelpFormatter(
-    argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawTextHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
 ):
     # https://stackoverflow.com/a/68260107/10892246
     pass

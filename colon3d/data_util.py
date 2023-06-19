@@ -8,11 +8,11 @@ from colon3d.camera_util import CamInfo, FishEyeUndistorter
 
 
 # --------------------------------------------------------------------------------------------------------------------
-class FramesLoader:
+class SceneLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def __init__(
         self,
-        sequence_path: str,
+        scene_path: str,
         alg_fov_ratio: float = 0,
         n_frames_lim: int = 0,
         fps: float | None = None,
@@ -20,32 +20,32 @@ class FramesLoader:
         """Initialize the video loader.
 
         Args:
-            sequence_path: path to the example folder
+            scene_path: path to the scene data folder
             alg_fov_ratio: The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation
             n_frames_lim: limit the number of frames to load
             fps: if not None, the video will be resampled to this fps
         """
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
-        self.sequence_path = Path(sequence_path).expanduser()
+        self.scene_path = Path(scene_path).expanduser()
 
-        if (self.sequence_path / "RGB_Frames").is_dir():
-            self.rgb_frames_path = self.sequence_path / "RGB_Frames"
+        if (self.scene_path / "RGB_Frames").is_dir():
+            self.rgb_frames_path = self.scene_path / "RGB_Frames"
             self.image_files_paths = sorted(
-                Path(self.sequence_path / "RGB_Frames").glob("*.png"),
+                Path(self.scene_path / "RGB_Frames").glob("*.png"),
                 key=lambda path: int(path.stem),
             )
             self.rgb_source = "Images"
         else:
-            self.video_path = self.sequence_path / "Video.mp4"
+            self.video_path = self.scene_path / "Video.mp4"
             assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
             self.rgb_source = "Video"
 
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
-        metadata_path = self.sequence_path / "meta_data.yaml"
+        metadata_path = self.scene_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
-        with (self.sequence_path / "meta_data.yaml").open() as file:
+        with (self.scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         if fps is None:
             fps = metadata["fps"]
@@ -112,7 +112,7 @@ class FramesLoader:
 
     def frames_generator(self, color_type="bgr", frame_type="alg_input"):
         if self.rgb_source == "Video":
-            video_path = Path(self.sequence_path) / "Video.mp4"
+            video_path = Path(self.scene_path) / "Video.mp4"
             try:
                 vidcap = cv2.VideoCapture(str(video_path))
                 i_frame = 0

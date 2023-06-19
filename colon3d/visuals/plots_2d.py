@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from colon3d.data_util import FramesLoader, RadialImageCropper
+from colon3d.data_util import RadialImageCropper, SceneLoader
 from colon3d.general_util import (
     colors_platte,
     coord_to_cv2kp,
@@ -84,11 +84,12 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
 
     save_video_from_func(save_path=path_to_save, make_frame=get_frame_with_tracks, n_frames=n_frames, fps=fps)
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def draw_keypoints_and_tracks(
-    frames_loader: FramesLoader,
+    frames_loader: SceneLoader,
     detections_tracker: DetectionsTracker,
     kp_frame_idx_all,
     kp_px_all,
