@@ -44,7 +44,8 @@ class DepthAndEgoMotionLoader:
             self.egomotions_file_path = self.example_path / "est_depth_and_egomotion.h5"
             print("Using estimated egomotions from: ", self.egomotions_file_path)
         elif egomotions_source == "online_estimates":
-            raise NotImplementedError("online_estimates is not implemented yet")
+            # initialize the egomotion estimator
+            self.egomotion_estimator = PoseNet()
         elif egomotions_source == "none":
             self.egomotions_file_path = None
         else:
@@ -63,7 +64,8 @@ class DepthAndEgoMotionLoader:
             self.depth_info_file_path = self.example_path / "est_depth_info.pkl"
             print("Using estimated depth maps from: ", self.depth_maps_file_path)
         elif depth_maps_source == "online_estimates":
-            raise NotImplementedError("online_estimates is not implemented yet")
+            # initialize the depth estimator
+            self.depth_estimator = DepthNet()
         elif depth_maps_source == "none":
             self.depth_maps_file_path = None
         else:
@@ -83,24 +85,25 @@ class DepthAndEgoMotionLoader:
     def get_depth_map_at_frame(
         self,
         frame_idx: int,
+        rgb_frame: torch.Tensor | None = None,
     ):
         """Get the depth estimation at a given frame.
-        Args:
-            frame_idx: the frame index
         Returns:
             depth_map: the depth estimation map (units: mm)
         """
         if self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
-            depth_map = self.loaded_depth_maps[frame_idx]
-        else:
-            depth_map = None
-        return depth_map
+            return self.loaded_depth_maps[frame_idx]
+        if self.depth_maps_source == "online_estimates":
+            return self.depth_estimator.get_depth_map(rgb_frame)
+        return None
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_egomotions_at_frames(
         self,
         frame_indexes: np.ndarray,
+        pre_rgb_frames: torch.Tensor | None = None,
+        cur_rgb_frames: torch.Tensor | None = None,
     ):
         """Get the egomotion at a given frame.
         The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
@@ -113,12 +116,13 @@ class DepthAndEgoMotionLoader:
             assert egomotions.shape[1] == 7  # (x, y, z, q0, qx, qy, qz)
             # normalize the quaternion (in case it is not normalized)
             egomotions[:, 3:] = np_func(normalize_quaternions)(egomotions[:, 3:])
+        elif self.egomotions_source == "online_estimates":
+            egomotions = self.egomotion_estimator.get_egomotions(tgt_imgs=pre_rgb_frames, ref_imgs=cur_rgb_frames)
         else:
-            # return identity egomotion (no motion)
+            # default value = identity egomotion (no motion)
             egomotions = torch.zeros((len(frame_indexes), 7), dtype=torch.float32)
             egomotions[:, 3:] = get_identity_quaternion()
             egomotions = to_numpy(egomotions)
-
         return egomotions
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -168,19 +172,8 @@ class DepthAndEgoMotionLoader:
                 ]
                 depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
                 z_depths[frame_indexes == frame_idx] = depth_out
-
             # clip the depth
             z_depths = torch.clamp(z_depths, self.z_depth_lower_bound, self.z_depth_upper_bound)
-            # z_depths[z_depths > self.z_depth_upper_bound] = torch.as_tensor(
-            #     self.z_depth_upper_bound,
-            #     device=device,
-            #     dtype=dtype,
-            # )
-            # z_depths[z_depths < self.z_depth_lower_bound] = torch.as_tensor(
-            #     self.z_depth_lower_bound,
-            #     device=device,
-            #     dtype=dtype,
-            # )
         else:
             # return the default depth
             z_depths = self.z_depth_default * torch.ones_like(queried_points_nrm[:, 0])
@@ -261,10 +254,12 @@ class DepthNet:
         Returns:
             depth_map (torch.Tensor): the estimated depth maps [H x W]
         """
-        assert img.shape[0] ==3
+        assert img.shape[0] == 3
         return self.estimate_depth_maps(img.unsqueeze(0))[0]
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class PoseNet:
     def __init__(self) -> None:
@@ -278,25 +273,27 @@ class PoseNet:
         self.pose_net.load_state_dict(weights["state_dict"], strict=False)
         self.pose_net.to(self.device)
         self.pose_net.eval()  # switch to evaluate mode
-        
+
         # --------------------------------------------------------------------------------------------------------------------
-        
+
     def get_egomotions(self, tgt_imgs: torch.Tensor, ref_imgs: torch.Tensor) -> torch.Tensor:
-        """ Estimate the egomotion from the target images to the reference images.
+        """Estimate the egomotion from the target images to the reference images.
         Args:
-            tgt_img (torch.Tensor): the target images [N x 3 x H x W]
-            ref_imgs (torch.Tensor): the reference images [N X 3 x H x W]
+            tgt_img (torch.Tensor): the target images (from) [N x 3 x H x W]
+            ref_imgs (torch.Tensor): the reference images (to) [N X 3 x H x W]
         Returns:
             egomotions: the estimated egomotion [N x 7] 6DoF pose parameters from target to reference, in the format:
                         (x,y,z,qw,qx,qy,qz) where (x, y, z) is the translation [mm] and (qw, qx, qy , qz) is the unit-quaternion of the rotation.
         """
         assert tgt_imgs.shape[0] == 4
         pose_out = self.pose_net(tgt_imgs, ref_imgs)
-        # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz 
+        # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
         # to get a a unit-quaternion of the rotation, use the following
         rot_quat = torch.cat(torch.ones_like(pose_out[:, 0]), pose_out[:, 3:], dim=1)
         rot_quat = rot_quat / torch.norm(rot_quat, dim=1, keepdim=True)
         trans = pose_out[:, :3]
         egomotions = torch.cat((trans, rot_quat), dim=1)
         return egomotions
+
+
 # --------------------------------------------------------------------------------------------------------------------

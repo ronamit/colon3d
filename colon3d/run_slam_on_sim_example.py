@@ -22,19 +22,19 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/sim_data/SimData8_Examples/Scene_00002_0000",
+        default="data/sim_data/SimData9_Examples/Scene_00002_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData8_Examples/Scene_00002_0000/Results_Temp",
+        default="data/sim_data/SimData9_Examples/Scene_00002_0000/Results_Temp",
         help="path to the save outputs",
     )
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
