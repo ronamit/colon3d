@@ -37,7 +37,7 @@ def main():
         default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
-        "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
+        "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
         "if 'loaded_estimates' then the depth maps estimations will be loaded, "
         "if 'none' then no depth maps will not be used,",
     )
@@ -47,7 +47,7 @@ def main():
         default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
-        "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
+        "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
         "if 'loaded_estimates' then the egomotion estimations will be loaded, "
         "if 'none' then no egomotion will not be used,",
     )

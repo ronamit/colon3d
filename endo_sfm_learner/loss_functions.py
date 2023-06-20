@@ -117,9 +117,7 @@ def compute_photo_and_geometry_loss(
         intrinsics: camera intrinsics
         tgt_depth: target depth frames
         ref_depths: reference depth frames
-        poses: poses from target to reference images ???????/
-        poses_inv: poses from reference to target images ??????/
-        max_scales: maximum scale to compute loss ????????
+        poses: 6DoF pose parameters from target to source -- [B, 6]
 
     """
     photo_loss = 0

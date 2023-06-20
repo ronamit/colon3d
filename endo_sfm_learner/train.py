@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 import custom_transforms
-import models
 import torch
 import torch.optim
 import torch.utils.data
@@ -13,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
+from endo_sfm_learner import models
 from endo_sfm_learner.dataset_loading import ScenesDataset
 from endo_sfm_learner.logger import AverageMeter, TermLogger
 from endo_sfm_learner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
@@ -356,7 +356,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
         log_losses = i > 0 and n_iter % args.print_freq == 0
 
         data_time.update(time.time() - end)  # measure data loading time
-        
+
         tgt_img = batch["tgt_img"].to(device)
         ref_imgs = [img.to(device) for img in batch["ref_imgs"]]
         intrinsics = batch["intrinsics"].to(device)
@@ -434,7 +434,6 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=N
     end = time.time()
     logger.valid_bar.start()
     for i, batch in enumerate(val_loader):
-        
         tgt_img = batch["tgt_img"].to(device)
         depth = batch["depth_img"].to(device)
 
