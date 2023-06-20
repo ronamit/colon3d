@@ -25,7 +25,7 @@ class Normalize:
 
     def __call__(self, images, intrinsics):
         for tensor in images:
-            for t, m, s in zip(tensor, self.mean, self.std):
+            for t, m, s in zip(tensor, self.mean, self.std, strict=True):
                 t.sub_(m).div_(s)
         return images, intrinsics
 
@@ -37,9 +37,9 @@ class ArrayToTensor:
         tensors = []
         for im in images:
             # put it from HWC to CHW format
-            im = np.transpose(im, (2, 0, 1))
+            im_chw = np.transpose(im, (2, 0, 1))
             # handle numpy array
-            tensors.append(torch.from_numpy(im).float() / 255)
+            tensors.append(torch.from_numpy(im_chw).float() / 255)
         return tensors, intrinsics
 
 

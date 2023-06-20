@@ -1,5 +1,6 @@
 import argparse
 import csv
+import random
 import time
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
-from endo_sfm_learner.dataset_loading import SequenceFolder, ValidationSet
+from endo_sfm_learner.dataset_loading import ScenesDataset
 from endo_sfm_learner.logger import AverageMeter, TermLogger
 from endo_sfm_learner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
 from endo_sfm_learner.utils import save_checkpoint, tensor2array
@@ -29,9 +30,20 @@ def main():
         default="temp",
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
-    parser.add_argument("--data", metavar="DIR", help="path to dataset", default="/data/sim_data/PairsDataset1")
+    parser.add_argument(
+        "--dataset_path",
+        metavar="DIR",
+        help="path to training dataset",
+        default="data/sim_data/TrainData3",
+    )
+    parser.add_argument(
+        "--validation_percent",
+        type=float,
+        default=0.2,
+        help="percentage of the number of scenes in the validation set from entire training set scenes",
+    )
 
-    parser.add_argument("--sequence-length", type=int, metavar="N", help="sequence length for training", default=3)
+    parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
     parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
@@ -41,8 +53,8 @@ def main():
         metavar="N",
         help="manual epoch size (will match dataset size if not set)",
     )
-    parser.add_argument("-b", "--batch-size", default=4, type=int, metavar="N", help="mini-batch size")
-    parser.add_argument("--lr", "--learning-rate", default=1e-4, type=float, metavar="LR", help="initial learning rate")
+    parser.add_argument("-b", "--batch_size", default=4, type=int, metavar="N", help="mini-batch size")
+    parser.add_argument("--lr", "--learning_rate", default=1e-4, type=float, metavar="LR", help="initial learning rate")
     parser.add_argument(
         "--momentum",
         default=0.9,
@@ -51,32 +63,32 @@ def main():
         help="momentum for sgd, alpha parameter for adam",
     )
     parser.add_argument("--beta", default=0.999, type=float, metavar="M", help="beta parameters for adam")
-    parser.add_argument("--weight-decay", "--wd", default=0, type=float, metavar="W", help="weight decay")
-    parser.add_argument("--print-freq", default=10, type=int, metavar="N", help="print frequency")
+    parser.add_argument("--weight_decay", "--wd", default=0, type=float, metavar="W", help="weight decay")
+    parser.add_argument("--print_freq", default=10, type=int, metavar="N", help="print frequency")
     parser.add_argument("--seed", default=0, type=int, help="seed for random functions, and network initialization")
     parser.add_argument(
-        "--log-summary",
+        "--log_summary",
         default="progress_log_summary.csv",
         metavar="PATH",
         help="csv where to save per-epoch train and valid stats",
     )
     parser.add_argument(
-        "--log-full",
+        "--log_full",
         default="progress_log_full.csv",
         metavar="PATH",
         help="csv where to save per-gradient descent train stats",
     )
-    parser.add_argument("--log-output", action="store_true", help="will log dispnet outputs at validation step")
+    parser.add_argument("--log_output", action="store_true", help="will log dispnet outputs at validation step")
     parser.add_argument(
-        "--resnet-layers",
+        "--resnet_layers",
         type=int,
         default=18,
         choices=[18, 50],
         help="number of ResNet layers for depth estimation.",
     )
     parser.add_argument(
-        "--num-scales",
-        "--number-of-scales",
+        "--num_scales",
+        "--number_of_scales",
         type=int,
         help="the number of scales",
         metavar="W",
@@ -84,7 +96,7 @@ def main():
     )
     parser.add_argument(
         "-p",
-        "--photo-loss-weight",
+        "--photo_loss_weight",
         type=float,
         help="weight for photometric loss",
         metavar="W",
@@ -92,7 +104,7 @@ def main():
     )
     parser.add_argument(
         "-s",
-        "--smooth-loss-weight",
+        "--smooth_loss_weight",
         type=float,
         help="weight for disparity smoothness loss",
         metavar="W",
@@ -100,38 +112,38 @@ def main():
     )
     parser.add_argument(
         "-c",
-        "--geometry-consistency-weight",
+        "--geometry_consistency_weight",
         type=float,
         help="weight for depth consistency loss",
         metavar="W",
         default=0.5,
     )
-    parser.add_argument("--with-ssim", type=int, default=1, help="with ssim or not")
+    parser.add_argument("--with_ssim", type=bool, default=True, help="with ssim or not")
     parser.add_argument(
-        "--with-mask",
-        type=int,
-        default=1,
+        "--with_mask",
+        type=bool,
+        default=True,
         help="with the the mask for moving objects and occlusions or not",
     )
-    parser.add_argument("--with-auto-mask", type=int, default=0, help="with the the mask for stationary points")
-    parser.add_argument("--with-pretrain", type=int, default=1, help="with or without imagenet pretrain for resnet")
+    parser.add_argument("--with_auto_mask", type=bool, default=False, help="with the the mask for stationary points")
+    parser.add_argument("--with_pretrain", type=bool, default=True, help="with or without imagenet pretrain for resnet")
     parser.add_argument(
-        "--pretrained-disp",
+        "--pretrained_disp",
         dest="pretrained_disp",
-        default=None,
+        default="pretrained/dispnet_model_best.pt",
         metavar="PATH",
         help="path to pre-trained dispnet model",
     )
     parser.add_argument(
-        "--pretrained-pose",
+        "--pretrained_pose",
         dest="pretrained_pose",
-        default=None,
+        default="pretrained/exp_pose_model_best.pt",
         metavar="PATH",
         help="path to pre-trained Pose net model",
     )
 
     parser.add_argument(
-        "--padding-mode",
+        "--padding_mode",
         type=str,
         choices=["zeros", "border"],
         default="zeros",
@@ -139,12 +151,7 @@ def main():
         " zeros will null gradients outside target image."
         " border will only null gradients of the coordinate outside (x or y)",
     )
-    parser.add_argument(
-        "--with-gt",
-        action="store_true",
-        help="use ground truth for validation. \
-                        You need to store it in npy 2D arrays see data/kitti_raw_loader.py for an example",
-    )
+
     ### inits
     best_error = -1
     n_iter = 0
@@ -157,6 +164,24 @@ def main():
     print(f"=> will save everything to {args.save_path}")
     create_empty_folder(args.save_path)
     set_rand_seed(args.seed)
+
+    # dataset split
+    dataset_path = Path(args.dataset_path)
+    print(f"Loading dataset from {dataset_path}")
+    all_scenes_paths = [
+        scene_path
+        for scene_path in dataset_path.iterdir()
+        if scene_path.is_dir() and scene_path.name.startswith("Scene")
+    ]
+    random.shuffle(all_scenes_paths)
+    n_all_scenes = len(all_scenes_paths)
+    n_train_scenes = int(n_all_scenes * 0.8)
+    n_val_scenes = n_all_scenes - n_train_scenes
+    train_scenes_paths = all_scenes_paths[:n_train_scenes]
+    val_scenes_paths = all_scenes_paths[n_train_scenes:]
+    print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
+
+    # loggers
     training_writer = SummaryWriter(args.save_path)
     output_writers = []
     if args.log_output:
@@ -173,34 +198,25 @@ def main():
             normalize,
         ],
     )
-    valid_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
-    # load training set
-    print(f"=> fetching scenes in '{args.data}'")
-    train_set = SequenceFolder(
-        args.data,
-        transform=train_transform,
-        seed=args.seed,
-        train=True,
+    validation_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
+
+    # training set
+    train_set = ScenesDataset(
+        scenes_paths=train_scenes_paths,
         sequence_length=args.sequence_length,
+        load_tgt_depth=False,
+        transform=train_transform,
     )
 
+    # validation set
+    val_set = ScenesDataset(
+        scenes_paths=val_scenes_paths,
+        sequence_length=1,
+        load_tgt_depth=True,
+        transform=validation_transform,
+    )
 
-    # if no Ground-truth is available, Validation set is the same type as training set to measure photometric loss from warping
-    if args.with_gt:
-        val_set = ValidationSet(
-            args.data,
-            transform=valid_transform,
-        )
-    else:
-        val_set = SequenceFolder(
-            args.data,
-            transform=valid_transform,
-            seed=args.seed,
-            train=False,
-            sequence_length=args.sequence_length,
-        )
-    print(f"{len(train_set)} samples found in {len(train_set.scenes)} train scenes")
-    print(f"{len(val_set)} samples found in {len(val_set.scenes)} valid scenes")
+    # data loaders
     train_loader = torch.utils.data.DataLoader(
         train_set,
         batch_size=args.batch_size,
@@ -221,22 +237,25 @@ def main():
 
     # create model
     print("=> creating model")
-    disp_net = models.DispResNet(args.resnet_layers, args.with_pretrain).to(device)
-    pose_net = models.PoseResNet(18, args.with_pretrain).to(device)
+    disp_net = models.DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
+    pose_net = models.PoseResNet(18, pretrained=args.with_pretrain).to(device)
 
     # load parameters
     if args.pretrained_disp:
         print("=> using pre-trained weights for DispResNet")
         weights = torch.load(args.pretrained_disp)
         disp_net.load_state_dict(weights["state_dict"], strict=False)
+        disp_net.to(device)
 
     if args.pretrained_pose:
         print("=> using pre-trained weights for PoseResNet")
         weights = torch.load(args.pretrained_pose)
         pose_net.load_state_dict(weights["state_dict"], strict=False)
+        pose_net.to(device)
 
-    disp_net = torch.nn.DataParallel(disp_net)
-    pose_net = torch.nn.DataParallel(pose_net)
+    # TODO: fix issue with DataParallel and device ids mismatch
+    # disp_net = torch.nn.DataParallel(disp_net)
+    # pose_net = torch.nn.DataParallel(pose_net)
 
     print("=> setting adam solver")
     optim_params = [
@@ -260,28 +279,28 @@ def main():
     )
     logger.epoch_bar.start()
 
+    # main optimization loop
     for epoch in range(args.epochs):
         logger.epoch_bar.update(epoch)
 
         # train for one epoch
         logger.reset_train_bar()
-        train_loss = train(args, train_loader, disp_net, pose_net, optimizer, args.epoch_size, logger, training_writer)
+        train_loss, n_iter = train(
+            args,
+            train_loader,
+            disp_net,
+            pose_net,
+            optimizer,
+            args.epoch_size,
+            logger,
+            training_writer,
+            n_iter,
+        )
         logger.train_writer.write(f" * Avg Loss : {train_loss:.3f}")
 
         # evaluate on validation set
-        logger.reset_valid_bar()
-        if args.with_gt:
-            errors, error_names = validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers)
-        else:
-            errors, error_names = validate_without_gt(
-                args,
-                val_loader,
-                disp_net,
-                pose_net,
-                epoch,
-                logger,
-                output_writers,
-            )
+        errors, error_names = validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers)
+
         error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
         logger.valid_writer.write(f" * Avg {error_string}")
 
@@ -314,10 +333,12 @@ def main():
             writer.writerow([train_loss, decisive_error])
     logger.epoch_bar.finish()
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 
-def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger, train_writer):
-    global n_iter
+
+def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger, train_writer, n_iter: int):
+    """Train for one epoch on the training set"""
     device = get_device()
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -329,25 +350,19 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
     pose_net.train()
 
     end = time.time()
-    logger.train_bar.update(0)
-
-    for i, (tgt_img, ref_imgs, intrinsics, _intrinsics_inv) in enumerate(train_loader):
+    logger.train_bar.start()
+    # loop over batches
+    for i, batch in enumerate(train_loader):
         log_losses = i > 0 and n_iter % args.print_freq == 0
 
-        # measure data loading time
-        data_time.update(time.time() - end)
-        tgt_img = tgt_img.to(device)
-        ref_imgs = [img.to(device) for img in ref_imgs]
-        intrinsics = intrinsics.to(device)
+        data_time.update(time.time() - end)  # measure data loading time
+        
+        tgt_img = batch["tgt_img"].to(device)
+        ref_imgs = [img.to(device) for img in batch["ref_imgs"]]
+        intrinsics = batch["intrinsics"].to(device)
 
         # compute output
         tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
-        # print("number fo reference images",len(ref_imgs))
-        # print("number of target images",len(tgt_img))
-        # print("number fo reference images",len(ref_imgs))
-        # print("number of target images",len(tgt_img))
-        # print("number fo target depth",len(tgt_depth))
-        # print("number of reference depth",len(ref_depths))
         poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
 
         loss_1, loss_3 = compute_photo_and_geometry_loss(
@@ -398,88 +413,15 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
 
         n_iter += 1
 
-    return losses.avg[0]
+    return losses.avg[0], n_iter
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 @torch.no_grad()
-def validate_without_gt(args, val_loader, disp_net, pose_net, epoch, logger, output_writers=None):
-    device = get_device()
-    batch_time = AverageMeter()
-    losses = AverageMeter(i=4, precision=4)
+def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=None):
     output_writers = output_writers or []
-    log_outputs = len(output_writers) > 0
-
-    # switch to evaluate mode
-    disp_net.eval()
-    pose_net.eval()
-
-    end = time.time()
-    logger.valid_bar.update(0)
-    for i, (tgt_img, ref_imgs, intrinsics, intrinsics_inv) in enumerate(val_loader):
-        tgt_img = tgt_img.to(device)
-        ref_imgs = [img.to(device) for img in ref_imgs]
-        intrinsics = intrinsics.to(device)
-        intrinsics_inv = intrinsics_inv.to(device)
-
-        # compute output
-        tgt_depth = [1 / disp_net(tgt_img)]
-        ref_depths = []
-        for ref_img in ref_imgs:
-            ref_depth = [1 / disp_net(ref_img)]
-            ref_depths.append(ref_depth)
-
-        if log_outputs and i < len(output_writers):
-            if epoch == 0:
-                output_writers[i].add_image("val Input", tensor2array(tgt_img[0]), 0)
-
-            output_writers[i].add_image(
-                "val Dispnet Output Normalized",
-                tensor2array(1 / tgt_depth[0][0], max_value=None, colormap="magma"),
-                epoch,
-            )
-            output_writers[i].add_image("val Depth Output", tensor2array(tgt_depth[0][0], max_value=10), epoch)
-
-        poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
-
-        loss_1, loss_3 = compute_photo_and_geometry_loss(
-            tgt_img,
-            ref_imgs,
-            intrinsics,
-            tgt_depth,
-            ref_depths,
-            poses,
-            poses_inv,
-            args.num_scales,
-            args.with_ssim,
-            args.with_mask,
-            False,
-            args.padding_mode,
-        )
-
-        loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
-
-        loss_1 = loss_1.item()
-        loss_2 = loss_2.item()
-        loss_3 = loss_3.item()
-
-        loss = loss_1
-        losses.update([loss, loss_1, loss_2, loss_3])
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-        logger.valid_bar.update(i + 1)
-        if i % args.print_freq == 0:
-            logger.valid_writer.write(f"valid: Time {batch_time} Loss {losses}")
-
-    logger.valid_bar.update(len(val_loader))
-    return losses.avg, ["Total loss", "Photo loss", "Smooth loss", "Consistency loss"]
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-@torch.no_grad()
-def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[]):
     device = get_device()
     batch_time = AverageMeter()
     error_names = ["abs_diff", "abs_rel", "sq_rel", "a1", "a2", "a3"]
@@ -491,9 +433,10 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
 
     end = time.time()
     logger.valid_bar.update(0)
-    for i, (tgt_img, depth) in enumerate(val_loader):
-        tgt_img = tgt_img.to(device)
-        depth = depth.to(device)
+    for i, batch in enumerate(val_loader):
+        
+        tgt_img = batch["tgt_img"].to(device)
+        depth = batch["depth_img"].to(device)
 
         # check gt
         if depth.nelement() == 0:
@@ -538,7 +481,9 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=[
     logger.valid_bar.update(len(val_loader))
     return errors.avg, error_names
 
+
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 def compute_depth(disp_net, tgt_img, ref_imgs):
     tgt_depth = [1 / disp for disp in disp_net(tgt_img)]
@@ -550,7 +495,9 @@ def compute_depth(disp_net, tgt_img, ref_imgs):
 
     return tgt_depth, ref_depths
 
+
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
     poses = []
@@ -560,6 +507,7 @@ def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
         poses_inv.append(pose_net(ref_img, tgt_img))
 
     return poses, poses_inv
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 

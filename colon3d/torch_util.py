@@ -5,10 +5,10 @@ from torch.nn import functional as nnf
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_device():
+def get_device(gpu_id: int = 0):
     mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
     if torch.cuda.is_available():
-        return torch.device("cuda")
+        return torch.device("cuda", gpu_id)
     if mps_available:
         return torch.device("mps")
     return torch.device("cpu")

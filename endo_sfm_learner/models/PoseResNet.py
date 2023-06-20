@@ -10,8 +10,9 @@ from collections import OrderedDict
 import torch
 from torch import nn
 
-from .resnet_encoder import *
+from .resnet_encoder import ResnetEncoder
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 class PoseDecoder(nn.Module):
     def __init__(self, num_ch_enc, num_input_features=1, num_frames_to_predict_for=1, stride=1):
@@ -52,6 +53,7 @@ class PoseDecoder(nn.Module):
 
         return pose
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 class PoseResNet(nn.Module):
     def __init__(self, num_layers=18, pretrained=True):
@@ -67,7 +69,8 @@ class PoseResNet(nn.Module):
         features = self.encoder(x)
         pose = self.decoder([features])
         return pose
-
+    
+# ---------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
@@ -81,3 +84,5 @@ if __name__ == "__main__":
     pose = model(tgt_img, ref_imgs[0])
 
     print(pose.size())
+
+# ---------------------------------------------------------------------------------------------------------------------

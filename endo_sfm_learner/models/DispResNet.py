@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .resnet_encoder2 import *
+from .resnet_encoder2 import ResnetEncoder
 
 
 class ConvBlock(nn.Module):
@@ -47,7 +47,7 @@ def upsample(x):
 
 
 class DepthDecoder(nn.Module):
-    def __init__(self, num_ch_enc, scales=range(4), num_output_channels=1, use_skips=True):
+    def __init__(self, num_ch_enc, scales=(0,1,2,3), num_output_channels=1, use_skips=True):
         super().__init__()
 
         self.alpha = 10
@@ -89,10 +89,9 @@ class DepthDecoder(nn.Module):
         x = input_features[-1]
         for i in range(4, -1, -1):
             x = self.convs[("upconv", i, 0)](x)
-            x = [upsample(x)]
+            x = upsample(x)
             if self.use_skips and i > 0:
-                x += [input_features[i - 1]]
-            x = torch.cat(x, 1)
+                x = torch.cat((x, input_features[i - 1]), axis=1)
             x = self.convs[("upconv", i, 1)](x)
             if i in self.scales:
                 self.outputs.append(self.alpha * self.sigmoid(self.convs[("dispconv", i)](x)) + self.beta)
@@ -116,8 +115,7 @@ class DispResNet(nn.Module):
 
         if self.training:
             return outputs
-        else:
-            return outputs[0]
+        return outputs[0]
 
 
 if __name__ == "__main__":

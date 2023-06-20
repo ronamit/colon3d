@@ -11,3 +11,4 @@ colon3d.egg-info
 __pycache__
 checkpoints/*
 pretrained/*
+*.pt

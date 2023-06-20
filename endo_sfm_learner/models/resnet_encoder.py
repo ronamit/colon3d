@@ -8,16 +8,16 @@
 import numpy as np
 import torch
 from torch import nn
-from torch.utils import model_zoo
 from torchvision import models
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
     """
 
-    def __init__(self, block, layers, num_classes=1000, num_input_images=1):
+    def __init__(self, block, layers, num_input_images=1):
         super().__init__(block, layers)
         self.inplanes = 64
         self.conv1 = nn.Conv2d(num_input_images * 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -50,11 +50,15 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
     model = ResNetMultiImageInput(block_type, blocks, num_input_images=num_input_images)
 
     if pretrained:
-        loaded = model_zoo.load_url(models.resnet.model_urls[f"resnet{num_layers}"])
+        # Load pre-trained weights for encoder, and modify for different number of input channels
+        model_name = f"resnet{num_layers}"
+        dummy_model = models.get_model(model_name, weights="DEFAULT")
+        loaded = dummy_model.state_dict()
         loaded["conv1.weight"] = torch.cat([loaded["conv1.weight"]] * num_input_images, 1) / num_input_images
         model.load_state_dict(loaded)
     return model
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=1):
@@ -86,6 +90,7 @@ class SpatialAttention(nn.Module):
 
         return output
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder"""
@@ -133,3 +138,4 @@ class ResnetEncoder(nn.Module):
         self.features.append(self.encoder.layer4(self.features[-1]))
 
         return self.features
+# --------------------------------------------------------------------------------------------------------------------
