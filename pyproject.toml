@@ -123,5 +123,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "N812", # lowercase imported as uppercase
           "UP017", # Use datetime.UTC alias
           "NPY002", # Replace legacy `np.random.seed` call with `np.random.Generator`
+          "N999", # Invalid module name
 ]
 
