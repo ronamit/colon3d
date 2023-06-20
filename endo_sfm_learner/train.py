@@ -12,11 +12,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
-from endo_sfm_learner import models
 from endo_sfm_learner.dataset_loading import ScenesDataset
 from endo_sfm_learner.logger import AverageMeter, TermLogger
-from endo_sfm_learner.loss_functions import compute_errors, compute_photo_and_geometry_loss, compute_smooth_loss
-from endo_sfm_learner.utils import save_checkpoint, tensor2array
+from endo_sfm_learner.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
+from endo_sfm_learner.models.DispResNet import DispResNet
+from endo_sfm_learner.models.PoseResNet import PoseResNet
+from endo_sfm_learner.utils import save_checkpoint
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -237,8 +238,8 @@ def main():
 
     # create model
     print("=> creating model")
-    disp_net = models.DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
-    pose_net = models.PoseResNet(18, pretrained=args.with_pretrain).to(device)
+    disp_net = DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
+    pose_net = PoseResNet(18, pretrained=args.with_pretrain).to(device)
 
     # load parameters
     if args.pretrained_disp:
@@ -299,7 +300,7 @@ def main():
         logger.train_writer.write(f" * Avg Loss : {train_loss:.3f}")
 
         # evaluate on validation set
-        errors, error_names = validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers)
+        errors, error_names = validate_with_gt(args, val_loader, disp_net, logger, output_writers)
 
         error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
         logger.valid_writer.write(f" * Avg {error_string}")
@@ -319,11 +320,11 @@ def main():
             args.save_path,
             {
                 "epoch": epoch + 1,
-                "state_dict": disp_net.module.state_dict(),
+                "state_dict": disp_net.state_dict(),
             },
             {
                 "epoch": epoch + 1,
-                "state_dict": pose_net.module.state_dict(),
+                "state_dict": pose_net.state_dict(),
             },
             is_best,
         )
@@ -420,13 +421,12 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
 
 
 @torch.no_grad()
-def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=None):
+def validate_with_gt(args, val_loader, disp_net, logger, output_writers=None):
     output_writers = output_writers or []
     device = get_device()
     batch_time = AverageMeter()
-    error_names = ["abs_diff", "abs_rel", "sq_rel", "a1", "a2", "a3"]
+    error_names = ["abs_diff", "abs_rel"]
     errors = AverageMeter(i=len(error_names))
-    log_outputs = len(output_writers) > 0
 
     # switch to evaluate mode
     disp_net.eval()
@@ -435,41 +435,16 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=N
     logger.valid_bar.start()
     for i, batch in enumerate(val_loader):
         tgt_img = batch["tgt_img"].to(device)
-        depth = batch["depth_img"].to(device)
-
-        # check gt
-        if depth.nelement() == 0:
-            continue
+        gt_depth = batch["depth_img"].to(device)
 
         # compute output
         output_disp = disp_net(tgt_img)
         output_depth = 1 / output_disp[:, 0]
 
-        if log_outputs and i < len(output_writers):
-            if epoch == 0:
-                output_writers[i].add_image("val Input", tensor2array(tgt_img[0]), 0)
-                depth_to_show = depth[0]
-                output_writers[i].add_image("val target Depth", tensor2array(depth_to_show, max_value=10), epoch)
-                depth_to_show[depth_to_show == 0] = 1000
-                disp_to_show = (1 / depth_to_show).clamp(0, 10)
-                output_writers[i].add_image(
-                    "val target Disparity Normalized",
-                    tensor2array(disp_to_show, max_value=None, colormap="magma"),
-                    epoch,
-                )
-
-            output_writers[i].add_image(
-                "val Dispnet Output Normalized",
-                tensor2array(output_disp[0], max_value=None, colormap="magma"),
-                epoch,
-            )
-            output_writers[i].add_image("val Depth Output", tensor2array(output_depth[0], max_value=10), epoch)
-
-        if depth.nelement() != output_depth.nelement():
-            b, h, w = depth.size()
-            output_depth = torch.nn.functional.interpolate(output_depth.unsqueeze(1), [h, w]).squeeze(1)
-
-        errors.update(compute_errors(depth, output_depth, args.dataset))
+        # compute errors
+        abs_diff = torch.mean(torch.abs(gt_depth - output_depth))
+        abs_rel = torch.mean(torch.abs(gt_depth - output_depth) / gt_depth)
+        errors.update([abs_diff, abs_rel])
 
         # measure elapsed time
         batch_time.update(time.time() - end)

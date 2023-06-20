@@ -2,6 +2,7 @@ import random
 
 import h5py
 import numpy as np
+import torch
 import yaml
 from imageio import imread
 from torch.utils import data
@@ -86,7 +87,7 @@ class ScenesDataset(data.Dataset):
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
-            intrinsics = get_camera_matrix(metadata)
+            intrinsics_orig = get_camera_matrix(metadata)
         # load the target frame
         target_frame_ind = sample["target_frame_index"]
         target_frame_path = scene_frames_paths[target_frame_ind]
@@ -98,22 +99,23 @@ class ScenesDataset(data.Dataset):
             ref_frame = load_as_float(ref_frame_path)
             ref_imgs.append(ref_frame)
 
-        # list of images to apply the transforms on (the target frame and the reference frames, and optionally the depth map)
+        # list of images to apply the transforms on (the target frame and the reference frames)
         imgs = [tgt_img, *ref_imgs]
-        if self.load_tgt_depth:
-            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                depth_img = h5f["z_depth_map"][target_frame_ind]
-            imgs.append(depth_img)
 
         # apply the transforms on the images and on the camera intrinsics matrix
         if self.transform is not None:
-            imgs, intrinsics = self.transform(imgs, np.copy(intrinsics))
+            imgs, intrinsics = self.transform(imgs, np.copy(intrinsics_orig))
         tgt_img = imgs[0]
         ref_imgs = imgs[1 : self.sequence_length]
+
         inv_intrinsics = np.linalg.inv(intrinsics)
         sample = {"tgt_img": tgt_img, "ref_imgs": ref_imgs, "intrinsics": intrinsics, "inv_intrinsics": inv_intrinsics}
         if self.load_tgt_depth:
-            depth_img = imgs[-1]
+            # load the depth map of the target frame
+            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+                depth_img = h5f["z_depth_map"][target_frame_ind]
+            # transform the depth map to a torch tensor (we use it for comparing the net out to it in validation, no need to normalize it)
+            depth_img = torch.from_numpy(depth_img)
             sample["depth_img"] = depth_img
         return sample
 

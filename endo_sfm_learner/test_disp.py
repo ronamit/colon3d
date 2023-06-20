@@ -60,7 +60,7 @@ def main():
     dataset_dir = Path(args.dataset_dir)
 
     if args.dataset_list is not None:
-        with open(args.dataset_list) as f:
+        with Path(args.dataset_list).open() as f:
             test_files = list(f.read().splitlines())
     else:
         test_files = sorted(dataset_dir.files("*.png"))
