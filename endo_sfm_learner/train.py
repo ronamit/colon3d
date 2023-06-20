@@ -432,7 +432,7 @@ def validate_with_gt(args, val_loader, disp_net, epoch, logger, output_writers=N
     disp_net.eval()
 
     end = time.time()
-    logger.valid_bar.update(0)
+    logger.valid_bar.start()
     for i, batch in enumerate(val_loader):
         
         tgt_img = batch["tgt_img"].to(device)
