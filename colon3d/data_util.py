@@ -110,7 +110,7 @@ class SceneLoader:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def frames_generator(self, color_type="bgr", frame_type="alg_input"):
+    def frames_generator(self, color_type="RGB", frame_type="alg_input"):
         if self.rgb_source == "Video":
             video_path = Path(self.scene_path) / "Video.mp4"
             try:
@@ -119,10 +119,10 @@ class SceneLoader:
                 while vidcap.isOpened():
                     if self.n_frames_lim != 0 and i_frame >= self.n_frames_lim:
                         break
-                    frame_exists, curr_frame = vidcap.read()
+                    frame_exists, raw_frame = vidcap.read()
                     if not frame_exists:
                         break
-                    frame = self.adjust_frame(curr_frame, frame_type, color_type)
+                    frame = self.adjust_frame(raw_frame, frame_type, color_type)
                     yield frame
                     i_frame += 1
             finally:
@@ -144,24 +144,24 @@ class SceneLoader:
             frame = self.alg_view_cropper.crop_img(frame)
         else:
             raise ValueError(f"Unknown frame_type: {frame_type}")
-        if color_type == "bgr":
+        if color_type == "BGR":
             pass  # do nothing
         elif color_type == "gray":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        elif color_type == "rgb":
+        elif color_type == "RGB":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         else:
             raise ValueError(f"Unknown color_type: {color_type}")
         return frame
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_frame_at_index(self, i_frame: int, color_type="bgr", frame_type="alg_input"):
+    def get_frame_at_index(self, frame_idx: int, color_type="RGB", frame_type="alg_input"):
         if self.rgb_source == "Video":
             for i, frame in enumerate(self.frames_generator(color_type=color_type, frame_type=frame_type)):
-                if i == i_frame:
+                if i == frame_idx:
                     return frame
         else:
-            image_file = self.image_files_paths[i_frame]
+            image_file = self.image_files_paths[frame_idx]
             frame = self.adjust_frame(cv2.imread(str(image_file)), frame_type, color_type)
             return frame
         return None

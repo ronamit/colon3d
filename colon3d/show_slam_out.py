@@ -6,7 +6,7 @@ from colon3d.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_ex
 from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.torch_util import from_numpy, get_device
-from colon3d.visuals.aided_nav_plot import draw_aided_nav
+from colon3d.visuals.plot_aided_nav import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
 
@@ -51,7 +51,7 @@ def main():
 def save_slam_out_plots(
     slam_out,
     save_path,
-    example_path,
+    scene_path,
     start_frame=0,
     stop_frame=None,
     plot_names=None,
@@ -63,7 +63,7 @@ def save_slam_out_plots(
     # Extract the relevant variables
     frames_loader = slam_out.frames_loader
     # over-ride the example folder (in case it was moved)
-    frames_loader.example_path = example_path
+    frames_loader.example_path = scene_path
     n_frames_orig = frames_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
     kp_frame_idx_all = slam_out.kp_frame_idx_all

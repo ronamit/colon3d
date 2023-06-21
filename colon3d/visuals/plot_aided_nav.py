@@ -58,7 +58,7 @@ def draw_aided_nav(
                 track_id,
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=False,
-                color=colors_platte(track_id),
+                color=colors_platte(color_name="gray"),
             )
         # draw bounding boxes for the tracks in the algorithm view (on top of the original tracks)
         alg_view_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")

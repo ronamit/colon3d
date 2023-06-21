@@ -108,7 +108,7 @@ def main():
         print("Fusing frame %d/%d" % (i + 1, n_frames))
 
         # Read RGB-D image and camera pose
-        color_image = frames_loader.get_frame_at_index(frame_idx, color_type="rgb", frame_type="full")
+        color_image = frames_loader.get_frame_at_index(frame_idx, frame_type="full")
         depth_im = gt_depth_maps[frame_idx]
 
         # 4x4 rigid transformation matrix

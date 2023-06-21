@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
-from colon3d.run_slam_on_sim_example import run_slam_on_example
+from colon3d.run_slam_on_sim_scene import run_slam_on_scene
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -15,19 +15,19 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData8_Examples",
+        default="data/sim_data/SimData9_Examples",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData8_Examples/Results",
+        default="data/sim_data/SimData9_Examples/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
@@ -65,6 +65,7 @@ def main():
 
     args = parser.parse_args()
     dataset_path = Path(args.dataset_path).expanduser()
+    assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
     base_save_path = Path(args.save_path).expanduser()
     create_empty_folder(base_save_path, ask_overwrite=False)
     print(f"Outputs will be saved to {base_save_path}")
@@ -85,8 +86,8 @@ def main():
             save_path = Path(args.save_path).expanduser() / example_path.name
             create_empty_folder(save_path, ask_overwrite=True)
 
-            _, metrics_stats = run_slam_on_example(
-                example_path=example_path,
+            _, metrics_stats = run_slam_on_scene(
+                scene_path=example_path,
                 save_path=save_path,
                 n_frames_lim=args.n_frames_lim,
                 alg_fov_ratio=args.alg_fov_ratio,

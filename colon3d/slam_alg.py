@@ -10,7 +10,7 @@ from colon3d.alg_settings import AlgorithmParam
 from colon3d.bundle_adjust import run_bundle_adjust
 from colon3d.camera_util import FishEyeUndistorter
 from colon3d.data_util import RadialImageCropper, SceneLoader
-from colon3d.depth_util import DepthAndEgoMotionLoader
+from colon3d.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.keypoints_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.rotations_util import get_identity_quaternion

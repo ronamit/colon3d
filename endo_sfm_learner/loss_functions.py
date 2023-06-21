@@ -203,15 +203,15 @@ def compute_pairwise_loss(
         padding_mode,
     )
 
-    torch.save(ref_img_warped, "ref_im_warped.pt")
+    # torch.save(ref_img_warped, "ref_im_warped.pt")
 
     # print("ref_image_warped",ref_img_warped.shape)
 
     ref_img_warped2 = brightness_equator(ref_img_warped, tgt_img)
 
-    torch.save(ref_img_warped2, "ref_im_warped2.pt")
+    # torch.save(ref_img_warped2, "ref_im_warped2.pt")
 
-    torch.save(tgt_img, "target_image.pt")
+    # torch.save(tgt_img, "target_image.pt")
 
     diff_img = (tgt_img - ref_img_warped2).abs().clamp(0, 1)
 

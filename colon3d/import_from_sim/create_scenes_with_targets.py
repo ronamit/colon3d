@@ -27,16 +27,16 @@ def main():
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
-        "--path_to_save_examples",
+        "--path_to_save_scenes",
         type=str,
-        default="data/sim_data/SimData9_Examples",
-        help="The path to the folder where the generated examples will be saved",
+        default="data/sim_data/SimData9_with_targets",
+        help="The path to the folder where the generated scenes with targets will be saved",
     )
     parser.add_argument(
         "--n_examples_per_scene",
         type=int,
         default=5,
-        help="The number of examples to generate from each scene (with random polyp locations, estimation noise etc.)",
+        help="The number of examples with random targets to generate from each scene (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
     parser.add_argument(
@@ -117,9 +117,9 @@ def main():
     args = parser.parse_args()
     n_examples_per_scene = args.n_examples_per_scene
     sim_data_path = Path(args.sim_data_path)
-    path_to_save_examples = Path(args.path_to_save_examples)
-    print(f"The generated examples will be saved to {path_to_save_examples}")
-    create_empty_folder(path_to_save_examples, ask_overwrite=False)
+    path_to_save_scenes = Path(args.path_to_save_scenes)
+    print(f"The generated examples will be saved to {path_to_save_scenes}")
+    create_empty_folder(path_to_save_scenes, ask_overwrite=False)
     rng = default_rng(args.rand_seed)
     examples_prams = {
         "simulate_depth_and_egomotion_estimation": args.simulate_depth_and_egomotion_estimation,
@@ -156,11 +156,11 @@ def main():
             scene_path=scene_path,
             n_examples_per_scene=n_examples_per_scene,
             examples_prams=examples_prams,
-            path_to_save_examples=path_to_save_examples,
+            path_to_save_scenes=path_to_save_scenes,
             rng=rng,
         )
     # save the examples parameters to a json file:
-    with (path_to_save_examples / "examples_prams.json").open("w") as file:
+    with (path_to_save_scenes / "examples_prams.json").open("w") as file:
         json.dump(examples_prams, file, indent=4)
 
 
@@ -171,7 +171,7 @@ def generate_examples_from_scene(
     scene_path: Path,
     n_examples_per_scene: int,
     examples_prams: dict,
-    path_to_save_examples: Path,
+    path_to_save_scenes: Path,
     rng,
 ):
     # load the ground truth depth maps and camera poses:
@@ -205,7 +205,7 @@ def generate_examples_from_scene(
             break
 
         # create subfolder for the example:
-        example_path = path_to_save_examples / example_name
+        example_path = path_to_save_scenes / example_name
         create_empty_folder(example_path)
         print(
             f"Generating example {i_example+1}/{n_examples_per_scene} for scene {scene_name} to save in {example_path}",

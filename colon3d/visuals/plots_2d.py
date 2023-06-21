@@ -51,7 +51,7 @@ def draw_tracks_on_frame(
         top_left = alg_view_cropper.convert_coord_in_crop_to_full(point2d=top_left)
         bottom_right = alg_view_cropper.convert_coord_in_crop_to_full(point2d=bottom_right)
     if color is None:
-        color = colors_platte(track_id + 1, "BGR")
+        color = colors_platte(track_id)
     # draw bounding bounding box
     vis_frame = cv2.rectangle(
         vis_frame,
@@ -149,7 +149,7 @@ def draw_keypoints_and_tracks(
             if alg_view_cropper is not None:
                 kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=kp_xy)
             kp_id = keypoints_ids[i_kp]
-            kp_color = colors_platte(kp_id + 1, "BGR")
+            kp_color = colors_platte(kp_id + 1)
             #  draw keypoint
             vis_frame = cv2.drawMarker(
                 vis_frame,
@@ -186,7 +186,7 @@ def draw_kp_on_img(
     save_path,
     i_frame,
 ):
-    vis_frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    vis_frame = np.copy(img)  # RGB
     for track_id in curr_tracks:
         cur_detect = curr_tracks[track_id]
         vis_frame = draw_tracks_on_frame(
@@ -195,14 +195,14 @@ def draw_kp_on_img(
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
-    vis_frame = draw_kps(vis_frame, salient_KPs, color=colors_platte(0, "RGB"))
+    vis_frame = draw_kps(vis_frame, salient_KPs, color=colors_platte(0))
     for track_id, track_kps in track_KPs.items():
         track_kps_for_plot = [coord_to_cv2kp(kp) for kp in track_kps]
         vis_frame = cv2.drawKeypoints(
             vis_frame,
             track_kps_for_plot,
             None,
-            color=colors_platte(track_id + 1, "RGB"),
+            color=colors_platte(track_id + 1),
             flags=0,
         )
     display_image_in_actual_size(vis_frame)
@@ -233,17 +233,10 @@ def draw_matches(
     around each keypoint, with line segments connecting matching pairs.
     You can tweak the r, thickness, and figsize values as needed.
     Args:
-        img1: An openCV image ndarray in a grayscale or color format.
-        kp1: A list of cv2.KeyPoint objects for img1.
-        img2: An openCV image ndarray of the same format and with the same
-        element type as img1.
-        kp2: A list of cv2.KeyPoint objects for img2.
-        matches: A list of DMatch objects whose trainIdx attribute refers to
-        img1 keypoints and whose queryIdx attribute refers to img2 keypoints.
-        color: The color of the circles and connecting lines drawn on the images.
-        A 3-tuple for color images, a scalar for grayscale images.  If None, these
-        values are randomly generated.
-
+        imgA: RGB image ndarray
+        imgB: RGB image ndarray
+        matched_A_kps: A list of cv2.KeyPoint objects for imgA.
+        matched_B_kps: A list of cv2.KeyPoint objects for imgB.
         SOURCE : https://gist.github.com/woolpeeker/d7e1821e1b5c556b32aafe10b7a1b7e8
     """
     n_matches = len(matched_A_kps)
@@ -256,8 +249,8 @@ def draw_matches(
         3,
     )
     new_img = np.zeros(new_shape, type(img_A.flat[0]))
-    img_A_vis = cv2.cvtColor(img_A, cv2.COLOR_BGR2RGB)
-    img_B_vis = cv2.cvtColor(img_B, cv2.COLOR_BGR2RGB)
+    img_A_vis = np.copy(img_A)
+    img_B_vis = np.copy(img_B)
     # draw detections bounding boxes
     for track_id, cur_detect in tracks_in_frameA.items():
         img_A_vis = draw_tracks_on_frame(
@@ -291,8 +284,8 @@ def draw_matches(
         kp_B = matched_B_kps[i_match]
         end1 = (int(kp_A[0]), int(kp_A[1]))
         end2 = (int(kp_B[0]) + img_A.shape[1], int(kp_B[1]))
-        cv2.circle(new_img, end1, radius=1, color=colors_platte(0, "RGB"), thickness=1)
-        cv2.circle(new_img, end2, radius=1, color=colors_platte(0, "RGB"), thickness=1)
+        cv2.circle(new_img, end1, radius=1, color=colors_platte(0), thickness=1)
+        cv2.circle(new_img, end2, radius=1, color=colors_platte(0), thickness=1)
     # draw tracks KPs
     for track_id, track_kps in track_KPs_A.items():
         for kp in track_kps:
@@ -300,7 +293,7 @@ def draw_matches(
                 new_img,
                 center=(round(kp[0]), round(kp[1])),
                 radius=2,
-                color=colors_platte(track_id + 1, "RGB"),
+                color=colors_platte(track_id + 1),
                 thickness=1,
             )
     for track_id, track_kps in track_KPs_B.items():
@@ -309,7 +302,7 @@ def draw_matches(
                 new_img,
                 center=(round(kp[0]) + img_A.shape[1], round(kp[1])),
                 radius=2,
-                color=colors_platte(track_id + 1, "RGB"),
+                color=colors_platte(track_id + 1),
                 thickness=1,
             )
     plt.figure()
@@ -346,7 +339,8 @@ def draw_alg_view_in_the_full_frame(frame, frames_loader):
     alg_view_radius = round(frames_loader.alg_view_radius)
     orig_cam_info = frames_loader.orig_cam_info
     orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy]).round().astype(int)  # [px]
-    frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=(255, 51, 51), thickness=2)
+    color = colors_platte(color_name="gray")
+    frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=color, thickness=2)
 
     return frame
 

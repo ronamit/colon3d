@@ -4,7 +4,7 @@ from pathlib import Path
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import SceneLoader
-from colon3d.depth_util import DepthAndEgoMotionLoader
+from colon3d.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam_alg import SlamRunner
@@ -16,15 +16,15 @@ from colon3d.tracks_util import DetectionsTracker
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
-        "--example_path",
+        "--scene_path",
         type=str,
-        default="data/my_videos/Example_4",
-        help=" path to the video",
+        default="data/my_videos/Example_4_rotV2",
+        help="path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/Results",
+        default="data/my_videos/Example_4_rotV2/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -73,6 +73,8 @@ def main():
     )
 
     args = parser.parse_args()
+    scene_path = Path(args.scene_path).expanduser()
+    assert scene_path.exists(), f"scene_path={scene_path} does not exist"
     save_path = Path(args.save_path).expanduser()
     create_empty_folder(save_path)
     print(f"Outputs will be saved to {save_path}")
@@ -82,19 +84,21 @@ def main():
         alg_prm = AlgorithmParam()
 
         frames_loader = SceneLoader(
-            scene_path=args.example_path,
+            scene_path=scene_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
         )
         detections_tracker = DetectionsTracker(
-            example_path=args.example_path,
+            scene_path=scene_path,
             frames_loader=frames_loader,
         )
         depth_estimator = DepthAndEgoMotionLoader(
-            example_path=args.example_path,
+            scene_path=scene_path,
             depth_maps_source=args.depth_maps_source,
             egomotions_source=args.egomotions_source,
-            alg_prm=alg_prm,
+            depth_lower_bound=alg_prm.depth_lower_bound,
+            depth_upper_bound=alg_prm.depth_upper_bound,
+            depth_default=alg_prm.depth_default,
         )
 
         # Run the SLAM algorithm
@@ -114,7 +118,7 @@ def main():
                 pickle.dump(slam_out, file)
                 print(f"Saved the results to {results_file_path}")
         # Show results
-        save_slam_out_plots(slam_out=slam_out, save_path=args.save_path, example_path=args.example_path)
+        save_slam_out_plots(slam_out=slam_out, save_path=args.save_path, scene_path=scene_path)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

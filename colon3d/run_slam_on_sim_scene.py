@@ -7,7 +7,7 @@ import numpy as np
 
 from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import SceneLoader
-from colon3d.depth_util import DepthAndEgoMotionLoader
+from colon3d.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder
 from colon3d.perfomance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.show_slam_out import save_slam_out_plots
@@ -20,7 +20,7 @@ from colon3d.tracks_util import DetectionsTracker
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
-        "--example_path",
+        "--scene_path",
         type=str,
         default="data/sim_data/SimData9_Examples/Scene_00002_0000",
         help=" path to the video",
@@ -72,13 +72,13 @@ def main():
 
     args = parser.parse_args()
     save_path = Path(args.save_path).expanduser()
-    example_path = Path(args.example_path).expanduser()
+    scene_path = Path(args.scene_path).expanduser()
     create_empty_folder(save_path)
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        metrics_per_frame, metrics_stats = run_slam_on_example(
-            example_path=example_path,
+        metrics_per_frame, metrics_stats = run_slam_on_scene(
+            scene_path=scene_path,
             save_path=save_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
@@ -92,8 +92,8 @@ def main():
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def run_slam_on_example(
-    example_path: Path,
+def run_slam_on_scene(
+    scene_path: Path,
     save_path: Path,
     n_frames_lim: int,
     alg_fov_ratio: float,
@@ -106,13 +106,15 @@ def run_slam_on_example(
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
 
-    frames_loader = SceneLoader(scene_path=example_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
-    detections_tracker = DetectionsTracker(example_path=example_path, frames_loader=frames_loader)
+    frames_loader = SceneLoader(scene_path=scene_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
+    detections_tracker = DetectionsTracker(scene_path=scene_path, frames_loader=frames_loader)
     depth_estimator = DepthAndEgoMotionLoader(
-        example_path=example_path,
+        scene_path=scene_path,
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
-        alg_prm=alg_prm,
+        depth_lower_bound=alg_prm.depth_lower_bound,
+        depth_upper_bound=alg_prm.depth_upper_bound,
+        depth_default=alg_prm.depth_default,
     )
 
     # Run the SLAM algorithm
@@ -134,14 +136,14 @@ def run_slam_on_example(
 
     if save_all_plots or save_aided_nav_plot:
         plot_names = None if save_all_plots else ["aided_nav"]
-        save_slam_out_plots(slam_out=slam_out, save_path=save_path, example_path=example_path, plot_names=plot_names)
+        save_slam_out_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
 
     # load the  ground truth targets info
-    with (example_path / "targets_info.pkl").open("rb") as file:
+    with (scene_path / "targets_info.pkl").open("rb") as file:
         gt_targets_info = pickle.load(file)
 
     # load the  ground-truth egomotions per frame (for evaluation)
-    with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as hf:
+    with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:
         gt_cam_poses = np.array(hf["cam_poses"])
 
     # calculate performance metrics
@@ -150,7 +152,7 @@ def run_slam_on_example(
         gt_targets_info=gt_targets_info,
         slam_out=slam_out,
     )
-    metrics_stats["Example Name"] = example_path.name
+    metrics_stats["Example Name"] = scene_path.name
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
 
     print(f"Error metrics stats: {metrics_stats}")

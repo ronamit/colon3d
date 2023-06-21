@@ -103,7 +103,7 @@ def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float)
     """Saves a video from a function that generates the frames.
     Args:
         save_path: the path to save the video to
-        make_frame (function): a function that gets the frame number and returns the frame as a numpy array [H, W, C]
+        make_frame (function): a function that gets the frame number and returns an RGB frame as a numpy array [H, W, C]
         n_frames (int): the number of frames
         fps: the frames per second
     """
@@ -114,6 +114,8 @@ def save_video_from_func(save_path: Path, make_frame, n_frames: int, fps: float)
     for i_frame in range(n_frames):
         # print(f"Saving frame {i_frame + 1}/{n_frames}...", end="\r")
         frame = make_frame(i_frame)
+        # change RGB to BGR
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         vid_writer.write(frame)
     print(f"Video saved to {file_path}")
 
@@ -129,27 +131,26 @@ def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-def colors_platte(i_color, color_type="BGR"):
+def colors_platte(i_color: int | None = None, color_name: str | None = None):
     # source: https://www.rapidtables.com/web/color/RGB_Color.html
-    # BGR colors
-    colors = [
-        (255, 144, 30),  # dodger blue
-        (0, 255, 0),  # lime
-        (255, 0, 255),  # magenta
-        (0, 255, 255),  # cyan
-        (255, 255, 0),  # yellow
-        (128, 0, 128),  # purple
-        (255, 255, 240),  # azure
-        (0, 128, 0),  # green
+    # RGB colors
+    colors_list = [
+        ("lime", (0, 255, 0)),
+        ("dodger_blue", (30, 144, 255)),
+        ("green", (0, 128, 0)),
+        ("magenta", (255, 0, 255)),
+        ("cyan", (0, 255, 255)),
+        ("purple", (128, 0, 128)),
+        ("azure", (255, 255, 240)),
+        ("blue", (0, 0, 255)),
+        ("red", (255, 0, 0)),
+        ("yellow", (255, 255, 0)),
+        ("white", (255, 255, 255)),
+        ("gray", (128, 128, 128)),
     ]
-
-    color = colors[i_color % len(colors)]
-    if color_type == "BGR":
-        return color
-    if color_type == "RGB":
-        return color[::-1]
-    raise ValueError("type must be BGR or RGB")
-
+    if color_name is not None:
+        return [c[1] for c in colors_list if c[0] == color_name][0]
+    return colors_list[i_color % len(colors_list)][1]
 
 # --------------------------------------------------------------------------------------------------------------------
 
