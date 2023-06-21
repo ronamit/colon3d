@@ -290,6 +290,7 @@ class SimImporter:
         def load_rgb_frame(i_frame) -> np.ndarray:
             frame_path = rgb_frames_paths[i_frame]
             im = cv2.imread(path_to_str(self.input_data_path / frame_path))
+            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
             return im
 
         # copy all the rgb frames to the output directory
@@ -302,7 +303,7 @@ class SimImporter:
             # save the image
             cv2.imwrite(
                 filename=path_to_str(frames_out_path / frame_name),
-                img=im,
+                img=cv2.cvtColor(im, cv2.COLOR_RGB2BGR),
             )
         if save_video:
             output_vid_path = scene_path / "Video"

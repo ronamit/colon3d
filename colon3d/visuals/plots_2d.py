@@ -72,6 +72,7 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
 
     def get_frame_with_tracks(i_frame):
         frame = cv2.imread(str(frames_paths[i_frame]))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
         for cur_detect in tracks_in_frame:

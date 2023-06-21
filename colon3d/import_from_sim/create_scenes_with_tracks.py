@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         "--path_to_save_scenes",
         type=str,
-        default="data/sim_data/SimData9_with_targets",
+        default="data/sim_data/SimData9_with_tracks",
         help="The path to the folder where the generated scenes with targets will be saved",
     )
     parser.add_argument(
@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--min_visible_frames",
         type=int,
-        default=1,
+        default=5,
         help="The minimum number of frames in which the target (polyp) is visible",
     )
     parser.add_argument(
@@ -85,7 +85,7 @@ def main():
     parser.add_argument(
         "--min_initial_pixels_in_bb",
         type=int,
-        default=10,
+        default=15,
         help="The minimum number of pixels in the bounding box of the target (polyp) in the first frame",
     )
     ## Parameters for simulated depth and egomotion estimation
