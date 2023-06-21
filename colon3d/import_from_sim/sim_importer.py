@@ -129,6 +129,8 @@ class SimImporter:
             rgb_file_path = capture["filename"]
             translation = np.array(capture["sensor"]["translation"])
             rotation = np.array(capture["sensor"]["rotation"])
+            # ensure normalize unit-quaternion (to avoid numerical issues)
+            rotation = rotation / np.linalg.norm(rotation)
             annotations = capture["annotations"]
             depth_annotation = [a for a in annotations if a["@type"] == "type.unity.com/unity.solo.DepthAnnotation"][0]
             depth_file_path = depth_annotation["filename"]

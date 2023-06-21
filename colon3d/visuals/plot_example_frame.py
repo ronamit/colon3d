@@ -10,7 +10,7 @@ from colon3d.alg_settings import AlgorithmParam
 from colon3d.data_util import SceneLoader
 from colon3d.depth_util import DepthAndEgoMotionLoader
 from colon3d.general_util import (
-    UltimateHelpFormatter,
+    ArgsHelpFormatter,
     create_folder_if_not_exists,
     get_most_common_values,
     save_plot_and_close,
@@ -21,7 +21,7 @@ from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
 # --------------------------------------------------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
         "--example_path",
         type=str,

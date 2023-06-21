@@ -20,6 +20,7 @@ def normalize_quaternions(q_in: torch.Tensor) -> torch.Tensor:
     """
     assert q_in.shape[-1] == 4, "quaternions must be of shape (..., 4)"
     q_out = normalize(q_in, dim=-1, p=2.0, eps=1e-20)
+    # change the sign of the quaternion if the real part is negative (to have a standard form)
     q_out = torch.where(q_out[..., 0:1] < 0, -q_out, q_out)
     return q_out
 
@@ -87,6 +88,7 @@ def find_rotation_change(start_rot: torch.Tensor, final_rot: torch.Tensor) -> to
         The rotation change, a tensor of quaternions of shape (..., 4)."""
 
     rot_change = quaternion_raw_multiply(a=final_rot, b=invert_rotation(start_rot))
+    rot_change = normalize_quaternions(rot_change) # normalize to unit quaternion (to avoid numerical errors)
     return rot_change
 
 

@@ -8,7 +8,7 @@ import numpy as np
 import yaml
 from numpy.random import default_rng
 
-from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, to_str
+from colon3d.general_util import ArgsHelpFormatter, create_empty_folder, to_str
 from colon3d.import_from_sim.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.rotations_util import get_random_rot_quat
 from colon3d.torch_util import np_func, to_numpy
@@ -19,7 +19,7 @@ from colon3d.visuals.plots_2d import save_video_with_tracks
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
         "--sim_data_path",
         type=str,

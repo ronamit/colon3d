@@ -4,19 +4,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.general_util import Tee, UltimateHelpFormatter, create_empty_folder, get_time_now_str
+from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
 from colon3d.run_slam_on_sim_example import run_slam_on_example
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
         "--dataset_path",
         type=str,
         default="data/sim_data/SimData8_Examples",
-        help="Path to the dataset of examples.",
+        help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",

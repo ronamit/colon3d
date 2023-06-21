@@ -10,7 +10,7 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from colon3d.general_util import UltimateHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
+from colon3d.general_util import ArgsHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.torch_util import get_device
 from endo_sfm_learner.dataset_loading import ScenesDataset
 from endo_sfm_learner.logger import AverageMeter, TermLogger
@@ -23,7 +23,7 @@ from endo_sfm_learner.utils import save_checkpoint
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
         "--name",
         dest="name",
@@ -34,7 +34,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         metavar="DIR",
-        help="path to training dataset",
+        help="path to training dataset of scenes",
         default="data/sim_data/TrainData3",
     )
     parser.add_argument(

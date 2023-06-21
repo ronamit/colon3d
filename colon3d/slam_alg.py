@@ -97,7 +97,7 @@ class SlamRunner:
         self.n_world_points = 0  # number of 3D world points identified so far
         self.online_logger = AnalysisLogger(self.alg_prm)
         # saves data about the previous frame:
-        self.img_A = None
+        self.prev_frame = None
         self.descriptors_A = None
         self.salient_KPs_A = None
         self.track_KPs_A = None
@@ -132,12 +132,10 @@ class SlamRunner:
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print("-" * 50 + f"\ni_frame: {i_frame}/{n_frames-1}")
-            curr_egomotion_est = None if i_frame == 0 else depth_estimator.get_egomotions_at_frames([i_frame])
             self.run_on_new_frame(
                 curr_frame=frames_generator.__next__(),
                 i_frame=i_frame,
                 curr_tracks=detections_tracker.get_tracks_in_frame(i_frame),
-                curr_egomotion_est=curr_egomotion_est,
                 cam_undistorter=cam_undistorter,
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
@@ -178,7 +176,6 @@ class SlamRunner:
         curr_frame: np.array,
         i_frame: int,
         curr_tracks: dict,
-        curr_egomotion_est: np.ndarray | None,
         cam_undistorter: FishEyeUndistorter,
         alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
@@ -204,9 +201,11 @@ class SlamRunner:
             draw_interval: the interval (in frames) in which to draw the results (0 for no drawing)
             verbose_print_interval: the interval (in frames) in which to print the results (0 for no printing)
             save_path: the path to save the results and plots
+
+        Note:
+            we call the current frame "frame B" and the previous frame "frame A"
         """
         alg_prm = self.alg_prm
-        img_B = curr_frame
         # Keep track of the keypoints that are associated with a newly discovered 3D point
         kp_inds_of_new = []
         # Initialize the 3D points associated with the tracks in the current frame
@@ -217,21 +216,28 @@ class SlamRunner:
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
         if i_frame > 0:
             # get the estimated 6DOF cam pose change from the previous frame (egomotion)
-            egomotion = torch.as_tensor(curr_egomotion_est, device=self.device)  # [1 x 7]
-            prev_cam_pose = self.cam_poses[i_frame - 1, :].unsqueeze(0)  # [1 x 7]
-            cur_guess_cam_pose = apply_pose_change(start_pose=prev_cam_pose, pose_change=egomotion)
+            prev_cam_pose = self.cam_poses[i_frame - 1, :]
+            curr_egomotion_est = depth_estimator.get_egomotions_at_frame(
+                curr_frame_idx=i_frame,
+                prev_frame=self.prev_frame,
+                curr_frame=curr_frame,
+            )
+            cur_guess_cam_pose = apply_pose_change(
+                start_pose=prev_cam_pose.unsqueeze(0),
+                pose_change=curr_egomotion_est.unsqueeze(0),
+            )
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
 
         # find salient keypoints with ORB
-        salient_KPs_B = self.kp_detector.detect(img_B, None)
+        salient_KPs_B = self.kp_detector.detect(curr_frame, None)
         # compute the descriptors with ORB
-        salient_KPs_B, descriptors_B = self.kp_detector.compute(img_B, salient_KPs_B)
+        salient_KPs_B, descriptors_B = self.kp_detector.compute(curr_frame, salient_KPs_B)
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_tracks
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
         if draw_interval and i_frame % draw_interval == 0:
             draw_kp_on_img(
-                img=img_B,
+                img=curr_frame,
                 salient_KPs=salient_KPs_B,
                 track_KPs=track_KPs_B,
                 curr_tracks=tracks_in_frameB,
@@ -252,8 +258,8 @@ class SlamRunner:
             if draw_interval and i_frame % draw_interval == 0:
                 # draw our inliers (if RANSAC was done) or all good matching keypoints
                 draw_matches(
-                    img_A=self.img_A,
-                    img_B=img_B,
+                    img_A=self.prev_frame,
+                    img_B=curr_frame,
                     matched_A_kps=matched_A_kps,
                     matched_B_kps=matched_B_kps,
                     track_KPs_A=self.track_KPs_A,
@@ -389,7 +395,7 @@ class SlamRunner:
         # ----- update variables for the next frame
         self.salient_KPs_A = salient_KPs_B
         self.descriptors_A = descriptors_B
-        self.img_A = img_B
+        self.prev_frame = curr_frame
         self.track_KPs_A = track_KPs_B
         self.tracks_in_frameA = tracks_in_frameB
 

@@ -6,6 +6,7 @@ import numpy as np
 from colon3d.general_util import save_plot_and_close
 from colon3d.import_from_sim.simulate_tracks import TargetsInfo
 from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
+from colon3d.rotations_util import normalize_quaternions
 from colon3d.slam_alg import SlamOutput
 from colon3d.torch_util import np_func, to_numpy
 from colon3d.transforms_util import apply_pose_change, find_pose_change
@@ -84,6 +85,7 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
         # translation error
         ate_trans[i] = np.linalg.norm(delta_loc)  # [mm]
         # angle of rotation of the unit-quaternion
+        delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
         ate_rot_deg[i] = np.rad2deg(np.abs(2 * np.arccos(delta_rot[0])))
         # take the 360-degree complement if the angle is greater than 180 degrees
         ate_rot_deg[i] = min(ate_rot_deg[i], 360 - ate_rot_deg[i])
@@ -135,6 +137,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
         delta_rot = delta_pose[3:]
         rpe_trans[i] = np.linalg.norm(delta_loc)  # [mm]
         # The angle of rotation of the unit-quaternion
+        delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
         rpe_rot_deg[i] = np.rad2deg(np.abs(2 * np.arccos(delta_rot[0])))
         # take the 360-degree complement if the angle is greater than 180 degrees
         rpe_rot_deg[i] = min(rpe_rot_deg[i], 360 - rpe_rot_deg[i])
@@ -173,7 +176,7 @@ def calc_nav_aid_metrics(
     eps = 1e-20  # to avoid division by zero
     n_frames = est_cam_poses.shape[0]
     n_targets = gt_targets_info.n_targets
-    
+
     deg_err_thresh = 15  # [deg] the threshold for the angular error to consider a target as "detected"
 
     # Transform to the camera system of each frame (according the estimated camera poses)
@@ -251,7 +254,8 @@ def calc_nav_aid_metrics(
         "Nav. Angle error RMSE [deg]": angle_err_deg_rmse,
         "Nav. Z error RMSE [mm]": z_err_mm_rmse,
         "Nav. Z sign error [%]": 100 * z_sign_err_ratio,
-        f"Nav Angle error less than {deg_err_thresh} deg [%]": np.mean(np.abs(angle_err_deg_avg) < deg_err_thresh) * 100,
+        f"Nav Angle error less than {deg_err_thresh} deg [%]": np.mean(np.abs(angle_err_deg_avg) < deg_err_thresh)
+        * 100,
     }
     return metrics_per_frame, metrics_stats
 
@@ -272,6 +276,9 @@ def calc_performance_metrics(gt_cam_poses: np.ndarray, gt_targets_info: TargetsI
 
     # take the subsets of the GT camera poses that corresponds to the frames in the estimated trajectory
     gt_cam_poses = gt_cam_poses[:n_frames]
+
+    # ensure the rotations unit quaternion are normalized
+    gt_cam_poses[:, 3:] = np_func(normalize_quaternions)(gt_cam_poses[:, 3:])
 
     #  List of the estimated 3D locations of each track's KPs (in the world system) per frame
     online_est_track_world_loc = to_numpy(slam_out.online_est_track_world_loc)

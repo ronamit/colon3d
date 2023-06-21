@@ -27,7 +27,7 @@ def set_rand_seed(seed):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class UltimateHelpFormatter(
+class ArgsHelpFormatter(
     argparse.RawTextHelpFormatter,
     argparse.ArgumentDefaultsHelpFormatter,
 ):

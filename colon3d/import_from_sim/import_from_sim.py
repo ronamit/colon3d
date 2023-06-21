@@ -1,13 +1,13 @@
 import argparse
 
-from colon3d.general_util import UltimateHelpFormatter
+from colon3d.general_util import ArgsHelpFormatter
 from colon3d.import_from_sim.sim_importer import SimImporter
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=UltimateHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
         "--raw_sim_data_path",
         type=str,

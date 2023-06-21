@@ -5,7 +5,7 @@ pixel_coords = None
 
 
 def set_id_grid(depth):
-    global pixel_coords
+    global pixel_coords  # noqa: PLW0603
     b, h, w = depth.size()
     i_range = torch.arange(0, h).view(1, h, 1).expand(1, h, w).type_as(depth)  # [1, H, W]
     j_range = torch.arange(0, w).view(1, 1, w).expand(1, h, w).type_as(depth)  # [1, H, W]
@@ -14,18 +14,20 @@ def set_id_grid(depth):
     pixel_coords = torch.stack((j_range, i_range, ones), dim=1)  # [1, 3, H, W]
 
 
-def check_sizes(input, input_name, expected):
-    condition = [input.ndimension() == len(expected)]
+def check_sizes(inputs, input_name, expected):
+    condition = [inputs.ndimension() == len(expected)]
     for i, size in enumerate(expected):
         if size.isdigit():
-            condition.append(input.size(i) == int(size))
+            condition.append(inputs.size(i) == int(size))
     assert all(condition), "wrong size for {}, expected {}, got  {}".format(
-        input_name, "x".join(expected), list(input.size())
+        input_name,
+        "x".join(expected),
+        list(inputs.size()),
     )
 
 
 def pixel2cam(depth, intrinsics_inv):
-    global pixel_coords
+    global pixel_coords  # noqa: PLW0602
     """Transform coordinates in the pixel frame to the camera frame.
     Args:
         depth: depth maps -- [B, H, W]
@@ -41,7 +43,7 @@ def pixel2cam(depth, intrinsics_inv):
     return cam_coords * depth.unsqueeze(1)
 
 
-def cam2pixel(cam_coords, proj_c2p_rot, proj_c2p_tr, padding_mode):
+def cam2pixel(cam_coords, proj_c2p_rot, proj_c2p_tr):
     """Transform coordinates in the camera frame to the pixel frame.
     Args:
         cam_coords: pixel coordinates defined in the first camera coordinates system -- [B, 4, H, W]
@@ -179,7 +181,7 @@ def inverse_warp(img, depth, pose, intrinsics, rotation_mode="euler", padding_mo
     proj_cam_to_src_pixel = intrinsics @ pose_mat  # [B, 3, 4]
 
     rot, tr = proj_cam_to_src_pixel[:, :, :3], proj_cam_to_src_pixel[:, :, -1:]
-    src_pixel_coords = cam2pixel(cam_coords, rot, tr, padding_mode)  # [B,H,W,2]
+    src_pixel_coords = cam2pixel(cam_coords, rot, tr)  # [B,H,W,2]
     projected_img = F.grid_sample(img, src_pixel_coords, padding_mode=padding_mode)
 
     valid_points = src_pixel_coords.abs().max(dim=-1)[0] <= 1
