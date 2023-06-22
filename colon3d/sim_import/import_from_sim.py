@@ -1,7 +1,7 @@
 import argparse
 
-from colon3d.general_util import ArgsHelpFormatter
-from colon3d.import_from_sim.sim_importer import SimImporter
+from colon3d.sim_import.sim_importer import SimImporter
+from colon3d.utils.general_util import ArgsHelpFormatter
 
 # --------------------------------------------------------------------------------------------------------------------
 

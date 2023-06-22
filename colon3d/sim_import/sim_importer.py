@@ -8,11 +8,10 @@ import h5py
 import numpy as np
 import yaml
 
-from colon3d.general_util import create_empty_folder, path_to_str, save_video_from_func
-from colon3d.rotations_util import normalize_quaternions
-from colon3d.torch_util import np_func
-from colon3d.transforms_util import infer_egomotions
-from colon3d.visuals.plot_depth_video import plot_depth_video
+from colon3d.utils.general_util import create_empty_folder, path_to_str, plot_depth_video, save_video_from_func
+from colon3d.utils.rotations_util import normalize_quaternions
+from colon3d.utils.torch_util import np_func
+from colon3d.utils.transforms_util import infer_egomotions
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 

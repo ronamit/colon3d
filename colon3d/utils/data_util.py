@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import yaml
 
-from colon3d.camera_util import CamInfo, FishEyeUndistorter
+from colon3d.utils.camera_util import CamInfo, FishEyeUndistorter
 
 
 # --------------------------------------------------------------------------------------------------------------------

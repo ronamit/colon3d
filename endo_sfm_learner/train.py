@@ -10,8 +10,8 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from colon3d.general_util import ArgsHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
-from colon3d.torch_util import get_device
+from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
+from colon3d.utils.torch_util import get_device
 from endo_sfm_learner.dataset_loading import ScenesDataset
 from endo_sfm_learner.logger import AverageMeter, TermLogger
 from endo_sfm_learner.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss

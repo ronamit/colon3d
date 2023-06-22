@@ -2,10 +2,10 @@ import argparse
 import pickle
 from pathlib import Path
 
-from colon3d.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
-from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.slam_out_analysis import plot_z_dist_from_cam
-from colon3d.torch_util import from_numpy, get_device
+from colon3d.slam.slam_out_analysis import plot_z_dist_from_cam
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
+from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
+from colon3d.utils.torch_util import from_numpy, get_device
 from colon3d.visuals.plot_aided_nav import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame

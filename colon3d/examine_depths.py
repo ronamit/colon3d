@@ -4,10 +4,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.data_util import SceneLoader
-from colon3d.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close
-from colon3d.torch_util import to_numpy
+from colon3d.utils.data_util import SceneLoader
+from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close
+from colon3d.utils.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps
@@ -15,7 +15,13 @@ from colon3d.torch_util import to_numpy
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def examine_depths(depth_loader: DepthAndEgoMotionLoader, frames_loader: SceneLoader, save_path: Path, scene_name: str, depth_source: str):
+def examine_depths(
+    depth_loader: DepthAndEgoMotionLoader,
+    frames_loader: SceneLoader,
+    save_path: Path,
+    scene_name: str,
+    depth_source: str,
+):
     # save a heatmap of the first frame depth map
     # and RGB image of the first frame
     frame_idx = 0

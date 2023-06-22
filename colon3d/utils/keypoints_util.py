@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 import torch
 
-from colon3d.torch_util import get_default_dtype
-from colon3d.transforms_util import transform_points_in_world_sys_to_cam_sys
+from colon3d.utils.torch_util import get_default_dtype
+from colon3d.utils.transforms_util import transform_points_in_world_sys_to_cam_sys
 
 np_dtype = get_default_dtype("numpy")
 # --------------------------------------------------------------------------------------------------------------------

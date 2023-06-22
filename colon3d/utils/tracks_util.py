@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.data_util import SceneLoader
+from colon3d.utils.data_util import SceneLoader
 
 # --------------------------------------------------------------------------------------------------------------------
 

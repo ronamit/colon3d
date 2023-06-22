@@ -6,15 +6,15 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.data_util import SceneLoader
-from colon3d.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.general_util import (
+from colon3d.utils.data_util import SceneLoader
+from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     create_folder_if_not_exists,
     get_most_common_values,
     save_plot_and_close,
 )
-from colon3d.transforms_util import get_frame_point_cloud
+from colon3d.utils.transforms_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
 

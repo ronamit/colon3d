@@ -3,13 +3,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.general_util import save_plot_and_close
-from colon3d.import_from_sim.simulate_tracks import TargetsInfo
-from colon3d.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.rotations_util import normalize_quaternions
-from colon3d.slam_alg import SlamOutput
-from colon3d.torch_util import np_func, to_numpy
-from colon3d.transforms_util import apply_pose_change, find_pose_change
+from colon3d.sim_import.simulate_tracks import TargetsInfo
+from colon3d.slam import SlamOutput
+from colon3d.utils.general_util import save_plot_and_close
+from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
+from colon3d.utils.rotations_util import normalize_quaternions
+from colon3d.utils.torch_util import np_func, to_numpy
+from colon3d.utils.transforms_util import apply_pose_change, find_pose_change
 
 # ---------------------------------------------------------------------------------------------------------------------
 """"

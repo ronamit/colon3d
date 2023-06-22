@@ -5,10 +5,10 @@ import numpy as np
 import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
-from colon3d.alg_settings import AlgorithmParam
-from colon3d.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternions
-from colon3d.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
-from colon3d.transforms_util import project_world_to_image_normalized_coord
+from colon3d.slam.alg_settings import AlgorithmParam
+from colon3d.utils.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternions
+from colon3d.utils.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
+from colon3d.utils.transforms_util import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 

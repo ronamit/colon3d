@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from colon3d.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
 from colon3d.run_slam_on_sim_scene import run_slam_on_scene
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
 
 # ---------------------------------------------------------------------------------------------------------------------
 

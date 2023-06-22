@@ -7,15 +7,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from colon3d.data_util import RadialImageCropper, SceneLoader
-from colon3d.general_util import (
+from colon3d.utils.data_util import RadialImageCropper, SceneLoader
+from colon3d.utils.general_util import (
     colors_platte,
     coord_to_cv2kp,
     save_plot_and_close,
     save_video_from_frames_list,
     save_video_from_func,
 )
-from colon3d.tracks_util import DetectionsTracker
+from colon3d.utils.tracks_util import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 

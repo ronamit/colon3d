@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from inverse_warp import inverse_warp2
 from torch import nn
 
-from colon3d.torch_util import get_device
+from colon3d.utils.torch_util import get_device
 
 device = get_device()
 

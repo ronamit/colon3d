@@ -1,15 +1,15 @@
 import numpy as np
 import torch
 
-from colon3d.camera_util import CamInfo
-from colon3d.rotations_util import (
+from colon3d.utils.camera_util import CamInfo
+from colon3d.utils.rotations_util import (
     apply_rotation_change,
     find_rotation_change,
     get_identity_quaternion,
     invert_rotation,
     rotate_points,
 )
-from colon3d.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func
+from colon3d.utils.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 

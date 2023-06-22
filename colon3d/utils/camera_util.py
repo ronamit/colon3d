@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-from colon3d.general_util import is_equal_dicts, save_plot_and_close
+from colon3d.utils.general_util import is_equal_dicts, save_plot_and_close
 
 
 # --------------------------------------------------------------------------------------------------------------------

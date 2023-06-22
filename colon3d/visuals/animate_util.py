@@ -4,9 +4,9 @@ import numpy as np
 import plotly.graph_objects as go
 from PIL import Image
 
-from colon3d.general_util import save_video_from_func
-from colon3d.rotations_util import get_identity_quaternion
-from colon3d.torch_util import np_func
+from colon3d.utils.general_util import save_video_from_func
+from colon3d.utils.rotations_util import get_identity_quaternion
+from colon3d.utils.torch_util import np_func
 from colon3d.visuals.create_3d_obj import plot_xyz_axes
 
 # --------------------------------------------------------------------------------------------------------------------

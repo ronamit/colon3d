@@ -5,9 +5,9 @@ import h5py
 import numpy as np
 import torch
 
-from colon3d.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.torch_util import get_device, to_numpy
-from colon3d.transforms_util import unproject_image_normalized_coord_to_world
+from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
+from colon3d.utils.torch_util import get_device, to_numpy
+from colon3d.utils.transforms_util import unproject_image_normalized_coord_to_world
 from endo_sfm_learner.models.DispResNet import DispResNet
 from endo_sfm_learner.models.PoseResNet import PoseResNet
 
@@ -52,7 +52,7 @@ class DepthAndEgoMotionLoader:
             self.egomotion_estimator = PoseNet()
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
-            with h5py.File( scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
                 self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
         elif egomotions_source == "loaded_estimates":
             print("Using loaded estimated egomotions")
@@ -134,8 +134,8 @@ class DepthAndEgoMotionLoader:
             egomotion[3:] = normalize_quaternions(egomotion[3:])
         elif self.egomotions_source == "online_estimates":
             egomotion = self.egomotion_estimator.get_egomotions(
-                tgt_imgs=np.expand_dims(prev_frame, axis=0),
-                ref_imgs=np.expand_dims(curr_frame, axis=0),
+                from_imgs=np.expand_dims(prev_frame, axis=0),
+                to_imgs=np.expand_dims(curr_frame, axis=0),
             )[0]
         else:
             # default value = identity egomotion (no motion)
@@ -268,7 +268,7 @@ class DepthNet:
         self.resnet_layers = 18
         self.net_input_height = 256
         self.net_input_width = 256
-        self.net_out_to_mm = 41.1334 # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
+        self.net_out_to_mm = 41.1334  # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
         assert self.pretrained_disp.is_file()
         self.device = get_device()
         self.dtype = torch.float32
@@ -292,7 +292,7 @@ class DepthNet:
         with torch.no_grad():
             output_disparity = self.disp_net(imgs)
         # remove the n_channels dimension
-        output_disparity.squeeze_(dim=1) # [N x H x W]
+        output_disparity.squeeze_(dim=1)  # [N x H x W]
         output_depth = 1 / output_disparity
         # clip the depth
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
@@ -313,10 +313,10 @@ class DepthNet:
             depth_map (torch.Tensor): the estimated depth maps [H x W] (units: mm)
         """
         assert img.ndim == 3
-        assert img.shape[2] == 3 # RGB
-        imgs = np.expand_dims(img, axis=0) # add n_imgs dimension
+        assert img.shape[2] == 3  # RGB
+        imgs = np.expand_dims(img, axis=0)  # add n_imgs dimension
         depth_maps = self.get_depth_maps(imgs)
-        return depth_maps[0] # remove the n_imgs dimension
+        return depth_maps[0]  # remove the n_imgs dimension
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -330,7 +330,7 @@ class PoseNet:
         self.net_input_height = 256
         self.net_input_width = 256
         self.pretrained_pose = Path("pretrained/exp_pose_model_best.pt")
-        self.net_out_to_mm = 41.1334 # the output of the network (translation part) needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
+        self.net_out_to_mm = 41.1334  # the output of the network (translation part) needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
         assert self.pretrained_pose.is_file()
         print(f"Using pre-trained weights for PoseNet from {self.pretrained_pose}")
         self.pose_net = PoseResNet(self.resnet_layers, pretrained=False).to(self.device)
@@ -341,21 +341,21 @@ class PoseNet:
 
         # --------------------------------------------------------------------------------------------------------------------
 
-    def get_egomotions(self, tgt_imgs: np.ndarray, ref_imgs: np.ndarray) -> torch.Tensor:
-        """Estimate the egomotion from the target images to the reference images.
+    def get_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
+        """Estimate the 6DOF egomotion from the from image to to image.
         Args:
-            tgt_img: the target images (from) [N x 3 x H x W]
-            ref_imgs: the reference images (to) [N X 3 x H x W]
+            from_imgs: the 'from' images (target) [N x 3 x H x W] where N is the number of image pairs
+            to_imgs: the corresponding 'to' images  (reference) [N X 3 x H x W]
         Returns:
-            egomotions: the estimated egomotion [N x 7] 6DoF pose parameters from target to reference, in the format:
-                        (x,y,z,qw,qx,qy,qz) where (x, y, z) is the translation [mm] and (qw, qx, qy , qz) is the unit-quaternion of the rotation.
+            egomotions: the estimated egomotions [N x 7] 6DoF pose parameters from from_imgs to to_imgs, in the format:
+                (x,y,z,qw,qx,qy,qz) where (x, y, z) is the translation [mm] and (qw, qx, qy , qz) is the unit-quaternion of the rotation.
         """
-        n_imgs = len(tgt_imgs)
-        assert len(ref_imgs) == n_imgs
-        tgt_imgs = imgs_to_net_in(tgt_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
-        ref_imgs = imgs_to_net_in(ref_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
+        n_imgs = len(from_imgs)
+        assert len(to_imgs) == n_imgs
+        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
+        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
         with torch.no_grad():
-            pose_out = self.pose_net(tgt_imgs, ref_imgs)
+            pose_out = self.pose_net(from_imgs, to_imgs)
         # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
         trans = pose_out[:, :3]
         # to get the a unit-quaternion of the rotation, concatenate a 1 at the beginning of the vector and normalize

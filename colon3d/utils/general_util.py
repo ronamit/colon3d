@@ -363,3 +363,16 @@ def to_str(a):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
+
+def plot_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
+    n_frames = depth_frames.shape[0]
+
+    def get_depth_frame(i):
+        heatmap = cv2.applyColorMap(np.array(depth_frames[i], dtype=np.uint8), cv2.COLORMAP_JET)
+        return heatmap
+
+    save_video_from_func(save_path=save_path, make_frame=get_depth_frame, n_frames=n_frames, fps=fps)
+
+
+# --------------------------------------------------------------------------------------------------------------------
