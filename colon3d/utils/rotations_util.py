@@ -140,7 +140,7 @@ def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Ten
 # --------------------------------------------------------------------------------------------------------------------
 
 
-# @torch.jit.script  # disable this for debugging
+@torch.jit.script  # disable this for debugging
 def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """Rotate points by given unit-quaternion rotation vectors.
     Args:
@@ -164,8 +164,8 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     q_v = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
 
     rotated_points = (
-        2 * q_v * torch.sum(q_v * points3d, axis=-1, keepdim=True)
-        + points3d * (qw**2 - torch.sum(q_v * q_v, axis=-1, keepdim=True))
+        2 * q_v * torch.sum(q_v * points3d, dim=-1, keepdim=True)
+        + points3d * (qw**2 - torch.sum(q_v * q_v, dim=-1, keepdim=True))
         + 2 * qw * torch.cross(q_v, points3d, dim=1)
     )
     return rotated_points

@@ -8,16 +8,16 @@ import torch
 
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.bundle_adjust import run_bundle_adjust
-from colon3d.camera_util import FishEyeUndistorter
-from colon3d.data_util import RadialImageCropper, SceneLoader
-from colon3d.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.general_util import convert_sec_to_str, get_time_now_str
-from colon3d.keypoints_util import get_kp_matchings, get_tracks_keypoints
-from colon3d.rotations_util import get_identity_quaternion
 from colon3d.slam.slam_out_analysis import AnalysisLogger, SlamOutput
-from colon3d.torch_util import get_default_dtype, get_device
-from colon3d.tracks_util import DetectionsTracker
-from colon3d.transforms_util import apply_pose_change
+from colon3d.utils.camera_util import FishEyeUndistorter
+from colon3d.utils.data_util import RadialImageCropper, SceneLoader
+from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.utils.general_util import convert_sec_to_str, get_time_now_str
+from colon3d.utils.keypoints_util import get_kp_matchings, get_tracks_keypoints
+from colon3d.utils.rotations_util import get_identity_quaternion
+from colon3d.utils.torch_util import get_default_dtype, get_device
+from colon3d.utils.tracks_util import DetectionsTracker
+from colon3d.utils.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 torch.set_default_dtype(get_default_dtype())

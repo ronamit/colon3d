@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from colon3d.camera_util import FishEyeUndistorter
-from colon3d.data_util import SceneLoader
-from colon3d.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.general_util import save_plot_and_close
-from colon3d.rotations_util import get_smallest_angle_between_rotations
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.torch_util import np_func, to_numpy
-from colon3d.tracks_util import DetectionsTracker
+from colon3d.utils.camera_util import FishEyeUndistorter
+from colon3d.utils.data_util import SceneLoader
+from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.utils.general_util import save_plot_and_close
+from colon3d.utils.rotations_util import get_smallest_angle_between_rotations
+from colon3d.utils.torch_util import np_func, to_numpy
+from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 

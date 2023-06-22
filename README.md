@@ -64,17 +64,16 @@ pip install -e .
 
 * Here are common examples of how to use the code. See the code for more details on the arguments.
 * First, activate the conda environment *(e.g., conda activate py3)* and go to the main project dir (*e.g. ~/repos/colon3d)*.
-
 * Importing a raw dataset of scenes from the unity simulator.
 
 ```bash
-  python -m colon3d.import_from_sim.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
+  python -m colon3d.sim_import.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
 ```
 
 * Generating examples based on the imported scenes, with randomly simulated tracked targets.
 
 ```bash
-  python -m colon3d.import_from_sim.create_examples --sim_data_path "data/sim_data/SimData4" --path_to_save_examples "data/sim_data/SimData4/Examples" --n_examples_per_scene 5
+  python -m colon3d.sim_import.create_scenes_with_tracks --sim_data_path "data/sim_data/SimData4" --path_to_save_examples "data/sim_data/SimData4/Examples" --n_examples_per_scene 5
 ```
 
 * Run SLAM on a single simulated scene:
@@ -88,7 +87,6 @@ pip install -e .
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-  
 * Run SLAM on real data example:
 
 ```bash
