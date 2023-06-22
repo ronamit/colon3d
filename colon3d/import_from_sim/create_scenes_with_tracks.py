@@ -23,19 +23,19 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData9",
+        default="data/sim_data/SimData10",
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
         "--path_to_save_scenes",
         type=str,
-        default="data/sim_data/SimData9_with_tracks",
+        default="data/sim_data/SimData10_with_tracks",
         help="The path to the folder where the generated scenes with targets will be saved",
     )
     parser.add_argument(
         "--n_examples_per_scene",
         type=int,
-        default=5,
+        default=4,
         help="The number of examples with random targets to generate from each scene (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")

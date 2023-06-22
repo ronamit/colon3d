@@ -109,7 +109,7 @@ def draw_aided_nav(
                 pos=(5, 5 + track_id * 30),
                 font_size=int(0.04 * frame.shape[0]),
                 fill_color=colors_platte(track_id),
-                stroke_width=2,
+                stroke_width=1,
                 stroke_fill="black",
             )
             # draw orientation arrow, if the estimated position is outside the algorithm view
@@ -138,7 +138,7 @@ def draw_aided_nav(
                     pos=np.round(orient_arrow_base + 4 * (orient_arrow_tip - orient_arrow_base)).astype(int),
                     font_size=int(0.03 * frame.shape[0]),
                     fill_color=colors_platte(track_id),
-                    stroke_width=2,
+                    stroke_width=1,
                     stroke_fill="black",
                 )
             if is_track_in_orig_im and z_dist > 0:

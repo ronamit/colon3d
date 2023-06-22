@@ -196,7 +196,7 @@ def is_equal_dicts(dict1, dict2):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def put_unicode_text_on_img(img, text, pos, font_size, fill_color, stroke_width, stroke_fill):
+def put_unicode_text_on_img(img, text, pos, font_size, fill_color, stroke_width=1, stroke_fill="black"):
     """Put unicode text on image (note that OpeCV does not support unicode text, so we use PIL)
 
     Args:
