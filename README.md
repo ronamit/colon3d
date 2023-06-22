@@ -87,6 +87,7 @@ pip install -e .
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
+  
 * Run SLAM on real data example:
 
 ```bash
