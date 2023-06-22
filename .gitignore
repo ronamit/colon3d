@@ -5,11 +5,9 @@ colon3d/visuals/__pycache__/*
 colon3d/import_from_sim/__pycache__/*
 build/lib/*
 colon3d.egg-info
-.DS_Store
-.vscode/settings.json
-.vscode/settings.json
 __pycache__
 checkpoints/*
 pretrained/*
-checkpoints
 colon3d/Undistort_LUTs/*
+.DS_Store
+.vscode/settings.json
