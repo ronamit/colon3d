@@ -11,6 +11,5 @@ colon3d.egg-info
 __pycache__
 checkpoints/*
 pretrained/*
-*.pt
 checkpoints
 colon3d/Undistort_LUTs/*
