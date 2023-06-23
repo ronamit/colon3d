@@ -2,8 +2,11 @@ import shutil
 
 import numpy as np
 import torch
+import yaml
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 def high_res_colormap(low_res_cmap, resolution=1000, max_value=1):
@@ -15,6 +18,9 @@ def high_res_colormap(low_res_cmap, resolution=1000, max_value=1):
     new_x = np.linspace(0, max_value, resolution)
     high_res = np.stack([np.interp(new_x, x, low_res[:, i]) for i in range(low_res.shape[1])], axis=1)
     return ListedColormap(high_res)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 def opencv_rainbow(resolution=1000):
@@ -36,6 +42,8 @@ COLORMAPS = {
     "bone": cm.get_cmap("bone", 10000),
 }
 
+# ---------------------------------------------------------------------------------------------------------------------
+
 
 def tensor2array(tensor, max_value=None, colormap="rainbow"):
     tensor = tensor.detach().cpu()
@@ -52,7 +60,18 @@ def tensor2array(tensor, max_value=None, colormap="rainbow"):
     return array
 
 
-def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename="checkpoint.pth.tar"):
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def save_checkpoint(
+    save_path,
+    dispnet_state,
+    exp_pose_state,
+    is_best,
+    args=None,
+    scene_metadata=None,
+    filename="checkpoint.pth.tar",
+):
     file_prefixes = ["dispnet", "exp_pose"]
     states = [dispnet_state, exp_pose_state]
     for prefix, state in zip(file_prefixes, states, strict=True):
@@ -61,3 +80,18 @@ def save_checkpoint(save_path, dispnet_state, exp_pose_state, is_best, filename=
     if is_best:
         for prefix in file_prefixes:
             shutil.copyfile(save_path / f"{prefix}_{filename}", save_path / f"{prefix}_model_best.pth.tar")
+
+    # save the scene metadata as yaml file
+    if scene_metadata is not None:
+        with (save_path / "scene_metadata.yaml").open("w") as f:
+            yaml.dump(scene_metadata, f)
+
+    # save the args as yaml file
+    if args is not None:
+        with (save_path / "args.yaml").open("w") as f:
+            yaml.dump(vars(args), f)
+            
+    print(f"Checkpoint saved to {save_path / filename}")
+
+
+# ---------------------------------------------------------------------------------------------------------------------

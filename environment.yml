@@ -23,6 +23,4 @@ dependencies:
   - pip>=21.3.2
   - scikit-image=0.20.0
   - pillow=9.4.0
-  - pip:
-    - blessings=1.7
-    - progressbar=2.5
+

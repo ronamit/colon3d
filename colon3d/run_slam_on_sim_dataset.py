@@ -15,13 +15,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData9_with_tracks",
+        default="data/sim_data/SimData11_with_tracks",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData9_with_tracks/Results",
+        default="data/sim_data/SimData11_with_tracks/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -86,6 +86,7 @@ def main():
             save_path = Path(args.save_path).expanduser() / example_path.name
             create_empty_folder(save_path, ask_overwrite=True)
 
+            # run the SLAM algorithm on the current example
             _, metrics_stats = run_slam_on_scene(
                 scene_path=example_path,
                 save_path=save_path,
@@ -93,8 +94,8 @@ def main():
                 alg_fov_ratio=args.alg_fov_ratio,
                 depth_maps_source=args.depth_maps_source,
                 egomotions_source=args.egomotions_source,
-                save_all_plots=False,
-                save_aided_nav_plot=True,
+                show_all_plots=False,
+                plot_names=["aided_nav", "keypoints_and_tracks"], # plots to create
             )
 
             # add current example to the error metrics table

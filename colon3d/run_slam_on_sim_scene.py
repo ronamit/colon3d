@@ -6,12 +6,12 @@ import h5py
 import numpy as np
 
 from colon3d.show_slam_out import save_slam_out_plots
-from colon3d.slam import SlamRunner
 from colon3d.slam.alg_settings import AlgorithmParam
+from colon3d.slam.slam_alg import SlamRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
-from colon3d.utils.perfomance_metrics import calc_performance_metrics, plot_trajectory_metrics
+from colon3d.utils.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -22,13 +22,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/SimData9_Examples/Scene_00002_0000",
+        default="data/sim_data/SimData11_with_tracks/Scene_00002_0000",
         help=" path to the video",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData9_Examples/Scene_00002_0000/Results_Temp",
+        default="data/sim_data/SimData11_with_tracks/Scene_00002_0000/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -85,7 +85,7 @@ def main():
             depth_maps_source=args.depth_maps_source,
             egomotions_source=args.egomotions_source,
             draw_interval=args.draw_interval,
-            save_all_plots=True,
+            plot_names=None,  # create all plots
         )
 
 
@@ -100,9 +100,21 @@ def run_slam_on_scene(
     depth_maps_source: str,
     egomotions_source: str,
     draw_interval: int = 0,
-    save_all_plots: bool = False,
-    save_aided_nav_plot: bool = True,
+    plot_names: list | None = None,
 ):
+    """ "
+    Run the SLAM algorithm on a scene and save the results.
+    Args:
+        scene_path: path to the scene folder
+        save_path: path to the save outputs
+        n_frames_lim: upper limit on the number of frames used, if 0 then all frames are used
+        alg_fov_ratio: If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.
+        depth_maps_source: The source of the depth maps.
+        egomotions_source: The source of the egomotion.
+        draw_interval: plot and save figures each draw_interval frame, if 0 then no plots are saved.
+        plot_names: list of plot names to save, if None then all plots are saved.
+
+    """
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
 
@@ -134,9 +146,8 @@ def run_slam_on_scene(
             pickle.dump(slam_out, file)
             print(f"Saved the results to {results_file_path}")
 
-    if save_all_plots or save_aided_nav_plot:
-        plot_names = None if save_all_plots else ["aided_nav"]
-        save_slam_out_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
+    # create and save plots
+    save_slam_out_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
 
     # load the  ground truth targets info
     with (scene_path / "targets_info.pkl").open("rb") as file:

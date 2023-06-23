@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
-from inverse_warp import inverse_warp2
 from torch import nn
 
 from colon3d.utils.torch_util import get_device
+from endo_sfm.inverse_warp import inverse_warp2
 
 device = get_device()
 

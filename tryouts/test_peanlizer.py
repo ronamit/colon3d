@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from colon3d.torch_util import SoftConstraints
+from colon3d.utils.torch_util import SoftConstraints
 
 if __name__ == "__main__":
     # Test code:

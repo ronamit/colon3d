@@ -73,8 +73,19 @@ pip install -e .
 * Generating examples based on the imported scenes, with randomly simulated tracked targets.
 
 ```bash
-  python -m colon3d.sim_import.create_scenes_with_tracks --sim_data_path "data/sim_data/SimData4" --path_to_save_examples "data/sim_data/SimData4/Examples" --n_examples_per_scene 5
+  python -m colon3d.sim_import.create_scenes_with_tracks --sim_data_path "data/sim_data/SimData11" --path_to_save_examples "data/sim_data/SimData11_with_tracks" --n_examples_per_scene 5
 ```
+
+* Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.
+  Ths training checkpoints will be saved in "saved_models/endo_sfm_opt"
+
+```bash
+  python -m endo_sfm.train --name "endo_sfm_opt" --dataset_path "data/sim_data/ScenesForNetsTrain" 
+  --pretrained_disp "saved_models/endo_sfm_orig/dispnet_model_best.pt",
+  --pretrained_pose "saved_models/endo_sfm_orig/exp_pose_model_best.pt"
+```
+
+If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
 
 * Run SLAM on a single simulated scene:
 
@@ -87,7 +98,6 @@ pip install -e .
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-  
 * Run SLAM on real data example:
 
 ```bash

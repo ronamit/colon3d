@@ -8,7 +8,7 @@ from scipy.misc import imresize
 from tqdm import tqdm
 from utils import tensor2array
 
-from endo_sfm_learner.models.DispResNet import DispResNet
+from endo_sfm.models_def.DispResNet import DispResNet
 
 parser = argparse.ArgumentParser(
     description="Inference script for DispNet learned with \

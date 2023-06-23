@@ -11,6 +11,7 @@ import torch
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
+from skimage.transform import resize
 from torch.backends import cudnn
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -131,6 +132,19 @@ def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
+
+def save_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
+    n_frames = depth_frames.shape[0]
+
+    def get_depth_frame(i):
+        heatmap = cv2.applyColorMap(np.array(depth_frames[i], dtype=np.uint8), cv2.COLORMAP_JET)
+        return heatmap
+
+    save_video_from_func(save_path=save_path, make_frame=get_depth_frame, n_frames=n_frames, fps=fps)
+
+
+# --------------------------------------------------------------------------------------------------------------------
 def colors_platte(i_color: int | None = None, color_name: str | None = None):
     # source: https://www.rapidtables.com/web/color/RGB_Color.html
     # RGB colors
@@ -151,6 +165,7 @@ def colors_platte(i_color: int | None = None, color_name: str | None = None):
     if color_name is not None:
         return [c[1] for c in colors_list if c[0] == color_name][0]
     return colors_list[i_color % len(colors_list)][1]
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -365,14 +380,17 @@ def to_str(a):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def plot_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
-    n_frames = depth_frames.shape[0]
-
-    def get_depth_frame(i):
-        heatmap = cv2.applyColorMap(np.array(depth_frames[i], dtype=np.uint8), cv2.COLORMAP_JET)
-        return heatmap
-
-    save_video_from_func(save_path=save_path, make_frame=get_depth_frame, n_frames=n_frames, fps=fps)
+def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
+    """Resizes a batch of images to a new size.
+        imgs: the input images [n_imgs x height x width x n_channels]
+        new_height: the new height
+        new_width: the new width
+    Returns:
+        imgs: the resized images [n_imgs x new_height x new_width x n_channels]
+    """
+    n_imgs = imgs.shape[0]
+    imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
+    return imgs
 
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -5,11 +5,12 @@ import h5py
 import numpy as np
 import torch
 
+from colon3d.utils.general_util import resize_images
 from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon3d.utils.torch_util import get_device, to_numpy
 from colon3d.utils.transforms_util import unproject_image_normalized_coord_to_world
-from endo_sfm_learner.models.DispResNet import DispResNet
-from endo_sfm_learner.models.PoseResNet import PoseResNet
+from endo_sfm.models_def.DispResNet import DispResNet
+from endo_sfm.models_def.PoseResNet import PoseResNet
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -74,6 +75,8 @@ class DepthAndEgoMotionLoader:
             self.init_loaded_depth("est_depth_and_egomotion.h5", "est_depth_info.pkl")
         elif depth_maps_source == "none":
             assert depth_default is not None
+        else:
+            raise ValueError(f"Unknown depth maps source: {depth_maps_source}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -87,7 +90,7 @@ class DepthAndEgoMotionLoader:
         with (self.scene_path / depth_info_file_name).open("rb") as file:
             self.depth_info = to_numpy(pickle.load(file))
         self.depth_map_size = self.depth_info["depth_map_size"]
-        self.de_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
+        self.depth_cam_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
         self.n_frames = self.depth_info["n_frames"]
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -105,7 +108,9 @@ class DepthAndEgoMotionLoader:
             return self.loaded_depth_maps[frame_idx]
         if self.depth_maps_source == "online_estimates":
             return self.depth_estimator.get_depth_map(rgb_frame)
-        return None
+        if self.depth_maps_source == "none":
+            return torch.ones(self.depth_map_size) * self.depth_default
+        raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -137,10 +142,12 @@ class DepthAndEgoMotionLoader:
                 from_imgs=np.expand_dims(prev_frame, axis=0),
                 to_imgs=np.expand_dims(curr_frame, axis=0),
             )[0]
-        else:
+        elif self.egomotions_source == "none":
             # default value = identity egomotion (no motion)
             egomotion = torch.zeros((7), dtype=torch.float32)
             egomotion[3:] = get_identity_quaternion()
+        else:
+            raise ValueError(f"Unknown egomotion source: {self.egomotions_source}")
         assert len(egomotion) == 7  # (x, y, z, qw, qx, qy, qz)
         return egomotion
 
@@ -166,20 +173,21 @@ class DepthAndEgoMotionLoader:
             n_points = queried_points_nrm.shape[0]
             device = queried_points_nrm.device
             dtype = queried_points_nrm.dtype
-            # the depth  map size
-            de_width = self.depth_map_size["width"]
-            de_height = self.depth_map_size["height"]
+            # the depth map size of the loaded depth maps
+            depth_cam_width = self.depth_map_size["width"]
+            depth_cam_height = self.depth_map_size["height"]
             # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
+            # that the depth estimation map was created with
             x = queried_points_nrm[:, 0]
             y = queried_points_nrm[:, 1]
-            x = x * self.de_K[0, 0] + self.de_K[0, 2]
-            y = y * self.de_K[1, 1] + self.de_K[1, 2]
+            x = x * self.depth_cam_K[0, 0] + self.depth_cam_K[0, 2]
+            y = y * self.depth_cam_K[1, 1] + self.depth_cam_K[1, 2]
             x = x.cpu().numpy()
             y = y.cpu().numpy()
             x = x.round().astype(int)
             y = y.round().astype(int)
-            x = np.clip(x, 0, de_width - 1)
-            y = np.clip(y, 0, de_height - 1)
+            x = np.clip(x, 0, depth_cam_width - 1)
+            y = np.clip(y, 0, depth_cam_height - 1)
             # get the depth estimation at the queried point from the saved depth maps
             z_depths = torch.zeros((n_points), device=device, dtype=dtype)
             # with h5py.File(self.file_path, "r") as h5f:
@@ -191,12 +199,19 @@ class DepthAndEgoMotionLoader:
                 ]
                 depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
                 z_depths[frame_indexes == frame_idx] = depth_out
-            # clip the depth
-            if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
-                z_depths = torch.clamp(z_depths, min=self.depth_lower_bound, max=self.depth_upper_bound)
-        else:
+        elif self.depth_maps_source == "online_estimates":
+            pass
+            # TODO: load
+
+
+        elif self.depth_maps_source == "none":
             # return the default depth
             z_depths = self.depth_default * torch.ones_like(queried_points_nrm[:, 0])
+        else:
+            raise ValueError(f"Unknown depth_maps_source: {self.depth_maps_source}")
+        # clip the depth
+        if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
+            z_depths = torch.clamp(z_depths, min=self.depth_lower_bound, max=self.depth_upper_bound)
         return z_depths
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -236,20 +251,23 @@ def imgs_to_net_in(
     imgs: np.ndarray,
     device: torch.device,
     dtype: torch.dtype,
-    net_input_height: int,
-    net_input_width: int,
+    depth_cam_height: int,
+    depth_cam_width: int,
 ) -> torch.Tensor:
     """Transform the input images to the network input format.
     Args:
-        imgs (np.ndarray): the input images [n_imgs x height x width x n_channels]
+        imgs: the input images [n_imgs x height x width x n_channels]
     Returns:
-        imgs_net_in (torch.Tensor): the input images in the network format [n_imgs x n_channels x net_input_height x net_input_width]
+        imgs: the input images in the network format [n_imgs x n_channels x depth_cam_height x depth_cam_width]
     """
     if imgs.ndim == 3:
         imgs = np.expand_dims(imgs, axis=-1)  # add channel dimension
     n_imgs, height, width, n_channels = imgs.shape
     assert n_channels in [1, 3]
-    assert (height, width) == (net_input_height, net_input_width)
+    if (height, width) != (depth_cam_height, depth_cam_width):
+        # resize the images
+        imgs = resize_images(imgs, new_height=depth_cam_height, new_width=depth_cam_width)
+
     # transform to channels first
     imgs = np.transpose(imgs, (0, 3, 1, 2))
     imgs = torch.as_tensor(imgs, device=device, dtype=dtype)
@@ -266,9 +284,12 @@ class DepthNet:
         # load the disparity-estimation network (disparity = 1/depth)
         self.pretrained_disp = Path("pretrained/dispnet_model_best.pt")
         self.resnet_layers = 18
-        self.net_input_height = 256
-        self.net_input_width = 256
+        self.depth_cam_height = 256
+        self.depth_cam_width = 256
         self.net_out_to_mm = 41.1334  # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
+        # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
+        # TODO: load
+        self.depth_cam_K = np.array([[136.99316, 0.0, 128.89722], [0.0, 141.30414, 121.79207], [0.0, 0.0, 1.0]], dtype=np.float32)
         assert self.pretrained_disp.is_file()
         self.device = get_device()
         self.dtype = torch.float32
@@ -288,9 +309,16 @@ class DepthNet:
         Returns:
             depth_map (torch.Tensor): the estimated depth maps [N X H x W] (units: mm)
         """
-        imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
+        # get the original shape of the images:
+        n_imgs, height, width, n_channels = imgs.shape
+
+        # transform the images to the network input format (resize and normalize)
+        imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
         with torch.no_grad():
             output_disparity = self.disp_net(imgs)
+        # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
+        imgs = resize_images(imgs, new_height=height, new_width=width)
+
         # remove the n_channels dimension
         output_disparity.squeeze_(dim=1)  # [N x H x W]
         output_depth = 1 / output_disparity
@@ -327,8 +355,9 @@ class PoseNet:
         self.device = get_device()
         self.dtype = torch.float32
         self.resnet_layers = 18
-        self.net_input_height = 256
-        self.net_input_width = 256
+        # TODO: load
+        self.depth_cam_height = 256
+        self.depth_cam_width = 256
         self.pretrained_pose = Path("pretrained/exp_pose_model_best.pt")
         self.net_out_to_mm = 41.1334  # the output of the network (translation part) needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
         assert self.pretrained_pose.is_file()
@@ -352,8 +381,8 @@ class PoseNet:
         """
         n_imgs = len(from_imgs)
         assert len(to_imgs) == n_imgs
-        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
-        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.net_input_height, self.net_input_width)
+        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
+        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
         with torch.no_grad():
             pose_out = self.pose_net(from_imgs, to_imgs)
         # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz

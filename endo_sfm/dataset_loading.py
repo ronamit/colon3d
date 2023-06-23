@@ -7,7 +7,7 @@ import yaml
 from imageio import imread
 from torch.utils import data
 
-from endo_sfm_learner.custom_transforms import Compose
+from endo_sfm.custom_transforms import Compose
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -76,7 +76,21 @@ class ScenesDataset(data.Dataset):
                 sample = {"scene_index": scene_index, "target_frame_index": target_ind, "ref_frames_inds": ref_inds}
                 self.samples.append(sample)
         random.shuffle(self.samples)
-
+        
+    # ---------------------------------------------------------------------------------------------------------------------
+    
+    def get_scene_metadata(self, scene_index: int) -> dict:
+        """Get the metadata of a scene
+        Args:
+            scene_index (int): Index of the scene
+        Returns:
+            dict: Dictionary containing the metadata of the scene
+        """
+        scene_path = self.scenes_paths[scene_index]
+        with (scene_path / "meta_data.yaml").open() as file:
+            metadata = yaml.load(file, Loader=yaml.FullLoader)
+        return metadata
+    
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __getitem__(self, index: int) -> dict:

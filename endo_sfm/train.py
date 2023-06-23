@@ -4,7 +4,6 @@ import random
 import time
 from pathlib import Path
 
-import custom_transforms
 import torch
 import torch.optim
 import torch.utils.data
@@ -12,12 +11,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.utils.torch_util import get_device
-from endo_sfm_learner.dataset_loading import ScenesDataset
-from endo_sfm_learner.logger import AverageMeter, TermLogger
-from endo_sfm_learner.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
-from endo_sfm_learner.models.DispResNet import DispResNet
-from endo_sfm_learner.models.PoseResNet import PoseResNet
-from endo_sfm_learner.utils import save_checkpoint
+from endo_sfm import custom_transforms
+from endo_sfm.dataset_loading import ScenesDataset
+from endo_sfm.logger import AverageMeter
+from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
+from endo_sfm.models_def.DispResNet import DispResNet
+from endo_sfm.models_def.PoseResNet import PoseResNet
+from endo_sfm.utils import save_checkpoint
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -28,22 +28,42 @@ def main():
         "--name",
         dest="name",
         type=str,
-        default="temp",
+        default="endo_sfm_opt",
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
     parser.add_argument(
         "--dataset_path",
         metavar="DIR",
         help="path to training dataset of scenes",
-        default="data/sim_data/TrainData3",
+        default="data/sim_data/SimData11",
     )
     parser.add_argument(
         "--validation_percent",
         type=float,
-        default=0.2,
-        help="percentage of the number of scenes in the validation set from entire training set scenes",
+        default=0.15,
+        help="ratio of the number of scenes in the validation set from entire training set scenes",
+    )
+    parser.add_argument(
+        "--pretrained_disp",
+        dest="pretrained_disp",
+        default="saved_models/endo_sfm_orig/dispnet_model_best.pt",
+        metavar="PATH",
+        help="path to pre-trained DispNet model (disparity=1/depth) ",
+    )
+    parser.add_argument(
+        "--pretrained_pose",
+        dest="pretrained_pose",
+        default="saved_models/endo_sfm_orig/exp_pose_model_best.pt",
+        metavar="PATH",
+        help="path to pre-trained PoseNet model",
     )
 
+    parser.add_argument(
+        "--with_pretrain",
+        type=bool,
+        default=True,
+        help="in case training from scratch -  do we use ImageNet pretrained weights or not",
+    )
     parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
     parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
@@ -54,7 +74,9 @@ def main():
         metavar="N",
         help="manual epoch size (will match dataset size if not set)",
     )
-    parser.add_argument("-b", "--batch_size", default=4, type=int, metavar="N", help="mini-batch size")
+    parser.add_argument(
+        "-b", "--batch_size", default=8, type=int, metavar="N", help="mini-batch size, decrease this if out of memory",
+    )
     parser.add_argument("--lr", "--learning_rate", default=1e-4, type=float, metavar="LR", help="initial learning rate")
     parser.add_argument(
         "--momentum",
@@ -127,22 +149,6 @@ def main():
         help="with the the mask for moving objects and occlusions or not",
     )
     parser.add_argument("--with_auto_mask", type=bool, default=False, help="with the the mask for stationary points")
-    parser.add_argument("--with_pretrain", type=bool, default=True, help="with or without imagenet pretrain for resnet")
-    parser.add_argument(
-        "--pretrained_disp",
-        dest="pretrained_disp",
-        default="pretrained/dispnet_model_best.pt",
-        metavar="PATH",
-        help="path to pre-trained dispnet model",
-    )
-    parser.add_argument(
-        "--pretrained_pose",
-        dest="pretrained_pose",
-        default="pretrained/exp_pose_model_best.pt",
-        metavar="PATH",
-        help="path to pre-trained Pose net model",
-    )
-
     parser.add_argument(
         "--padding_mode",
         type=str,
@@ -160,8 +166,8 @@ def main():
     torch.autograd.set_detect_anomaly(True)
     args = parser.parse_args()
     timestamp = get_time_now_str()
-    save_path = Path(args.name)
-    args.save_path = "checkpoints" / save_path / timestamp
+    save_path = Path("checkpoints") / args.name / timestamp
+    args.save_path = save_path
     print(f"=> will save everything to {args.save_path}")
     create_empty_folder(args.save_path)
     set_rand_seed(args.seed)
@@ -236,6 +242,9 @@ def main():
     if args.epoch_size == 0:
         args.epoch_size = len(train_loader)
 
+    # get the metadata of some scene (we assume that all scenes have the same metadata)
+    scene_metadata = train_set.get_scene_metadata(scene_index=0)
+
     # create model
     print("=> creating model")
     disp_net = DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
@@ -254,9 +263,8 @@ def main():
         pose_net.load_state_dict(weights["state_dict"], strict=False)
         pose_net.to(device)
 
-    # TODO: fix issue with DataParallel and device ids mismatch
-    # disp_net = torch.nn.DataParallel(disp_net)
-    # pose_net = torch.nn.DataParallel(pose_net)
+    disp_net = torch.nn.DataParallel(disp_net)
+    pose_net = torch.nn.DataParallel(pose_net)
 
     print("=> setting adam solver")
     optim_params = [
@@ -273,19 +281,28 @@ def main():
         writer = csv.writer(csvfile, delimiter="\t")
         writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
 
-    logger = TermLogger(
-        n_epochs=args.epochs,
-        train_size=min(len(train_loader), args.epoch_size),
-        valid_size=len(val_loader),
+    # save initial checkpoint
+    save_checkpoint(
+        save_path=args.save_path,
+        dispnet_state={
+            "epoch": 0,
+            "state_dict": disp_net.state_dict(),
+        },
+        exp_pose_state={
+            "epoch": 0,
+            "state_dict": pose_net.state_dict(),
+        },
+        is_best=0,
+        args=args,
+        scene_metadata=scene_metadata,
     )
-    logger.epoch_bar.start()
-
+        
+        
     # main optimization loop
     for epoch in range(args.epochs):
-        logger.epoch_bar.update(epoch)
-
+        print(f"Training epoch {epoch+1}/{args.epochs}")
+ 
         # train for one epoch
-        logger.reset_train_bar()
         train_loss, n_iter = train(
             args,
             train_loader,
@@ -293,17 +310,16 @@ def main():
             pose_net,
             optimizer,
             args.epoch_size,
-            logger,
             training_writer,
             n_iter,
         )
-        logger.train_writer.write(f" * Avg Loss : {train_loss:.3f}")
+        print(f" * Avg Loss : {train_loss:.3f}")
 
         # evaluate on validation set
-        errors, error_names = validate_with_gt(args, val_loader, disp_net, logger, output_writers)
+        errors, error_names = validate_with_gt(args, val_loader, disp_net, output_writers)
 
         error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
-        logger.valid_writer.write(f" * Avg {error_string}")
+        print(f" * Avg {error_string}")
 
         for error, name in zip(errors, error_names, strict=True):
             training_writer.add_scalar(name, error, epoch)
@@ -317,28 +333,29 @@ def main():
         is_best = decisive_error < best_error
         best_error = min(best_error, decisive_error)
         save_checkpoint(
-            args.save_path,
-            {
+            save_path=args.save_path,
+            dispnet_state={
                 "epoch": epoch + 1,
                 "state_dict": disp_net.state_dict(),
             },
-            {
+            exp_pose_state={
                 "epoch": epoch + 1,
                 "state_dict": pose_net.state_dict(),
             },
-            is_best,
+            is_best=is_best,
+            args=args,
+            scene_metadata=scene_metadata,
         )
 
         with (args.save_path / args.log_summary).open("a") as csvfile:
             writer = csv.writer(csvfile, delimiter="\t")
             writer.writerow([train_loss, decisive_error])
-    logger.epoch_bar.finish()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger, train_writer, n_iter: int):
+def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, train_writer, n_iter: int):
     """Train for one epoch on the training set"""
     device = get_device()
     batch_time = AverageMeter()
@@ -351,7 +368,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
     pose_net.train()
 
     end = time.time()
-    logger.train_bar.start()
+
     # loop over batches
     for i, batch in enumerate(train_loader):
         log_losses = i > 0 and n_iter % args.print_freq == 0
@@ -406,9 +423,8 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
         with (args.save_path / args.log_full).open("a") as csvfile:
             writer = csv.writer(csvfile, delimiter="\t")
             writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
-        logger.train_bar.update(i + 1)
         if i % args.print_freq == 0:
-            logger.train_writer.write(f"Train: Time {batch_time} Data {data_time} Loss {losses}")
+            print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
         if i >= epoch_size - 1:
             break
 
@@ -421,7 +437,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, logger,
 
 
 @torch.no_grad()
-def validate_with_gt(args, val_loader, disp_net, logger, output_writers=None):
+def validate_with_gt(args, val_loader, disp_net, output_writers=None):
     output_writers = output_writers or []
     device = get_device()
     batch_time = AverageMeter()
@@ -432,7 +448,6 @@ def validate_with_gt(args, val_loader, disp_net, logger, output_writers=None):
     disp_net.eval()
 
     end = time.time()
-    logger.valid_bar.start()
     for i, batch in enumerate(val_loader):
         tgt_img = batch["tgt_img"].to(device)
         gt_depth = batch["depth_img"].to(device)
@@ -449,10 +464,8 @@ def validate_with_gt(args, val_loader, disp_net, logger, output_writers=None):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        logger.valid_bar.update(i + 1)
         if i % args.print_freq == 0:
-            logger.valid_writer.write(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
-    logger.valid_bar.update(len(val_loader))
+            print(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
     return errors.avg, error_names
 
 

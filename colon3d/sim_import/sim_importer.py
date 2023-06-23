@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import yaml
 
-from colon3d.utils.general_util import create_empty_folder, path_to_str, plot_depth_video, save_video_from_func
+from colon3d.utils.general_util import create_empty_folder, path_to_str, save_depth_video, save_video_from_func
 from colon3d.utils.rotations_util import normalize_quaternions
 from colon3d.utils.torch_util import np_func
 from colon3d.utils.transforms_util import infer_egomotions
@@ -184,7 +184,7 @@ class SimImporter:
                 pickle.dump(depth_info, file)
 
             # save depth video
-            plot_depth_video(
+            save_depth_video(
                 depth_frames=z_depth_frames,
                 save_path=scene_path / "gt_depth_video",
                 fps=metadata["fps"],

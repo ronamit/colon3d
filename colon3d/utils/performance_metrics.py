@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.sim_import.simulate_tracks import TargetsInfo
-from colon3d.slam import SlamOutput
+from colon3d.slam.slam_alg import SlamOutput
 from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.utils.rotations_util import normalize_quaternions
