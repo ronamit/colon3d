@@ -380,7 +380,7 @@ def to_str(a):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
+def resize_images(imgs: np.ndarray | torch.Tensor, new_height: int, new_width: int) -> np.ndarray | torch.Tensor:
     """Resizes a batch of images to a new size.
         imgs: the input images [n_imgs x height x width x n_channels]
         new_height: the new height
@@ -389,7 +389,10 @@ def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarr
         imgs: the resized images [n_imgs x new_height x new_width x n_channels]
     """
     n_imgs = imgs.shape[0]
-    imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
+    if isinstance(imgs, torch.Tensor):
+        imgs = torch.nn.functional.interpolate(imgs, size=(new_height, new_width), mode="bilinear", align_corners=False)
+    else:
+        imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
     return imgs
 
 

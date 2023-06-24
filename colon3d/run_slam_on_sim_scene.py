@@ -52,6 +52,12 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
+        "--depth_and_egomotion_model_path",
+        type=str,
+        default="saved_models/endo_sfm_orig",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
+    )
+    parser.add_argument(
         "--alg_fov_ratio",
         type=float,
         default=0,
@@ -84,6 +90,7 @@ def main():
             alg_fov_ratio=args.alg_fov_ratio,
             depth_maps_source=args.depth_maps_source,
             egomotions_source=args.egomotions_source,
+            depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
             draw_interval=args.draw_interval,
             plot_names=None,  # create all plots
         )
@@ -99,6 +106,7 @@ def run_slam_on_scene(
     alg_fov_ratio: float,
     depth_maps_source: str,
     egomotions_source: str,
+    depth_and_egomotion_model_path: str,
     draw_interval: int = 0,
     plot_names: list | None = None,
 ):
@@ -124,6 +132,7 @@ def run_slam_on_scene(
         scene_path=scene_path,
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
+        depth_and_egomotion_model_path=depth_and_egomotion_model_path,
         depth_lower_bound=alg_prm.depth_lower_bound,
         depth_upper_bound=alg_prm.depth_upper_bound,
         depth_default=alg_prm.depth_default,

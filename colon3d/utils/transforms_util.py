@@ -9,7 +9,7 @@ from colon3d.utils.rotations_util import (
     invert_rotation,
     rotate_points,
 )
-from colon3d.utils.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func
+from colon3d.utils.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func, to_numpy
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -50,7 +50,10 @@ def transform_rectilinear_image_pixel_coords_to_normalized(
 
 def transform_rectilinear_image_norm_coords_to_pixel(
     points_nrm: np.ndarray,
-    cam_info: CamInfo,
+    cam_info: CamInfo | None = None,
+    cam_K: np.ndarray | None = None,
+    im_height: int | None = None,
+    im_width: int | None = None,
 ) -> np.ndarray:
     """Transforms normalized image coordinates to pixel coordinates.
     Assumes the camera is rectilinear with a given K matrix (no fisheye distortion)
@@ -60,14 +63,33 @@ def transform_rectilinear_image_norm_coords_to_pixel(
     Returns:
         points_pix: [n_points x 2] (units: pixels)
     """
-    assert_2d_tensor(points_nrm, 2)
-    fx = cam_info.fx
-    fy = cam_info.fy
-    cx = cam_info.cx
-    cy = cam_info.cy
+    points_nrm = to_numpy(points_nrm)
+    if cam_info is not None:
+        fx = cam_info.fx
+        fy = cam_info.fy
+        cx = cam_info.cx
+        cy = cam_info.cy
+        
+    elif cam_K is not None:
+        fx = cam_K[0, 0]
+        fy = cam_K[1, 1]
+        cx = cam_K[0, 2]
+        cy = cam_K[1, 2]
     x_pix = points_nrm[:, 0] * fx + cx  # u = u_nrm * fx + cx
     y_pix = points_nrm[:, 1] * fy + cy  # v = v_nrm * fy + cy
-    points_pix = torch.stack((x_pix, y_pix), dim=1)
+    points_pix =np.stack((x_pix, y_pix), axis=1)
+    
+    # Round to nearest pixel
+    points_pix = points_pix.round().astype(int)
+    
+    if im_height is not None:
+        # clip the y value
+        points_pix[:, 1] = np.clip(points_pix[:, 1], 0, im_height - 1)
+        
+    if im_width is not None:
+        # clip the x value
+        points_pix[:, 0] = np.clip(points_pix[:, 0], 0, im_width - 1)
+            
     return points_pix
 
 

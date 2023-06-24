@@ -36,8 +36,9 @@ def get_default_dtype(package="torch", num_type="float"):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_numpy(x):
-    dtype = get_default_dtype("numpy")
+def to_numpy(x, dtype=None):
+    if dtype is None:
+        dtype = get_default_dtype("numpy")
     if isinstance(x, np.ndarray):
         return x.astype(dtype)
     if isinstance(x, dict):
@@ -48,7 +49,26 @@ def to_numpy(x):
         return x.numpy(force=True).astype(dtype)
     return x
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
+
+def to_torch(x, dtype=None, device=None):
+    dtype = dtype or get_default_dtype("torch")
+    device = device or get_device()
+    if isinstance(x, torch.Tensor):
+        return x.to(dtype)
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).to(dtype).to(device)
+    if isinstance(x, dict):
+        return {k: to_torch(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [to_torch(v) for v in x]
+    return None
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
 
 def from_numpy(x):
     dtype = get_default_dtype("torch")
@@ -57,6 +77,7 @@ def from_numpy(x):
     if isinstance(x, list):
         return [from_numpy(v) for v in x]
     return torch.from_numpy(x).to(dtype)
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

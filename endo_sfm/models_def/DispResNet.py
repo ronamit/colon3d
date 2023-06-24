@@ -1,10 +1,9 @@
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .resnet_encoder2 import ResnetEncoder
+from endo_sfm.models_def.resnet_encoder2 import ResnetEncoder
 
 
 class ConvBlock(nn.Module):
@@ -46,7 +45,7 @@ def upsample(x):
 
 
 class DepthDecoder(nn.Module):
-    def __init__(self, num_ch_enc, scales=(0,1,2,3), num_output_channels=1, use_skips=True):
+    def __init__(self, num_ch_enc, scales=(0, 1, 2, 3), num_output_channels=1, use_skips=True):
         super().__init__()
 
         self.alpha = 10
@@ -115,6 +114,8 @@ class DispResNet(nn.Module):
             return outputs
         return outputs[0]
 
+# --------------------------------------------------------------------------------------------------------------------
+
 
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
@@ -124,9 +125,10 @@ if __name__ == "__main__":
 
     B = 12
 
-    tgt_img = torch.randn(B, 3, 256, 832).cuda()
-    ref_imgs = [torch.randn(B, 3, 256, 832).cuda() for i in range(2)]
+    tgt_img = torch.randn(B, 3, 256, 256).cuda()
+    ref_imgs = [torch.randn(B, 3, 256, 256).cuda() for i in range(2)]
 
     tgt_depth = model(tgt_img)
 
     print(tgt_depth[0].size())
+# --------------------------------------------------------------------------------------------------------------------

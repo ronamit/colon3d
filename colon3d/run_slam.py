@@ -18,13 +18,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/my_videos/Example_4",
+        default="data/my_videos/Example_4_rotV2",
         help="path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/Results",
+        default="data/my_videos/Example_4_rotV2/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -46,6 +46,12 @@ def main():
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
         "if 'loaded_estimates' then the egomotion estimations will be loaded, "
         "if 'none' then no egomotion will not be used,",
+    )
+    parser.add_argument(
+        "--depth_and_egomotion_model_path",
+        type=str,
+        default="saved_models/endo_sfm_orig",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     parser.add_argument(
         "--alg_fov_ratio",
@@ -96,6 +102,7 @@ def main():
             scene_path=scene_path,
             depth_maps_source=args.depth_maps_source,
             egomotions_source=args.egomotions_source,
+            depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
             depth_lower_bound=alg_prm.depth_lower_bound,
             depth_upper_bound=alg_prm.depth_upper_bound,
             depth_default=alg_prm.depth_default,

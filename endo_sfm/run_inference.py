@@ -19,7 +19,7 @@ parser.add_argument("--output-disp", action="store_true", help="save disparity i
 parser.add_argument("--output-depth", action="store_true", help="save depth img")
 parser.add_argument("--pretrained", required=True, type=str, help="pretrained DispResNet path")
 parser.add_argument("--img-height", default=256, type=int, help="Image height")
-parser.add_argument("--img-width", default=832, type=int, help="Image width")
+parser.add_argument("--img-width", default=256, type=int, help="Image width")
 parser.add_argument("--no-resize", action="store_true", help="no resizing is done")
 
 parser.add_argument("--dataset-list", default=None, type=str, help="Dataset list file")

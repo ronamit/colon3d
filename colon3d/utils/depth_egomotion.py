@@ -4,11 +4,15 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
+import yaml
 
 from colon3d.utils.general_util import resize_images
 from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.utils.torch_util import get_device, to_numpy
-from colon3d.utils.transforms_util import unproject_image_normalized_coord_to_world
+from colon3d.utils.torch_util import get_device, to_numpy, to_torch
+from colon3d.utils.transforms_util import (
+    transform_rectilinear_image_norm_coords_to_pixel,
+    unproject_image_normalized_coord_to_world,
+)
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
 
@@ -21,6 +25,7 @@ class DepthAndEgoMotionLoader:
         scene_path: Path,
         depth_maps_source: str,
         egomotions_source: str,
+        depth_and_egomotion_model_path: str | None = None,
         depth_lower_bound: float | None = None,
         depth_upper_bound: float | None = None,
         depth_default: float | None = None,
@@ -46,33 +51,42 @@ class DepthAndEgoMotionLoader:
         self.depth_default = depth_default
         self.device = get_device()
 
+        # Init empty buffers
+        self.depth_maps_buffer = []
+        self.egomotions_buffer = []
+        self.depth_maps_buffer_frame_inds = []
+        self.egomotions_buffer_frame_inds = []
+
         # Initialize egomotions
+
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
-            # initialize the egomotion estimator
-            self.egomotion_estimator = PoseNet()
+            self.egomotion_estimator = EgomotionModel(depth_and_egomotion_model_path)
+
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
-            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
+            self.init_loaded_egomotions("gt_depth_and_egomotion.h5")
+
         elif egomotions_source == "loaded_estimates":
             print("Using loaded estimated egomotions")
-            with h5py.File(scene_path / "est_depth_and_egomotion.h5", "r") as h5f:
-                self.loaded_egomotions = h5f["egomotions"][:]  # load into memory
-        # Init depth maps.
+            self.init_loaded_egomotions("est_depth_and_egomotion.h5")
+
         if depth_maps_source == "online_estimates":
-            # initialize the depth estimator
-            self.depth_estimator = DepthNet(
+            self.depth_estimator = DepthModel(
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
+                depth_and_egomotion_model_path=depth_and_egomotion_model_path,
             )
             print("Using online depth estimation")
+
         elif depth_maps_source == "ground_truth":
             print("Using loaded ground-truth depth maps")
             self.init_loaded_depth("gt_depth_and_egomotion.h5", "gt_depth_info.pkl")
+
         elif depth_maps_source == "loaded_estimates":
             print("Using loaded estimated depth maps")
             self.init_loaded_depth("est_depth_and_egomotion.h5", "est_depth_info.pkl")
+
         elif depth_maps_source == "none":
             assert depth_default is not None
         else:
@@ -80,45 +94,86 @@ class DepthAndEgoMotionLoader:
 
     # --------------------------------------------------------------------------------------------------------------------
 
+    def init_loaded_egomotions(self, egomotions_file_name: str):
+        with h5py.File(self.scene_path / egomotions_file_name, "r") as h5f:
+            self.egomotions_buffer = h5f["egomotions"][:]  # load all into memory
+        n_frames = self.egomotions_buffer.shape[0]
+        self.egomotions_buffer_frame_inds = list(range(n_frames))
+
+    # --------------------------------------------------------------------------------------------------------------------
     def init_loaded_depth(self, depth_maps_file_name: str, depth_info_file_name: str):
         """Initialize the loaded depth maps from a given file.
         The depth maps are loaded into memory.
         """
-        with h5py.File(self.scene_path / depth_maps_file_name, "r") as h5f:
-            self.loaded_depth_maps = h5f["z_depth_map"][:]
+        self.depth_maps_path = self.scene_path / depth_maps_file_name
         # load the depth estimation info\metadata
         with (self.scene_path / depth_info_file_name).open("rb") as file:
             self.depth_info = to_numpy(pickle.load(file))
-        self.depth_map_size = self.depth_info["depth_map_size"]
-        self.depth_cam_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
+        # load the depth maps
+        with h5py.File(self.depth_maps_path, "r") as h5f:
+            self.depth_maps_buffer = h5f["z_depth_map"][:]  # load all into memory
+        n_frames = self.depth_maps_buffer.shape[0]
+        self.depth_maps_buffer_frame_inds = list(range(n_frames))
+        self.loaded_depth_map_size = self.depth_info["depth_map_size"]
+        self.loaded_depth_map_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
         self.n_frames = self.depth_info["n_frames"]
+
+    # --------------------------------------------------------------------------------------------------------------------
+    def process_new_frame(self, i_frame: int, cur_rgb_frame: np.ndarray, prev_rgb_frame: np.ndarray):
+        if self.depth_maps_source == "none" or i_frame in self.depth_maps_buffer_frame_inds:
+            pass  # no need to estimate depth map - we always return th default depth map
+        
+        elif self.depth_maps_source == "online_estimates":
+            self.depth_maps_buffer.append(self.depth_estimator.estimate_depth_map(cur_rgb_frame))
+            self.depth_maps_buffer_frame_inds.append(i_frame)
+            
+        elif self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
+            pass # no need to estimate depth map, it is already loaded to the buffer
+            
+        else:
+            raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
+
+        if self.egomotions_source == "none" or i_frame in self.egomotions_buffer_frame_inds or i_frame == 0:
+            pass  # no need to estimate egomotion, we always return the default (zero egomotion)
+        
+        elif self.egomotions_source == "online_estimates":
+            self.egomotions_buffer.append(
+                self.egomotion_estimator.estimate_egomotion(
+                    prev_frame=prev_rgb_frame,
+                    curr_frame=cur_rgb_frame,
+                ),
+            )
+            self.egomotions_buffer_frame_inds.append(i_frame)
+            
+        elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
+            pass # no need to estimate egomotion, it is already loaded to the buffer
+            
+        else:
+            raise ValueError(f"Unknown egomotion source: {self.egomotions_source}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_map_at_frame(
         self,
         frame_idx: int,
-        rgb_frame: torch.Tensor | None = None,
     ):
         """Get the depth estimation at a given frame.
+        Notes: we assume process_new_frame was called before this function on this frame index.
         Returns:
             depth_map: the depth estimation map (units: mm)
         """
-        if self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
-            return self.loaded_depth_maps[frame_idx]
-        if self.depth_maps_source == "online_estimates":
-            return self.depth_estimator.get_depth_map(rgb_frame)
         if self.depth_maps_source == "none":
-            return torch.ones(self.depth_map_size) * self.depth_default
-        raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
+            # return the default depth map
+            return torch.ones(self.loaded_depth_map_size) * self.depth_default
+        
+        buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
+        return self.depth_maps_buffer[buffer_idx]
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_egomotions_at_frame(
         self,
         curr_frame_idx: int,
-        prev_frame: np.ndarray,
-        curr_frame: np.ndarray,
     ) -> torch.Tensor:
         """Get the egomotion at a given frame.
         The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
@@ -131,32 +186,27 @@ class DepthAndEgoMotionLoader:
             curr_frame: the current RGB frame,
         Returns:
             egomotion: the egomotion (units: mm, mm, mm, -, -, -, -)
+        Notes: we assume process_new_frame was called before this function on this frame index.
         """
-        if self.egomotions_source in ["ground_truth", "loaded_estimates"]:
-            egomotion = self.loaded_egomotions[curr_frame_idx]
-            egomotion = torch.from_numpy(egomotion).to(self.device)
-            # normalize the quaternion (in case it is not normalized)
-            egomotion[3:] = normalize_quaternions(egomotion[3:])
-        elif self.egomotions_source == "online_estimates":
-            egomotion = self.egomotion_estimator.get_egomotions(
-                from_imgs=np.expand_dims(prev_frame, axis=0),
-                to_imgs=np.expand_dims(curr_frame, axis=0),
-            )[0]
-        elif self.egomotions_source == "none":
+        if self.egomotions_source == "none" or curr_frame_idx == 0:
             # default value = identity egomotion (no motion)
             egomotion = torch.zeros((7), dtype=torch.float32)
             egomotion[3:] = get_identity_quaternion()
-        else:
-            raise ValueError(f"Unknown egomotion source: {self.egomotions_source}")
-        assert len(egomotion) == 7  # (x, y, z, qw, qx, qy, qz)
+            return egomotion
+        buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
+        egomotion = self.egomotions_buffer[buffer_idx]
+        egomotion = to_torch(egomotion)
+        # normalize the quaternion (in case it is not normalized)
+        egomotion[3:] = normalize_quaternions(egomotion[3:])
+
         return egomotion
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_at_nrm_points(
         self,
-        frame_indexes: np.ndarray,
         queried_points_nrm: torch.Tensor,
+        frame_indexes: np.ndarray | None = None,
     ):
         """Get the depth estimation at a given point in the image.
 
@@ -167,48 +217,53 @@ class DepthAndEgoMotionLoader:
         Returns:
             depth_z_est: the depth estimation at the queried point [n_points] (units: mm)
 
-        Note: Normalized coordinates correspond to a rectilinear camera with focal length is 1 and the optical center is at (0,0))
+        Notes: - Normalized coordinates correspond to a rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
+        n_points = queried_points_nrm.shape[0]
+        device = queried_points_nrm.device
+        dtype = queried_points_nrm.dtype
+
+        if self.depth_maps_source == "none":
+            # just return the default depth for all points
+            z_depths = self.depth_default * torch.ones((n_points), dtype=dtype, device=device)
+            return z_depths
+
+        # we need to transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
         if self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
-            n_points = queried_points_nrm.shape[0]
-            device = queried_points_nrm.device
-            dtype = queried_points_nrm.dtype
             # the depth map size of the loaded depth maps
-            depth_cam_width = self.depth_map_size["width"]
-            depth_cam_height = self.depth_map_size["height"]
-            # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
-            # that the depth estimation map was created with
-            x = queried_points_nrm[:, 0]
-            y = queried_points_nrm[:, 1]
-            x = x * self.depth_cam_K[0, 0] + self.depth_cam_K[0, 2]
-            y = y * self.depth_cam_K[1, 1] + self.depth_cam_K[1, 2]
-            x = x.cpu().numpy()
-            y = y.cpu().numpy()
-            x = x.round().astype(int)
-            y = y.round().astype(int)
-            x = np.clip(x, 0, depth_cam_width - 1)
-            y = np.clip(y, 0, depth_cam_height - 1)
-            # get the depth estimation at the queried point from the saved depth maps
-            z_depths = torch.zeros((n_points), device=device, dtype=dtype)
-            # with h5py.File(self.file_path, "r") as h5f:
-            for frame_idx in np.unique(frame_indexes):
-                # notice that the depth image coordinates are (y,x) not (x,y).
-                depth_out = self.loaded_depth_maps[frame_idx][
-                    y[frame_indexes == frame_idx],
-                    x[frame_indexes == frame_idx],
-                ]
-                depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
-                z_depths[frame_indexes == frame_idx] = depth_out
+            depth_map_width = self.loaded_depth_map_size["width"]
+            depth_map_height = self.loaded_depth_map_size["height"]
+            depth_map_K = self.loaded_depth_map_K
         elif self.depth_maps_source == "online_estimates":
-            pass
-            # TODO: load
+            depth_map_width = self.depth_estimator.depth_map_width
+            depth_map_height = self.depth_estimator.depth_map_height
+            depth_map_K = self.depth_estimator.depth_map_K
 
+        # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
+        # that the depth estimation map was created with
+        pixels_cord = transform_rectilinear_image_norm_coords_to_pixel(
+            points_nrm=queried_points_nrm,
+            cam_K=depth_map_K,
+            im_height=depth_map_height,
+            im_width=depth_map_width,
+        )
+        x = pixels_cord[:, 0]
+        y = pixels_cord[:, 1]
 
-        elif self.depth_maps_source == "none":
-            # return the default depth
-            z_depths = self.depth_default * torch.ones_like(queried_points_nrm[:, 0])
-        else:
-            raise ValueError(f"Unknown depth_maps_source: {self.depth_maps_source}")
+        # get the depth estimation at the queried point from the saved depth maps
+        z_depths = torch.zeros((n_points), device=device, dtype=dtype)
+
+        for frame_idx in np.unique(frame_indexes):
+            buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
+
+            # notice that the depth image coordinates are (y,x) not (x,y).
+            depth_out = self.depth_maps_buffer[buffer_idx][
+                y[frame_indexes == frame_idx],
+                x[frame_indexes == frame_idx],
+            ]
+            depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
+            z_depths[frame_indexes == frame_idx] = depth_out
+
         # clip the depth
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             z_depths = torch.clamp(z_depths, min=self.depth_lower_bound, max=self.depth_upper_bound)
@@ -218,9 +273,9 @@ class DepthAndEgoMotionLoader:
 
     def estimate_3d_points(
         self,
-        frame_indexes: list,
         cam_poses: torch.Tensor,
         queried_points_nrm: torch.Tensor,
+        frame_indexes: list | None = None,
     ):
         """Estimate the 3D point in the world coordinate system.
 
@@ -233,8 +288,8 @@ class DepthAndEgoMotionLoader:
             p3d_est: the estimated 3D point in the world coordinate system [n_points x 3] (units: mm)
         """
         depth_z_est = self.get_depth_at_nrm_points(
-            frame_indexes=frame_indexes,
             queried_points_nrm=queried_points_nrm,
+            frame_indexes=frame_indexes,
         )
         p3d_est = unproject_image_normalized_coord_to_world(
             points_nrm=queried_points_nrm,
@@ -251,22 +306,22 @@ def imgs_to_net_in(
     imgs: np.ndarray,
     device: torch.device,
     dtype: torch.dtype,
-    depth_cam_height: int,
-    depth_cam_width: int,
+    depth_map_height: int,
+    depth_map_width: int,
 ) -> torch.Tensor:
     """Transform the input images to the network input format.
     Args:
         imgs: the input images [n_imgs x height x width x n_channels]
     Returns:
-        imgs: the input images in the network format [n_imgs x n_channels x depth_cam_height x depth_cam_width]
+        imgs: the input images in the network format [n_imgs x n_channels x depth_map_height x depth_map_width]
     """
     if imgs.ndim == 3:
         imgs = np.expand_dims(imgs, axis=-1)  # add channel dimension
     n_imgs, height, width, n_channels = imgs.shape
     assert n_channels in [1, 3]
-    if (height, width) != (depth_cam_height, depth_cam_width):
+    if (height, width) != (depth_map_height, depth_map_width):
         # resize the images
-        imgs = resize_images(imgs, new_height=depth_cam_height, new_width=depth_cam_width)
+        imgs = resize_images(imgs, new_height=depth_map_height, new_width=depth_map_width)
 
     # transform to channels first
     imgs = np.transpose(imgs, (0, 3, 1, 2))
@@ -277,31 +332,56 @@ def imgs_to_net_in(
 
 
 # --------------------------------------------------------------------------------------------------------------------
-class DepthNet:
-    def __init__(self, depth_lower_bound: float, depth_upper_bound: float) -> None:
+
+
+def get_camera_matrix(model_info: dict) -> np.ndarray:
+    fx = model_info["fx"]
+    fy = model_info["fy"]
+    cx = model_info["cx"]
+    cy = model_info["cy"]
+    distort_pram = model_info["distort_pram"]
+    assert distort_pram is None, "we assume no distortion"
+    return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+class DepthModel:
+    """
+    The depth estimation network.
+    Note that we use a network that estimates the disparity and then convert it to depth by taking 1/disparity.
+    """
+
+    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, depth_and_egomotion_model_path: str) -> None:
         self.depth_lower_bound = depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
-        # load the disparity-estimation network (disparity = 1/depth)
-        self.pretrained_disp = Path("pretrained/dispnet_model_best.pt")
-        self.resnet_layers = 18
-        self.depth_cam_height = 256
-        self.depth_cam_width = 256
-        self.net_out_to_mm = 41.1334  # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
+
+        model_dir_path = Path(depth_and_egomotion_model_path)
+        self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
+        # load the Disparity network
+        self.disp_net_path = model_dir_path / "DispNet.pt"
+        assert self.disp_net_path.is_file()
+        print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
+        self.resnet_layers = self.model_info["DispResNet_layers"]
+        # the dimensions of the input images to the network
+        self.model_im_height = self.model_info["img_height"]
+        self.model_im_width = self.model_info["img_width"]
+        # the dimensions of the output depth maps are the same as the input images
+        self.depth_map_width = self.model_im_width
+        self.depth_map_height = self.model_im_height
+        # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
+        self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
-        # TODO: load
-        self.depth_cam_K = np.array([[136.99316, 0.0, 128.89722], [0.0, 141.30414, 121.79207], [0.0, 0.0, 1.0]], dtype=np.float32)
-        assert self.pretrained_disp.is_file()
+        self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
         self.dtype = torch.float32
-        print(f"Using pre-trained weights for DispResNet from {self.pretrained_disp}")
-        weights = torch.load(self.pretrained_disp)
+        weights = torch.load(self.disp_net_path)
         self.disp_net = DispResNet(self.resnet_layers, pretrained=False).to(self.device)
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)
         self.disp_net.to(self.device)
         self.disp_net.eval()  # switch to evaluate mode
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
+    def estimate_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
         """Estimate the depth map from the image.
 
         Args:
@@ -313,7 +393,7 @@ class DepthNet:
         n_imgs, height, width, n_channels = imgs.shape
 
         # transform the images to the network input format (resize and normalize)
-        imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
+        imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
         with torch.no_grad():
             output_disparity = self.disp_net(imgs)
         # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
@@ -332,7 +412,7 @@ class DepthNet:
         return output_depth
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_depth_map(self, img: torch.Tensor) -> torch.Tensor:
+    def estimate_depth_map(self, img: torch.Tensor) -> torch.Tensor:
         """Estimate the depth map using a single RGB image.
 
         Args:
@@ -343,34 +423,38 @@ class DepthNet:
         assert img.ndim == 3
         assert img.shape[2] == 3  # RGB
         imgs = np.expand_dims(img, axis=0)  # add n_imgs dimension
-        depth_maps = self.get_depth_maps(imgs)
+        depth_maps = self.estimate_depth_maps(imgs)
         return depth_maps[0]  # remove the n_imgs dimension
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class PoseNet:
-    def __init__(self) -> None:
+class EgomotionModel:
+    def __init__(self, depth_and_egomotion_model_path: str) -> None:
+        model_dir_path = Path(depth_and_egomotion_model_path)
+        self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
+        self.pose_net_path = model_dir_path / "PoseNet.pt"
+        assert self.pose_net_path.is_file()
+        print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()
         self.dtype = torch.float32
-        self.resnet_layers = 18
-        # TODO: load
-        self.depth_cam_height = 256
-        self.depth_cam_width = 256
-        self.pretrained_pose = Path("pretrained/exp_pose_model_best.pt")
-        self.net_out_to_mm = 41.1334  # the output of the network (translation part) needs to be multiplied by this number to get the depth in mm (based on the analysis of sample data in examine_depths.py)
-        assert self.pretrained_pose.is_file()
-        print(f"Using pre-trained weights for PoseNet from {self.pretrained_pose}")
+        self.resnet_layers = self.model_info["PoseResNet_layers"]
+        self.model_im_height = self.model_info["img_height"]
+        self.model_im_width = self.model_info["img_width"]
+        # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
+        self.net_out_to_mm = self.model_info["net_out_to_mm"]
+        # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
+        self.depth_map_K = get_camera_matrix(self.model_info)
         self.pose_net = PoseResNet(self.resnet_layers, pretrained=False).to(self.device)
-        weights = torch.load(self.pretrained_pose)
+        weights = torch.load(self.pose_net_path)
         self.pose_net.load_state_dict(weights["state_dict"], strict=False)
         self.pose_net.to(self.device)
         self.pose_net.eval()  # switch to evaluate mode
 
         # --------------------------------------------------------------------------------------------------------------------
 
-    def get_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
+    def estimate_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
         """Estimate the 6DOF egomotion from the from image to to image.
         Args:
             from_imgs: the 'from' images (target) [N x 3 x H x W] where N is the number of image pairs
@@ -381,8 +465,8 @@ class PoseNet:
         """
         n_imgs = len(from_imgs)
         assert len(to_imgs) == n_imgs
-        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
-        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.depth_cam_height, self.depth_cam_width)
+        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
+        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
         with torch.no_grad():
             pose_out = self.pose_net(from_imgs, to_imgs)
         # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
@@ -395,6 +479,17 @@ class PoseNet:
         trans *= self.net_out_to_mm
         egomotions = torch.cat((trans, rot_quat), dim=1)
         return egomotions
+
+
+    # --------------------------------------------------------------------------------------------------------------------
+
+
+    def estimate_egomotion(self, prev_frame: np.ndarray, curr_frame: np.ndarray):
+        egomotion = self.estimate_egomotions(
+            from_imgs=np.expand_dims(prev_frame, axis=0),
+            to_imgs=np.expand_dims(curr_frame, axis=0),
+        )[0]
+        return egomotion
 
 
 # --------------------------------------------------------------------------------------------------------------------

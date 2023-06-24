@@ -97,7 +97,7 @@ class SlamRunner:
         self.n_world_points = 0  # number of 3D world points identified so far
         self.online_logger = AnalysisLogger(self.alg_prm)
         # saves data about the previous frame:
-        self.prev_frame = None
+        self.prev_rgb_frame = None
         self.descriptors_A = None
         self.salient_KPs_A = None
         self.track_KPs_A = None
@@ -132,10 +132,17 @@ class SlamRunner:
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print("-" * 50 + f"\ni_frame: {i_frame}/{n_frames-1}")
+            # Get the RGB frame:
+            cur_rgb_frame = frames_generator.__next__()
+            # Get the targets tracks in the current frame:
+            curr_tracks = detections_tracker.get_tracks_in_frame(i_frame)
+            # Get the depth and ego-motion estimation for the current frame:
+            depth_estimator.process_new_frame(i_frame, cur_rgb_frame=cur_rgb_frame, prev_rgb_frame=self.prev_rgb_frame)
+            
             self.run_on_new_frame(
-                curr_frame=frames_generator.__next__(),
+                cur_rgb_frame=cur_rgb_frame,
                 i_frame=i_frame,
-                curr_tracks=detections_tracker.get_tracks_in_frame(i_frame),
+                curr_tracks=curr_tracks,
                 cam_undistorter=cam_undistorter,
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
@@ -173,7 +180,7 @@ class SlamRunner:
 
     def run_on_new_frame(
         self,
-        curr_frame: np.array,
+        cur_rgb_frame: np.array,
         i_frame: int,
         curr_tracks: dict,
         cam_undistorter: FishEyeUndistorter,
@@ -219,8 +226,6 @@ class SlamRunner:
             prev_cam_pose = self.cam_poses[i_frame - 1, :]
             curr_egomotion_est = depth_estimator.get_egomotions_at_frame(
                 curr_frame_idx=i_frame,
-                prev_frame=self.prev_frame,
-                curr_frame=curr_frame,
             )
             cur_guess_cam_pose = apply_pose_change(
                 start_pose=prev_cam_pose.unsqueeze(0),
@@ -229,15 +234,15 @@ class SlamRunner:
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
 
         # find salient keypoints with ORB
-        salient_KPs_B = self.kp_detector.detect(curr_frame, None)
+        salient_KPs_B = self.kp_detector.detect(cur_rgb_frame, None)
         # compute the descriptors with ORB
-        salient_KPs_B, descriptors_B = self.kp_detector.compute(curr_frame, salient_KPs_B)
+        salient_KPs_B, descriptors_B = self.kp_detector.compute(cur_rgb_frame, salient_KPs_B)
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_tracks
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
         if draw_interval and i_frame % draw_interval == 0:
             draw_kp_on_img(
-                img=curr_frame,
+                img=cur_rgb_frame,
                 salient_KPs=salient_KPs_B,
                 track_KPs=track_KPs_B,
                 curr_tracks=tracks_in_frameB,
@@ -258,8 +263,8 @@ class SlamRunner:
             if draw_interval and i_frame % draw_interval == 0:
                 # draw our inliers (if RANSAC was done) or all good matching keypoints
                 draw_matches(
-                    img_A=self.prev_frame,
-                    img_B=curr_frame,
+                    img_A=self.prev_rgb_frame,
+                    img_B=cur_rgb_frame,
                     matched_A_kps=matched_A_kps,
                     matched_B_kps=matched_B_kps,
                     track_KPs_A=self.track_KPs_A,
@@ -353,9 +358,9 @@ class SlamRunner:
             cam_poses_of_new = self.cam_poses[frame_inds_of_new]
             kp_nrm_of_new = torch.stack([self.kp_nrm_all[i_kp] for i_kp in kp_inds_of_new], dim=0)
             new_p3d_est = depth_estimator.estimate_3d_points(
-                frame_indexes=frame_inds_of_new,
                 cam_poses=cam_poses_of_new,
                 queried_points_nrm=kp_nrm_of_new,
+                frame_indexes=frame_inds_of_new,
             )
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)
 
@@ -395,7 +400,7 @@ class SlamRunner:
         # ----- update variables for the next frame
         self.salient_KPs_A = salient_KPs_B
         self.descriptors_A = descriptors_B
-        self.prev_frame = curr_frame
+        self.prev_rgb_frame = cur_rgb_frame
         self.track_KPs_A = track_KPs_B
         self.tracks_in_frameA = tracks_in_frameB
 

@@ -46,14 +46,14 @@ def main():
     parser.add_argument(
         "--pretrained_disp",
         dest="pretrained_disp",
-        default="saved_models/endo_sfm_orig/dispnet_model_best.pt",
+        default="saved_models/endo_sfm_orig/DispNet.pt",
         metavar="PATH",
         help="path to pre-trained DispNet model (disparity=1/depth) ",
     )
     parser.add_argument(
         "--pretrained_pose",
         dest="pretrained_pose",
-        default="saved_models/endo_sfm_orig/exp_pose_model_best.pt",
+        default="saved_models/endo_sfm_orig/PoseNet.pt",
         metavar="PATH",
         help="path to pre-trained PoseNet model",
     )
@@ -107,7 +107,7 @@ def main():
         type=int,
         default=18,
         choices=[18, 50],
-        help="number of ResNet layers for depth estimation.",
+        help="number of ResNet layers for disparity estimation.",
     )
     parser.add_argument(
         "--num_scales",

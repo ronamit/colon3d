@@ -45,6 +45,12 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
+        "--depth_and_egomotion_model_path",
+        type=str,
+        default="saved_models/endo_sfm_orig",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
+    )
+    parser.add_argument(
         "--alg_fov_ratio",
         type=float,
         default=0,
@@ -94,6 +100,7 @@ def main():
                 alg_fov_ratio=args.alg_fov_ratio,
                 depth_maps_source=args.depth_maps_source,
                 egomotions_source=args.egomotions_source,
+                depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
                 show_all_plots=False,
                 plot_names=["aided_nav", "keypoints_and_tracks"], # plots to create
             )

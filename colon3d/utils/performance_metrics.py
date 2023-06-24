@@ -197,8 +197,12 @@ def calc_nav_aid_metrics(
     )
 
     # the navigation-aid metrics per-frame:
-    # 1 if the target is seen in the current frame (in the estimates), 0 otherwise
-    is_target_seen = np.zeros((n_frames, n_targets), dtype=bool)
+    
+    # True if the target is seen being tracked the current frame (i.e. it was seen in some past frame and is still being tracked in the current frame)
+    is_tracked = np.zeros((n_frames, n_targets), dtype=bool)
+    
+    # True if the target is seen being tracked the current frame and it is estimated to be in front of the camera (in z-axis)
+    is_tracked_front = np.zeros((n_frames, n_targets), dtype=bool)
     angle_err_deg = np.zeros((n_frames, n_targets))
     z_err_mm = np.zeros((n_frames, n_targets))
     # 1 if the sign of the error is different than the sign of the GT z-distance, 0 otherwise
@@ -211,11 +215,11 @@ def calc_nav_aid_metrics(
         # the GT 3d position of the center KP of the tracked polyps in the seen in the current frame (units: mm)  (in GT camera system)
         track_loc_gt_cam = gt_targets_cam_loc[i]
 
-        # go over all ths tracks that have been their location estimated in the cur\rent frame
+        # go over all ths tracks that have been their location estimated in the current frame
         for track_id in range(n_targets):
             if track_id not in track_loc_est_cam:
                 continue
-            is_target_seen[i, track_id] = True
+            is_tracked[i, track_id] = True
             gt_p3d_cam = track_loc_gt_cam[track_id].reshape(3)  # [mm]
             est_p3d_cam = track_loc_est_cam[track_id].reshape(3)  # [mm]
 
@@ -225,25 +229,29 @@ def calc_nav_aid_metrics(
 
             z_err_mm[i, track_id] = gt_z_dist - est_z_dist  # [mm]
             z_sign_err[i, track_id] = np.sign(gt_z_dist) != np.sign(est_z_dist)
+            
+            if est_z_dist > 0:
+                # in this case, the estimated polyp is in front of the camera, so the navigation aid plots an arrow in the estimated angle in the camera system
+                is_tracked_front[i, track_id] = True
+                
+                # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
+                gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
+                est_angle_rad = np.arccos(est_z_dist / max(np.linalg.norm(est_p3d_cam), eps))  # [rad]
 
-            # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
-            gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
-            est_angle_rad = np.arccos(est_z_dist / max(np.linalg.norm(est_p3d_cam), eps))  # [rad]
-
-            gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg]
-            est_angle_deg = np.rad2deg(est_angle_rad)  # [deg]
+                gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg]
+                est_angle_deg = np.rad2deg(est_angle_rad)  # [deg]
 
             angle_err_deg[i, track_id] = gt_angle_deg - est_angle_deg  # [deg]
 
     # take average over targets per frame
-    angle_err_deg_avg = np.sum(angle_err_deg, axis=1) / np.sum(is_target_seen, axis=1)
-    z_err_mm_per_avg = np.sum(z_err_mm, axis=1) / np.sum(is_target_seen, axis=1)
-    z_sign_err_avg = np.sum(z_sign_err, axis=1) / np.sum(is_target_seen, axis=1)
+    angle_err_deg_avg = np.sum(angle_err_deg[is_tracked_front], axis=1)
+    z_err_mm_per_avg = np.mean(z_err_mm[is_tracked], axis=1)
+    z_sign_err_avg = np.mean(z_sign_err[is_tracked], axis=1)
 
     # calculate the RMSE over frames
-    angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_target_seen] ** 2))
-    z_err_mm_rmse = np.sqrt(np.mean(z_err_mm[is_target_seen] ** 2))
-    z_sign_err_ratio = np.mean(z_sign_err[is_target_seen])
+    angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_tracked] ** 2))
+    z_err_mm_rmse = np.sqrt(np.mean(z_err_mm[is_tracked] ** 2))
+    z_sign_err_ratio = np.mean(z_sign_err[is_tracked])
 
     metrics_per_frame = {
         "Nav. Angle error [deg]": angle_err_deg_avg,

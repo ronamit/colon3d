@@ -15,46 +15,6 @@ from colon3d.utils.torch_util import to_numpy
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def examine_depths(
-    depth_loader: DepthAndEgoMotionLoader,
-    frames_loader: SceneLoader,
-    save_path: Path,
-    scene_name: str,
-    depth_source: str,
-):
-    # save a heatmap of the first frame depth map
-    # and RGB image of the first frame
-    frame_idx = 0
-    rgb_frame = frames_loader.get_frame_at_index(frame_idx=frame_idx)
-    depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame)
-    depth_map = to_numpy(depth_map)
-    plt.figure()
-    plt.imshow(depth_map)
-    plt.colorbar()
-    fig_name = f"{scene_name}_depth_{depth_source}_{frame_idx}"
-    plt.title(fig_name)
-    plt.tight_layout()
-    save_plot_and_close(save_path / fig_name)
-
-    plt.figure()
-    plt.imshow(rgb_frame)
-    fig_name = f"{scene_name}_rgb_{frame_idx}"
-    plt.title(fig_name)
-    save_plot_and_close(save_path / fig_name)
-
-    # calculate the mean depth of all frames
-    n_frames = frames_loader.n_frames
-    all_frames_avg_depth = np.zeros(n_frames)
-    for i in range(n_frames):
-        rgb_frame = frames_loader.get_frame_at_index(frame_idx=i)
-        depth_map = depth_loader.get_depth_map_at_frame(frame_idx=i, rgb_frame=rgb_frame)
-        depth_map = to_numpy(depth_map)
-        all_frames_avg_depth[i] = np.mean(depth_map)
-    scene_avg_depth = np.mean(all_frames_avg_depth)
-    return scene_avg_depth
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
@@ -62,6 +22,12 @@ def main():
         type=str,
         default="data/sim_data/SimData9",
         help="Path to the dataset of scenes.",
+    )
+    parser.add_argument(
+        "--depth_and_egomotion_model_path",
+        type=str,
+        default="saved_models/endo_sfm_orig",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     args = parser.parse_args()
     dataset_path = Path(args.dataset_path).expanduser()
@@ -85,6 +51,7 @@ def main():
                 scene_path=scene_path,
                 depth_maps_source="ground_truth",
                 egomotions_source="ground_truth",
+                depth_and_egomotion_model_path=None,
             )
             scene_avg_gt_depth[i] = examine_depths(
                 depth_loader=gt_depth_loader,
@@ -99,6 +66,7 @@ def main():
                 scene_path=scene_path,
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
+                depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
             )
             scene_avg_est_depth[i] = examine_depths(
                 depth_loader=est_depth_loader,
@@ -113,6 +81,48 @@ def main():
         print(f"avg_gt_depth = {avg_gt_depth}")
         print(f"avg_est_depth = {avg_est_depth}")
         print(f"avg_gt_depth / avg_est_depth = {avg_gt_depth / avg_est_depth}")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def examine_depths(
+    depth_loader: DepthAndEgoMotionLoader,
+    frames_loader: SceneLoader,
+    save_path: Path,
+    scene_name: str,
+    depth_source: str,
+):
+    # save a heatmap of the first frame depth map
+    # and RGB image of the first frame
+    frame_idx = 0
+    rgb_frame = frames_loader.get_frame_at_index(frame_idx=frame_idx)
+    depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx)
+    depth_map = to_numpy(depth_map)
+    plt.figure()
+    plt.imshow(depth_map)
+    plt.colorbar()
+    fig_name = f"{scene_name}_depth_{depth_source}_{frame_idx}"
+    plt.title(fig_name)
+    plt.tight_layout()
+    save_plot_and_close(save_path / fig_name)
+
+    plt.figure()
+    plt.imshow(rgb_frame)
+    fig_name = f"{scene_name}_rgb_{frame_idx}"
+    plt.title(fig_name)
+    save_plot_and_close(save_path / fig_name)
+
+    # calculate the mean depth of all frames
+    n_frames = frames_loader.n_frames
+    all_frames_avg_depth = np.zeros(n_frames)
+    for i in range(n_frames):
+        rgb_frame = frames_loader.get_frame_at_index(frame_idx=i)
+        depth_map = depth_loader.get_depth_map_at_frame(frame_idx=i)
+        depth_map = to_numpy(depth_map)
+        all_frames_avg_depth[i] = np.mean(depth_map)
+    scene_avg_depth = np.mean(all_frames_avg_depth)
+    return scene_avg_depth
 
 
 # ---------------------------------------------------------------------------------------------------------------------
