@@ -56,7 +56,7 @@ def main():
     args = parser.parse_args()
     scene_path = Path(args.scene_path)
 
-    frames_loader = SceneLoader(
+    scene_loader = SceneLoader(
         scene_path=scene_path,
     )
     depth_loader = DepthAndEgoMotionLoader(
@@ -66,12 +66,12 @@ def main():
     )
 
     plots_path = create_folder_if_not_exists(scene_path / "plots")
-    fps = frames_loader.fps
+    fps = scene_loader.fps
     frame_idx = args.frame_index if args.frame_time == -1 else int(args.frame_time * fps)
     frame_name = f"Frame{frame_idx:04d}"
 
     # save the color frame
-    bgr_frame = frames_loader.get_frame_at_index(frame_idx, color_type="BGR", frame_type="full")
+    bgr_frame = scene_loader.get_frame_at_index(frame_idx, color_type="BGR", frame_type="full")
     file_path = str((plots_path / f"{frame_name}.png").resolve())
     cv2.imwrite(file_path, bgr_frame)
     print(f"Saved color frame to {file_path}")

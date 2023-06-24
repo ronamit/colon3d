@@ -109,18 +109,18 @@ class SlamRunner:
 
     def run(
         self,
-        frames_loader: SceneLoader,
+        scene_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
         save_path: Path,
         draw_interval: int = 0,
         verbose_print_interval: int = 0,
     ) -> SlamOutput:
-        frames_generator = frames_loader.frames_generator(frame_type="alg_input")
-        cam_undistorter = frames_loader.alg_cam_undistorter
-        alg_view_cropper = frames_loader.alg_view_cropper
-        n_frames = frames_loader.n_frames
-        fps = frames_loader.fps
+        frames_generator = scene_loader.frames_generator(frame_type="alg_input")
+        cam_undistorter = scene_loader.alg_cam_undistorter
+        alg_view_cropper = scene_loader.alg_view_cropper
+        n_frames = scene_loader.n_frames
+        fps = scene_loader.fps
 
         # initialize the algorithm
         self.init_algorithm()
@@ -138,7 +138,7 @@ class SlamRunner:
             curr_tracks = detections_tracker.get_tracks_in_frame(i_frame)
             # Get the depth and ego-motion estimation for the current frame:
             depth_estimator.process_new_frame(i_frame, cur_rgb_frame=cur_rgb_frame, prev_rgb_frame=self.prev_rgb_frame)
-            
+
             self.run_on_new_frame(
                 cur_rgb_frame=cur_rgb_frame,
                 i_frame=i_frame,
@@ -166,7 +166,7 @@ class SlamRunner:
             kp_id_all=self.kp_id_all,
             p3d_inds_in_frame=self.p3d_inds_in_frame,
             map_kp_to_p3d_idx=self.map_kp_to_p3d_idx,
-            frames_loader=frames_loader,
+            scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             cam_undistorter=cam_undistorter,
             depth_estimator=depth_estimator,

@@ -11,7 +11,7 @@ from colon3d.utils.data_util import SceneLoader
 class DetectionsTracker:
     """This class is used to track the detections of the polyp detector over time."""
 
-    def __init__(self, scene_path, frames_loader: SceneLoader):
+    def __init__(self, scene_path, scene_loader: SceneLoader):
         self.example_path = Path(scene_path).expanduser()
         tracks_file_path = self.example_path / "Tracks.csv"
         # Get the polyp detector results for this video
@@ -26,8 +26,8 @@ class DetectionsTracker:
             print("Loaded detections from: ", tracks_file_path)
         self.frame_inds = self.tracks_original["frame_idx"].unique()
         self.n_frames = len(self.frame_inds)
-        self.fps = frames_loader.fps
-        self.alg_view_cropper = frames_loader.alg_view_cropper
+        self.fps = scene_loader.fps
+        self.alg_view_cropper = scene_loader.alg_view_cropper
         self.truncate_tracks_for_alg_view()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

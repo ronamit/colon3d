@@ -50,7 +50,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/endo_sfm_orig",
+        default="saved_models/endo_sfm_opt",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     parser.add_argument(
@@ -89,14 +89,14 @@ def main():
         # get the default parameters for the SLAM algorithm
         alg_prm = AlgorithmParam()
 
-        frames_loader = SceneLoader(
+        scene_loader = SceneLoader(
             scene_path=scene_path,
             n_frames_lim=args.n_frames_lim,
             alg_fov_ratio=args.alg_fov_ratio,
         )
         detections_tracker = DetectionsTracker(
             scene_path=scene_path,
-            frames_loader=frames_loader,
+            scene_loader=scene_loader,
         )
         depth_estimator = DepthAndEgoMotionLoader(
             scene_path=scene_path,
@@ -111,7 +111,7 @@ def main():
         # Run the SLAM algorithm
         slam_runner = SlamRunner(alg_prm)
         slam_out = slam_runner.run(
-            frames_loader=frames_loader,
+            scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             depth_estimator=depth_estimator,
             save_path=save_path,

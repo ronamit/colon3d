@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import yaml
 
+from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.general_util import resize_images
 from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon3d.utils.torch_util import get_device, to_numpy, to_torch
@@ -120,23 +121,20 @@ class DepthAndEgoMotionLoader:
 
     # --------------------------------------------------------------------------------------------------------------------
     def process_new_frame(self, i_frame: int, cur_rgb_frame: np.ndarray, prev_rgb_frame: np.ndarray):
+        """Process the current frame and add the estimated depth map to the buffer.
+        If the previous frame is also given, then the egomotion will be estimated and added to the buffer.
+        """
         if self.depth_maps_source == "none" or i_frame in self.depth_maps_buffer_frame_inds:
-            pass  # no need to estimate depth map - we always return th default depth map
-        
+            pass  # no need to estimate
+
         elif self.depth_maps_source == "online_estimates":
             self.depth_maps_buffer.append(self.depth_estimator.estimate_depth_map(cur_rgb_frame))
             self.depth_maps_buffer_frame_inds.append(i_frame)
-            
-        elif self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
-            pass # no need to estimate depth map, it is already loaded to the buffer
-            
-        else:
-            raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
 
         if self.egomotions_source == "none" or i_frame in self.egomotions_buffer_frame_inds or i_frame == 0:
-            pass  # no need to estimate egomotion, we always return the default (zero egomotion)
-        
-        elif self.egomotions_source == "online_estimates":
+            pass  # no need to estimate
+
+        elif self.egomotions_source == "online_estimates" and prev_rgb_frame is not None:
             self.egomotions_buffer.append(
                 self.egomotion_estimator.estimate_egomotion(
                     prev_frame=prev_rgb_frame,
@@ -144,18 +142,13 @@ class DepthAndEgoMotionLoader:
                 ),
             )
             self.egomotions_buffer_frame_inds.append(i_frame)
-            
-        elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
-            pass # no need to estimate egomotion, it is already loaded to the buffer
-            
-        else:
-            raise ValueError(f"Unknown egomotion source: {self.egomotions_source}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_depth_map_at_frame(
         self,
         frame_idx: int,
+        rgb_frame: np.ndarray | None = None,
     ):
         """Get the depth estimation at a given frame.
         Notes: we assume process_new_frame was called before this function on this frame index.
@@ -165,7 +158,10 @@ class DepthAndEgoMotionLoader:
         if self.depth_maps_source == "none":
             # return the default depth map
             return torch.ones(self.loaded_depth_map_size) * self.depth_default
-        
+        # if the depth map is already in the buffer, return it, otherwise estimate it first
+        if frame_idx not in self.depth_maps_buffer_frame_inds:
+            assert rgb_frame is not None
+            self.process_new_frame(i_frame=frame_idx, cur_rgb_frame=rgb_frame, prev_rgb_frame=None)
         buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
         return self.depth_maps_buffer[buffer_idx]
 
@@ -174,6 +170,8 @@ class DepthAndEgoMotionLoader:
     def get_egomotions_at_frame(
         self,
         curr_frame_idx: int,
+        cur_rgb_frame: np.ndarray | None = None,
+        prev_rgb_frame: np.ndarray | None = None,
     ) -> torch.Tensor:
         """Get the egomotion at a given frame.
         The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
@@ -193,6 +191,10 @@ class DepthAndEgoMotionLoader:
             egomotion = torch.zeros((7), dtype=torch.float32)
             egomotion[3:] = get_identity_quaternion()
             return egomotion
+        # if the egomotion is already in the buffer, return it, otherwise estimate it first
+        if curr_frame_idx not in self.egomotions_buffer_frame_inds:
+            assert cur_rgb_frame is not None and prev_rgb_frame is not None
+            self.process_new_frame(i_frame=curr_frame_idx, cur_rgb_frame=cur_rgb_frame, prev_rgb_frame=prev_rgb_frame)
         buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
         egomotion = self.egomotions_buffer[buffer_idx]
         egomotion = to_torch(egomotion)
@@ -298,6 +300,19 @@ class DepthAndEgoMotionLoader:
         )
         return p3d_est
 
+    # --------------------------------------------------------------------------------------------------------------------
+    def process_frames_sequence(self, scene_loader: SceneLoader):
+        """Process a sequence of frames, and saves all estimations to the buffers."""
+        frames_generator = scene_loader.get_frames_generator()
+        prev_rgb_frame = None
+        for i_frame, cur_rgb_frame in enumerate(frames_generator):
+            self.process_new_frame(
+                i_frame=i_frame,
+                cur_rgb_frame=cur_rgb_frame,
+                prev_rgb_frame=prev_rgb_frame,
+            )
+            prev_rgb_frame = cur_rgb_frame
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -359,7 +374,7 @@ class DepthModel:
         self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
         # load the Disparity network
         self.disp_net_path = model_dir_path / "DispNet.pt"
-        assert self.disp_net_path.is_file()
+        assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
         print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
         self.resnet_layers = self.model_info["DispResNet_layers"]
         # the dimensions of the input images to the network
@@ -435,7 +450,7 @@ class EgomotionModel:
         model_dir_path = Path(depth_and_egomotion_model_path)
         self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
         self.pose_net_path = model_dir_path / "PoseNet.pt"
-        assert self.pose_net_path.is_file()
+        assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()
         self.dtype = torch.float32
@@ -480,11 +495,12 @@ class EgomotionModel:
         egomotions = torch.cat((trans, rot_quat), dim=1)
         return egomotions
 
-
     # --------------------------------------------------------------------------------------------------------------------
 
-
     def estimate_egomotion(self, prev_frame: np.ndarray, curr_frame: np.ndarray):
+        """Estimate the 6DOF egomotion from the previous frame to the current frame."""
+        assert prev_frame.ndim == 3
+        assert curr_frame.ndim == 3
         egomotion = self.estimate_egomotions(
             from_imgs=np.expand_dims(prev_frame, axis=0),
             to_imgs=np.expand_dims(curr_frame, axis=0),

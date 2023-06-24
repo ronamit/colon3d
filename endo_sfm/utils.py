@@ -70,16 +70,16 @@ def save_checkpoint(
     is_best,
     args=None,
     scene_metadata=None,
-    filename="checkpoint.pth.tar",
+    filename="checkpoint.pt",
 ):
-    file_prefixes = ["dispnet", "exp_pose"]
+    file_prefixes = ["DispNet", "PoseNet"]
     states = [dispnet_state, exp_pose_state]
     for prefix, state in zip(file_prefixes, states, strict=True):
         torch.save(state, save_path / f"{prefix}_{filename}")
 
     if is_best:
         for prefix in file_prefixes:
-            shutil.copyfile(save_path / f"{prefix}_{filename}", save_path / f"{prefix}_model_best.pth.tar")
+            shutil.copyfile(save_path / f"{prefix}_{filename}", save_path / f"{prefix}_best.pt")
 
     # save the scene metadata as yaml file
     if scene_metadata is not None:

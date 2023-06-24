@@ -24,7 +24,7 @@ class CamInfo:
     fx: float  # focal length, normalized by the x-size of a pixel's sensor  (units: pixels)
     fy: float  # focal length, normalized by the y-size of a pixel's sensor  (units: pixels)
     distort_pram: np.ndarray  # Fisheye distortion parameters (cv2 format)
-    fps: float  # frames per second (units: Hz)
+    fps: float | None  # frames per second (units: Hz)
     min_vis_z_mm: float  # the minimal z distance from the focal point that can be seen (units: mm)
 
 

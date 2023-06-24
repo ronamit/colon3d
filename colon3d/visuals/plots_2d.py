@@ -90,7 +90,7 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
 
 
 def draw_keypoints_and_tracks(
-    frames_loader: SceneLoader,
+    scene_loader: SceneLoader,
     detections_tracker: DetectionsTracker,
     kp_frame_idx_all,
     kp_px_all,
@@ -99,7 +99,7 @@ def draw_keypoints_and_tracks(
 ):
     """Draw keypoints and detections on the full frame.
     Args:
-        frames_loader: VideoLoader object.
+        scene_loader: VideoLoader object.
         detections_tracker: DetectionsTracker object.
         kp_frame_idx_all: list of int, the frame index of each keypoint.
         kp_px_all: list of np.array, the pixel coordinates of each keypoint.
@@ -108,16 +108,16 @@ def draw_keypoints_and_tracks(
     """
     kp_frame_idx_all = np.array(kp_frame_idx_all)
     kp_px_all = np.stack(kp_px_all, axis=0)
-    frames_generator = frames_loader.frames_generator(frame_type="full")
-    alg_view_cropper = frames_loader.alg_view_cropper  # RadialImageCropper or None
-    fps = frames_loader.fps
+    frames_generator = scene_loader.frames_generator(frame_type="full")
+    alg_view_cropper = scene_loader.alg_view_cropper  # RadialImageCropper or None
+    fps = scene_loader.fps
     vis_frames = []
     kp_id_all = np.array(kp_id_all)
     ### Draw each frame
     for i_frame, frame in enumerate(frames_generator):
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
-        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
+        vis_frame = draw_alg_view_in_the_full_frame(vis_frame, scene_loader)
         keypoints = kp_px_all[kp_frame_idx_all == i_frame]
         keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
         # draw bounding boxes for the original tracks in the full frame
@@ -335,10 +335,10 @@ def display_image_in_actual_size(im_data, hide_axis=True):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_alg_view_in_the_full_frame(frame, frames_loader):
+def draw_alg_view_in_the_full_frame(frame, scene_loader: SceneLoader):
     # get the FOV of the alg view
-    alg_view_radius = round(frames_loader.alg_view_radius)
-    orig_cam_info = frames_loader.orig_cam_info
+    alg_view_radius = round(scene_loader.alg_view_radius)
+    orig_cam_info = scene_loader.orig_cam_info
     orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy]).round().astype(int)  # [px]
     color = colors_platte(color_name="gray")
     frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=color, thickness=2)

@@ -28,14 +28,14 @@ def main():
         "--name",
         dest="name",
         type=str,
-        default="endo_sfm_opt",
+        default="temp",
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
     parser.add_argument(
         "--dataset_path",
         metavar="DIR",
         help="path to training dataset of scenes",
-        default="data/sim_data/SimData11",
+        default="data/sim_data/ScenesForNetsTrain",
     )
     parser.add_argument(
         "--validation_percent",
@@ -66,7 +66,7 @@ def main():
     )
     parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
-    parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
+    parser.add_argument("--epochs", default=100, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
         "--epoch-size",
         default=0,

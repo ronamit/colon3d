@@ -61,10 +61,10 @@ def save_slam_out_plots(
     save_path = Path(save_path)
     create_folder_if_not_exists(save_path)
     # Extract the relevant variables
-    frames_loader = slam_out.frames_loader
-    # over-ride the example folder (in case it was moved)
-    frames_loader.example_path = scene_path
-    n_frames_orig = frames_loader.n_frames
+    scene_loader = slam_out.scene_loader
+    # ovscene_loaderer-ride the example folder (in case it was moved)
+    scene_loader.example_path = scene_path
+    n_frames_orig = scene_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
     kp_frame_idx_all = slam_out.kp_frame_idx_all
     kp_px_all = slam_out.kp_px_all
@@ -80,7 +80,7 @@ def save_slam_out_plots(
     online_est_salient_kp_world_loc = slam_out.online_est_salient_kp_world_loc
     if stop_frame is None:
         stop_frame = n_frames_orig
-    fps = frames_loader.fps  # frames per second
+    fps = scene_loader.fps  # frames per second
     t_interval_sec = 1 / fps  # sec
 
     # ---- Get track estimated location of the track KPs w.r.t. camera system in each frame
@@ -102,7 +102,7 @@ def save_slam_out_plots(
     # Draw local-aided navigation video
     if plot_names is None or "aided_nav" in plot_names:
         draw_aided_nav(
-            frames_loader=frames_loader,
+            scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             online_est_track_cam_loc=online_est_track_cam_loc,
             start_frame=start_frame,
@@ -113,7 +113,7 @@ def save_slam_out_plots(
     # Draw the keypoints and detections on the video
     if plot_names is None or "keypoints_and_tracks" in plot_names:
         draw_keypoints_and_tracks(
-            frames_loader=frames_loader,
+            scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             kp_frame_idx_all=kp_frame_idx_all,
             kp_px_all=kp_px_all,
@@ -130,7 +130,7 @@ def save_slam_out_plots(
             start_frame=start_frame,
             stop_frame=stop_frame_anim,
             fps=fps,
-            cam_fov_deg=frames_loader.alg_fov_deg,
+            cam_fov_deg=scene_loader.alg_fov_deg,
             show_fig=False,
             save_path=save_path,
         )
@@ -144,7 +144,7 @@ def save_slam_out_plots(
             start_frame=start_frame,
             stop_frame=stop_frame_anim,
             fps=fps,
-            cam_fov_deg=frames_loader.alg_fov_deg,
+            cam_fov_deg=scene_loader.alg_fov_deg,
             detections_tracker=detections_tracker,
             save_path=save_path,
         )

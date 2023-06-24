@@ -12,7 +12,7 @@ class SceneLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def __init__(
         self,
-        scene_path: str,
+        scene_path: Path,
         alg_fov_ratio: float = 0,
         n_frames_lim: int = 0,
         fps: float | None = None,

@@ -11,7 +11,7 @@ from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track
 
 
 def draw_aided_nav(
-    frames_loader: SceneLoader,
+    scene_loader: SceneLoader,
     detections_tracker: DetectionsTracker,
     online_est_track_cam_loc: list,
     start_frame: int,
@@ -20,7 +20,7 @@ def draw_aided_nav(
 ):
     """Draws the aided navigation on the video.
     Args:
-        frames_loader: VideoLoader
+        scene_loader: VideoLoader
         detections_tracker: DetectionsTracker
         cam_undistorter: FishEyeUndistorter
         online_est_track_cam_loc: list of the estimated 3d position (in camera system) of the tracked polyps keypoints, as estimated in each frame
@@ -28,14 +28,14 @@ def draw_aided_nav(
         stop_frame: the frame to stop the aided navigation video
         save_path: str, the path to save the video
     """
-    fps = frames_loader.fps  # [Hz]
-    full_frames_generator = frames_loader.frames_generator(frame_type="full")
-    orig_cam_info = frames_loader.orig_cam_info
-    alg_view_cropper = frames_loader.alg_view_cropper  # RadialImageCropper or None
-    orig_cam_undistorter = frames_loader.orig_cam_undistorter
-    alg_cam_info = frames_loader.alg_cam_info
-    alg_view_radius = frames_loader.alg_view_radius
-    alg_fov_deg = frames_loader.alg_fov_deg
+    fps = scene_loader.fps  # [Hz]
+    full_frames_generator = scene_loader.frames_generator(frame_type="full")
+    orig_cam_info = scene_loader.orig_cam_info
+    alg_view_cropper = scene_loader.alg_view_cropper  # RadialImageCropper or None
+    orig_cam_undistorter = scene_loader.orig_cam_undistorter
+    alg_cam_info = scene_loader.alg_cam_info
+    alg_view_radius = scene_loader.alg_view_radius
+    alg_fov_deg = scene_loader.alg_fov_deg
     eps = 1e-20  # to avoid division by zero
 
     orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy])  # [px]
@@ -48,7 +48,7 @@ def draw_aided_nav(
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
         if alg_view_cropper is not None:
-            vis_frame = draw_alg_view_in_the_full_frame(vis_frame, frames_loader)
+            vis_frame = draw_alg_view_in_the_full_frame(vis_frame, scene_loader)
         # draw bounding boxes for the original detections in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id, cur_detect in orig_tracks.items():
