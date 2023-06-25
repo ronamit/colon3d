@@ -273,7 +273,7 @@ def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarr
     if is_torch:
         device = imgs.device
         dtype = imgs.dtype
-        imgs = to_numpy(imgs)
+    imgs = to_numpy(imgs)
     imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
     if is_torch:
         imgs = torch.from_numpy(imgs).to(device=device, dtype=dtype)

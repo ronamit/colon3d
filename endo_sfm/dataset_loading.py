@@ -116,21 +116,23 @@ class ScenesDataset(data.Dataset):
         # list of images to apply the transforms on (the target frame and the reference frames)
         imgs = [tgt_img, *ref_imgs]
 
+        if self.load_tgt_depth:
+            # load the depth map of the target frame
+            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+                depth_img = h5f["z_depth_map"][target_frame_ind]
+            # tadd the depth map to the list of images to be transformed
+            imgs.append(depth_img)
+            
         # apply the transforms on the images and on the camera intrinsics matrix
         if self.transform is not None:
             imgs, intrinsics = self.transform(imgs, np.copy(intrinsics_orig))
         tgt_img = imgs[0]
         ref_imgs = imgs[1 : self.sequence_length]
-
         inv_intrinsics = np.linalg.inv(intrinsics)
         sample = {"tgt_img": tgt_img, "ref_imgs": ref_imgs, "intrinsics": intrinsics, "inv_intrinsics": inv_intrinsics}
         if self.load_tgt_depth:
-            # load the depth map of the target frame
-            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                depth_img = h5f["z_depth_map"][target_frame_ind]
-            # transform the depth map to a torch tensor (we use it for comparing the net out to it in validation, no need to normalize it)
-            depth_img = torch.from_numpy(depth_img)
-            sample["depth_img"] = depth_img
+            sample["depth_img"] = imgs[-1]
+
         return sample
 
     # ---------------------------------------------------------------------------------------------------------------------

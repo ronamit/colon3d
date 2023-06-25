@@ -111,8 +111,8 @@ class DispResNet(nn.Module):
         outputs = self.decoder(features)
 
         if self.training:
-            return outputs
-        return outputs[0]
+            return outputs # return all scales
+        return outputs[0] # return only the full scale
 
 # --------------------------------------------------------------------------------------------------------------------
 
