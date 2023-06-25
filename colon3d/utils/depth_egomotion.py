@@ -7,9 +7,8 @@ import torch
 import yaml
 
 from colon3d.utils.data_util import SceneLoader
-from colon3d.utils.general_util import resize_images
 from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.utils.torch_util import get_device, to_numpy, to_torch
+from colon3d.utils.torch_util import get_device, resize_images, to_numpy, to_torch
 from colon3d.utils.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
     unproject_image_normalized_coord_to_world,
@@ -340,8 +339,8 @@ def imgs_to_net_in(
 
     # transform to channels first
     imgs = np.transpose(imgs, (0, 3, 1, 2))
-    imgs = torch.as_tensor(imgs, device=device, dtype=dtype)
-    # normalize the images to fit the pre-trained weights
+    imgs = to_torch(imgs, device=device, dtype=dtype)
+    # normalize the images to fit the pre-trained weights (based on https://github.com/CapsuleEndoscope/EndoSLAM/blob/master/EndoSfMLearner/run_inference.py)
     imgs = (imgs / 255 - 0.45) / 0.225
     return imgs
 
@@ -373,7 +372,7 @@ class DepthModel:
         model_dir_path = Path(depth_and_egomotion_model_path)
         self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
         # load the Disparity network
-        self.disp_net_path = model_dir_path / "DispNet.pt"
+        self.disp_net_path = model_dir_path / "DispNet_best.pt"
         assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
         print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
         self.resnet_layers = self.model_info["DispResNet_layers"]
@@ -390,7 +389,7 @@ class DepthModel:
         self.device = get_device()
         self.dtype = torch.float32
         weights = torch.load(self.disp_net_path)
-        self.disp_net = DispResNet(self.resnet_layers, pretrained=False).to(self.device)
+        self.disp_net = DispResNet(self.resnet_layers, pretrained=True).to(self.device)
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)
         self.disp_net.to(self.device)
         self.disp_net.eval()  # switch to evaluate mode
@@ -407,24 +406,29 @@ class DepthModel:
         # get the original shape of the images:
         n_imgs, height, width, n_channels = imgs.shape
 
-        # transform the images to the network input format (resize and normalize)
+        # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
         with torch.no_grad():
-            output_disparity = self.disp_net(imgs)
-        # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
-        imgs = resize_images(imgs, new_height=height, new_width=width)
-
+            disparity_maps = self.disp_net(imgs)
+        
         # remove the n_channels dimension
-        output_disparity.squeeze_(dim=1)  # [N x H x W]
-        output_depth = 1 / output_disparity
-        # clip the depth
-        if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
-            output_depth = torch.clamp(output_depth, self.depth_lower_bound, self.depth_upper_bound)
-        # make sure the output is detached from the graph
-        output_depth = output_depth.detach()
+        disparity_maps.squeeze_(dim=1)  # [N x H x W]
+        
+        # convert the disparity to depth
+        depth_maps = 1 / disparity_maps
+
+        
         # multiply by the scale factor to get the depth in mm
-        output_depth *= self.net_out_to_mm
-        return output_depth
+        depth_maps *= self.net_out_to_mm
+        
+        # clip the depth if needed
+        if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
+            depth_maps = torch.clamp(depth_maps, self.depth_lower_bound, self.depth_upper_bound)
+        
+        # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
+        depth_maps = resize_images(depth_maps, new_height=height, new_width=width)
+
+        return depth_maps
 
     # --------------------------------------------------------------------------------------------------------------------
     def estimate_depth_map(self, img: torch.Tensor) -> torch.Tensor:
@@ -449,7 +453,7 @@ class EgomotionModel:
     def __init__(self, depth_and_egomotion_model_path: str) -> None:
         model_dir_path = Path(depth_and_egomotion_model_path)
         self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
-        self.pose_net_path = model_dir_path / "PoseNet.pt"
+        self.pose_net_path = model_dir_path / "PoseNet_best.pt"
         assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()
@@ -461,7 +465,7 @@ class EgomotionModel:
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
         self.depth_map_K = get_camera_matrix(self.model_info)
-        self.pose_net = PoseResNet(self.resnet_layers, pretrained=False).to(self.device)
+        self.pose_net = PoseResNet(self.resnet_layers, pretrained=True).to(self.device)
         weights = torch.load(self.pose_net_path)
         self.pose_net.load_state_dict(weights["state_dict"], strict=False)
         self.pose_net.to(self.device)

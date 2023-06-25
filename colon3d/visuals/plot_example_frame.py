@@ -24,7 +24,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/SimData9/Scene_00000",
+        default="data/sim_data/SimData11/Scene_00000",
         help="Path to the scene folder",
     )
     parser.add_argument(

@@ -9,7 +9,7 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, get_time_now_str, set_rand_seed
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str, set_rand_seed
 from colon3d.utils.torch_util import get_device
 from endo_sfm import custom_transforms
 from endo_sfm.dataset_loading import ScenesDataset
@@ -28,14 +28,14 @@ def main():
         "--name",
         dest="name",
         type=str,
-        default="temp",
+        default="EndoSFM",
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
     parser.add_argument(
         "--dataset_path",
         metavar="DIR",
         help="path to training dataset of scenes",
-        default="data/sim_data/ScenesForNetsTrain",
+        default="data/sim_data/SimData14_train",
     )
     parser.add_argument(
         "--validation_percent",
@@ -46,16 +46,16 @@ def main():
     parser.add_argument(
         "--pretrained_disp",
         dest="pretrained_disp",
-        default="saved_models/endo_sfm_orig/DispNet.pt",
+        default="",
         metavar="PATH",
-        help="path to pre-trained DispNet model (disparity=1/depth) ",
+        help="path to pre-trained DispNet model (disparity=1/depth), if empty then training from scratch",
     )
     parser.add_argument(
         "--pretrained_pose",
         dest="pretrained_pose",
-        default="saved_models/endo_sfm_orig/PoseNet.pt",
+        default="",
         metavar="PATH",
-        help="path to pre-trained PoseNet model",
+        help="path to pre-trained PoseNet model, if empty then training from scratch",
     )
 
     parser.add_argument(
@@ -66,7 +66,7 @@ def main():
     )
     parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
-    parser.add_argument("--epochs", default=100, type=int, metavar="N", help="number of total epochs to run")
+    parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
         "--epoch-size",
         default=0,
@@ -75,7 +75,12 @@ def main():
         help="manual epoch size (will match dataset size if not set)",
     )
     parser.add_argument(
-        "-b", "--batch_size", default=8, type=int, metavar="N", help="mini-batch size, decrease this if out of memory",
+        "-b",
+        "--batch_size",
+        default=16,
+        type=int,
+        metavar="N",
+        help="mini-batch size, decrease this if out of memory",
     )
     parser.add_argument("--lr", "--learning_rate", default=1e-4, type=float, metavar="LR", help="initial learning rate")
     parser.add_argument(
@@ -86,7 +91,7 @@ def main():
         help="momentum for sgd, alpha parameter for adam",
     )
     parser.add_argument("--beta", default=0.999, type=float, metavar="M", help="beta parameters for adam")
-    parser.add_argument("--weight_decay", "--wd", default=0, type=float, metavar="W", help="weight decay")
+    parser.add_argument("--weight_decay", "--wd", default=1e-4, type=float, metavar="W", help="weight decay")
     parser.add_argument("--print_freq", default=10, type=int, metavar="N", help="print frequency")
     parser.add_argument("--seed", default=0, type=int, help="seed for random functions, and network initialization")
     parser.add_argument(
@@ -159,203 +164,207 @@ def main():
         " border will only null gradients of the coordinate outside (x or y)",
     )
 
-    ### inits
-    best_error = -1
-    n_iter = 0
     device = get_device()
     torch.autograd.set_detect_anomaly(True)
     args = parser.parse_args()
     timestamp = get_time_now_str()
     save_path = Path("checkpoints") / args.name / timestamp
-    args.save_path = save_path
-    print(f"=> will save everything to {args.save_path}")
-    create_empty_folder(args.save_path)
-    set_rand_seed(args.seed)
+    print(f"=> will save everything to {save_path}")
 
-    # dataset split
-    dataset_path = Path(args.dataset_path)
-    print(f"Loading dataset from {dataset_path}")
-    all_scenes_paths = [
-        scene_path
-        for scene_path in dataset_path.iterdir()
-        if scene_path.is_dir() and scene_path.name.startswith("Scene")
-    ]
-    random.shuffle(all_scenes_paths)
-    n_all_scenes = len(all_scenes_paths)
-    n_train_scenes = int(n_all_scenes * 0.8)
-    n_val_scenes = n_all_scenes - n_train_scenes
-    train_scenes_paths = all_scenes_paths[:n_train_scenes]
-    val_scenes_paths = all_scenes_paths[n_train_scenes:]
-    print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
+    with Tee(save_path / "prints_log.txt"):  # save the prints to a file
+        ### inits
+        best_error = -1
+        n_iter = 0
 
-    # loggers
-    training_writer = SummaryWriter(args.save_path)
-    output_writers = []
-    if args.log_output:
-        for i in range(3):
-            output_writers.append(SummaryWriter(args.save_path / "valid" / str(i)))
+        create_empty_folder(save_path)
+        set_rand_seed(args.seed)
 
-    # set data transforms
-    normalize = custom_transforms.Normalize(mean=[0.45, 0.45, 0.45], std=[0.225, 0.225, 0.225])
-    train_transform = custom_transforms.Compose(
-        [
-            custom_transforms.RandomHorizontalFlip(),
-            custom_transforms.RandomScaleCrop(),
-            custom_transforms.ArrayToTensor(),
-            normalize,
-        ],
-    )
-    validation_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
+        # dataset split
+        dataset_path = Path(args.dataset_path)
+        print(f"Loading dataset from {dataset_path}")
+        all_scenes_paths = [
+            scene_path
+            for scene_path in dataset_path.iterdir()
+            if scene_path.is_dir() and scene_path.name.startswith("Scene")
+        ]
+        random.shuffle(all_scenes_paths)
+        n_all_scenes = len(all_scenes_paths)
+        n_train_scenes = int(n_all_scenes * 0.8)
+        n_val_scenes = n_all_scenes - n_train_scenes
+        train_scenes_paths = all_scenes_paths[:n_train_scenes]
+        val_scenes_paths = all_scenes_paths[n_train_scenes:]
+        print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
 
-    # training set
-    train_set = ScenesDataset(
-        scenes_paths=train_scenes_paths,
-        sequence_length=args.sequence_length,
-        load_tgt_depth=False,
-        transform=train_transform,
-    )
+        # loggers
+        training_writer = SummaryWriter(save_path)
+        output_writers = []
+        if args.log_output:
+            for i in range(3):
+                output_writers.append(SummaryWriter(save_path / "valid" / str(i)))
 
-    # validation set
-    val_set = ScenesDataset(
-        scenes_paths=val_scenes_paths,
-        sequence_length=1,
-        load_tgt_depth=True,
-        transform=validation_transform,
-    )
-
-    # data loaders
-    train_loader = torch.utils.data.DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.workers,
-        pin_memory=True,
-    )
-    val_loader = torch.utils.data.DataLoader(
-        val_set,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.workers,
-        pin_memory=True,
-    )
-
-    if args.epoch_size == 0:
-        args.epoch_size = len(train_loader)
-
-    # get the metadata of some scene (we assume that all scenes have the same metadata)
-    scene_metadata = train_set.get_scene_metadata(scene_index=0)
-
-    # create model
-    print("=> creating model")
-    disp_net = DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
-    pose_net = PoseResNet(18, pretrained=args.with_pretrain).to(device)
-
-    # load parameters
-    if args.pretrained_disp:
-        print("=> using pre-trained weights for DispResNet")
-        weights = torch.load(args.pretrained_disp)
-        disp_net.load_state_dict(weights["state_dict"], strict=False)
-        disp_net.to(device)
-
-    if args.pretrained_pose:
-        print("=> using pre-trained weights for PoseResNet")
-        weights = torch.load(args.pretrained_pose)
-        pose_net.load_state_dict(weights["state_dict"], strict=False)
-        pose_net.to(device)
-
-    disp_net = torch.nn.DataParallel(disp_net)
-    pose_net = torch.nn.DataParallel(pose_net)
-
-    print("=> setting adam solver")
-    optim_params = [
-        {"params": disp_net.parameters(), "lr": args.lr},
-        {"params": pose_net.parameters(), "lr": args.lr},
-    ]
-    optimizer = torch.optim.Adam(optim_params, betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
-
-    with (args.save_path / args.log_summary).open("w") as csvfile:
-        writer = csv.writer(csvfile, delimiter="\t")
-        writer.writerow(["train_loss", "validation_loss"])
-
-    with (args.save_path / args.log_full).open("w") as csvfile:
-        writer = csv.writer(csvfile, delimiter="\t")
-        writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
-
-    # save initial checkpoint
-    save_checkpoint(
-        save_path=args.save_path,
-        dispnet_state={
-            "epoch": 0,
-            "state_dict": disp_net.state_dict(),
-        },
-        exp_pose_state={
-            "epoch": 0,
-            "state_dict": pose_net.state_dict(),
-        },
-        is_best=0,
-        args=args,
-        scene_metadata=scene_metadata,
-    )
-        
-        
-    # main optimization loop
-    for epoch in range(args.epochs):
-        print(f"Training epoch {epoch+1}/{args.epochs}")
- 
-        # train for one epoch
-        train_loss, n_iter = train(
-            args,
-            train_loader,
-            disp_net,
-            pose_net,
-            optimizer,
-            args.epoch_size,
-            training_writer,
-            n_iter,
+        # set data transforms
+        chan_normalize_mean = [0.45, 0.45, 0.45]
+        chan_normalize_std = [0.225, 0.225, 0.225]
+        normalize = custom_transforms.Normalize(mean=chan_normalize_mean, std=chan_normalize_std)
+        train_transform = custom_transforms.Compose(
+            [
+                custom_transforms.RandomHorizontalFlip(),
+                custom_transforms.RandomScaleCrop(),
+                custom_transforms.ArrayToTensor(),
+                normalize,
+            ],
         )
-        print(f" * Avg Loss : {train_loss:.3f}")
+        validation_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
 
-        # evaluate on validation set
-        errors, error_names = validate_with_gt(args, val_loader, disp_net, output_writers)
+        # training set
+        train_set = ScenesDataset(
+            scenes_paths=train_scenes_paths,
+            sequence_length=args.sequence_length,
+            load_tgt_depth=False,
+            transform=train_transform,
+        )
 
-        error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
-        print(f" * Avg {error_string}")
+        # validation set
+        val_set = ScenesDataset(
+            scenes_paths=val_scenes_paths,
+            sequence_length=1,
+            load_tgt_depth=True,
+            transform=validation_transform,
+        )
 
-        for error, name in zip(errors, error_names, strict=True):
-            training_writer.add_scalar(name, error, epoch)
+        # data loaders
+        train_loader = torch.utils.data.DataLoader(
+            train_set,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.workers,
+            pin_memory=True,
+        )
+        val_loader = torch.utils.data.DataLoader(
+            val_set,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.workers,
+            pin_memory=True,
+        )
 
-        # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
-        decisive_error = errors[1]
-        if best_error < 0:
-            best_error = decisive_error
+        if args.epoch_size == 0:
+            args.epoch_size = len(train_loader)
 
-        # remember lowest error and save checkpoint
-        is_best = decisive_error < best_error
-        best_error = min(best_error, decisive_error)
+        # get the metadata of some scene (we assume that all scenes have the same metadata)
+        scene_metadata = train_set.get_scene_metadata(scene_index=0)
+
+        # create model
+        print("=> creating model")
+        disp_net = DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
+        pose_net = PoseResNet(18, pretrained=args.with_pretrain).to(device)
+
+        # load parameters
+        if args.pretrained_disp:
+            print("=> using pre-trained weights for DispResNet")
+            weights = torch.load(args.pretrained_disp)
+            disp_net.load_state_dict(weights["state_dict"], strict=False)
+            disp_net.to(device)
+
+        if args.pretrained_pose:
+            print("=> using pre-trained weights for PoseResNet")
+            weights = torch.load(args.pretrained_pose)
+            pose_net.load_state_dict(weights["state_dict"], strict=False)
+            pose_net.to(device)
+
+        disp_net = torch.nn.DataParallel(disp_net)
+        pose_net = torch.nn.DataParallel(pose_net)
+
+        print("=> setting adam solver")
+        optim_params = [
+            {"params": disp_net.parameters(), "lr": args.lr},
+            {"params": pose_net.parameters(), "lr": args.lr},
+        ]
+        optimizer = torch.optim.Adam(optim_params, betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
+
+        with (save_path / args.log_summary).open("w") as csvfile:
+            writer = csv.writer(csvfile, delimiter="\t")
+            writer.writerow(["train_loss", "validation_loss"])
+
+        with (save_path / args.log_full).open("w") as csvfile:
+            writer = csv.writer(csvfile, delimiter="\t")
+            writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
+
+        # save initial checkpoint
         save_checkpoint(
-            save_path=args.save_path,
+            save_path=save_path,
             dispnet_state={
-                "epoch": epoch + 1,
+                "epoch": 0,
                 "state_dict": disp_net.state_dict(),
             },
             exp_pose_state={
-                "epoch": epoch + 1,
+                "epoch": 0,
                 "state_dict": pose_net.state_dict(),
             },
-            is_best=is_best,
+            is_best=0,
             args=args,
             scene_metadata=scene_metadata,
         )
 
-        with (args.save_path / args.log_summary).open("a") as csvfile:
-            writer = csv.writer(csvfile, delimiter="\t")
-            writer.writerow([train_loss, decisive_error])
+        # main optimization loop
+        for epoch in range(args.epochs):
+            print(f"Training epoch {epoch+1}/{args.epochs}")
+
+            # train for one epoch
+            train_loss, n_iter = train(
+                args,
+                save_path,
+                train_loader,
+                disp_net,
+                pose_net,
+                optimizer,
+                args.epoch_size,
+                training_writer,
+                n_iter,
+            )
+            print(f" * Avg Loss : {train_loss:.3f}")
+
+            # evaluate on validation set
+            errors, error_names = validate_with_gt(args, val_loader, disp_net, output_writers)
+
+            error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
+            print(f" * Avg {error_string}")
+
+            for error, name in zip(errors, error_names, strict=True):
+                training_writer.add_scalar(name, error, epoch)
+
+            # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
+            decisive_error = errors[1]
+            if best_error < 0:
+                best_error = decisive_error
+
+            # remember lowest error and save checkpoint
+            is_best = decisive_error < best_error
+            best_error = min(best_error, decisive_error)
+            save_checkpoint(
+                save_path=save_path,
+                dispnet_state={
+                    "epoch": epoch + 1,
+                    "state_dict": disp_net.state_dict(),
+                },
+                exp_pose_state={
+                    "epoch": epoch + 1,
+                    "state_dict": pose_net.state_dict(),
+                },
+                is_best=is_best,
+                args=args,
+                scene_metadata=scene_metadata,
+            )
+
+            with (save_path / args.log_summary).open("a") as csvfile:
+                writer = csv.writer(csvfile, delimiter="\t")
+                writer.writerow([train_loss, decisive_error])
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, train_writer, n_iter: int):
+def train(args, save_path: Path, train_loader, disp_net, pose_net, optimizer, epoch_size, train_writer, n_iter: int):
     """Train for one epoch on the training set"""
     device = get_device()
     batch_time = AverageMeter()
@@ -420,7 +429,7 @@ def train(args, train_loader, disp_net, pose_net, optimizer, epoch_size, train_w
         batch_time.update(time.time() - end)
         end = time.time()
 
-        with (args.save_path / args.log_full).open("a") as csvfile:
+        with (save_path / args.log_full).open("a") as csvfile:
             writer = csv.writer(csvfile, delimiter="\t")
             writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
         if i % args.print_freq == 0:
@@ -466,6 +475,7 @@ def validate_with_gt(args, val_loader, disp_net, output_writers=None):
         end = time.time()
         if i % args.print_freq == 0:
             print(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
+
     return errors.avg, error_names
 
 

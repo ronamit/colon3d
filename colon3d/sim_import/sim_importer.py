@@ -68,6 +68,7 @@ class SimImporter:
 
     def import_data(self):
         # gather all the "capture" files
+        assert self.input_data_path.is_dir(), "The input path should be a directory"
         paths = [p for p in self.input_data_path.glob("Dataset*") if p.is_dir()]
         assert len(paths) == 1, "there should be exactly one Dataset* sub-folder"
         metadata_dir_path = paths[0]

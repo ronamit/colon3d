@@ -11,8 +11,8 @@ import torch
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
-from skimage.transform import resize
 from torch.backends import cudnn
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -378,22 +378,6 @@ def to_str(a):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-
-
-def resize_images(imgs: np.ndarray | torch.Tensor, new_height: int, new_width: int) -> np.ndarray | torch.Tensor:
-    """Resizes a batch of images to a new size.
-        imgs: the input images [n_imgs x height x width x n_channels]
-        new_height: the new height
-        new_width: the new width
-    Returns:
-        imgs: the resized images [n_imgs x new_height x new_width x n_channels]
-    """
-    n_imgs = imgs.shape[0]
-    if isinstance(imgs, torch.Tensor):
-        imgs = torch.nn.functional.interpolate(imgs, size=(new_height, new_width), mode="bilinear", align_corners=False)
-    else:
-        imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
-    return imgs
 
 
 # --------------------------------------------------------------------------------------------------------------------

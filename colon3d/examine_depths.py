@@ -20,13 +20,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/ScenesForNetsTrain",
+        default="data/sim_data/SimData14_train",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/endo_sfm_opt",
+        default="saved_models/endo_sfm_retrain_1",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     parser.add_argument(
@@ -66,7 +66,7 @@ def main():
                 scene_loader=scene_loader,
                 save_path=save_path,
                 scene_name=scene_name,
-                depth_source="gt",
+                fig_label="gt",
             )
 
             # examine the estimated depth maps
@@ -81,7 +81,7 @@ def main():
                 scene_loader=scene_loader,
                 save_path=save_path,
                 scene_name=scene_name,
-                depth_source="est",
+                fig_label="est",
             )
 
         avg_gt_depth = np.mean(scene_avg_gt_depth)
@@ -92,10 +92,8 @@ def main():
         print(f"avg_est_depth = {avg_est_depth}")
         print(f"std_gt_depth = {std_gt_depth}")
         print(f"std_est_depth = {std_est_depth}")
-        print("Est depth scaling formula: est_depth :=  (est_depth - avg_est_depth) * (std_gt_depth / std_est_depth) + avg_gt_depth")
-        print(" or, est_depth = a * est_depth + b, where a = (std_gt_depth / std_est_depth), b = avg_gt_depth - avg_est_depth * a")
-        print(f"a = {std_gt_depth / std_est_depth}")
-        print(f"b = {avg_gt_depth - avg_est_depth * (std_gt_depth / std_est_depth)}")
+        print(f"(avg_gt_depth / avg_est_depth) = {avg_gt_depth / avg_est_depth}")
+        print(f"(std_gt_depth / std_est_depth) = {std_gt_depth / std_est_depth}")
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -105,7 +103,7 @@ def examine_depths(
     scene_loader: SceneLoader,
     save_path: Path,
     scene_name: str,
-    depth_source: str,
+    fig_label: str,
 ):
     # save a heatmap of the first frame depth map
     # and RGB image of the first frame
@@ -116,7 +114,7 @@ def examine_depths(
     plt.figure()
     plt.imshow(depth_map)
     plt.colorbar()
-    fig_name = f"{scene_name}_depth_{depth_source}_{frame_idx}"
+    fig_name = f"{scene_name}_depth_{fig_label}_{frame_idx}"
     plt.title(fig_name)
     plt.tight_layout()
     save_plot_and_close(save_path / fig_name)

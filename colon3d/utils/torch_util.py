@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from skimage.transform import resize
 from torch.nn import functional as nnf
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -254,6 +255,29 @@ def lower_log_barrier(
     if lower_lim < val < (lower_lim + margin):
         return nnf.relu(-torch.log(nnf.relu(val - lower_lim) + eps))
     return barrier_jump + lower_lim - val
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
+    """Resizes a batch of images to a new size.
+        imgs: the input images [n_imgs x height x width x n_channels]
+        new_height: the new height
+        new_width: the new width
+    Returns:
+        imgs: the resized images [n_imgs x new_height x new_width x n_channels]
+    """
+    n_imgs = imgs.shape[0]
+    is_torch = isinstance(imgs, torch.Tensor)
+    if is_torch:
+        device = imgs.device
+        dtype = imgs.dtype
+        imgs = to_numpy(imgs)
+    imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
+    if is_torch:
+        imgs = torch.from_numpy(imgs).to(device=device, dtype=dtype)
+    return imgs
 
 
 # --------------------------------------------------------------------------------------------------------------------
