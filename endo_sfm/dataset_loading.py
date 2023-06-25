@@ -2,7 +2,6 @@ import random
 
 import h5py
 import numpy as np
-import torch
 import yaml
 from imageio import imread
 from torch.utils import data
@@ -76,9 +75,9 @@ class ScenesDataset(data.Dataset):
                 sample = {"scene_index": scene_index, "target_frame_index": target_ind, "ref_frames_inds": ref_inds}
                 self.samples.append(sample)
         random.shuffle(self.samples)
-        
+
     # ---------------------------------------------------------------------------------------------------------------------
-    
+
     def get_scene_metadata(self, scene_index: int) -> dict:
         """Get the metadata of a scene
         Args:
@@ -90,7 +89,7 @@ class ScenesDataset(data.Dataset):
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         return metadata
-    
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __getitem__(self, index: int) -> dict:
@@ -123,7 +122,7 @@ class ScenesDataset(data.Dataset):
         ref_imgs = imgs[1 : self.sequence_length]
         inv_intrinsics = np.linalg.inv(intrinsics)
         sample = {"tgt_img": tgt_img, "ref_imgs": ref_imgs, "intrinsics": intrinsics, "inv_intrinsics": inv_intrinsics}
-        
+
         if self.load_tgt_depth:
             # load the depth map of the target frame and return it as part of the sample (As is, without any transformation)
             with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:

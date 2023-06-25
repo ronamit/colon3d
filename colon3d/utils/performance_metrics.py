@@ -201,8 +201,12 @@ def calc_nav_aid_metrics(
     # True if the target is seen being tracked the current frame (i.e. it was seen in some past frame and is still being tracked in the current frame)
     is_tracked = np.zeros((n_frames, n_targets), dtype=bool)
     
-    # True if the target is seen being tracked the current frame and it is estimated to be in front of the camera (in z-axis)
-    is_tracked_front = np.zeros((n_frames, n_targets), dtype=bool)
+    # True if the target track is currently in view of the camera (i.e. it is seen in the current frame)
+    is_in_view = np.zeros((n_frames, n_targets), dtype=bool)
+    
+    # True if the estimated location of the target is in front of the camera (in z-axis)
+    is_front_est = np.zeros((n_frames, n_targets), dtype=bool)
+    
     angle_err_deg = np.zeros((n_frames, n_targets))
     z_err_mm = np.zeros((n_frames, n_targets))
     # 1 if the sign of the error is different than the sign of the GT z-distance, 0 otherwise
@@ -219,20 +223,18 @@ def calc_nav_aid_metrics(
         for track_id in range(n_targets):
             if track_id not in track_loc_est_cam:
                 continue
-            is_tracked[i, track_id] = True
+            is_in_view[i, track_id] = True # mark the track as in-view in the current frame
+            is_tracked[i:, track_id] = True # mark the track as tracked in all current and all future frames
             gt_p3d_cam = track_loc_gt_cam[track_id].reshape(3)  # [mm]
             est_p3d_cam = track_loc_est_cam[track_id].reshape(3)  # [mm]
-
             # The locations on the z-axis of the tracked polyps in the current frame (in camera system)
             gt_z_dist = gt_p3d_cam[2]  # [mm]
             est_z_dist = est_p3d_cam[2]  # [mm]
-
             z_err_mm[i, track_id] = gt_z_dist - est_z_dist  # [mm]
             z_sign_err[i, track_id] = np.sign(gt_z_dist) != np.sign(est_z_dist)
-            
             if est_z_dist > 0:
-                # in this case, the estimated polyp is in front of the camera, so the navigation aid plots an arrow in the estimated angle in the camera system
-                is_tracked_front[i, track_id] = True
+                # in this case, the estimated location of the track is in front of the camera (in z-axis)
+                is_front_est[i, track_id] = True
                 
                 # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
                 gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
@@ -247,11 +249,15 @@ def calc_nav_aid_metrics(
     z_err_mm_avg = np.zeros(n_frames)
     z_sign_err_avg = np.zeros(n_frames)
     angle_err_deg_avg = np.zeros(n_frames)
+    
+    # we draw the navigation-aid arrow when the track went out of the algorithm view, and is estimated to be in front of the camera
+    is_nav_arrow = is_tracked & ~is_in_view & is_front_est
+    
     for i in range(n_frames):
         z_err_mm_avg[i] = np.mean(np.abs(z_err_mm[i][is_tracked[i]]))
         z_sign_err_avg = np.mean(np.abs(z_sign_err[i][is_tracked[i]]))
-        # for angle error - consider only the targets that are estimated to be in front of the camera
-        angle_err_deg_avg = np.mean(np.abs(angle_err_deg[i][is_tracked_front[i]]))
+        # for angle error - consider only tracks that went out of view and are estimated to be in front of the camera
+        angle_err_deg_avg = np.mean(np.abs(angle_err_deg[i][is_nav_arrow[i]]))
 
     # calculate the RMSE over frames
     angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_tracked] ** 2))

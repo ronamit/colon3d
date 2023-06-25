@@ -76,14 +76,14 @@ def draw_aided_nav(
         # go over all ths tracks that have been their location estimated in the cur\rent frame
         for track_id, cur_track_kps_loc_est in tracks_kps_loc_est.items():
             # the estimated 3d position of the center KP of the current track in the current frame (units: mm)  (in camera system)
-            p3d_cam = to_numpy(cur_track_kps_loc_est[0])  # [mm]
-            z_dist = p3d_cam[2]  # [mm]
+            p3d_est_cam = to_numpy(cur_track_kps_loc_est[0])  # [mm]
+            z_dist_est = p3d_est_cam[2]  # [mm]
             # compute  the track position angle with the z axis
-            ray_dist = np.linalg.norm(p3d_cam[0:3], axis=-1)  # [mm]
-            angle_rad = np.arccos(z_dist / max(ray_dist, eps))  # [rad]
+            ray_dist = np.linalg.norm(p3d_est_cam[0:3], axis=-1)  # [mm]
+            angle_rad = np.arccos(z_dist_est / max(ray_dist, eps))  # [rad]
             angle_deg = np.rad2deg(angle_rad)  # [deg]
-            xy_dist = np.linalg.norm(p3d_cam[0:2], axis=-1)  # [mm]
-            xy_dir = p3d_cam[0:2] / max(xy_dist, eps)
+            xy_dist = np.linalg.norm(p3d_est_cam[0:2], axis=-1)  # [mm]
+            xy_dir = p3d_est_cam[0:2] / max(xy_dist, eps)
             # start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible:
             arrow_base_radius = alg_view_radius * 0.85  # [px]
             orient_arrow_base = orig_im_center + arrow_base_radius * xy_dir  # [px]
@@ -91,7 +91,7 @@ def draw_aided_nav(
             orient_arrow_tip = orig_im_center + (arrow_base_radius + orient_arrow_len) * xy_dir  # [px]
             # project the 3d point in camera system to the full\original image pixel coordinates  (projective transform + distortion)
             track_coord_in_orig_im, is_track_in_orig_im = orig_cam_undistorter.project_from_cam_sys_to_pixels(
-                points3d=p3d_cam,
+                points3d=p3d_est_cam,
             )
             track_coord_in_orig_im = track_coord_in_orig_im.squeeze(0)
             is_track_in_orig_im = is_track_in_orig_im.squeeze(0)
@@ -102,18 +102,19 @@ def draw_aided_nav(
             )
 
             # draw text at top left corner:
-            extra_text = " (in front of cam.)" if z_dist > 0 else " (behind cam.)"
+            extra_text = " (in front of cam.)" if z_dist_est > 0 else " (behind cam.)"
             vis_frame = put_unicode_text_on_img(
                 vis_frame,
-                text=f"z={round(z_dist)} [mm], \u03B1={round(angle_deg)}\xb0" + extra_text,
+                text=f"z={round(z_dist_est)} [mm], \u03B1={round(angle_deg)}\xb0" + extra_text,
                 pos=(5, 5 + track_id * 30),
                 font_size=int(0.04 * frame.shape[0]),
                 fill_color=colors_platte(track_id),
                 stroke_width=1,
                 stroke_fill="black",
             )
+        # we draw the navigation-aid arrow when the track went out of the algorithm view, and is estimated to be in front of the camera
             # draw orientation arrow, if the estimated position is outside the algorithm view
-            if z_dist > 0 and not is_track_center_in_alg_view:
+            if z_dist_est > 0 and not is_track_center_in_alg_view:
                 # vis_frame = cv2.drawMarker(
                 #     vis_frame,
                 #     np.round(orient_arrow_base).astype(int),
@@ -130,7 +131,7 @@ def draw_aided_nav(
                     thickness=3,
                 )
                 # draw text near the arrow
-                delta_z = z_dist - alg_cam_info.min_vis_z_mm
+                delta_z = z_dist_est - alg_cam_info.min_vis_z_mm
                 delta_alpha = angle_deg - 0.5 * np.rad2deg(alg_fov_deg)
                 vis_frame = put_unicode_text_on_img(
                     vis_frame,
@@ -141,16 +142,16 @@ def draw_aided_nav(
                     stroke_width=1,
                     stroke_fill="black",
                 )
-            if is_track_in_orig_im and z_dist > 0:
-                # draw estimated detection indicator on top of the image
-                vis_frame = cv2.drawMarker(
-                    vis_frame,
-                    (round(track_coord_in_orig_im[0]), round(track_coord_in_orig_im[1])),
-                    color=colors_platte(track_id),
-                    markerType=cv2.MARKER_CROSS,
-                    markerSize=15,
-                    thickness=2,
-                )
+            # if is_track_in_orig_im and z_dist > 0:
+            #     # draw estimated detection indicator on top of the image
+            #     vis_frame = cv2.drawMarker(
+            #         vis_frame,
+            #         (round(track_coord_in_orig_im[0]), round(track_coord_in_orig_im[1])),
+            #         color=colors_platte(track_id),
+            #         markerType=cv2.MARKER_CROSS,
+            #         markerSize=15,
+            #         thickness=2,
+            #     )
         nav_vis_frames.append(vis_frame)
     # end for
     if save_path:
