@@ -15,13 +15,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData11_with_tracks",
+        default="data/sim_data/SimData14_test_cases",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData11_with_tracks/Results",
+        default="data/sim_data/SimData14_test_cases/Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -101,7 +101,6 @@ def main():
                 depth_maps_source=args.depth_maps_source,
                 egomotions_source=args.egomotions_source,
                 depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
-                show_all_plots=False,
                 plot_names=["aided_nav", "keypoints_and_tracks"], # plots to create
             )
 

@@ -116,13 +116,6 @@ class ScenesDataset(data.Dataset):
         # list of images to apply the transforms on (the target frame and the reference frames)
         imgs = [tgt_img, *ref_imgs]
 
-        if self.load_tgt_depth:
-            # load the depth map of the target frame
-            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                depth_img = h5f["z_depth_map"][target_frame_ind]
-            # tadd the depth map to the list of images to be transformed
-            imgs.append(depth_img)
-            
         # apply the transforms on the images and on the camera intrinsics matrix
         if self.transform is not None:
             imgs, intrinsics = self.transform(imgs, np.copy(intrinsics_orig))
@@ -130,8 +123,12 @@ class ScenesDataset(data.Dataset):
         ref_imgs = imgs[1 : self.sequence_length]
         inv_intrinsics = np.linalg.inv(intrinsics)
         sample = {"tgt_img": tgt_img, "ref_imgs": ref_imgs, "intrinsics": intrinsics, "inv_intrinsics": inv_intrinsics}
+        
         if self.load_tgt_depth:
-            sample["depth_img"] = imgs[-1]
+            # load the depth map of the target frame and return it as part of the sample (As is, without any transformation)
+            with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+                depth_img = h5f["z_depth_map"][target_frame_ind]
+                sample["depth_img"] = depth_img
 
         return sample
 

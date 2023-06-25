@@ -243,10 +243,15 @@ def calc_nav_aid_metrics(
 
             angle_err_deg[i, track_id] = gt_angle_deg - est_angle_deg  # [deg]
 
-    # take average over targets per frame
-    angle_err_deg_avg = np.sum(angle_err_deg[is_tracked_front], axis=1)
-    z_err_mm_per_avg = np.mean(z_err_mm[is_tracked], axis=1)
-    z_sign_err_avg = np.mean(z_sign_err[is_tracked], axis=1)
+    # for each frame calculate the average absolute error over the tracked targets
+    z_err_mm_avg = np.zeros(n_frames)
+    z_sign_err_avg = np.zeros(n_frames)
+    angle_err_deg_avg = np.zeros(n_frames)
+    for i in range(n_frames):
+        z_err_mm_avg[i] = np.mean(np.abs(z_err_mm[i][is_tracked[i]]))
+        z_sign_err_avg = np.mean(np.abs(z_sign_err[i][is_tracked[i]]))
+        # for angle error - consider only the targets that are estimated to be in front of the camera
+        angle_err_deg_avg = np.mean(np.abs(angle_err_deg[i][is_tracked_front[i]]))
 
     # calculate the RMSE over frames
     angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_tracked] ** 2))
@@ -255,7 +260,7 @@ def calc_nav_aid_metrics(
 
     metrics_per_frame = {
         "Nav. Angle error [deg]": angle_err_deg_avg,
-        "Nav. Z error [mm]": z_err_mm_per_avg,
+        "Nav. Z error [mm]": z_err_mm_avg,
         "Nav. Z sign error": z_sign_err_avg,
     }
     metrics_stats = {
