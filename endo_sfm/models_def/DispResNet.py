@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -60,23 +62,24 @@ class DepthDecoder(nn.Module):
         self.num_ch_dec = np.array([16, 32, 64, 128, 256])
 
         # decoder
-        self.convs = nn.ModuleDict()
+        self.convs = OrderedDict()
         for i in range(4, -1, -1):
             # upconv_0
             num_ch_in = self.num_ch_enc[-1] if i == 4 else self.num_ch_dec[i + 1]
             num_ch_out = self.num_ch_dec[i]
-            self.convs[f"upconv_{i}_{0}"] = ConvBlock(num_ch_in, num_ch_out)
+            self.convs[("upconv", i, 0)] = ConvBlock(num_ch_in, num_ch_out)
 
             # upconv_1
             num_ch_in = self.num_ch_dec[i]
             if self.use_skips and i > 0:
                 num_ch_in += self.num_ch_enc[i - 1]
             num_ch_out = self.num_ch_dec[i]
-            self.convs[f"upconv_{i}_{1}"] = ConvBlock(num_ch_in, num_ch_out)
+            self.convs[("upconv", i, 1)] = ConvBlock(num_ch_in, num_ch_out)
 
         for s in self.scales:
-            self.convs[f"dispconv_{s}"] = Conv3x3(self.num_ch_dec[s], self.num_output_channels)
+            self.convs[("dispconv", s)] = Conv3x3(self.num_ch_dec[s], self.num_output_channels)
 
+        self.decoder = nn.ModuleList(list(self.convs.values()))
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, input_features):
@@ -85,13 +88,14 @@ class DepthDecoder(nn.Module):
         # decoder
         x = input_features[-1]
         for i in range(4, -1, -1):
-            x = self.convs[f"upconv_{i}_{0}"](x)
-            x = upsample(x)
+            x = self.convs[("upconv", i, 0)](x)
+            x = [upsample(x)]
             if self.use_skips and i > 0:
-                x = torch.cat((x, input_features[i - 1]), axis=1)
-            x = self.convs[f"upconv_{i}_{1}"](x)
+                x += [input_features[i - 1]]
+            x = torch.cat(x, 1)
+            x = self.convs[("upconv", i, 1)](x)
             if i in self.scales:
-                self.outputs.append(self.alpha * self.sigmoid(self.convs[f"dispconv_{i}"](x)) + self.beta)
+                self.outputs.append(self.alpha * self.sigmoid(self.convs[("dispconv", i)](x)) + self.beta)
 
         self.outputs = self.outputs[::-1]
         return self.outputs
@@ -111,10 +115,10 @@ class DispResNet(nn.Module):
         outputs = self.decoder(features)
 
         if self.training:
-            return outputs # return all scales
-        return outputs[0] # return only the full scale
+            # return outputs for all scales
+            return outputs
 
-# --------------------------------------------------------------------------------------------------------------------
+        return outputs[0]  # in inference mode, we only predict the disparity of the full resolution output
 
 
 if __name__ == "__main__":
@@ -125,10 +129,9 @@ if __name__ == "__main__":
 
     B = 12
 
-    tgt_img = torch.randn(B, 3, 256, 256).cuda()
-    ref_imgs = [torch.randn(B, 3, 256, 256).cuda() for i in range(2)]
+    tgt_img = torch.randn(B, 3, 256, 832).cuda()
+    ref_imgs = [torch.randn(B, 3, 256, 832).cuda() for i in range(2)]
 
     tgt_depth = model(tgt_img)
 
     print(tgt_depth[0].size())
-# --------------------------------------------------------------------------------------------------------------------

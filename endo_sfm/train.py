@@ -28,7 +28,7 @@ def main():
         "--name",
         dest="name",
         type=str,
-        default="EndoSFM",
+        default="EndoSFM_tuned",
         help="name of the experiment, checkpoints are stored in checkpoints/name",
     )
     parser.add_argument(
@@ -40,20 +40,20 @@ def main():
     parser.add_argument(
         "--validation_percent",
         type=float,
-        default=0.15,
+        default=0.2,
         help="ratio of the number of scenes in the validation set from entire training set scenes",
     )
     parser.add_argument(
         "--pretrained_disp",
         dest="pretrained_disp",
-        default="",
+        default="saved_models/EndoSFM_tuned/DispResNet_best.pt",
         metavar="PATH",
         help="path to pre-trained DispNet model (disparity=1/depth), if empty then training from scratch",
     )
     parser.add_argument(
         "--pretrained_pose",
         dest="pretrained_pose",
-        default="",
+        default="saved_models/EndoSFM_tuned/PoseResNet_best.pt",
         metavar="PATH",
         help="path to pre-trained PoseNet model, if empty then training from scratch",
     )
@@ -77,7 +77,7 @@ def main():
     parser.add_argument(
         "-b",
         "--batch_size",
-        default=16,
+        default=8,
         type=int,
         metavar="N",
         help="mini-batch size, decrease this if out of memory",
@@ -272,8 +272,8 @@ def main():
             pose_net.load_state_dict(weights["state_dict"], strict=False)
             pose_net.to(device)
 
-        disp_net = torch.nn.DataParallel(disp_net)
-        pose_net = torch.nn.DataParallel(pose_net)
+        # disp_net = torch.nn.DataParallel(disp_net)
+        # pose_net = torch.nn.DataParallel(pose_net)
 
         print("=> setting adam solver")
         optim_params = [

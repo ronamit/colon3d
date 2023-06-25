@@ -4,11 +4,11 @@ from pathlib import Path
 import numpy as np
 import torch
 from imageio import imread, imsave
-from scipy.misc import imresize
+from skimage.transform import resize as imresize
 from tqdm import tqdm
-from utils import tensor2array
 
 from endo_sfm.models_def.DispResNet import DispResNet
+from endo_sfm.utils import tensor2array
 
 parser = argparse.ArgumentParser(
     description="Inference script for DispNet learned with \
@@ -73,7 +73,7 @@ def main():
         tensor_img = torch.from_numpy(img).unsqueeze(0)
         tensor_img = ((tensor_img / 255 - 0.45) / 0.225).to(device)
 
-        output = disp_net(tensor_img)[0]
+        output = disp_net(tensor_img)[0]  # take the first output (full scale image)
 
         file_path, file_ext = file.relpath(args.dataset_dir).splitext()
         file_name = "-".join(file_path.splitall())

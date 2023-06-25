@@ -384,7 +384,7 @@ class DepthModel:
         self.depth_map_height = self.model_im_height
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
+        # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
         self.dtype = torch.float32
@@ -463,7 +463,7 @@ class EgomotionModel:
         self.model_im_width = self.model_info["img_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        # the camera matrix corresponding to the depth maps (based on the data it was trained on - see the endo_sfm_learner code)
+        # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.pose_net = PoseResNet(self.resnet_layers, pretrained=True).to(self.device)
         weights = torch.load(self.pose_net_path)

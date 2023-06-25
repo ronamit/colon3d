@@ -24,11 +24,18 @@ def main():
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
+        "--save_path",
+        type=str,
+        default="data/sim_data/SimData14_train/DepthsExamination",
+        help="Path to save the results.",
+    )
+    parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/endo_sfm_orig",
+        default="saved_models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
+
     parser.add_argument(
         "--n_scenes_lim",
         type=int,
@@ -36,14 +43,14 @@ def main():
         help="The number of scenes to examine, if 0 then all the scenes will be examined",
     )
     args = parser.parse_args()
-    dataset_path = Path(args.dataset_path).expanduser()
+    dataset_path = Path(args.dataset_path)
     with Tee(dataset_path / "examine_depths.log"):
         scenes_paths = list(dataset_path.glob("Scene_*"))
         n_scenes = len(scenes_paths)
         n_scenes = min(n_scenes, args.n_scenes_lim) if args.n_scenes_lim > 0 else n_scenes
         print(f"n_scenes = {n_scenes}")
         scenes_paths.sort()
-        save_path = dataset_path / "DepthsExamination"
+        save_path = Path(args.save_path)
         create_empty_folder(save_path)
         scene_avg_gt_depth = np.zeros(n_scenes)
         scene_avg_est_depth = np.zeros(n_scenes)
@@ -94,6 +101,7 @@ def main():
         print(f"std_est_depth = {std_est_depth}")
         print(f"(avg_gt_depth / avg_est_depth) = {avg_gt_depth / avg_est_depth}")
         print(f"(std_gt_depth / std_est_depth) = {std_gt_depth / std_est_depth}")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 

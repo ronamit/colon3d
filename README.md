@@ -51,14 +51,13 @@ pip install -e .
 ## Optional install for faster 3D fuse plot
 
 * (optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
-
 * Install CUDA, and then:
 
-    ```bash
-    export PATH=/usr/local/cuda/bin:$PATH
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-    pip3 install pycuda --user
-    ```
+  ```bash
+  export PATH=/usr/local/cuda/bin:$PATH
+  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+  pip3 install pycuda --user
+  ```
 
 ## Code use examples
 
@@ -77,12 +76,12 @@ pip install -e .
 ```
 
 * Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.
-  Ths training checkpoints will be saved in "saved_models/endo_sfm_opt"
+  Ths training checkpoints will be saved in "saved_models/EndoSFM_tuned"
 
 ```bash
-  python -m endo_sfm.train --name "endo_sfm_opt" --dataset_path "data/sim_data/ScenesForNetsTrain"
-  --pretrained_disp "saved_models/endo_sfm_orig/DispNet.pt",
-  --pretrained_pose "saved_models/endo_sfm_orig/PoseNet.pt"
+  python -m endo_sfm.train --name "EndoSFM_tuned" --dataset_path "data/sim_data/ScenesForNetsTrain"
+  --pretrained_disp "saved_models/EndoSFM_orig/DispNet.pt",
+  --pretrained_pose "saved_models/EndoSFM_orig/PoseNet.pt"
 ```
 
 If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
@@ -98,7 +97,6 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-
 * Run SLAM on real data example:
 
 ```bash

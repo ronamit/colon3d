@@ -54,7 +54,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/endo_sfm_opt",
+        default="saved_models/EndoSFM_tuned",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     parser.add_argument(
