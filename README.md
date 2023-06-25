@@ -69,10 +69,10 @@ pip install -e .
   python -m colon3d.sim_import.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
 ```
 
-* Generating examples based on the imported scenes, with randomly simulated tracked targets.
+* Generating cases based on the imported scenes, with randomly simulated tracked targets.
 
 ```bash
-  python -m colon3d.sim_import.create_scenes_with_tracks --sim_data_path "data/sim_data/SimData11" --path_to_save_examples "data/sim_data/SimData11_with_tracks" --n_examples_per_scene 5
+  python -m colon3d.sim_import.create_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_examples "data/sim_data/SimData11_with_tracks" --n_cases_per_scene 5
 ```
 
 * Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.

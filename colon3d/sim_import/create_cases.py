@@ -23,20 +23,20 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData11",
+        default="data/sim_data/SimData14_test",
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
         "--path_to_save_scenes",
         type=str,
-        default="data/sim_data/SimData11_with_tracks",
+        default="data/sim_data/SimData14_test_cases",
         help="The path to the folder where the generated scenes with targets will be saved",
     )
     parser.add_argument(
-        "--n_examples_per_scene",
+        "--n_cases_per_scene",
         type=int,
         default=4,
-        help="The number of examples with random targets to generate from each scene (with random polyp locations, estimation noise etc.)",
+        help="The number of cases with random targets to generate from each scene (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
     parser.add_argument(
@@ -115,16 +115,16 @@ def main():
     )
 
     args = parser.parse_args()
-    n_examples_per_scene = args.n_examples_per_scene
+    n_cases_per_scene = args.n_cases_per_scene
     sim_data_path = Path(args.sim_data_path)
     path_to_save_scenes = Path(args.path_to_save_scenes)
-    print(f"The generated examples will be saved to {path_to_save_scenes}")
+    print(f"The generated cases will be saved to {path_to_save_scenes}")
     create_empty_folder(path_to_save_scenes, ask_overwrite=False)
     rng = default_rng(args.rand_seed)
-    examples_prams = {
+    cases_params = {
         "simulate_depth_and_egomotion_estimation": args.simulate_depth_and_egomotion_estimation,
         "rand_seed": args.rand_seed,
-        "n_examples_per_scene": n_examples_per_scene,
+        "n_cases_per_scene": n_cases_per_scene,
         "min_target_radius_mm": args.min_target_radius_mm,
         "max_target_radius_mm": args.max_target_radius_mm,
         "max_dist_from_center_ratio": args.max_dist_from_center_ratio,
@@ -136,7 +136,7 @@ def main():
     }
     if args.simulate_depth_and_egomotion_estimation:
         print("The depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.")
-        examples_prams = examples_prams | {
+        cases_params = cases_params | {
             "depth_noise_std_mm": args.depth_noise_std_mm,
             "cam_motion_loc_std_mm": args.cam_motion_loc_std_mm,
             "cam_motion_rot_std_deg": args.cam_motion_rot_std_deg,
@@ -151,26 +151,26 @@ def main():
     scenes_paths_list.sort()
     print(f"Found {len(scenes_paths_list)} scenes.")
     for scene_path in scenes_paths_list:
-        print(f"Generating examples from scene {scene_path}")
-        generate_examples_from_scene(
+        print(f"Generating cases from scene {scene_path}")
+        generate_cases_from_scene(
             scene_path=scene_path,
-            n_examples_per_scene=n_examples_per_scene,
-            examples_prams=examples_prams,
+            n_cases_per_scene=n_cases_per_scene,
+            cases_params=cases_params,
             path_to_save_scenes=path_to_save_scenes,
             rng=rng,
         )
-    # save the examples parameters to a json file:
-    with (path_to_save_scenes / "examples_prams.json").open("w") as file:
-        json.dump(examples_prams, file, indent=4)
+    # save the cases parameters to a json file:
+    with (path_to_save_scenes / "cases_prams.json").open("w") as file:
+        json.dump(cases_params, file, indent=4)
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def generate_examples_from_scene(
+def generate_cases_from_scene(
     scene_path: Path,
-    n_examples_per_scene: int,
-    examples_prams: dict,
+    n_cases_per_scene: int,
+    cases_params: dict,
     path_to_save_scenes: Path,
     rng,
 ):
@@ -185,10 +185,10 @@ def generate_examples_from_scene(
     with (scene_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = to_numpy(pickle.load(file))
 
-    for i_example in range(n_examples_per_scene):
+    for i_case in range(n_cases_per_scene):
         scene_name = scene_path.name
-        example_name = f"{scene_name}_{i_example:04d}"
-        print(f"Generating example {i_example+1}/{n_examples_per_scene} for scene {scene_name}")
+        case_name = f"{scene_name}_{i_case:04d}"
+        print(f"Generating case {i_case+1}/{n_cases_per_scene} for scene {scene_name}")
         # Attempt to generate valid targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
         n_targets = 1  # we currently want only one tracked object
         print("Generating", n_targets, "targets")
@@ -198,20 +198,20 @@ def generate_examples_from_scene(
             gt_cam_poses=gt_cam_poses,
             rng=rng,
             depth_info=depth_info,
-            examples_prams=examples_prams,
+            cases_params=cases_params,
         )
         if targets_info is None:
             print(f"Failed to generate valid targets for the scene {scene_name}... skipping this scene.")
             break
 
-        # create subfolder for the example:
-        example_path = path_to_save_scenes / example_name
-        create_empty_folder(example_path)
+        # create subfolder for the case:
+        case_path = path_to_save_scenes / case_name
+        create_empty_folder(case_path)
         print(
-            f"Generating example {i_example+1}/{n_examples_per_scene} for scene {scene_name} to save in {example_path}",
+            f"Generating cases {i_case+1}/{n_cases_per_scene} for scene {scene_name} to save in {case_path}",
             flush=True,
         )
-        # create symbolic links in the example folder:
+        # create symbolic links in the case folder:
         for file_name in [
             "meta_data.yaml",
             "Video.mp4",
@@ -220,22 +220,22 @@ def generate_examples_from_scene(
             "RGB_Frames",
             "gt_depth_video.mp4",
         ]:
-            (example_path / file_name).symlink_to((scene_path / file_name).resolve())
+            (case_path / file_name).symlink_to((scene_path / file_name).resolve())
 
-        if examples_prams["simulate_depth_and_egomotion_estimation"]:
+        if cases_params["simulate_depth_and_egomotion_estimation"]:
             print("Generating egomotion and depth estimations")
             est_depth_maps, est_egomotions = get_egomotion_and_depth_estimations(
                 gt_depth_maps=gt_depth_maps,
                 gt_egomotions=gt_egomotions,
-                examples_prams=examples_prams,
+                cases_prams=cases_params,
                 rng=rng,
             )
             # save the estimated depth maps and egomotions to a file:
-            with h5py.File(example_path / "est_depth_and_egomotion.h5", "w") as hf:
+            with h5py.File(case_path / "est_depth_and_egomotion.h5", "w") as hf:
                 hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
                 hf.create_dataset("egomotions", data=est_egomotions)
             # save depth info to a file (unchanged from the ground truth):
-            with (example_path / "est_depth_info.pkl").open("wb") as file:
+            with (case_path / "est_depth_info.pkl").open("wb") as file:
                 pickle.dump(depth_info, file)
 
         # get the FPS:
@@ -243,10 +243,10 @@ def generate_examples_from_scene(
             fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
 
         print("Targets info:", to_str(targets_info))
-        with (example_path / "targets_info.pkl").open("wb") as file:
+        with (case_path / "targets_info.pkl").open("wb") as file:
             pickle.dump(targets_info, file)
         # also save the targets info to a text file:
-        with (example_path / "targets_info.txt").open("w") as file:
+        with (case_path / "targets_info.txt").open("w") as file:
             file.write("Targets info: " + to_str(targets_info) + "\n")
 
         # simulate the tracks (bounding boxes) of the targets in the 2D images:
@@ -255,20 +255,20 @@ def generate_examples_from_scene(
             gt_cam_poses=gt_cam_poses,
             depth_info=depth_info,
             targets_info=targets_info,
-            min_pixels_in_bb=examples_prams["min_pixels_in_bb"],
+            min_pixels_in_bb=cases_params["min_pixels_in_bb"],
         )
         # save tracks to a csv file:
-        tracks.to_csv(example_path / "Tracks.csv", encoding="utf-8-sig", index=False)
+        tracks.to_csv(case_path / "Tracks.csv", encoding="utf-8-sig", index=False)
 
         # save video with the tracks bounding boxes (for visualization)
         save_video_with_tracks(
-            rgb_frames_path=example_path / "RGB_Frames",
+            rgb_frames_path=case_path / "RGB_Frames",
             tracks=tracks,
-            path_to_save=example_path / "Video_with_tracks",
+            path_to_save=case_path / "Video_with_tracks",
             fps=fps,
         )
-        print("Done generating examples from scene", scene_path.name)
-    print("Done generating examples from all scenes")
+        print("Done generating cases from scene", scene_path.name)
+    print("Done generating cases from all scenes")
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -277,12 +277,12 @@ def generate_examples_from_scene(
 def get_egomotion_and_depth_estimations(
     gt_depth_maps: np.ndarray,
     gt_egomotions: np.ndarray,
-    examples_prams: dict,
+    cases_prams: dict,
     rng: np.random.Generator,
 ):
-    depth_noise_std_mm = examples_prams["depth_noise_std_mm"]
-    cam_motion_loc_std_mm = examples_prams["cam_motion_loc_std_mm"]
-    cam_motion_rot_std_deg = examples_prams["cam_motion_rot_std_deg"]
+    depth_noise_std_mm = cases_prams["depth_noise_std_mm"]
+    cam_motion_loc_std_mm = cases_prams["cam_motion_loc_std_mm"]
+    cam_motion_rot_std_deg = cases_prams["cam_motion_rot_std_deg"]
     n_frames = gt_depth_maps.shape[0]
     if depth_noise_std_mm > 0:
         # add noise to the depth maps:

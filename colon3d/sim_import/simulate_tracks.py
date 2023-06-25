@@ -29,17 +29,17 @@ def generate_targets(
     gt_cam_poses: np.ndarray,
     rng: np.random.Generator,
     depth_info: dict,
-    examples_prams: dict,
+    cases_params: dict,
 ) -> TargetsInfo | None:
     """generate random 3D points on the surface of the colon, which will be used as the center of the tracks/"""
 
-    min_target_radius_mm = examples_prams["min_target_radius_mm"]
-    max_target_radius_mm = examples_prams["max_target_radius_mm"]
-    min_dist_from_center_ratio = examples_prams["min_dist_from_center_ratio"]
-    max_dist_from_center_ratio = examples_prams["max_dist_from_center_ratio"]
-    min_visible_frames = examples_prams["min_visible_frames"]
-    min_non_visible_frames = examples_prams["min_non_visible_frames"]
-    min_initial_pixels_in_bb = examples_prams["min_initial_pixels_in_bb"]
+    min_target_radius_mm = cases_params["min_target_radius_mm"]
+    max_target_radius_mm = cases_params["max_target_radius_mm"]
+    min_dist_from_center_ratio = cases_params["min_dist_from_center_ratio"]
+    max_dist_from_center_ratio = cases_params["max_dist_from_center_ratio"]
+    min_visible_frames = cases_params["min_visible_frames"]
+    min_non_visible_frames = cases_params["min_non_visible_frames"]
+    min_initial_pixels_in_bb = cases_params["min_initial_pixels_in_bb"]
     dtype = get_default_dtype("numpy")
     dtype_int = get_default_dtype("numpy", num_type="int")
 
