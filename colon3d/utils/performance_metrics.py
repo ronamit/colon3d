@@ -259,10 +259,14 @@ def calc_nav_aid_metrics(
         # for angle error - consider only tracks that went out of view and are estimated to be in front of the camera
         angle_err_deg_avg = np.mean(np.abs(angle_err_deg[i][is_nav_arrow[i]]))
 
-    # calculate the RMSE over frames
+    # calculate the RMSE over frames and over tracked targets
     angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_tracked] ** 2))
     z_err_mm_rmse = np.sqrt(np.mean(z_err_mm[is_tracked] ** 2))
     z_sign_err_ratio = np.mean(z_sign_err[is_tracked])
+    
+    # calculate the percentage of arrows in frames in which the angle error is less than a threshold
+    angle_err_less_than_thresh_ratio = np.mean(np.abs(angle_err_deg[is_nav_arrow]) < deg_err_thresh)
+    
 
     metrics_per_frame = {
         "Nav. Angle error [deg]": angle_err_deg_avg,
@@ -270,11 +274,10 @@ def calc_nav_aid_metrics(
         "Nav. Z sign error": z_sign_err_avg,
     }
     metrics_stats = {
-        "Nav. Angle error RMSE [deg]": angle_err_deg_rmse,
         "Nav. Z error RMSE [mm]": z_err_mm_rmse,
         "Nav. Z sign error [%]": 100 * z_sign_err_ratio,
-        f"Nav Angle error less than {deg_err_thresh} deg [%]": np.mean(np.abs(angle_err_deg_avg) < deg_err_thresh)
-        * 100,
+        "Nav-Arrow Angle error RMSE [deg]": angle_err_deg_rmse,
+        f"Nav-Arrow Angle error less than {deg_err_thresh} [deg] [%]": angle_err_less_than_thresh_ratio  * 100,
     }
     return metrics_per_frame, metrics_stats
 

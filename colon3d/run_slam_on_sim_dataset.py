@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="online_estimates",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="online_estimates",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm"

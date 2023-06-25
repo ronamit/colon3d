@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from utils.tracks_util import DetectionsTracker
 
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.utils.camera_util import FishEyeUndistorter
@@ -13,6 +12,7 @@ from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.rotations_util import get_smallest_angle_between_rotations
 from colon3d.utils.torch_util import np_func, to_numpy
+from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 

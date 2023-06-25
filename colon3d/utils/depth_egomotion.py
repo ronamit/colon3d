@@ -187,7 +187,7 @@ class DepthAndEgoMotionLoader:
         """
         if self.egomotions_source == "none" or curr_frame_idx == 0:
             # default value = identity egomotion (no motion)
-            egomotion = torch.zeros((7), dtype=torch.float32)
+            egomotion = torch.zeros((7), dtype=torch.float32, device=self.device)
             egomotion[3:] = get_identity_quaternion()
             return egomotion
         # if the egomotion is already in the buffer, return it, otherwise estimate it first
