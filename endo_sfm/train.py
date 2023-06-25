@@ -38,22 +38,22 @@ def main():
         default="data/sim_data/SimData14_train",
     )
     parser.add_argument(
-        "--validation_percent",
+        "--validation_ratio",
         type=float,
-        default=0.2,
+        default=0.1,
         help="ratio of the number of scenes in the validation set from entire training set scenes",
     )
     parser.add_argument(
         "--pretrained_disp",
         dest="pretrained_disp",
-        default="saved_models/EndoSFM_tuned/DispResNet_best.pt",
+        default="saved_models/EndoSFM_orig/DispNet_best.pt",
         metavar="PATH",
         help="path to pre-trained DispNet model (disparity=1/depth), if empty then training from scratch",
     )
     parser.add_argument(
         "--pretrained_pose",
         dest="pretrained_pose",
-        default="saved_models/EndoSFM_tuned/PoseResNet_best.pt",
+        default="saved_models/EndoSFM_orig/PoseNet_best.pt",
         metavar="PATH",
         help="path to pre-trained PoseNet model, if empty then training from scratch",
     )
@@ -189,7 +189,7 @@ def main():
         ]
         random.shuffle(all_scenes_paths)
         n_all_scenes = len(all_scenes_paths)
-        n_train_scenes = int(n_all_scenes * 0.8)
+        n_train_scenes = int(n_all_scenes * (1 - args.validation_ratio))
         n_val_scenes = n_all_scenes - n_train_scenes
         train_scenes_paths = all_scenes_paths[:n_train_scenes]
         val_scenes_paths = all_scenes_paths[n_train_scenes:]
