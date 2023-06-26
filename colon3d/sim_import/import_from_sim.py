@@ -17,7 +17,7 @@ def main():
     parser.add_argument(
         "--processed_sim_data_path",
         type=str,
-        default="data/sim_data/SimData17",
+        default="data/sim_data/SimData14_test",
         help="The path to save the processed simulated scene",
     )
     parser.add_argument(
