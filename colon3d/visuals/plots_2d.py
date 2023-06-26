@@ -336,12 +336,14 @@ def display_image_in_actual_size(im_data, hide_axis=True):
 
 
 def draw_alg_view_in_the_full_frame(frame, scene_loader: SceneLoader):
-    # get the FOV of the alg view
-    alg_view_radius = round(scene_loader.alg_view_radius)
-    orig_cam_info = scene_loader.orig_cam_info
-    orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy]).round().astype(int)  # [px]
-    color = colors_platte(color_name="gray")
-    frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=color, thickness=2)
+    # check if the algorithm view is smaller than the full frame
+    if scene_loader.alg_fov_ratio > 0:
+        # get the FOV of the alg view
+        alg_view_radius = round(scene_loader.alg_view_radius)
+        orig_cam_info = scene_loader.orig_cam_info
+        orig_im_center = np.array([orig_cam_info.cx, orig_cam_info.cy]).round().astype(int)  # [px]
+        color = colors_platte(color_name="gray")
+        frame = cv2.circle(frame, orig_im_center, alg_view_radius, color=color, thickness=2)
 
     return frame
 
