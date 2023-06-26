@@ -63,10 +63,10 @@ def main():
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
-        "--n_examples_lim",
+        "--n_cases_lim",
         type=int,
         default=0,
-        help="upper limit on the number of examples used, if 0 then all examples are used",
+        help="upper limit on the number of cases used, if 0 then all cases are used",
     )
 
     args = parser.parse_args()
@@ -75,26 +75,26 @@ def main():
     base_save_path = Path(args.save_path).expanduser()
     create_empty_folder(base_save_path, ask_overwrite=False)
     print(f"Outputs will be saved to {base_save_path}")
-    examples_paths = list(dataset_path.glob("Scene_*"))
-    examples_paths.sort()
-    if args.n_examples_lim:
-        examples_paths = examples_paths[: args.n_examples_lim]
-    n_examples = len(examples_paths)
+    cases_paths = list(dataset_path.glob("Scene_*"))
+    cases_paths.sort()
+    if args.n_cases_lim:
+        cases_paths = cases_paths[: args.n_cases_lim]
+    n_cases = len(cases_paths)
     metrics_table = pd.DataFrame()
     with Tee(base_save_path / "log_run_slam.txt"):  # save the prints to a file
-        for i_example, example_path in enumerate(examples_paths):
-            save_path = base_save_path / example_path.name
+        for i_case, case_path in enumerate(cases_paths):
+            save_path = base_save_path / case_path.name
             print(
                 "-" * 100
-                + f"\nTime: {get_time_now_str()}\nRunning SLAM on example {i_example + 1} out of {n_examples}, results will be saved to {save_path}...\n"
+                + f"\nTime: {get_time_now_str()}\nRunning SLAM on case {i_case + 1} out of {n_cases}, results will be saved to {save_path}...\n"
                 + "-" * 100,
             )
-            save_path = Path(args.save_path).expanduser() / example_path.name
+            save_path = Path(args.save_path).expanduser() / case_path.name
             create_empty_folder(save_path, ask_overwrite=True)
 
-            # run the SLAM algorithm on the current example
+            # run the SLAM algorithm on the current case
             _, metrics_stats = run_slam_on_scene(
-                scene_path=example_path,
+                scene_path=case_path,
                 save_path=save_path,
                 n_frames_lim=args.n_frames_lim,
                 alg_fov_ratio=args.alg_fov_ratio,
@@ -104,11 +104,11 @@ def main():
                 plot_names=["aided_nav", "keypoints_and_tracks"], # plots to create
             )
 
-            # add current example to the error metrics table
-            if i_example == 0:
+            # add current case to the error metrics table
+            if i_case == 0:
                 metrics_table = pd.DataFrame(metrics_stats, index=[0])
             else:
-                metrics_table.loc[i_example] = metrics_stats
+                metrics_table.loc[i_case] = metrics_stats
 
             print("-" * 100)
 
@@ -116,17 +116,19 @@ def main():
     metrics_table.to_csv(base_save_path / "err_table.csv", index=[0])
     print(f"Error metrics table saved to {base_save_path / 'err_table.csv'}")
 
-    # compute statistics over all examples
+    # compute statistics over all cases
     numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
     metrics_summary = {}
     for col in numeric_columns:
-        mean_val = metrics_table[col].mean()
-        std_val = metrics_table[col].std()
-        n_examples = len(metrics_table[col])
-        confidence_interval = 1.96 * std_val / np.sqrt(n_examples)  # 95% confidence interval
+        mean_val = np.nanmean(metrics_table[col]) # ignore nan values
+        std_val = np.nanstd(metrics_table[col])
+        n_cases = np.sum(~np.isnan(metrics_table[col]))
+        confidence_interval = 1.96 * std_val / np.sqrt(max(n_cases, 1))  # 95% confidence interval
         metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
 
     print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
+    # save to csv file
+    pd.DataFrame(metrics_summary, index=[0]).to_csv(base_save_path / "metrics_summary.csv", index=[0])
 
 
 # ---------------------------------------------------------------------------------------------------------------------

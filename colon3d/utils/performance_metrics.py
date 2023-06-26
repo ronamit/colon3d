@@ -9,6 +9,7 @@ from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.utils.rotations_util import normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
+from colon3d.utils.tracks_util import DetectionsTracker
 from colon3d.utils.transforms_util import apply_pose_change, find_pose_change
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -167,6 +168,7 @@ def calc_nav_aid_metrics(
     est_cam_poses: np.ndarray,
     gt_targets_info: dict,
     online_est_track_world_loc: list,
+    detections_tracker: DetectionsTracker,
 ) -> dict:
     """Calculates the navigation-aid metrics.
     Args:
@@ -197,45 +199,47 @@ def calc_nav_aid_metrics(
     )
 
     # the navigation-aid metrics per-frame:
-    
+
     # True if the target is seen being tracked the current frame (i.e. it was seen in some past frame and is still being tracked in the current frame)
     is_tracked = np.zeros((n_frames, n_targets), dtype=bool)
-    
+
     # True if the target track is currently in view of the camera (i.e. it is seen in the current frame)
     is_in_view = np.zeros((n_frames, n_targets), dtype=bool)
-    
+
     # True if the estimated location of the target is in front of the camera (in z-axis)
     is_front_est = np.zeros((n_frames, n_targets), dtype=bool)
-    
-    angle_err_deg = np.zeros((n_frames, n_targets))
-    z_err_mm = np.zeros((n_frames, n_targets))
+
+    angle_err_deg = np.ones((n_frames, n_targets)) * np.nan
+    z_err_mm = np.ones((n_frames, n_targets)) * np.nan
     # 1 if the sign of the error is different than the sign of the GT z-distance, 0 otherwise
-    z_sign_err = np.zeros((n_frames, n_targets), dtype=bool)
+    z_sign_err = np.ones((n_frames, n_targets), dtype=bool) * np.nan
 
     for i in range(n_frames):
-        # the estimated 3d position (in camera system) of the tracked polyps in the seen in the current frame (units: mm)
+        track_ids_in_frame = detections_tracker.get_tracks_in_frame(i)
+        # mark the in-view tracks in the current frame
+        for track_id in track_ids_in_frame:
+            is_in_view[i, track_id] = track_id in track_ids_in_frame
+
+        # the estimated 3d position (in camera system) of the tracks w.r.t. current estimated cam system (units: mm)
         track_loc_est_cam = online_est_track_cam_loc[i]
 
-        # the GT 3d position of the center KP of the tracked polyps in the seen in the current frame (units: mm)  (in GT camera system)
+        # the GT 3d position of the center KP of the tracks w.r.t. current ground-truth cam system  (units: mm)
         track_loc_gt_cam = gt_targets_cam_loc[i]
 
         # go over all ths tracks that have been their location estimated in the current frame
-        for track_id in range(n_targets):
-            if track_id not in track_loc_est_cam:
-                continue
-            is_in_view[i, track_id] = True # mark the track as in-view in the current frame
-            is_tracked[i:, track_id] = True # mark the track as tracked in all current and all future frames
+        for track_id in track_loc_est_cam:
+            is_tracked[i, track_id] = True  # mark the track_id as being tracked in the current frame
             gt_p3d_cam = track_loc_gt_cam[track_id].reshape(3)  # [mm]
             est_p3d_cam = track_loc_est_cam[track_id].reshape(3)  # [mm]
             # The locations on the z-axis of the tracked polyps in the current frame (in camera system)
             gt_z_dist = gt_p3d_cam[2]  # [mm]
             est_z_dist = est_p3d_cam[2]  # [mm]
-            z_err_mm[i, track_id] = gt_z_dist - est_z_dist  # [mm]
+            z_err_mm[i, track_id] = np.abs(gt_z_dist - est_z_dist)  # [mm]
             z_sign_err[i, track_id] = np.sign(gt_z_dist) != np.sign(est_z_dist)
             if est_z_dist > 0:
                 # in this case, the estimated location of the track is in front of the camera (in z-axis)
                 is_front_est[i, track_id] = True
-                
+
                 # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
                 gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
                 est_angle_rad = np.arccos(est_z_dist / max(np.linalg.norm(est_p3d_cam), eps))  # [rad]
@@ -243,41 +247,53 @@ def calc_nav_aid_metrics(
                 gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg]
                 est_angle_deg = np.rad2deg(est_angle_rad)  # [deg]
 
-            angle_err_deg[i, track_id] = gt_angle_deg - est_angle_deg  # [deg]
+            angle_err_deg[i, track_id] = np.abs(gt_angle_deg - est_angle_deg)  # [deg]
 
     # for each frame calculate the average absolute error over the tracked targets
-    z_err_mm_avg = np.zeros(n_frames)
-    z_sign_err_avg = np.zeros(n_frames)
-    angle_err_deg_avg = np.zeros(n_frames)
-    
+    z_err_mm_per_frame = np.ones(n_frames) * np.nan
+    z_sign_err_per_frame = np.ones(n_frames) * np.nan
+    angle_err_deg_per_frame = np.ones(n_frames) * np.nan
+
     # we draw the navigation-aid arrow when the track went out of the algorithm view, and is estimated to be in front of the camera
-    is_nav_arrow = is_tracked & ~is_in_view & is_front_est
-    
+    is_out_of_view = is_tracked & ~is_in_view
+    is_nav_arrow = is_out_of_view & is_front_est
+
     for i in range(n_frames):
-        z_err_mm_avg[i] = np.mean(np.abs(z_err_mm[i][is_tracked[i]]))
-        z_sign_err_avg = np.mean(np.abs(z_sign_err[i][is_tracked[i]]))
+        # for each frame calculate the average absolute error over the tracked targets
+        if np.any(is_out_of_view[i]):
+            z_err_mm_per_frame[i] = np.nanmean(np.abs(z_err_mm[i][is_out_of_view[i]]))
+            z_sign_err_per_frame[i] = np.nanmean(np.abs(z_sign_err[i][is_out_of_view[i]]))
         # for angle error - consider only tracks that went out of view and are estimated to be in front of the camera
-        angle_err_deg_avg = np.mean(np.abs(angle_err_deg[i][is_nav_arrow[i]]))
+        if np.any(is_nav_arrow[i]):
+            angle_err_deg_per_frame[i] = np.nanmean(np.abs(angle_err_deg[i][is_nav_arrow[i]]))
 
-    # calculate the RMSE over frames and over tracked targets
-    angle_err_deg_rmse = np.sqrt(np.mean(angle_err_deg[is_tracked] ** 2))
-    z_err_mm_rmse = np.sqrt(np.mean(z_err_mm[is_tracked] ** 2))
-    z_sign_err_ratio = np.mean(z_sign_err[is_tracked])
-    
-    # calculate the percentage of arrows in frames in which the angle error is less than a threshold
-    angle_err_less_than_thresh_ratio = np.mean(np.abs(angle_err_deg[is_nav_arrow]) < deg_err_thresh)
-    
+    # calculate the RMSE over frames (only frames in which the target went out of view are considered)
+    if np.any(is_out_of_view[:]):
+        z_err_mm_rmse = np.sqrt(np.nanmean(z_err_mm_per_frame**2))
+        z_sign_err_ratio = np.nanmean(z_sign_err_per_frame)
+    else:
+        print("No targets went out of view !!!!!")
+        z_err_mm_rmse = np.nan
+        z_sign_err_ratio = np.nan
 
+    if np.any(is_nav_arrow[:]):
+        # calculate the percentage of arrows in frames in which the angle error is less than a threshold
+        angle_err_less_than_thresh_ratio = np.mean(angle_err_deg_per_frame < deg_err_thresh)
+        angle_err_deg_rmse = np.sqrt(np.nanmean(angle_err_deg_per_frame**2))
+    else:
+        angle_err_less_than_thresh_ratio = np.nan
+        angle_err_deg_rmse = np.nan
+nanmean
     metrics_per_frame = {
-        "Nav. Angle error [deg]": angle_err_deg_avg,
-        "Nav. Z error [mm]": z_err_mm_avg,
-        "Nav. Z sign error": z_sign_err_avg,
+        "Nav. Angle error [deg]": angle_err_deg_per_frame,
+        "Nav. Z error [mm]": z_err_mm_per_frame,
+        "Nav. Z sign error": z_sign_err_per_frame,
     }
     metrics_stats = {
         "Nav. Z error RMSE [mm]": z_err_mm_rmse,
         "Nav. Z sign error [%]": 100 * z_sign_err_ratio,
         "Nav-Arrow Angle error RMSE [deg]": angle_err_deg_rmse,
-        f"Nav-Arrow Angle error less than {deg_err_thresh} [deg] [%]": angle_err_less_than_thresh_ratio  * 100,
+        f"Nav-Arrow Angle error less than {deg_err_thresh} [deg] [%]": angle_err_less_than_thresh_ratio * 100,
     }
     return metrics_per_frame, metrics_stats
 
@@ -315,6 +331,7 @@ def calc_performance_metrics(gt_cam_poses: np.ndarray, gt_targets_info: TargetsI
         gt_targets_info=gt_targets_info,
         est_cam_poses=est_cam_poses,
         online_est_track_world_loc=online_est_track_world_loc,
+        detections_tracker=slam_out.detections_tracker,
     )
     metrics_per_frame = ate_metrics_per_frame | rpe_metrics_per_frame | nav_metrics_per_frame
     metrics_stats = ate_metrics_stats | rpe_metrics_stats | nav_metrics_stats
