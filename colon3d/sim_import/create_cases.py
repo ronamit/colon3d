@@ -9,7 +9,7 @@ import yaml
 from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
-from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, to_str
+from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, save_run_info, to_str
 from colon3d.utils.rotations_util import get_random_rot_quat
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.transforms_util import apply_pose_change
@@ -23,19 +23,19 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData14_test",
+        default="data/sim_data/SimData17",
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
         "--path_to_save_scenes",
         type=str,
-        default="data/sim_data/SimData14_test_cases",
+        default="data/sim_data/SimData17_cases",
         help="The path to the folder where the generated scenes with targets will be saved",
     )
     parser.add_argument(
         "--n_cases_per_scene",
         type=int,
-        default=4,
+        default=5,
         help="The number of cases with random targets to generate from each scene (with random polyp locations, estimation noise etc.)",
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
@@ -120,6 +120,7 @@ def main():
     path_to_save_scenes = Path(args.path_to_save_scenes)
     print(f"The generated cases will be saved to {path_to_save_scenes}")
     create_empty_folder(path_to_save_scenes, ask_overwrite=False)
+    save_run_info(path_to_save_scenes, args)
     rng = default_rng(args.rand_seed)
     cases_params = {
         "simulate_depth_and_egomotion_estimation": args.simulate_depth_and_egomotion_estimation,

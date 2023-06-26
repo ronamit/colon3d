@@ -10,7 +10,7 @@ from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.slam_alg import SlamRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_run_info
 from colon3d.utils.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.utils.tracks_util import DetectionsTracker
 
@@ -80,6 +80,7 @@ def main():
     save_path = Path(args.save_path).expanduser()
     scene_path = Path(args.scene_path).expanduser()
     create_empty_folder(save_path)
+    save_run_info(args, save_path)
     print(f"Outputs will be saved to {save_path}")
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file

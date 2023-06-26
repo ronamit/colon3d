@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.run_slam_on_sim_scene import run_slam_on_scene
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str, save_run_info
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -74,6 +74,7 @@ def main():
     assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
     base_save_path = Path(args.save_path).expanduser()
     create_empty_folder(base_save_path, ask_overwrite=False)
+    save_run_info(base_save_path, args)
     print(f"Outputs will be saved to {base_save_path}")
     cases_paths = list(dataset_path.glob("Scene_*"))
     cases_paths.sort()
@@ -91,7 +92,6 @@ def main():
             )
             save_path = Path(args.save_path).expanduser() / case_path.name
             create_empty_folder(save_path, ask_overwrite=True)
-
             # run the SLAM algorithm on the current case
             _, metrics_stats = run_slam_on_scene(
                 scene_path=case_path,

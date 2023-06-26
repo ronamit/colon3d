@@ -6,7 +6,7 @@ import numpy as np
 
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close, save_run_info
 from colon3d.utils.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -52,6 +52,7 @@ def main():
         scenes_paths.sort()
         save_path = Path(args.save_path)
         create_empty_folder(save_path)
+        save_run_info(save_path, args)
         scene_avg_gt_depth = np.zeros(n_scenes)
         scene_avg_est_depth = np.zeros(n_scenes)
         for i_scene in range(n_scenes):

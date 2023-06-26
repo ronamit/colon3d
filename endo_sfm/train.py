@@ -9,7 +9,14 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str, set_rand_seed
+from colon3d.utils.general_util import (
+    ArgsHelpFormatter,
+    Tee,
+    create_empty_folder,
+    get_time_now_str,
+    save_run_info,
+    set_rand_seed,
+)
 from colon3d.utils.torch_util import get_device
 from endo_sfm import custom_transforms
 from endo_sfm.dataset_loading import ScenesDataset
@@ -178,6 +185,7 @@ def main():
 
         create_empty_folder(save_path)
         set_rand_seed(args.seed)
+        save_run_info(save_path, args)
 
         # dataset split
         dataset_path = Path(args.dataset_path)

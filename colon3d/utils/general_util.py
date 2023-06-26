@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import subprocess
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -8,10 +9,44 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+import yaml
 from matplotlib import font_manager
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torch.backends import cudnn
+
+# --------------------------------------------------------------------------------------------------------------------
+
+def get_git_version_link():
+    try:
+        # Get the Git commit hash
+        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+
+        # Get the remote URL of the repository
+        remote_url = subprocess.check_output(['git', 'config', '--get', 'remote.origin.url']).strip().decode('utf-8')
+
+        # Generate the Git link
+        git_link = remote_url.replace('.git', '/commit/') + commit_hash
+
+        # Print the Git link
+        print(f"Git Version: {git_link}")
+    except Exception as e:  # noqa: BLE001
+        print("Error: Failed to retrieve Git information.")
+        print(e)
+    return git_link
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def save_run_info(save_path: Path, args):
+    git_verion_link = get_git_version_link()
+    # save the args + git link  as yaml file
+    with (save_path / "run_info.yaml").open("w") as f:
+        args_dict = vars(args)
+        args_dict = {k: str(v) for k, v in args_dict.items()}
+        args_dict["git_version"] = git_verion_link
+        f.write(yaml.dump(args_dict))
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
