@@ -283,7 +283,7 @@ def calc_nav_aid_metrics(
     else:
         angle_err_less_than_thresh_ratio = np.nan
         angle_err_deg_rmse = np.nan
-nanmean
+
     metrics_per_frame = {
         "Nav. Angle error [deg]": angle_err_deg_per_frame,
         "Nav. Z error [mm]": z_err_mm_per_frame,
