@@ -80,6 +80,8 @@ class DepthExaminer:
         self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
+        
+    # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
@@ -108,7 +110,7 @@ class DepthExaminer:
                     egomotions_source="ground_truth",
                     depth_and_egomotion_model_path=None,
                 )
-                scene_avg_gt_depth[i_scene] = examine_depths(
+                scene_avg_gt_depth[i_scene] = compute_depths(
                     depth_loader=gt_depth_loader,
                     scene_loader=scene_loader,
                     save_path=self.save_path,
@@ -123,7 +125,7 @@ class DepthExaminer:
                     egomotions_source="online_estimates",
                     depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
                 )
-                scene_avg_est_depth[i_scene] = examine_depths(
+                scene_avg_est_depth[i_scene] = compute_depths(
                     depth_loader=est_depth_loader,
                     scene_loader=scene_loader,
                     save_path=self.save_path,
@@ -136,8 +138,9 @@ class DepthExaminer:
             avg_est_depth = np.mean(scene_avg_est_depth)
             std_est_depth = np.std(scene_avg_est_depth)
             # save the results as yaml file
-            with (self.save_path / "results.yaml").open("w") as f:
-                save_dict = {
+            with (self.save_path / "depth_exam.yaml").open("w") as f:
+                depth_exam = {
+                    "dataset_path": self.dataset_path,
                     "avg_gt_depth": avg_gt_depth,
                     "avg_est_depth": avg_est_depth,
                     "std_gt_depth": std_gt_depth,
@@ -145,15 +148,15 @@ class DepthExaminer:
                     "avg_gt_depth / avg_est_depth": avg_gt_depth / avg_est_depth,
                     "std_gt_depth / std_est_depth": std_gt_depth / std_est_depth,
                 }
-                yaml.dump(save_dict, f)
-            print(save_dict)
-            return save_dict
+                yaml.dump(depth_exam, f)
+            print(depth_exam)
+            return depth_exam
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def examine_depths(
+def compute_depths(
     depth_loader: DepthAndEgoMotionLoader,
     scene_loader: SceneLoader,
     save_path: Path,

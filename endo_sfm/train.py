@@ -45,7 +45,7 @@ def main():
         "--dataset_path",
         metavar="DIR",
         help="path to training dataset of scenes",
-        default="data/sim_data/SimData14_train",
+        default="data/sim_data/SimDataTrain22",
     )
     parser.add_argument(
         "--validation_ratio",
@@ -118,7 +118,7 @@ def main():
     )
     parser.add_argument("--log_output", type=bool, default=False, help="will log dispnet outputs at validation step")
     parser.add_argument(
-        "--resnet_layers",
+        "--disp_resnet_layers",
         type=int,
         default=18,
         choices=[18, 50],
@@ -197,7 +197,7 @@ def main():
         log_summary=args.log_summary,
         log_full=args.log_full,
         log_output=args.log_output,
-        resnet_layers=args.resnet_layers,
+        disp_resnet_layers=args.disp_resnet_layers,
         num_scales=args.num_scales,
         photo_loss_weight=args.photo_loss_weight,
         smooth_loss_weight=args.smooth_loss_weight,
@@ -229,7 +229,7 @@ class TrainRunner:
         with_pretrain: bool = True,
         sequence_length: int = 3,
         workers: int = 4,
-        epochs: int = 100,
+        n_epochs: int = 100,
         epoch_size: int = 0,
         batch_size: int = 8,
         learning_rate: float = 1e-4,
@@ -241,7 +241,7 @@ class TrainRunner:
         log_summary: str = "progress_log_summary.csv",
         log_full: str = "progress_log_full.csv",
         log_output: bool = False,
-        resnet_layers: int = 18,
+        disp_resnet_layers: int = 18,
         num_scales: int = 1,
         photo_loss_weight: float = 1,
         smooth_loss_weight: float = 0.1,
@@ -260,7 +260,7 @@ class TrainRunner:
         self.with_pretrain = with_pretrain
         self.sequence_length = sequence_length
         self.workers = workers
-        self.epochs = epochs
+        self.n_epochs = n_epochs
         self.epoch_size = epoch_size
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -272,7 +272,8 @@ class TrainRunner:
         self.log_summary = log_summary
         self.log_full = log_full
         self.log_output = log_output
-        self.resnet_layers = resnet_layers
+        self.disp_resnet_layers = disp_resnet_layers
+        self.pose_resnet_layers = 18  # only 18 is supported for now
         self.num_scales = num_scales
         self.photo_loss_weight = photo_loss_weight
         self.smooth_loss_weight = smooth_loss_weight
@@ -380,8 +381,8 @@ class TrainRunner:
 
             # create model
             print("=> creating model")
-            disp_net = DispResNet(self.resnet_layers, pretrained=self.with_pretrain).to(device)
-            pose_net = PoseResNet(18, pretrained=self.with_pretrain).to(device)
+            disp_net = DispResNet(self.disp_resnet_layers, pretrained=self.with_pretrain).to(device)
+            pose_net = PoseResNet(self.pose_resnet_layers, pretrained=self.with_pretrain).to(device)
 
             # load parameters
             if self.pretrained_disp:
@@ -430,8 +431,8 @@ class TrainRunner:
             )
 
             # main optimization loop
-            for epoch in range(self.epochs):
-                print(f"Training epoch {epoch+1}/{self.epochs}")
+            for i_epoch in range(self.n_epochs):
+                print(f"Training epoch {i_epoch+1}/{self.n_epochs}")
 
                 # train for one epoch
                 train_loss, n_iter = self.run_epoch(
@@ -455,7 +456,7 @@ class TrainRunner:
                 print(f" * Avg {error_string}")
 
                 for error, name in zip(errors, error_names, strict=True):
-                    training_writer.add_scalar(name, error, epoch)
+                    training_writer.add_scalar(name, error, i_epoch)
 
                 # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
                 decisive_error = errors[1]
@@ -468,11 +469,11 @@ class TrainRunner:
                 save_checkpoint(
                     save_path=save_path,
                     dispnet_state={
-                        "epoch": epoch + 1,
+                        "epoch": i_epoch + 1,
                         "state_dict": disp_net.state_dict(),
                     },
                     exp_pose_state={
-                        "epoch": epoch + 1,
+                        "epoch": i_epoch + 1,
                         "state_dict": pose_net.state_dict(),
                     },
                     is_best=is_best,

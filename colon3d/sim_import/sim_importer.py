@@ -116,7 +116,8 @@ class SimImporter:
         is_created = create_empty_folder(self.output_data_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.output_data_path} already exists.. " + "-" * 50)
-            return
+            scenes_paths = [p for p in self.output_data_path.glob("Scene*") if p.is_dir()]
+            return scenes_paths
 
         # gather all the "capture" files
         assert self.input_data_path.is_dir(), "The input path should be a directory"
@@ -149,6 +150,7 @@ class SimImporter:
         metadata_per_scene = []  # list of metadata per scene
         scene_idx = -1
         frame_idx = -1
+        
         for capture in captures:
             frame_idx += 1
             rgb_file_path = capture["filename"]
@@ -195,8 +197,10 @@ class SimImporter:
         print(f"Number of extracted scenes: {n_scenes}")
 
         # save the camera poses and depth frames for each scene
+        scenes_paths = []
         for i_scene in range(n_scenes):
             scene_path = self.output_data_path / scenes_names[i_scene]
+            scenes_paths.append(scene_path)
             metadata = metadata_per_scene[i_scene]
             print(f"Saving scene #{i_scene} to {scene_path}... ")
             n_frames = len(rgb_frames_paths_per_scene[i_scene])
@@ -249,8 +253,8 @@ class SimImporter:
                 hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
                 hf.create_dataset("cam_poses", data=cam_poses)
                 hf.create_dataset("egomotions", data=egomotions)
-
-        print("Done.")
+        print(f"Done creating {n_scenes} scenes in {self.output_data_path}")
+        return scenes_paths
 
     # --------------------------------------------------------------------------------------------------------------------
 

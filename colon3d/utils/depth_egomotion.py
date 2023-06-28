@@ -377,11 +377,11 @@ class DepthModel:
         print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
         self.resnet_layers = self.model_info["DispResNet_layers"]
         # the dimensions of the input images to the network
-        self.model_im_height = self.model_info["img_height"]
-        self.model_im_width = self.model_info["img_width"]
+        self.model_frame_height = self.model_info["frame_height"]
+        self.model_frame_width = self.model_info["frame_width"]
         # the dimensions of the output depth maps are the same as the input images
-        self.depth_map_width = self.model_im_width
-        self.depth_map_height = self.model_im_height
+        self.depth_map_width = self.model_frame_width
+        self.depth_map_height = self.model_frame_height
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps.
