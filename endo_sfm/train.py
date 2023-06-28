@@ -13,8 +13,6 @@ from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     Tee,
     create_empty_folder,
-    get_time_now_str,
-    save_run_info,
     set_rand_seed,
 )
 from colon3d.utils.torch_util import get_device
@@ -32,11 +30,16 @@ from endo_sfm.utils import save_checkpoint
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
-        "--name",
-        dest="name",
+        "--save_path_path",
         type=str,
-        default="EndoSFM_tuned",
-        help="name of the experiment, checkpoints are stored in checkpoints/name",
+        default="saved_models/temp",
+        help="Path to save checkpoints and training outputs",
+    )
+    parser.add_argument(
+        "--save_overwrite",
+        type=bool,
+        default=False,
+        help="overwrite save path if already exists",
     )
     parser.add_argument(
         "--dataset_path",
@@ -73,9 +76,9 @@ def main():
     )
     parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
     parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
-    parser.add_argument("--epochs", default=200, type=int, metavar="N", help="number of total epochs to run")
+    parser.add_argument("--epochs", default=100, type=int, metavar="N", help="number of total epochs to run")
     parser.add_argument(
-        "--epoch-size",
+        "--epoch_size",
         default=0,
         type=int,
         metavar="N",
@@ -113,7 +116,7 @@ def main():
         metavar="PATH",
         help="csv where to save per-gradient descent train stats",
     )
-    parser.add_argument("--log_output", action="store_true", help="will log dispnet outputs at validation step")
+    parser.add_argument("--log_output", type=bool, default=False, help="will log dispnet outputs at validation step")
     parser.add_argument(
         "--resnet_layers",
         type=int,
@@ -171,323 +174,440 @@ def main():
         " border will only null gradients of the coordinate outside (x or y)",
     )
 
-    device = get_device()
-    torch.autograd.set_detect_anomaly(True)
     args = parser.parse_args()
-    timestamp = get_time_now_str()
-    save_path = Path("checkpoints") / args.name / timestamp
-    print(f"=> will save everything to {save_path}")
+    train_runner = TrainRunner(
+        save_path=args.save_path,
+        save_overwrite=args.save_overwrite,
+        dataset_path=args.dataset_path,
+        validation_ratio=args.validation_ratio,
+        pretrained_disp=args.pretrained_disp,
+        pretrained_pose=args.pretrained_pose,
+        with_pretrain=args.with_pretrain,
+        sequence_length=args.sequence_length,
+        workers=args.workers,
+        epochs=args.epochs,
+        epoch_size=args.epoch_size,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        momentum=args.momentum,
+        beta=args.beta,
+        weight_decay=args.weight_decay,
+        print_freq=args.print_freq,
+        seed=args.seed,
+        log_summary=args.log_summary,
+        log_full=args.log_full,
+        log_output=args.log_output,
+        resnet_layers=args.resnet_layers,
+        num_scales=args.num_scales,
+        photo_loss_weight=args.photo_loss_weight,
+        smooth_loss_weight=args.smooth_loss_weight,
+        geometry_consistency_weight=args.geometry_consistency_weight,
+        with_ssim=args.with_ssim,
+        with_mask=args.with_mask,
+        with_auto_mask=args.with_auto_mask,
+        padding_mode=args.padding_mode,
+    )
+    train_runner.run()
 
-    with Tee(save_path / "prints_log.txt"):  # save the prints to a file
-        ### inits
-        best_error = -1
-        n_iter = 0
 
-        create_empty_folder(save_path)
-        set_rand_seed(args.seed)
-        save_run_info(save_path, args)
+# ---------------------------------------------------------------------------------------------------------------------
 
-        # dataset split
-        dataset_path = Path(args.dataset_path)
-        print(f"Loading dataset from {dataset_path}")
-        all_scenes_paths = [
-            scene_path
-            for scene_path in dataset_path.iterdir()
-            if scene_path.is_dir() and scene_path.name.startswith("Scene")
-        ]
-        random.shuffle(all_scenes_paths)
-        n_all_scenes = len(all_scenes_paths)
-        n_train_scenes = int(n_all_scenes * (1 - args.validation_ratio))
-        n_val_scenes = n_all_scenes - n_train_scenes
-        train_scenes_paths = all_scenes_paths[:n_train_scenes]
-        val_scenes_paths = all_scenes_paths[n_train_scenes:]
-        print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
+if __name__ == "__main__":
+    main()
 
-        # loggers
-        training_writer = SummaryWriter(save_path)
-        output_writers = []
-        if args.log_output:
-            for i in range(3):
-                output_writers.append(SummaryWriter(save_path / "valid" / str(i)))
+# ---------------------------------------------------------------------------------------------------------------------
 
-        # set data transforms
-        chan_normalize_mean = [0.45, 0.45, 0.45]
-        chan_normalize_std = [0.225, 0.225, 0.225]
-        normalize = custom_transforms.Normalize(mean=chan_normalize_mean, std=chan_normalize_std)
-        train_transform = custom_transforms.Compose(
-            [
-                custom_transforms.RandomHorizontalFlip(),
-                custom_transforms.RandomScaleCrop(),
-                custom_transforms.ArrayToTensor(),
-                normalize,
-            ],
-        )
-        validation_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
 
-        # training set
-        train_set = ScenesDataset(
-            scenes_paths=train_scenes_paths,
-            sequence_length=args.sequence_length,
-            load_tgt_depth=False,
-            transform=train_transform,
-        )
+class TrainRunner:
+    def __init__(
+        self,
+        save_path: str,
+        dataset_path: str,
+        validation_ratio: float = 0.1,
+        pretrained_disp: str = "",
+        pretrained_pose: str = "",
+        with_pretrain: bool = True,
+        sequence_length: int = 3,
+        workers: int = 4,
+        epochs: int = 100,
+        epoch_size: int = 0,
+        batch_size: int = 8,
+        learning_rate: float = 1e-4,
+        momentum: float = 0.9,
+        beta: float = 0.999,
+        weight_decay: float = 1e-4,
+        print_freq: int = 10,
+        seed: int = 0,
+        log_summary: str = "progress_log_summary.csv",
+        log_full: str = "progress_log_full.csv",
+        log_output: bool = False,
+        resnet_layers: int = 18,
+        num_scales: int = 1,
+        photo_loss_weight: float = 1,
+        smooth_loss_weight: float = 0.1,
+        geometry_consistency_weight: float = 0.5,
+        with_ssim: bool = True,
+        with_mask: bool = True,
+        with_auto_mask: bool = False,
+        padding_mode: str = "zeros",
+        save_overwrite: bool = True,
+    ):
+        self.save_path = save_path
+        self.dataset_path = dataset_path
+        self.validation_ratio = validation_ratio
+        self.pretrained_disp = pretrained_disp
+        self.pretrained_pose = pretrained_pose
+        self.with_pretrain = with_pretrain
+        self.sequence_length = sequence_length
+        self.workers = workers
+        self.epochs = epochs
+        self.epoch_size = epoch_size
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.momentum = momentum
+        self.beta = beta
+        self.weight_decay = weight_decay
+        self.print_freq = print_freq
+        self.seed = seed
+        self.log_summary = log_summary
+        self.log_full = log_full
+        self.log_output = log_output
+        self.resnet_layers = resnet_layers
+        self.num_scales = num_scales
+        self.photo_loss_weight = photo_loss_weight
+        self.smooth_loss_weight = smooth_loss_weight
+        self.geometry_consistency_weight = geometry_consistency_weight
+        self.with_ssim = with_ssim
+        self.with_mask = with_mask
+        self.with_auto_mask = with_auto_mask
+        self.padding_mode = padding_mode
+        self.save_overwrite = save_overwrite
 
-        # validation set
-        val_set = ScenesDataset(
-            scenes_paths=val_scenes_paths,
-            sequence_length=1,
-            load_tgt_depth=True,
-            transform=validation_transform,
-        )
+    # ---------------------------------------------------------------------------------------------------------------------
 
-        # data loaders
-        train_loader = torch.utils.data.DataLoader(
-            train_set,
-            batch_size=args.batch_size,
-            shuffle=True,
-            num_workers=args.workers,
-            pin_memory=True,
-        )
-        val_loader = torch.utils.data.DataLoader(
-            val_set,
-            batch_size=args.batch_size,
-            shuffle=False,
-            num_workers=args.workers,
-            pin_memory=True,
-        )
+    def run(self):
+        device = get_device()
+        torch.autograd.set_detect_anomaly(True)
+        save_path = Path(self.save_path)
+        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
+        if not is_created:
+            print(f"{self.save_path} already exists.. " + "-" * 50)
+            return
+        print(f"Outputs will be saved to {self.save_path}")
 
-        if args.epoch_size == 0:
-            args.epoch_size = len(train_loader)
+        with Tee(save_path / "prints_log.txt"):  # save the prints to a file
+            ### inits
+            best_error = -1
+            n_iter = 0
 
-        # get the metadata of some scene (we assume that all scenes have the same metadata)
-        scene_metadata = train_set.get_scene_metadata(scene_index=0)
+            create_empty_folder(save_path)
+            set_rand_seed(self.seed)
 
-        # create model
-        print("=> creating model")
-        disp_net = DispResNet(args.resnet_layers, pretrained=args.with_pretrain).to(device)
-        pose_net = PoseResNet(18, pretrained=args.with_pretrain).to(device)
+            # dataset split
+            dataset_path = Path(self.dataset_path)
+            print(f"Loading dataset from {dataset_path}")
+            all_scenes_paths = [
+                scene_path
+                for scene_path in dataset_path.iterdir()
+                if scene_path.is_dir() and scene_path.name.startswith("Scene")
+            ]
+            random.shuffle(all_scenes_paths)
+            n_all_scenes = len(all_scenes_paths)
+            n_train_scenes = int(n_all_scenes * (1 - self.validation_ratio))
+            n_val_scenes = n_all_scenes - n_train_scenes
+            train_scenes_paths = all_scenes_paths[:n_train_scenes]
+            val_scenes_paths = all_scenes_paths[n_train_scenes:]
+            print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
 
-        # load parameters
-        if args.pretrained_disp:
-            print("=> using pre-trained weights for DispResNet")
-            weights = torch.load(args.pretrained_disp)
-            disp_net.load_state_dict(weights["state_dict"], strict=False)
-            disp_net.to(device)
+            # loggers
+            training_writer = SummaryWriter(save_path)
+            output_writers = []
+            if self.log_output:
+                for i in range(3):
+                    output_writers.append(SummaryWriter(save_path / "valid" / str(i)))
 
-        if args.pretrained_pose:
-            print("=> using pre-trained weights for PoseResNet")
-            weights = torch.load(args.pretrained_pose)
-            pose_net.load_state_dict(weights["state_dict"], strict=False)
-            pose_net.to(device)
-
-        # disp_net = torch.nn.DataParallel(disp_net)
-        # pose_net = torch.nn.DataParallel(pose_net)
-
-        print("=> setting adam solver")
-        optim_params = [
-            {"params": disp_net.parameters(), "lr": args.lr},
-            {"params": pose_net.parameters(), "lr": args.lr},
-        ]
-        optimizer = torch.optim.Adam(optim_params, betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
-
-        with (save_path / args.log_summary).open("w") as csvfile:
-            writer = csv.writer(csvfile, delimiter="\t")
-            writer.writerow(["train_loss", "validation_loss"])
-
-        with (save_path / args.log_full).open("w") as csvfile:
-            writer = csv.writer(csvfile, delimiter="\t")
-            writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
-
-        # save initial checkpoint
-        save_checkpoint(
-            save_path=save_path,
-            dispnet_state={
-                "epoch": 0,
-                "state_dict": disp_net.state_dict(),
-            },
-            exp_pose_state={
-                "epoch": 0,
-                "state_dict": pose_net.state_dict(),
-            },
-            is_best=0,
-            args=args,
-            scene_metadata=scene_metadata,
-        )
-
-        # main optimization loop
-        for epoch in range(args.epochs):
-            print(f"Training epoch {epoch+1}/{args.epochs}")
-
-            # train for one epoch
-            train_loss, n_iter = train(
-                args,
-                save_path,
-                train_loader,
-                disp_net,
-                pose_net,
-                optimizer,
-                args.epoch_size,
-                training_writer,
-                n_iter,
+            # set data transforms
+            chan_normalize_mean = [0.45, 0.45, 0.45]
+            chan_normalize_std = [0.225, 0.225, 0.225]
+            normalize = custom_transforms.Normalize(mean=chan_normalize_mean, std=chan_normalize_std)
+            train_transform = custom_transforms.Compose(
+                [
+                    custom_transforms.RandomHorizontalFlip(),
+                    custom_transforms.RandomScaleCrop(),
+                    custom_transforms.ArrayToTensor(),
+                    normalize,
+                ],
             )
-            print(f" * Avg Loss : {train_loss:.3f}")
+            validation_transform = custom_transforms.Compose([custom_transforms.ArrayToTensor(), normalize])
 
-            # evaluate on validation set
-            errors, error_names = validate_with_gt(args, val_loader, disp_net, output_writers)
+            # training set
+            train_set = ScenesDataset(
+                scenes_paths=train_scenes_paths,
+                sequence_length=self.sequence_length,
+                load_tgt_depth=False,
+                transform=train_transform,
+            )
 
-            error_string = ", ".join(f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True))
-            print(f" * Avg {error_string}")
+            # validation set
+            val_set = ScenesDataset(
+                scenes_paths=val_scenes_paths,
+                sequence_length=1,
+                load_tgt_depth=True,
+                transform=validation_transform,
+            )
 
-            for error, name in zip(errors, error_names, strict=True):
-                training_writer.add_scalar(name, error, epoch)
+            # data loaders
+            train_loader = torch.utils.data.DataLoader(
+                train_set,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.workers,
+                pin_memory=True,
+            )
+            val_loader = torch.utils.data.DataLoader(
+                val_set,
+                batch_size=self.batch_size,
+                shuffle=False,
+                num_workers=self.workers,
+                pin_memory=True,
+            )
 
-            # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
-            decisive_error = errors[1]
-            if best_error < 0:
-                best_error = decisive_error
+            if self.epoch_size == 0:
+                self.epoch_size = len(train_loader)
 
-            # remember lowest error and save checkpoint
-            is_best = decisive_error < best_error
-            best_error = min(best_error, decisive_error)
+            # get the metadata of some scene (we assume that all scenes have the same metadata)
+            scene_metadata = train_set.get_scene_metadata(scene_index=0)
+
+            # create model
+            print("=> creating model")
+            disp_net = DispResNet(self.resnet_layers, pretrained=self.with_pretrain).to(device)
+            pose_net = PoseResNet(18, pretrained=self.with_pretrain).to(device)
+
+            # load parameters
+            if self.pretrained_disp:
+                print("=> using pre-trained weights for DispResNet")
+                weights = torch.load(self.pretrained_disp)
+                disp_net.load_state_dict(weights["state_dict"], strict=False)
+                disp_net.to(device)
+
+            if self.pretrained_pose:
+                print("=> using pre-trained weights for PoseResNet")
+                weights = torch.load(self.pretrained_pose)
+                pose_net.load_state_dict(weights["state_dict"], strict=False)
+                pose_net.to(device)
+
+            # disp_net = torch.nn.DataParallel(disp_net)
+            # pose_net = torch.nn.DataParallel(pose_net)
+
+            print("=> setting adam solver")
+            optim_params = [
+                {"params": disp_net.parameters(), "lr": self.learning_rate},
+                {"params": pose_net.parameters(), "lr": self.learning_rate},
+            ]
+            optimizer = torch.optim.Adam(optim_params, betas=(self.momentum, self.beta), weight_decay=self.weight_decay)
+
+            with (save_path / self.log_summary).open("w") as csvfile:
+                writer = csv.writer(csvfile, delimiter="\t")
+                writer.writerow(["train_loss", "validation_loss"])
+
+            with (save_path / self.log_full).open("w") as csvfile:
+                writer = csv.writer(csvfile, delimiter="\t")
+                writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
+
+            # save initial checkpoint
             save_checkpoint(
                 save_path=save_path,
                 dispnet_state={
-                    "epoch": epoch + 1,
+                    "epoch": 0,
                     "state_dict": disp_net.state_dict(),
                 },
                 exp_pose_state={
-                    "epoch": epoch + 1,
+                    "epoch": 0,
                     "state_dict": pose_net.state_dict(),
                 },
-                is_best=is_best,
-                args=args,
+                is_best=0,
                 scene_metadata=scene_metadata,
             )
 
-            with (save_path / args.log_summary).open("a") as csvfile:
+            # main optimization loop
+            for epoch in range(self.epochs):
+                print(f"Training epoch {epoch+1}/{self.epochs}")
+
+                # train for one epoch
+                train_loss, n_iter = self.run_epoch(
+                    save_path,
+                    train_loader,
+                    disp_net,
+                    pose_net,
+                    optimizer,
+                    self.epoch_size,
+                    training_writer,
+                    n_iter,
+                )
+                print(f" * Avg Loss : {train_loss:.3f}")
+
+                # evaluate on validation set
+                errors, error_names = self.validate_with_gt(val_loader, disp_net, output_writers)
+
+                error_string = ", ".join(
+                    f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True)
+                )
+                print(f" * Avg {error_string}")
+
+                for error, name in zip(errors, error_names, strict=True):
+                    training_writer.add_scalar(name, error, epoch)
+
+                # Up to you to chose the most relevant error to measure your model's performance, careful some measures are to maximize (such as a1,a2,a3)
+                decisive_error = errors[1]
+                if best_error < 0:
+                    best_error = decisive_error
+
+                # remember lowest error and save checkpoint
+                is_best = decisive_error < best_error
+                best_error = min(best_error, decisive_error)
+                save_checkpoint(
+                    save_path=save_path,
+                    dispnet_state={
+                        "epoch": epoch + 1,
+                        "state_dict": disp_net.state_dict(),
+                    },
+                    exp_pose_state={
+                        "epoch": epoch + 1,
+                        "state_dict": pose_net.state_dict(),
+                    },
+                    is_best=is_best,
+                    scene_metadata=scene_metadata,
+                )
+
+                with (save_path / self.log_summary).open("a") as csvfile:
+                    writer = csv.writer(csvfile, delimiter="\t")
+                    writer.writerow([train_loss, decisive_error])
+
+    # ---------------------------------------------------------------------------------------------------------------------
+
+    def run_epoch(
+        self,
+        save_path: Path,
+        train_loader,
+        disp_net,
+        pose_net,
+        optimizer,
+        epoch_size,
+        train_writer,
+        n_iter: int,
+    ):
+        """Train for one epoch on the training set"""
+        device = get_device()
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        losses = AverageMeter(precision=4)
+        w1, w2, w3 = self.photo_loss_weight, self.smooth_loss_weight, self.geometry_consistency_weight
+
+        # switch to train mode
+        disp_net.train()
+        pose_net.train()
+
+        end = time.time()
+
+        # loop over batches
+        for i, batch in enumerate(train_loader):
+            log_losses = i > 0 and n_iter % self.print_freq == 0
+
+            data_time.update(time.time() - end)  # measure data loading time
+
+            tgt_img = batch["tgt_img"].to(device)
+            ref_imgs = [img.to(device) for img in batch["ref_imgs"]]
+            intrinsics = batch["intrinsics"].to(device)
+
+            # compute output
+            tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
+            poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
+
+            loss_1, loss_3 = compute_photo_and_geometry_loss(
+                tgt_img,
+                ref_imgs,
+                intrinsics,
+                tgt_depth,
+                ref_depths,
+                poses,
+                poses_inv,
+                self.num_scales,
+                self.with_ssim,
+                self.with_mask,
+                self.with_auto_mask,
+                self.padding_mode,
+            )
+
+            loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
+
+            loss = w1 * loss_1 + w2 * loss_2 + w3 * loss_3
+
+            if log_losses:
+                train_writer.add_scalar("photometric_error", loss_1.item(), n_iter)
+                train_writer.add_scalar("disparity_smoothness_loss", loss_2.item(), n_iter)
+                train_writer.add_scalar("geometry_consistency_loss", loss_3.item(), n_iter)
+                train_writer.add_scalar("total_loss", loss.item(), n_iter)
+
+            # record loss and EPE
+            losses.update(loss.item(), self.batch_size)
+
+            # compute gradient and do Adam step
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            with (save_path / self.log_full).open("a") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")
-                writer.writerow([train_loss, decisive_error])
+                writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
+            if i % self.print_freq == 0:
+                print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
+            if i >= epoch_size - 1:
+                break
 
+            n_iter += 1
 
-# ---------------------------------------------------------------------------------------------------------------------
+        return losses.avg[0], n_iter
 
+    # ---------------------------------------------------------------------------------------------------------------------
 
-def train(args, save_path: Path, train_loader, disp_net, pose_net, optimizer, epoch_size, train_writer, n_iter: int):
-    """Train for one epoch on the training set"""
-    device = get_device()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter(precision=4)
-    w1, w2, w3 = args.photo_loss_weight, args.smooth_loss_weight, args.geometry_consistency_weight
+    @torch.no_grad()
+    def validate_with_gt(self, val_loader, disp_net, output_writers=None):
+        output_writers = output_writers or []
+        device = get_device()
+        batch_time = AverageMeter()
+        error_names = ["abs_diff", "abs_rel"]
+        errors = AverageMeter(i=len(error_names))
 
-    # switch to train mode
-    disp_net.train()
-    pose_net.train()
+        # switch to evaluate mode
+        disp_net.eval()
 
-    end = time.time()
-
-    # loop over batches
-    for i, batch in enumerate(train_loader):
-        log_losses = i > 0 and n_iter % args.print_freq == 0
-
-        data_time.update(time.time() - end)  # measure data loading time
-
-        tgt_img = batch["tgt_img"].to(device)
-        ref_imgs = [img.to(device) for img in batch["ref_imgs"]]
-        intrinsics = batch["intrinsics"].to(device)
-
-        # compute output
-        tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
-        poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
-
-        loss_1, loss_3 = compute_photo_and_geometry_loss(
-            tgt_img,
-            ref_imgs,
-            intrinsics,
-            tgt_depth,
-            ref_depths,
-            poses,
-            poses_inv,
-            args.num_scales,
-            args.with_ssim,
-            args.with_mask,
-            args.with_auto_mask,
-            args.padding_mode,
-        )
-
-        loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
-
-        loss = w1 * loss_1 + w2 * loss_2 + w3 * loss_3
-
-        if log_losses:
-            train_writer.add_scalar("photometric_error", loss_1.item(), n_iter)
-            train_writer.add_scalar("disparity_smoothness_loss", loss_2.item(), n_iter)
-            train_writer.add_scalar("geometry_consistency_loss", loss_3.item(), n_iter)
-            train_writer.add_scalar("total_loss", loss.item(), n_iter)
-
-        # record loss and EPE
-        losses.update(loss.item(), args.batch_size)
-
-        # compute gradient and do Adam step
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
         end = time.time()
+        for i, batch in enumerate(val_loader):
+            tgt_img = batch["tgt_img"].to(device)
+            gt_depth = batch["depth_img"].to(device)
 
-        with (save_path / args.log_full).open("a") as csvfile:
-            writer = csv.writer(csvfile, delimiter="\t")
-            writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
-        if i % args.print_freq == 0:
-            print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
-        if i >= epoch_size - 1:
-            break
+            # compute output
+            output_disp = disp_net(tgt_img)
+            output_depth = 1 / output_disp[:, 0]
 
-        n_iter += 1
+            # compute errors
+            abs_diff = torch.mean(torch.abs(gt_depth - output_depth))
+            abs_rel = torch.mean(torch.abs(gt_depth - output_depth) / gt_depth)
+            errors.update([abs_diff, abs_rel])
 
-    return losses.avg[0], n_iter
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+            if i % self.print_freq == 0:
+                print(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
 
+        return errors.avg, error_names
 
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-@torch.no_grad()
-def validate_with_gt(args, val_loader, disp_net, output_writers=None):
-    output_writers = output_writers or []
-    device = get_device()
-    batch_time = AverageMeter()
-    error_names = ["abs_diff", "abs_rel"]
-    errors = AverageMeter(i=len(error_names))
-
-    # switch to evaluate mode
-    disp_net.eval()
-
-    end = time.time()
-    for i, batch in enumerate(val_loader):
-        tgt_img = batch["tgt_img"].to(device)
-        gt_depth = batch["depth_img"].to(device)
-
-        # compute output
-        output_disp = disp_net(tgt_img)
-        output_depth = 1 / output_disp[:, 0]
-
-        # compute errors
-        abs_diff = torch.mean(torch.abs(gt_depth - output_depth))
-        abs_rel = torch.mean(torch.abs(gt_depth - output_depth) / gt_depth)
-        errors.update([abs_diff, abs_rel])
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-        if i % args.print_freq == 0:
-            print(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
-
-    return errors.avg, error_names
-
-
-# ---------------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------------
 
 
 def compute_depth(disp_net, tgt_img, ref_imgs):
@@ -515,6 +635,3 @@ def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()

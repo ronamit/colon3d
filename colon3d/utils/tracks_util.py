@@ -12,7 +12,7 @@ class DetectionsTracker:
     """This class is used to track the detections of the polyp detector over time."""
 
     def __init__(self, scene_path, scene_loader: SceneLoader):
-        self.example_path = Path(scene_path).expanduser()
+        self.example_path = Path(scene_path)
         tracks_file_path = self.example_path / "Tracks.csv"
         # Get the polyp detector results for this video
         if not tracks_file_path.is_file():

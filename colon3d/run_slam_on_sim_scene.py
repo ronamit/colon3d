@@ -7,10 +7,10 @@ import numpy as np
 
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.slam.slam_alg import SlamRunner
+from colon3d.slam.slam_alg import SlamAlgRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_run_info
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
 from colon3d.utils.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.utils.tracks_util import DetectionsTracker
 
@@ -75,26 +75,74 @@ def main():
         default=100,
         help="plot and save figures each draw_interval frames",
     )
-
+    parser.add_argument(
+        "--save_overwrite",
+        type=bool,
+        default=False,
+        help="if True then the save folder will be overwritten",
+    )
     args = parser.parse_args()
-    save_path = Path(args.save_path).expanduser()
-    scene_path = Path(args.scene_path).expanduser()
-    create_empty_folder(save_path)
-    save_run_info(args, save_path)
-    print(f"Outputs will be saved to {save_path}")
 
-    with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        metrics_per_frame, metrics_stats = run_slam_on_scene(
-            scene_path=scene_path,
-            save_path=save_path,
-            n_frames_lim=args.n_frames_lim,
-            alg_fov_ratio=args.alg_fov_ratio,
-            depth_maps_source=args.depth_maps_source,
-            egomotions_source=args.egomotions_source,
-            depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
-            draw_interval=args.draw_interval,
-            plot_names=None,  # create all plots
-        )
+    slam_on_scene_runner = SlamOnSimSceneRunner(
+        scene_path=args.scene_path,
+        save_path=args.save_path,
+        depth_maps_source=args.depth_maps_source,
+        alg_fov_ratio=args.alg_fov_ratio,
+        n_frames_lim=args.n_frames_lim,
+        draw_interval=args.draw_interval,
+        save_overwrite=args.save_overwrite,
+    )
+    slam_on_scene_runner.run()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+class SlamOnSimSceneRunner:
+    def __init__(
+        self,
+        scene_path: str,
+        save_path: str,
+        depth_maps_source: str,
+        alg_fov_ratio: float,
+        n_frames_lim: int,
+        draw_interval: int,
+        save_overwrite: bool = True,
+    ):
+        self.save_path = Path(save_path)
+        self.scene_path = Path(scene_path)
+        self.depth_maps_source = depth_maps_source
+        self.alg_fov_ratio = alg_fov_ratio
+        self.n_frames_lim = n_frames_lim
+        self.draw_interval = draw_interval
+        self.save_overwrite = save_overwrite
+
+    # ---------------------------------------------------------------------------------------------------------------------
+
+    def run(self):
+        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
+        if not is_created:
+            print(f"{self.save_path} already exists.. " + "-" * 50)
+            return None
+        print(f"Outputs will be saved to {self.save_path}")
+
+        with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
+            metrics_per_frame, metrics_stats = run_slam_on_scene(
+                scene_path=self.scene_path,
+                save_path=self.save_path,
+                n_frames_lim=self.n_frames_lim,
+                alg_fov_ratio=self.alg_fov_ratio,
+                depth_maps_source=self.depth_maps_source,
+                egomotions_source=self.egomotions_source,
+                depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                draw_interval=self.draw_interval,
+                plot_names=None,  # create all plots
+            )
+        return metrics_per_frame, metrics_stats
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -140,7 +188,7 @@ def run_slam_on_scene(
     )
 
     # Run the SLAM algorithm
-    slam_runner = SlamRunner(alg_prm)
+    slam_runner = SlamAlgRunner(alg_prm)
     slam_out = slam_runner.run(
         scene_loader=scene_loader,
         detections_tracker=detections_tracker,
@@ -182,6 +230,3 @@ def run_slam_on_scene(
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()

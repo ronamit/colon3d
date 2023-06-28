@@ -24,7 +24,7 @@ torch.set_default_dtype(get_default_dtype())
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class SlamRunner:
+class SlamAlgRunner:
     """Run the SLAM algorithm."""
 
     def __init__(

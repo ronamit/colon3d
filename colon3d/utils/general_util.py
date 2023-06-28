@@ -1,5 +1,4 @@
 import argparse
-import shutil
 import subprocess
 import sys
 import traceback
@@ -17,16 +16,18 @@ from torch.backends import cudnn
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
+
 def get_git_version_link():
     try:
         # Get the Git commit hash
-        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
 
         # Get the remote URL of the repository
-        remote_url = subprocess.check_output(['git', 'config', '--get', 'remote.origin.url']).strip().decode('utf-8')
+        remote_url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"]).strip().decode("utf-8")
 
         # Generate the Git link
-        git_link = remote_url.replace('.git', '/commit/') + commit_hash
+        git_link = remote_url.replace(".git", "/commit/") + commit_hash
 
         # Print the Git link
         print(f"Git Version: {git_link}")
@@ -37,15 +38,22 @@ def get_git_version_link():
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_run_file_and_args():
+    # Get the run file name and arguments use to run the script
+    run_file = sys.argv[0]
+    run_args = sys.argv[1:]
+    return run_file, run_args
+    
+# --------------------------------------------------------------------------------------------------------------------
 
-def save_run_info(save_path: Path, args):
+
+def save_run_info(save_path: Path):
     git_verion_link = get_git_version_link()
+    run_file, run_args = get_run_file_and_args()
     # save the args + git link  as yaml file
     with (save_path / "run_info.yaml").open("w") as f:
-        args_dict = vars(args)
-        args_dict = {k: str(v) for k, v in args_dict.items()}
-        args_dict["git_version"] = git_verion_link
-        f.write(yaml.dump(args_dict))
+        save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_verion_link}
+        f.write(yaml.dump(save_dict))
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -339,21 +347,12 @@ def convert_sec_to_str(seconds):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
-    if folder_path.exists():
-        if ask_overwrite:
-            print(f"Folder {folder_path} already exists.. overwrite it? (y/n): ", end="")
-            user_answer = input()
-            delete_dir = user_answer in ["y", "Y"]
-        else:
-            print(f"Folder {folder_path} already exists.. overwriting it....")
-            delete_dir = True
-        if delete_dir:
-            shutil.rmtree(folder_path)
-        else:
-            print("Exiting...")
-            sys.exit(0)
+def create_empty_folder(folder_path: Path, save_overwrite: bool = False):
+    if folder_path.exists() and not save_overwrite:
+        return False
     folder_path.mkdir(parents=True, exist_ok=True)
+    save_run_info(folder_path)
+    return True
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -362,6 +361,7 @@ def create_empty_folder(folder_path: Path, ask_overwrite: bool = False):
 def create_folder_if_not_exists(folder_path: Path):
     if not folder_path.exists():
         folder_path.mkdir(parents=True, exist_ok=True)
+        save_run_info(folder_path)
     return folder_path
 
 

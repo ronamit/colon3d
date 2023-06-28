@@ -68,7 +68,6 @@ def save_checkpoint(
     dispnet_state,
     exp_pose_state,
     is_best,
-    args=None,
     scene_metadata=None,
     filename="checkpoint.pt",
 ):
@@ -86,11 +85,6 @@ def save_checkpoint(
         with (save_path / "scene_metadata.yaml").open("w") as f:
             yaml.dump(scene_metadata, f)
 
-    # save the args as yaml file
-    if args is not None:
-        with (save_path / "args.yaml").open("w") as f:
-            yaml.dump(vars(args), f)
-            
     print(f"Checkpoint saved to {save_path / filename}")
 
 

@@ -72,7 +72,7 @@ pip install -e .
 * Generating cases based on the imported scenes, with randomly simulated tracked targets.
 
 ```bash
-  python -m colon3d.sim_import.create_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_examples "data/sim_data/SimData11_with_tracks" --n_cases_per_scene 5
+  python -m colon3d.sim_import.create_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_cases "data/sim_data/SimData11_cases" --n_cases_per_scene 5
 ```
 
 * Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.
@@ -86,19 +86,19 @@ pip install -e .
 
 If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
 
-* Run SLAM on a single simulated scene:
+* Run the algorithm on a single simulated scene:
 
 ```bash
   python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "data/sim_data/Scene_00009_short/Examples/0000/Results"
 ```
 
-* Run SLAM on a dataset of simulated examples:
+* Run the algorithm on a dataset of simulated examples:
 
   ```bash
      python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
   
-* Run SLAM on real data example:
+* Runthe algorithm on real data example:
 
 ```bash
   python -m colon3d.run_slam --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0

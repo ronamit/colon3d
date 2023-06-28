@@ -4,10 +4,10 @@ from pathlib import Path
 
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.slam.slam_alg import SlamRunner
+from colon3d.slam.slam_alg import SlamAlgRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_run_info
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
 from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -79,58 +79,102 @@ def main():
     )
 
     args = parser.parse_args()
-    scene_path = Path(args.scene_path).expanduser()
-    assert scene_path.exists(), f"scene_path={scene_path} does not exist"
-    save_path = Path(args.save_path).expanduser()
-    create_empty_folder(save_path)
-    save_run_info(save_path, args)
-    print(f"Outputs will be saved to {save_path}")
+    slam_runner = SlamRunner(
+        scene_path=args.scene_path,
+        save_path=args.save_path,
+        depth_maps_source=args.depth_maps_source,
+        egomotions_source=args.egomotions_source,
+        depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
+        alg_fov_ratio=args.alg_fov_ratio,
+        n_frames_lim=args.n_frames_lim,
+        draw_interval=args.draw_interval,
+        verbose_print_interval=args.verbose_print_interval,
+    )
+    slam_runner.run()
+    
 
-    with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file
-        # get the default parameters for the SLAM algorithm
-        alg_prm = AlgorithmParam()
+# ---------------------------------------------------------------------------------------------------------------------
 
-        scene_loader = SceneLoader(
-            scene_path=scene_path,
-            n_frames_lim=args.n_frames_lim,
-            alg_fov_ratio=args.alg_fov_ratio,
-        )
-        detections_tracker = DetectionsTracker(
-            scene_path=scene_path,
-            scene_loader=scene_loader,
-        )
-        depth_estimator = DepthAndEgoMotionLoader(
-            scene_path=scene_path,
-            depth_maps_source=args.depth_maps_source,
-            egomotions_source=args.egomotions_source,
-            depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
-            depth_lower_bound=alg_prm.depth_lower_bound,
-            depth_upper_bound=alg_prm.depth_upper_bound,
-            depth_default=alg_prm.depth_default,
-        )
-
-        # Run the SLAM algorithm
-        slam_runner = SlamRunner(alg_prm)
-        slam_out = slam_runner.run(
-            scene_loader=scene_loader,
-            detections_tracker=detections_tracker,
-            depth_estimator=depth_estimator,
-            save_path=save_path,
-            draw_interval=args.draw_interval,
-            verbose_print_interval=args.verbose_print_interval,
-        )
-
-        if save_path:
-            results_file_path = save_path / "out_variables.pkl"
-            with results_file_path.open("wb") as file:
-                pickle.dump(slam_out, file)
-                print(f"Saved the results to {results_file_path}")
-        # Show results
-        save_slam_out_plots(slam_out=slam_out, save_path=args.save_path, scene_path=scene_path)
-
+if __name__ == "__main__":
+    main()
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
-    main()
+class SlamRunner:
+    def __init__(
+        self,
+        scene_path: str,
+        save_path: str,
+        depth_maps_source: str,
+        egomotions_source: str,
+        depth_and_egomotion_model_path: str | None = None,
+        alg_fov_ratio: float = 0,
+        n_frames_lim: int = 0,
+        draw_interval: int = 0,
+        verbose_print_interval: int = 0,
+    ):
+        self.scene_path = Path(scene_path)
+        self.save_path = Path(save_path)
+        self.depth_maps_source = depth_maps_source
+        self.egomotions_source = egomotions_source
+        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
+        self.alg_fov_ratio = alg_fov_ratio
+        self.n_frames_lim = n_frames_lim
+        self.draw_interval = draw_interval
+        self.verbose_print_interval = verbose_print_interval
+
+    # ---------------------------------------------------------------------------------------------------------------------
+    def run(self):
+        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
+        if not is_created:
+            print(f"{self.save_path} already exists.. " + "-" * 50)
+            return
+        print(f"Outputs will be saved to {self.save_path}")
+
+        assert self.scene_path.exists(), f"scene_path={self.scene_path} does not exist"
+
+        with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
+            # get the default parameters for the SLAM algorithm
+            alg_prm = AlgorithmParam()
+
+            scene_loader = SceneLoader(
+                scene_path=self.scene_path,
+                n_frames_lim=self.n_frames_lim,
+                alg_fov_ratio=self.alg_fov_ratio,
+            )
+            detections_tracker = DetectionsTracker(
+                scene_path=self.scene_path,
+                scene_loader=scene_loader,
+            )
+            depth_estimator = DepthAndEgoMotionLoader(
+                scene_path=self.scene_path,
+                depth_maps_source=self.depth_maps_source,
+                egomotions_source=self.egomotions_source,
+                depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                depth_lower_bound=alg_prm.depth_lower_bound,
+                depth_upper_bound=alg_prm.depth_upper_bound,
+                depth_default=alg_prm.depth_default,
+            )
+
+            # Run the SLAM algorithm
+            alg_runner = SlamAlgRunner(alg_prm)
+            slam_out = alg_runner.run(
+                scene_loader=scene_loader,
+                detections_tracker=detections_tracker,
+                depth_estimator=depth_estimator,
+                save_path=self.save_path,
+                draw_interval=self.draw_interval,
+                verbose_print_interval=self.verbose_print_interval,
+            )
+
+            if self.save_path:
+                results_file_path = self.save_path / "out_variables.pkl"
+                with results_file_path.open("wb") as file:
+                    pickle.dump(slam_out, file)
+                    print(f"Saved the results to {results_file_path}")
+            # Show results
+            save_slam_out_plots(slam_out=slam_out, save_path=self.save_path, scene_path=self.scene_path)
+
+
+# ---------------------------------------------------------------------------------------------------------------------

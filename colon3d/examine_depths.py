@@ -3,10 +3,11 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close, save_run_info
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close
 from colon3d.utils.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -32,76 +33,121 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_orig",
+        default="saved_models/EndoSFM_tuned",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
-
     parser.add_argument(
         "--n_scenes_lim",
         type=int,
         default=0,
         help="The number of scenes to examine, if 0 then all the scenes will be examined",
     )
+    parser.add_argument(
+        "--save_overwrite",
+        type=bool,
+        default=True,
+        help="If True then the results will be saved in the save_path folder, otherwise a new folder will be created",
+    )
     args = parser.parse_args()
-    dataset_path = Path(args.dataset_path)
-    with Tee(dataset_path / "examine_depths.log"):
-        scenes_paths = list(dataset_path.glob("Scene_*"))
-        n_scenes = len(scenes_paths)
-        n_scenes = min(n_scenes, args.n_scenes_lim) if args.n_scenes_lim > 0 else n_scenes
-        print(f"n_scenes = {n_scenes}")
-        scenes_paths.sort()
-        save_path = Path(args.save_path)
-        create_empty_folder(save_path)
-        save_run_info(save_path, args)
-        scene_avg_gt_depth = np.zeros(n_scenes)
-        scene_avg_est_depth = np.zeros(n_scenes)
-        for i_scene in range(n_scenes):
-            scene_path = scenes_paths[i_scene]
-            scene_name = scene_path.name
-            # get RGB frames loader
-            scene_loader = SceneLoader(
-                scene_path=scene_path,
-            )
-            # examine the ground-truth depth maps
-            gt_depth_loader = DepthAndEgoMotionLoader(
-                scene_path=scene_path,
-                depth_maps_source="ground_truth",
-                egomotions_source="ground_truth",
-                depth_and_egomotion_model_path=None,
-            )
-            scene_avg_gt_depth[i_scene] = examine_depths(
-                depth_loader=gt_depth_loader,
-                scene_loader=scene_loader,
-                save_path=save_path,
-                scene_name=scene_name,
-                fig_label="gt",
-            )
+    depth_examiner = DepthExaminer(
+        dataset_path=args.dataset_path,
+        save_path=args.save_path,
+        depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
+        n_scenes_lim=args.n_scenes_lim,
+        save_overwrite=args.save_overwrite,
+    )
 
-            # examine the estimated depth maps
-            est_depth_loader = DepthAndEgoMotionLoader(
-                scene_path=scene_path,
-                depth_maps_source="online_estimates",
-                egomotions_source="online_estimates",
-                depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
-            )
-            scene_avg_est_depth[i_scene] = examine_depths(
-                depth_loader=est_depth_loader,
-                scene_loader=scene_loader,
-                save_path=save_path,
-                scene_name=scene_name,
-                fig_label="est",
-            )
+    depth_examiner.run()
+    
+# ---------------------------------------------------------------------------------------------------------------------
 
-        avg_gt_depth = np.mean(scene_avg_gt_depth)
-        std_gt_depth = np.std(scene_avg_gt_depth)
-        avg_est_depth = np.mean(scene_avg_est_depth)
-        std_est_depth = np.std(scene_avg_est_depth)
-        print(f"avg_gt_depth = {avg_gt_depth}")
-        print(f"avg_est_depth = {avg_est_depth}")
-        print(f"std_gt_depth = {std_gt_depth}")
-        print(f"std_est_depth = {std_est_depth}")
-        print(f"(avg_gt_depth / avg_est_depth) = {avg_gt_depth / avg_est_depth}")
-        print(f"(std_gt_depth / std_est_depth) = {std_gt_depth / std_est_depth}")
+if __name__ == "__main__":
+    main()
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+class DepthExaminer:
+    def __init__(
+        self,
+        dataset_path: str,
+        save_path: str,
+        depth_and_egomotion_model_path: str,
+        n_scenes_lim: int = 0,
+        save_overwrite: bool = True,
+    ):
+        self.dataset_path = Path(dataset_path)
+        self.save_path = Path(save_path)
+        self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
+        self.n_scenes_lim = n_scenes_lim
+        self.save_overwrite = save_overwrite
+
+    def run(self):
+        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
+        if not is_created:
+            print(f"{self.save_path} already exists.. " + "-" * 50)
+            return None
+        with Tee(self.save_path / "examine_depths.log"):
+            scenes_paths = list(self.dataset_path.glob("Scene_*"))
+            n_scenes = len(scenes_paths)
+            n_scenes = min(n_scenes, self.n_scenes_lim) if self.n_scenes_lim > 0 else n_scenes
+            print(f"n_scenes = {n_scenes}")
+            scenes_paths.sort()
+            scene_avg_gt_depth = np.zeros(n_scenes)
+            scene_avg_est_depth = np.zeros(n_scenes)
+            for i_scene in range(n_scenes):
+                scene_path = scenes_paths[i_scene]
+                scene_name = scene_path.name
+                # get RGB frames loader
+                scene_loader = SceneLoader(
+                    scene_path=scene_path,
+                )
+                # examine the ground-truth depth maps
+                gt_depth_loader = DepthAndEgoMotionLoader(
+                    scene_path=scene_path,
+                    depth_maps_source="ground_truth",
+                    egomotions_source="ground_truth",
+                    depth_and_egomotion_model_path=None,
+                )
+                scene_avg_gt_depth[i_scene] = examine_depths(
+                    depth_loader=gt_depth_loader,
+                    scene_loader=scene_loader,
+                    save_path=self.save_path,
+                    scene_name=scene_name,
+                    fig_label="gt",
+                )
+
+                # examine the estimated depth maps
+                est_depth_loader = DepthAndEgoMotionLoader(
+                    scene_path=scene_path,
+                    depth_maps_source="online_estimates",
+                    egomotions_source="online_estimates",
+                    depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                )
+                scene_avg_est_depth[i_scene] = examine_depths(
+                    depth_loader=est_depth_loader,
+                    scene_loader=scene_loader,
+                    save_path=self.save_path,
+                    scene_name=scene_name,
+                    fig_label="est",
+                )
+
+            avg_gt_depth = np.mean(scene_avg_gt_depth)
+            std_gt_depth = np.std(scene_avg_gt_depth)
+            avg_est_depth = np.mean(scene_avg_est_depth)
+            std_est_depth = np.std(scene_avg_est_depth)
+            # save the results as yaml file
+            with (self.save_path / "results.yaml").open("w") as f:
+                save_dict = {
+                    "avg_gt_depth": avg_gt_depth,
+                    "avg_est_depth": avg_est_depth,
+                    "std_gt_depth": std_gt_depth,
+                    "std_est_depth": std_est_depth,
+                    "avg_gt_depth / avg_est_depth": avg_gt_depth / avg_est_depth,
+                    "std_gt_depth / std_est_depth": std_gt_depth / std_est_depth,
+                }
+                yaml.dump(save_dict, f)
+            print(save_dict)
+            return save_dict
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -148,5 +194,3 @@ def examine_depths(
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    main()

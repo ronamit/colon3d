@@ -27,7 +27,7 @@ class SceneLoader:
         """
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
-        self.scene_path = Path(scene_path).expanduser()
+        self.scene_path = Path(scene_path)
 
         if (self.scene_path / "RGB_Frames").is_dir():
             self.rgb_frames_path = self.scene_path / "RGB_Frames"
