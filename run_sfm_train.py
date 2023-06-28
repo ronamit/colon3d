@@ -9,7 +9,7 @@ from endo_sfm.train import TrainRunner
 # --------------------------------------------------------------------------------------------------------------------
 # Set this True for a new run, False to continue previous runs:
 
-save_overwrite = True  # if True, existing files on the save paths will be overwritten
+save_overwrite = False  # if True, existing files on the save paths will be overwritten
 # if False, the run  will skip functions runs for save paths are not empty
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ path_to_save_model = Path("saved_models/EndoSFM_tuned")
 
 # path of the pretrained models:
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
-pretrained_pose = "saved_models/EndoSFM_o rig/PoseNet_best.pt"
+pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
 n_epochs = 150
 
@@ -47,7 +47,7 @@ scenes_paths = sim_importer.run()
 # Run training:
 
 train_runner = TrainRunner(
-    save_path_path=path_to_save_model,
+    save_path=path_to_save_model,
     dataset_path=train_scenes_dataset_path,
     pretrained_disp=pretrained_disp,
     pretrained_pose=pretrained_pose,

@@ -30,7 +30,7 @@ from endo_sfm.utils import save_checkpoint
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
-        "--save_path_path",
+        "--save_path",
         type=str,
         default="saved_models/temp",
         help="Path to save checkpoints and training outputs",
