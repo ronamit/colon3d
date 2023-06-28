@@ -29,8 +29,6 @@ def get_git_version_link():
         # Generate the Git link
         git_link = remote_url.replace(".git", "/commit/") + commit_hash
 
-        # Print the Git link
-        print(f"Git Version: {git_link}")
     except Exception as e:  # noqa: BLE001
         print("Error: Failed to retrieve Git information.")
         print(e)

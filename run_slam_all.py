@@ -72,3 +72,12 @@ slam_on_dataset_runner = SlamOnDatasetRunner(
 )
 slam_on_dataset_runner.run()
 # --------------------------------------------------------------------------------------------------------------------
+# 3) with the tuned EndoSFM monocular depth and egomotion estimation
+slam_on_dataset_runner = SlamOnDatasetRunner(
+    dataset_path=cases_dataset_path,
+    save_path=base_results_path / "SLAM_with_EndoSFM_tuned",
+    depth_maps_source="online_estimates",
+    egomotions_source="online_estimates",
+    depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
+    save_overwrite=save_overwrite,
+)
