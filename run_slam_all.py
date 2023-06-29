@@ -23,7 +23,7 @@ scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
 
 # base path to save the algorithm runs results:
-base_results_path = Path(f"result/{test_dataset_name}_results")
+base_results_path = Path(f"results/{test_dataset_name}_results")
 
 # --------------------------------------------------------------------------------------------------------------------
 
