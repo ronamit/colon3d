@@ -459,8 +459,8 @@ class EgomotionModel:
         self.device = get_device()
         self.dtype = torch.float32
         self.resnet_layers = self.model_info["PoseResNet_layers"]
-        self.model_im_height = self.model_info["img_height"]
-        self.model_im_width = self.model_info["img_width"]
+        self.model_im_height = self.model_info["frame_height"]
+        self.model_im_width = self.model_info["frame_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps.

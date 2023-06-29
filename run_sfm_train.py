@@ -30,7 +30,7 @@ pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
 n_epochs = 150
 
-model_description = f"Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM.  initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint), Trained for {n_epochs} epochs on  {train_dataset_name}"
+model_description = f"Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM. initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint), Trained for {n_epochs} epochs on  {train_dataset_name}"
 
 
 path_to_save_depth_exam = path_to_save_model / "depth_exam"

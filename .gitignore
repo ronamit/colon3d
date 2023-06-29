@@ -12,3 +12,5 @@ colon3d/Undistort_LUTs/*
 .DS_Store
 .vscode/settings.json
 saved_models/*
+results/*
+```
