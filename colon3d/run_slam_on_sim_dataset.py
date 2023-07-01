@@ -78,11 +78,11 @@ def main():
     args = parser.parse_args()
 
     slam_on_dataset_runner = SlamOnDatasetRunner(
-        dataset_path=args.dataset_path,
-        save_path=args.save_path,
+        dataset_path=Path(args.dataset_path),
+        save_path=Path(args.save_path),
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
-        depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
+        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
         n_cases_lim=args.n_cases_lim,
@@ -103,11 +103,11 @@ if __name__ == "__main__":
 class SlamOnDatasetRunner:
     def __init__(
         self,
-        dataset_path: str,
-        save_path: str,
+        dataset_path: Path,
+        save_path: Path,
         depth_maps_source: str,
         egomotions_source: str,
-        depth_and_egomotion_model_path: str = "",
+        depth_and_egomotion_model_path: Path | None,
         alg_fov_ratio: float = 0,
         n_frames_lim: int = 0,
         n_cases_lim: int = 0,

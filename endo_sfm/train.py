@@ -22,7 +22,7 @@ from endo_sfm.logger import AverageMeter
 from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
-from endo_sfm.utils import save_checkpoint
+from endo_sfm.utils import save_checkpoint, save_model_info
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -38,14 +38,13 @@ def main():
     parser.add_argument(
         "--save_overwrite",
         type=bool,
-        default=False,
+        default=True,
         help="overwrite save path if already exists",
     )
     parser.add_argument(
         "--dataset_path",
-        metavar="DIR",
         help="path to training dataset of scenes",
-        default="data/sim_data/SimDataTrain22",
+        default="data/sim_data/TrainData22",
     )
     parser.add_argument(
         "--validation_ratio",
@@ -57,14 +56,12 @@ def main():
         "--pretrained_disp",
         dest="pretrained_disp",
         default="saved_models/EndoSFM_orig/DispNet_best.pt",
-        metavar="PATH",
         help="path to pre-trained DispNet model (disparity=1/depth), if empty then training from scratch",
     )
     parser.add_argument(
         "--pretrained_pose",
         dest="pretrained_pose",
         default="saved_models/EndoSFM_orig/PoseNet_best.pt",
-        metavar="PATH",
         help="path to pre-trained PoseNet model, if empty then training from scratch",
     )
 
@@ -74,46 +71,40 @@ def main():
         default=True,
         help="in case training from scratch -  do we use ImageNet pretrained weights or not",
     )
-    parser.add_argument("--sequence_length", type=int, metavar="N", help="sequence length for training", default=3)
-    parser.add_argument("-j", "--workers", default=4, type=int, metavar="N", help="number of data loading workers")
-    parser.add_argument("--epochs", default=100, type=int, metavar="N", help="number of total epochs to run")
+    parser.add_argument("--sequence_length", type=int, help="sequence length for training", default=3)
+    parser.add_argument("--n_workers", default=4, type=int, help="number of data loading workers")
+    parser.add_argument("--n_epochs", default=100, type=int, help="number of total epochs to run")
     parser.add_argument(
         "--epoch_size",
         default=0,
         type=int,
-        metavar="N",
         help="manual epoch size (will match dataset size if not set)",
     )
     parser.add_argument(
-        "-b",
         "--batch_size",
         default=8,
         type=int,
-        metavar="N",
         help="mini-batch size, decrease this if out of memory",
     )
-    parser.add_argument("--lr", "--learning_rate", default=1e-4, type=float, metavar="LR", help="initial learning rate")
+    parser.add_argument("--learning_rate", default=1e-4, type=float,  help="initial learning rate")
     parser.add_argument(
         "--momentum",
         default=0.9,
         type=float,
-        metavar="M",
         help="momentum for sgd, alpha parameter for adam",
     )
-    parser.add_argument("--beta", default=0.999, type=float, metavar="M", help="beta parameters for adam")
-    parser.add_argument("--weight_decay", "--wd", default=1e-4, type=float, metavar="W", help="weight decay")
-    parser.add_argument("--print_freq", default=10, type=int, metavar="N", help="print frequency")
+    parser.add_argument("--beta", default=0.999, type=float, help="beta parameters for adam")
+    parser.add_argument("--weight_decay", default=1e-4, type=float, help="weight decay")
+    parser.add_argument("--print_freq", default=10, type=int, help="print frequency")
     parser.add_argument("--seed", default=0, type=int, help="seed for random functions, and network initialization")
     parser.add_argument(
         "--log_summary",
         default="progress_log_summary.csv",
-        metavar="PATH",
         help="csv where to save per-epoch train and valid stats",
     )
     parser.add_argument(
         "--log_full",
         default="progress_log_full.csv",
-        metavar="PATH",
         help="csv where to save per-gradient descent train stats",
     )
     parser.add_argument("--log_output", type=bool, default=False, help="will log dispnet outputs at validation step")
@@ -126,34 +117,26 @@ def main():
     )
     parser.add_argument(
         "--num_scales",
-        "--number_of_scales",
         type=int,
         help="the number of scales",
-        metavar="W",
         default=1,
     )
     parser.add_argument(
-        "-p",
         "--photo_loss_weight",
         type=float,
         help="weight for photometric loss",
-        metavar="W",
         default=1,
     )
     parser.add_argument(
-        "-s",
         "--smooth_loss_weight",
         type=float,
         help="weight for disparity smoothness loss",
-        metavar="W",
         default=0.1,
     )
     parser.add_argument(
-        "-c",
         "--geometry_consistency_weight",
         type=float,
         help="weight for depth consistency loss",
-        metavar="W",
         default=0.5,
     )
     parser.add_argument("--with_ssim", type=bool, default=True, help="with ssim or not")
@@ -176,16 +159,16 @@ def main():
 
     args = parser.parse_args()
     train_runner = TrainRunner(
-        save_path=args.save_path,
+        save_path=Path(args.save_path),
         save_overwrite=args.save_overwrite,
-        dataset_path=args.dataset_path,
+        dataset_path=Path(args.dataset_path),
         validation_ratio=args.validation_ratio,
         pretrained_disp=args.pretrained_disp,
         pretrained_pose=args.pretrained_pose,
         with_pretrain=args.with_pretrain,
         sequence_length=args.sequence_length,
-        workers=args.workers,
-        epochs=args.epochs,
+        n_workers=args.n_workers,
+        n_epochs=args.n_epochs,
         epoch_size=args.epoch_size,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
@@ -211,24 +194,17 @@ def main():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
 class TrainRunner:
     def __init__(
         self,
-        save_path: str,
-        dataset_path: str,
+        save_path: Path,
+        dataset_path: Path,
         validation_ratio: float = 0.1,
         pretrained_disp: str = "",
         pretrained_pose: str = "",
         with_pretrain: bool = True,
         sequence_length: int = 3,
-        workers: int = 4,
+        n_workers: int = 4,
         n_epochs: int = 100,
         epoch_size: int = 0,
         batch_size: int = 8,
@@ -252,14 +228,14 @@ class TrainRunner:
         padding_mode: str = "zeros",
         save_overwrite: bool = True,
     ):
-        self.save_path = save_path
-        self.dataset_path = dataset_path
+        self.save_path = Path(save_path)
+        self.dataset_path = Path(dataset_path)
         self.validation_ratio = validation_ratio
         self.pretrained_disp = pretrained_disp
         self.pretrained_pose = pretrained_pose
         self.with_pretrain = with_pretrain
         self.sequence_length = sequence_length
-        self.workers = workers
+        self.n_workers = n_workers
         self.n_epochs = n_epochs
         self.epoch_size = epoch_size
         self.batch_size = batch_size
@@ -289,19 +265,17 @@ class TrainRunner:
     def run(self):
         device = get_device()
         torch.autograd.set_detect_anomaly(True)
-        save_path = Path(self.save_path)
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
-            print(f"{self.save_path} already exists.. " + "-" * 50)
+            print(f"{self.save_path} already exists, skipping...\n" + "-" * 50)
             return
+
         print(f"Outputs will be saved to {self.save_path}")
 
-        with Tee(save_path / "prints_log.txt"):  # save the prints to a file
+        with Tee(self.save_path / "prints_log.txt"):  # save the prints to a file
             ### inits
             best_error = -1
             n_iter = 0
-
-            create_empty_folder(save_path)
             set_rand_seed(self.seed)
 
             # dataset split
@@ -321,11 +295,11 @@ class TrainRunner:
             print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
 
             # loggers
-            training_writer = SummaryWriter(save_path)
+            training_writer = SummaryWriter(self.save_path)
             output_writers = []
             if self.log_output:
                 for i in range(3):
-                    output_writers.append(SummaryWriter(save_path / "valid" / str(i)))
+                    output_writers.append(SummaryWriter(self.save_path / "valid" / str(i)))
 
             # set data transforms
             chan_normalize_mean = [0.45, 0.45, 0.45]
@@ -362,14 +336,14 @@ class TrainRunner:
                 train_set,
                 batch_size=self.batch_size,
                 shuffle=True,
-                num_workers=self.workers,
+                num_workers=self.n_workers,
                 pin_memory=True,
             )
             val_loader = torch.utils.data.DataLoader(
                 val_set,
                 batch_size=self.batch_size,
                 shuffle=False,
-                num_workers=self.workers,
+                num_workers=self.n_workers,
                 pin_memory=True,
             )
 
@@ -379,24 +353,36 @@ class TrainRunner:
             # get the metadata of some scene (we assume that all scenes have the same metadata)
             scene_metadata = train_set.get_scene_metadata(scene_index=0)
 
+            # save model_info file
+            save_model_info(
+                save_dir_path=self.save_path,
+                scene_metadata=scene_metadata,
+                disp_resnet_layers=self.disp_resnet_layers,
+                pose_resnet_layers=self.pose_resnet_layers,
+                overwrite=False,
+            )
+
             # create model
             print("=> creating model")
             disp_net = DispResNet(self.disp_resnet_layers, pretrained=self.with_pretrain).to(device)
             pose_net = PoseResNet(self.pose_resnet_layers, pretrained=self.with_pretrain).to(device)
 
             # load parameters
+            # TODO: save both nets in the same file
+            # TODO: mechanism to continue run from the last epoch - if save path not empty
             if self.pretrained_disp:
+                loaded_pretrained = torch.load(self.pretrained_disp)
                 print("=> using pre-trained weights for DispResNet")
-                weights = torch.load(self.pretrained_disp)
-                disp_net.load_state_dict(weights["state_dict"], strict=False)
+                disp_net.load_state_dict(loaded_pretrained["state_dict"], strict=False)
                 disp_net.to(device)
 
             if self.pretrained_pose:
+                loaded_pretrained = torch.load(self.pretrained_pose)
                 print("=> using pre-trained weights for PoseResNet")
-                weights = torch.load(self.pretrained_pose)
-                pose_net.load_state_dict(weights["state_dict"], strict=False)
+                pose_net.load_state_dict(loaded_pretrained["state_dict"], strict=False)
                 pose_net.to(device)
 
+            # TODO: make this work (for faster training):
             # disp_net = torch.nn.DataParallel(disp_net)
             # pose_net = torch.nn.DataParallel(pose_net)
 
@@ -407,17 +393,17 @@ class TrainRunner:
             ]
             optimizer = torch.optim.Adam(optim_params, betas=(self.momentum, self.beta), weight_decay=self.weight_decay)
 
-            with (save_path / self.log_summary).open("w") as csvfile:
+            with (self.save_path / self.log_summary).open("w") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")
                 writer.writerow(["train_loss", "validation_loss"])
 
-            with (save_path / self.log_full).open("w") as csvfile:
+            with (self.save_path / self.log_full).open("w") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")
                 writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
 
             # save initial checkpoint
             save_checkpoint(
-                save_path=save_path,
+                save_path=self.save_path,
                 dispnet_state={
                     "epoch": 0,
                     "state_dict": disp_net.state_dict(),
@@ -436,7 +422,7 @@ class TrainRunner:
 
                 # train for one epoch
                 train_loss, n_iter = self.run_epoch(
-                    save_path,
+                    self.save_path,
                     train_loader,
                     disp_net,
                     pose_net,
@@ -467,7 +453,7 @@ class TrainRunner:
                 is_best = decisive_error < best_error
                 best_error = min(best_error, decisive_error)
                 save_checkpoint(
-                    save_path=save_path,
+                    save_path=self.save_path,
                     dispnet_state={
                         "epoch": i_epoch + 1,
                         "state_dict": disp_net.state_dict(),
@@ -480,7 +466,7 @@ class TrainRunner:
                     scene_metadata=scene_metadata,
                 )
 
-                with (save_path / self.log_summary).open("a") as csvfile:
+                with (self.save_path / self.log_summary).open("a") as csvfile:
                     writer = csv.writer(csvfile, delimiter="\t")
                     writer.writerow([train_loss, decisive_error])
 
@@ -636,3 +622,10 @@ def compute_pose_with_inv(pose_net, tgt_img, ref_imgs):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+

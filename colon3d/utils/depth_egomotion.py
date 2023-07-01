@@ -99,6 +99,7 @@ class DepthAndEgoMotionLoader:
             self.egomotions_buffer = h5f["egomotions"][:]  # load all into memory
         n_frames = self.egomotions_buffer.shape[0]
         self.egomotions_buffer_frame_inds = list(range(n_frames))
+        
 
     # --------------------------------------------------------------------------------------------------------------------
     def init_loaded_depth(self, depth_maps_file_name: str, depth_info_file_name: str):
@@ -117,6 +118,7 @@ class DepthAndEgoMotionLoader:
         self.loaded_depth_map_size = self.depth_info["depth_map_size"]
         self.loaded_depth_map_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
         self.n_frames = self.depth_info["n_frames"]
+        
 
     # --------------------------------------------------------------------------------------------------------------------
     def process_new_frame(self, i_frame: int, cur_rgb_frame: np.ndarray, prev_rgb_frame: np.ndarray):
@@ -347,6 +349,17 @@ def imgs_to_net_in(
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def get_model_info(model_dir_path: Path):
+    model_info_path = model_dir_path / "model_info.yaml"
+    assert model_info_path.is_file(), f"Model info file not found at {model_info_path}"
+    model_info = yaml.safe_load(model_info_path.open("r"))
+    if "net_out_to_mm" not in model_info:
+        print("net_out_to_mm not found in model info, using default value of 1.0")
+        model_info["net_out_to_mm"] = 1.0
+        
+    return model_info
+
+# --------------------------------------------------------------------------------------------------------------------
 
 def get_camera_matrix(model_info: dict) -> np.ndarray:
     fx = model_info["fx"]
@@ -370,7 +383,7 @@ class DepthModel:
         self.depth_upper_bound = depth_upper_bound
 
         model_dir_path = Path(depth_and_egomotion_model_path)
-        self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
+        self.model_info = get_model_info(model_dir_path)
         # load the Disparity network
         self.disp_net_path = model_dir_path / "DispNet_best.pt"
         assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
@@ -452,7 +465,7 @@ class DepthModel:
 class EgomotionModel:
     def __init__(self, depth_and_egomotion_model_path: str) -> None:
         model_dir_path = Path(depth_and_egomotion_model_path)
-        self.model_info = yaml.safe_load((model_dir_path / "model_info.yaml").open("r"))
+        self.model_info = get_model_info(model_dir_path)
         self.pose_net_path = model_dir_path / "PoseNet_best.pt"
         assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")

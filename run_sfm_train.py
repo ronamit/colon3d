@@ -5,11 +5,12 @@ import yaml
 from colon3d.examine_depths import DepthExaminer
 from colon3d.sim_import.sim_importer import SimImporter
 from endo_sfm.train import TrainRunner
+from endo_sfm.utils import save_model_info
 
 # --------------------------------------------------------------------------------------------------------------------
 # Set this True for a new run, False to continue previous runs:
 
-save_overwrite = False  # if True, existing files on the save paths will be overwritten
+save_overwrite = True  # if True, existing files on the save paths will be overwritten
 # if False, the run  will skip functions runs for save paths are not empty
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -28,7 +29,7 @@ path_to_save_model = Path("saved_models/EndoSFM_tuned")
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
 pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
-n_epochs = 150
+n_epochs = 0
 
 model_description = f"Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM. initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint), Trained for {n_epochs} epochs on  {train_dataset_name}"
 
@@ -78,15 +79,14 @@ with (scene_path / "meta_data.yaml").open("r") as f:
 # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
 net_out_to_mm = depth_exam["avg_gt_depth / avg_est_depth"]
 
-# create model_info.yaml file:
-with (path_to_save_model / "model_info.yaml").open("w"):
-    model_info = {
-        "description": model_description,
-        "DispResNet_layers": train_runner.disp_resnet_layers,
-        "PoseResNet_layers": train_runner.pose_resnet_layers,
-        "frame_height": scene_metadata["frame_height"],
-        "frame_width": scene_metadata["frame_width"],
-        "net_out_to_mm": net_out_to_mm,
-        "train_dataset": {"name": train_dataset_name, "n_scenes": len(scenes_paths), "metadata": scene_metadata},
-    }
+
+save_model_info(
+    save_dir_path=path_to_save_model,
+    scene_metadata=scene_metadata,
+    disp_resnet_layers=train_runner.disp_resnet_layers,
+    pose_resnet_layers=train_runner.pose_resnet_layers,
+    overwrite=True,
+    extra_info={"model_description": model_description, "net_out_to_mm": net_out_to_mm},
+)
+
 # --------------------------------------------------------------------------------------------------------------------

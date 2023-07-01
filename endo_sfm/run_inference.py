@@ -11,8 +11,7 @@ from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.utils import tensor2array
 
 parser = argparse.ArgumentParser(
-    description="Inference script for DispNet learned with \
-                                 Structure from Motion Learner inference on KITTI Dataset",
+    description="Inference script for DispNet learned with Structure from Motion Learner inference on KITTI Dataset",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
 parser.add_argument("--output-disp", action="store_true", help="save disparity img")

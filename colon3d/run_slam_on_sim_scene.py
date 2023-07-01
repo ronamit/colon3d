@@ -84,8 +84,8 @@ def main():
     args = parser.parse_args()
 
     slam_on_scene_runner = SlamOnSimSceneRunner(
-        scene_path=args.scene_path,
-        save_path=args.save_path,
+        scene_path=Path(args.scene_path),
+        save_path=Path(args.save_path),
         depth_maps_source=args.depth_maps_source,
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
@@ -105,8 +105,8 @@ if __name__ == "__main__":
 class SlamOnSimSceneRunner:
     def __init__(
         self,
-        scene_path: str,
-        save_path: str,
+        scene_path: Path,
+        save_path: Path,
         depth_maps_source: str,
         alg_fov_ratio: float,
         n_frames_lim: int,
@@ -126,7 +126,7 @@ class SlamOnSimSceneRunner:
     def run(self):
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
-            print(f"{self.save_path} already exists.. " + "-" * 50)
+            print(f"{self.save_path} already exists...\n" + "-" * 50)
             return None
         print(f"Outputs will be saved to {self.save_path}")
 

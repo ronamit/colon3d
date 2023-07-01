@@ -115,7 +115,7 @@ class SimImporter:
     def run(self):
         is_created = create_empty_folder(self.output_data_path, save_overwrite=self.save_overwrite)
         if not is_created:
-            print(f"{self.output_data_path} already exists.. " + "-" * 50)
+            print(f"{self.output_data_path} already exists...\n" + "-" * 50)
             scenes_paths = [p for p in self.output_data_path.glob("Scene*") if p.is_dir()]
             return scenes_paths
 

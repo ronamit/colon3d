@@ -50,9 +50,9 @@ def main():
     )
     args = parser.parse_args()
     depth_examiner = DepthExaminer(
-        dataset_path=args.dataset_path,
-        save_path=args.save_path,
-        depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
+        dataset_path=Path(args.dataset_path),
+        save_path=Path(args.save_path),
+        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
     )
@@ -69,9 +69,9 @@ if __name__ == "__main__":
 class DepthExaminer:
     def __init__(
         self,
-        dataset_path: str,
-        save_path: str,
-        depth_and_egomotion_model_path: str,
+        dataset_path: Path,
+        save_path: Path,
+        depth_and_egomotion_model_path: Path,
         n_scenes_lim: int = 0,
         save_overwrite: bool = True,
     ):
@@ -84,10 +84,14 @@ class DepthExaminer:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
-        if not is_created:
-            print(f"{self.save_path} already exists.. " + "-" * 50)
-            return None
+        # check if the results already exist - if so then load them and return
+        results_file_path = self.save_path / "depth_exam.yaml"
+        if results_file_path.exists() and not self.save_overwrite:
+            print(f"{self.save_path} already exists...\n" + "-" * 50)
+            results = yaml.load(results_file_path.open("r"), Loader=yaml.FullLoader)
+            return results
+        
+        create_empty_folder(self.save_path, save_overwrite=True)
         with Tee(self.save_path / "examine_depths.log"):
             scenes_paths = list(self.dataset_path.glob("Scene_*"))
             n_scenes = len(scenes_paths)

@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -69,23 +70,53 @@ def save_checkpoint(
     exp_pose_state,
     is_best,
     scene_metadata=None,
-    filename="checkpoint.pt",
 ):
     file_prefixes = ["DispNet", "PoseNet"]
     states = [dispnet_state, exp_pose_state]
     for prefix, state in zip(file_prefixes, states, strict=True):
-        torch.save(state, save_path / f"{prefix}_{filename}")
-
-    if is_best:
-        for prefix in file_prefixes:
-            shutil.copyfile(save_path / f"{prefix}_{filename}", save_path / f"{prefix}_best.pt")
+        save_model_path = save_path / f"{prefix}_checkpoint.pt"
+        torch.save(state, save_model_path)
+        print(f"Checkpoint saved to {save_model_path}")
+        if is_best:
+            save_best_path = save_path / f"{prefix}_best.pt"
+            shutil.copyfile(save_path / save_model_path, save_best_path)
+            print(f"Best-so-far model saved to {save_best_path}")
 
     # save the scene metadata as yaml file
     if scene_metadata is not None:
         with (save_path / "scene_metadata.yaml").open("w") as f:
             yaml.dump(scene_metadata, f)
 
-    print(f"Checkpoint saved to {save_path / filename}")
-
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+
+def save_model_info(
+    save_dir_path: Path,
+    disp_resnet_layers: int,
+    pose_resnet_layers: int,
+    scene_metadata: dict,
+    overwrite: bool,
+    extra_info: dict | None = None,
+):
+    model_info_path = save_dir_path / "model_info.yaml"
+    if model_info_path.exists() and not overwrite:
+        print(f"Model info file {model_info_path} already exists, skipping")
+
+    # save an updated model_info.yaml file:
+    with model_info_path.open("w") as f:
+        model_info = {
+            "DispResNet_layers": disp_resnet_layers,
+            "PoseResNet_layers": pose_resnet_layers,
+            "frame_height": scene_metadata["frame_height"],
+            "frame_width": scene_metadata["frame_width"],
+            "fx": scene_metadata["fx"],
+            "fy": scene_metadata["fy"],
+            "cx": scene_metadata["cx"],
+            "cy": scene_metadata["cy"],
+            "distort_pram": scene_metadata["distort_pram"],
+            "fps": scene_metadata["fps"],
+        }
+        if extra_info is not None:
+            model_info.update(extra_info)
+        yaml.dump(model_info, f)

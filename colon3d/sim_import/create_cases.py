@@ -136,7 +136,7 @@ class CasesCreator:
     def run(self):
         is_created = create_empty_folder(self.path_to_save_cases, save_overwrite=self.save_overwrite)
         if not is_created:
-            print(f"{self.path_to_save_cases} already exists.. " + "-" * 50)
+            print(f"{self.path_to_save_cases} already exists...\n" + "-" * 50)
             return
         print(f"The generated cases will be saved to {self.path_to_save_cases}")
         rng = default_rng(self.rand_seed)
