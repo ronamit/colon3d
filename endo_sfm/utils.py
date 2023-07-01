@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -65,10 +64,10 @@ def tensor2array(tensor, max_value=None, colormap="rainbow"):
 
 
 def save_checkpoint(
-    save_path,
+    save_path: Path,
     dispnet_state,
     exp_pose_state,
-    is_best,
+    is_best: bool,
     scene_metadata=None,
 ):
     file_prefixes = ["DispNet", "PoseNet"]

@@ -412,7 +412,7 @@ class TrainRunner:
                     "epoch": 0,
                     "state_dict": pose_net.state_dict(),
                 },
-                is_best=0,
+                is_best=True,
                 scene_metadata=scene_metadata,
             )
 
