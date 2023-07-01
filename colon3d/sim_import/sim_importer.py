@@ -165,8 +165,6 @@ class SimImporter:
                     break
                 scene_name = "Scene_" + str(scene_idx).zfill(5)
                 scene_path = self.output_data_path / scene_name
-                create_empty_folder(scene_path, save_overwrite=False)
-                print(f"Saving a new scene to {scene_path}")
                 metadata = self.get_scene_metadata(capture)
                 metadata_per_scene.append(metadata)
                 scenes_names.append(scene_name)
@@ -200,6 +198,8 @@ class SimImporter:
         scenes_paths = []
         for i_scene in range(n_scenes):
             scene_path = self.output_data_path / scenes_names[i_scene]
+            create_empty_folder(scene_path, save_overwrite=True)
+            print(f"Saving a new scene to {scene_path}")
             scenes_paths.append(scene_path)
             metadata = metadata_per_scene[i_scene]
             print(f"Saving scene #{i_scene} to {scene_path}... ")
