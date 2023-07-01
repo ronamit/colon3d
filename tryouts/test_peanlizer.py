@@ -4,6 +4,8 @@ import torch
 
 from colon3d.utils.torch_util import SoftConstraints
 
+# --------------------------------------------------------------------------------------------------------------------
+
 if __name__ == "__main__":
     # Test code:
     penalizer = SoftConstraints(

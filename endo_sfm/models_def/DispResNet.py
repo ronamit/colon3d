@@ -120,6 +120,7 @@ class DispResNet(nn.Module):
 
         return outputs[0]  # in inference mode, we only predict the disparity of the full resolution output
 
+# --------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
@@ -135,3 +136,4 @@ if __name__ == "__main__":
     tgt_depth = model(tgt_img)
 
     print(tgt_depth[0].size())
+# --------------------------------------------------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import argparse
+import shutil
 import subprocess
 import sys
 import traceback
@@ -17,7 +18,6 @@ from torch.backends import cudnn
 # --------------------------------------------------------------------------------------------------------------------
 
 
-
 def get_git_version_link():
     try:
         # Get the Git commit hash
@@ -34,14 +34,17 @@ def get_git_version_link():
         print(e)
     return git_link
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def get_run_file_and_args():
     # Get the run file name and arguments use to run the script
     run_file = sys.argv[0]
     run_args = sys.argv[1:]
     return run_file, run_args
-    
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -348,6 +351,9 @@ def convert_sec_to_str(seconds):
 def create_empty_folder(folder_path: Path, save_overwrite: bool = False):
     if folder_path.exists() and not save_overwrite:
         return False
+    # remove the folder if it already exists
+    if folder_path.exists():
+        shutil.rmtree(folder_path.resolve())
     folder_path.mkdir(parents=True, exist_ok=True)
     save_run_info(folder_path)
     return True

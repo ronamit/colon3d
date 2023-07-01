@@ -29,7 +29,7 @@ path_to_save_model = Path("saved_models/EndoSFM_tuned")
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
 pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
-n_epochs = 0
+n_epochs = 50 # number of epochs to train
 
 model_description = f"Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM. initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint), Trained for {n_epochs} epochs on  {train_dataset_name}"
 
@@ -61,8 +61,8 @@ train_runner.run()
 # Run depth examination to calibrate the depth scale:
 depth_examiner = DepthExaminer(
     dataset_path=train_scenes_dataset_path,
-    save_path=path_to_save_depth_exam,
     depth_and_egomotion_model_path=path_to_save_model,
+    save_path=path_to_save_depth_exam,
     save_overwrite=save_overwrite,
 )
 depth_exam = depth_examiner.run()

@@ -21,13 +21,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData14_train",
+        default="data/sim_data/TrainData22",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData14_train/DepthsExamination",
+        default="saved_models/EndoSFM_tuned/DepthExaminerResults",
         help="Path to save the results.",
     )
     parser.add_argument(
@@ -51,8 +51,8 @@ def main():
     args = parser.parse_args()
     depth_examiner = DepthExaminer(
         dataset_path=Path(args.dataset_path),
-        save_path=Path(args.save_path),
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
+        save_path=Path(args.save_path),
         n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
     )
@@ -61,23 +61,19 @@ def main():
     
 # ---------------------------------------------------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    main()
-
-# ---------------------------------------------------------------------------------------------------------------------
 
 class DepthExaminer:
     def __init__(
         self,
         dataset_path: Path,
-        save_path: Path,
         depth_and_egomotion_model_path: Path,
+        save_path: Path,
         n_scenes_lim: int = 0,
         save_overwrite: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
-        self.save_path = Path(save_path)
         self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
+        self.save_path = Path(save_path)
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
         
@@ -92,6 +88,7 @@ class DepthExaminer:
             return results
         
         create_empty_folder(self.save_path, save_overwrite=True)
+        
         with Tee(self.save_path / "examine_depths.log"):
             scenes_paths = list(self.dataset_path.glob("Scene_*"))
             n_scenes = len(scenes_paths)
@@ -201,3 +198,7 @@ def compute_depths(
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+if __name__ == "__main__":
+    main()
+
+# ---------------------------------------------------------------------------------------------------------------------

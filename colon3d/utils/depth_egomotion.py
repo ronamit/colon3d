@@ -386,6 +386,8 @@ class DepthModel:
         self.model_info = get_model_info(model_dir_path)
         # load the Disparity network
         self.disp_net_path = model_dir_path / "DispNet_best.pt"
+        if not self.disp_net_path.is_file():
+            self.disp_net_path = model_dir_path / "DispNet_checkpoint.pt"
         assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
         print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
         self.resnet_layers = self.model_info["DispResNet_layers"]
@@ -467,6 +469,8 @@ class EgomotionModel:
         model_dir_path = Path(depth_and_egomotion_model_path)
         self.model_info = get_model_info(model_dir_path)
         self.pose_net_path = model_dir_path / "PoseNet_best.pt"
+        if not self.pose_net_path.is_file():
+             self.pose_net_path = model_dir_path / "PoseNet_checkpoint.pt"
         assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()

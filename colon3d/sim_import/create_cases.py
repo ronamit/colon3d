@@ -53,11 +53,6 @@ def main():
 
 # --------------------------------------------------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    main()
-
-# --------------------------------------------------------------------------------------------------------------------
-
 
 class CasesCreator:
     def __init__(
@@ -302,3 +297,8 @@ def get_egomotion_and_depth_estimations(
     # create the estimated egomotions by applying the error egomotions to the ground truth egomotions:
     est_egomotions = np_func(apply_pose_change)(start_pose=gt_egomotions, pose_change=err_egomotions)
     return est_depth_maps, est_egomotions
+
+if __name__ == "__main__":
+    main()
+
+# --------------------------------------------------------------------------------------------------------------------
