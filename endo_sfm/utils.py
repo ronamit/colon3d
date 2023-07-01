@@ -79,8 +79,8 @@ def save_checkpoint(
         print(f"Checkpoint saved to {save_model_path}")
         if is_best:
             save_best_path = save_path / f"{prefix}_best.pt"
-            shutil.copyfile(save_path / save_model_path, save_best_path)
-            print(f"Best-so-far model saved to {save_best_path}")
+            torch.save(state, save_best_path)
+            print(f"Best checkpoint so-far saved to {save_model_path}")
 
     # save the scene metadata as yaml file
     if scene_metadata is not None:
