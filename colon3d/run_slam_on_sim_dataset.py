@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.run_slam_on_sim_scene import run_slam_on_scene
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, get_time_now_str
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ def main():
     )
     parser.add_argument(
         "--save_overwrite",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="If True then the save folder will be overwritten if it already exists",
     )
@@ -189,4 +189,3 @@ if __name__ == "__main__":
     main()
 
 # ---------------------------------------------------------------------------------------------------------------------
-

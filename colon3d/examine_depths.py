@@ -10,6 +10,7 @@ from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     Tee,
+    bool_arg,
     create_empty_folder,
     save_dict_to_yaml,
     save_plot_and_close,
@@ -50,7 +51,7 @@ def main():
     )
     parser.add_argument(
         "--save_overwrite",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="If True then the results will be saved in the save_path folder, otherwise a new folder will be created",
     )

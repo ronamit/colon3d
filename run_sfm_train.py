@@ -5,7 +5,7 @@ import yaml
 
 from colon3d.examine_depths import DepthExaminer
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.utils.general_util import ArgsHelpFormatter
+from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg
 from endo_sfm.train import TrainRunner
 from endo_sfm.utils import save_model_info
 
@@ -14,7 +14,7 @@ from endo_sfm.utils import save_model_info
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
-    type=bool,
+    type=bool_arg,
     required=True,
     help="If True then the save folders will be overwritten if they already exists",
 )

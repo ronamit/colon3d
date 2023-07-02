@@ -10,7 +10,7 @@ from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.slam_alg import SlamAlgRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.utils.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.utils.tracks_util import DetectionsTracker
 
@@ -77,7 +77,7 @@ def main():
     )
     parser.add_argument(
         "--save_overwrite",
-        type=bool,
+        type=bool_arg,
         default=False,
         help="if True then the save folder will be overwritten",
     )

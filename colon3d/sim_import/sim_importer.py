@@ -10,6 +10,7 @@ import numpy as np
 
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
+    bool_arg,
     create_empty_folder,
     path_to_str,
     save_depth_video,
@@ -41,7 +42,7 @@ def main():
     )
     parser.add_argument(
         "--save_overwrite",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="If True,the output folder will be overwritten if it already exists",
     )

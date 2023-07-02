@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     Tee,
+    bool_arg,
     create_empty_folder,
     set_rand_seed,
 )
@@ -37,7 +38,7 @@ def main():
     )
     parser.add_argument(
         "--save_overwrite",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="overwrite save path if already exists",
     )
@@ -67,7 +68,7 @@ def main():
 
     parser.add_argument(
         "--with_pretrain",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="in case training from scratch -  do we use ImageNet pretrained weights or not",
     )
@@ -107,7 +108,7 @@ def main():
         default="progress_log_full.csv",
         help="csv where to save per-gradient descent train stats",
     )
-    parser.add_argument("--log_output", type=bool, default=False, help="will log dispnet outputs at validation step")
+    parser.add_argument("--log_output", type=bool_arg, default=False, help="will log dispnet outputs at validation step")
     parser.add_argument(
         "--disp_resnet_layers",
         type=int,
@@ -139,14 +140,14 @@ def main():
         help="weight for depth consistency loss",
         default=0.5,
     )
-    parser.add_argument("--with_ssim", type=bool, default=True, help="with ssim or not")
+    parser.add_argument("--with_ssim", type=bool_arg, default=True, help="with ssim or not")
     parser.add_argument(
         "--with_mask",
-        type=bool,
+        type=bool_arg,
         default=True,
         help="with the the mask for moving objects and occlusions or not",
     )
-    parser.add_argument("--with_auto_mask", type=bool, default=False, help="with the the mask for stationary points")
+    parser.add_argument("--with_auto_mask", type=bool_arg, default=False, help="with the the mask for stationary points")
     parser.add_argument(
         "--padding_mode",
         type=str,
