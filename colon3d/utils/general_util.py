@@ -15,6 +15,23 @@ from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from torch.backends import cudnn
 
+
+# --------------------------------------------------------------------------------------------------------------------
+def val_to_yaml_format(v):
+    if isinstance(v, Path):
+        return str(v)
+    if isinstance(v, np.float64 | np.float32):
+        return float(v)
+    return v
+
+# ----------------------------------------------------------------------------------------------------------------------
+def save_dict_to_yaml(save_path: Path, dict_to_save: dict):
+    save_dict_strs = {k: val_to_yaml_format(v) for k, v in dict_to_save.items()}
+    with save_path.open("w") as f:
+        yaml.dump(save_dict_strs, f)
+    print(f"Saved dict to {save_path}")
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -52,9 +69,8 @@ def save_run_info(save_path: Path):
     git_verion_link = get_git_version_link()
     run_file, run_args = get_run_file_and_args()
     # save the args + git link  as yaml file
-    with (save_path / "run_info.yaml").open("w") as f:
-        save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_verion_link}
-        f.write(yaml.dump(save_dict))
+    save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_verion_link}
+    save_dict_to_yaml(save_path=save_path / "run_info.yaml", dict_to_save=save_dict)
 
 
 # --------------------------------------------------------------------------------------------------------------------

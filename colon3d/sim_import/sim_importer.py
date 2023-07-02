@@ -7,13 +7,13 @@ from pathlib import Path
 import cv2
 import h5py
 import numpy as np
-import yaml
 
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     create_empty_folder,
     path_to_str,
     save_depth_video,
+    save_dict_to_yaml,
     save_video_from_func,
 )
 from colon3d.utils.rotations_util import normalize_quaternions
@@ -122,7 +122,9 @@ class SimImporter:
         # gather all the "capture" files
         assert self.input_data_path.is_dir(), "The input path should be a directory"
         paths = [p for p in self.input_data_path.glob("Dataset*") if p.is_dir()]
-        assert len(paths) == 1, f"there should be exactly one Dataset* sub-folder in input_data_path={self.input_data_path}"
+        assert (
+            len(paths) == 1
+        ), f"there should be exactly one Dataset* sub-folder in input_data_path={self.input_data_path}"
         metadata_dir_path = paths[0]
         print(f"Loading dataset metadata from {metadata_dir_path}")
         captures = []
@@ -150,7 +152,7 @@ class SimImporter:
         metadata_per_scene = []  # list of metadata per scene
         scene_idx = -1
         frame_idx = -1
-        
+
         for capture in captures:
             frame_idx += 1
             rgb_file_path = capture["filename"]
@@ -208,10 +210,7 @@ class SimImporter:
             print(f"Number of frames: {n_frames}, Length {time_length:.2f} seconds")
 
             # save metadata
-            metadata_path = scene_path / "meta_data.yaml"
-            with metadata_path.open("w") as file:
-                yaml.dump(metadata, file)
-            print(f"Saved metadata to {metadata_path}")
+            save_dict_to_yaml(save_path=scene_path / "meta_data.yaml", dict_to_save=metadata)
 
             # extract the camera poses in our format
             cam_poses = self.get_scene_cam_poses(

@@ -1,17 +1,26 @@
+import argparse
 from pathlib import Path
 
 import yaml
 
 from colon3d.examine_depths import DepthExaminer
 from colon3d.sim_import.sim_importer import SimImporter
+from colon3d.utils.general_util import ArgsHelpFormatter
 from endo_sfm.train import TrainRunner
 from endo_sfm.utils import save_model_info
 
 # --------------------------------------------------------------------------------------------------------------------
-# Set this True for a new run, False to continue previous runs:
 
-save_overwrite = True  # if True, existing files on the save paths will be overwritten
-# if False, the run  will skip functions runs for save paths are not empty
+parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+parser.add_argument(
+    "--save_overwrite",
+    type=bool,
+    required=True,
+    help="If True then the save folders will be overwritten if they already exists",
+)
+args = parser.parse_args()
+save_overwrite = args.save_overwrite
+print(f"save_overwrite={save_overwrite}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 1  # random seed for reproducibility
@@ -29,7 +38,7 @@ path_to_save_model = Path("saved_models/EndoSFM_tuned")
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
 pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
-n_epochs = 50 # number of epochs to train
+n_epochs = 50  # number of epochs to train
 
 model_description = f"Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM. initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint), Trained for {n_epochs} epochs on  {train_dataset_name}"
 

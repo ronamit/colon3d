@@ -7,7 +7,13 @@ import yaml
 
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder, save_plot_and_close
+from colon3d.utils.general_util import (
+    ArgsHelpFormatter,
+    Tee,
+    create_empty_folder,
+    save_dict_to_yaml,
+    save_plot_and_close,
+)
 from colon3d.utils.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -58,7 +64,8 @@ def main():
     )
 
     depth_examiner.run()
-    
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -76,7 +83,7 @@ class DepthExaminer:
         self.save_path = Path(save_path)
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
-        
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
@@ -86,9 +93,9 @@ class DepthExaminer:
             print(f"{self.save_path} already exists...\n" + "-" * 50)
             results = yaml.load(results_file_path.open("r"), Loader=yaml.FullLoader)
             return results
-        
+
         create_empty_folder(self.save_path, save_overwrite=True)
-        
+
         with Tee(self.save_path / "examine_depths.log"):
             scenes_paths = list(self.dataset_path.glob("Scene_*"))
             n_scenes = len(scenes_paths)
@@ -139,17 +146,16 @@ class DepthExaminer:
             avg_est_depth = np.mean(scene_avg_est_depth)
             std_est_depth = np.std(scene_avg_est_depth)
             # save the results as yaml file
-            with (self.save_path / "depth_exam.yaml").open("w") as f:
-                depth_exam = {
-                    "dataset_path": self.dataset_path,
-                    "avg_gt_depth": avg_gt_depth,
-                    "avg_est_depth": avg_est_depth,
-                    "std_gt_depth": std_gt_depth,
-                    "std_est_depth": std_est_depth,
-                    "avg_gt_depth / avg_est_depth": avg_gt_depth / avg_est_depth,
-                    "std_gt_depth / std_est_depth": std_gt_depth / std_est_depth,
-                }
-                yaml.dump(depth_exam, f)
+            depth_exam = {
+                "dataset_path": self.dataset_path,
+                "avg_gt_depth": avg_gt_depth,
+                "avg_est_depth": avg_est_depth,
+                "std_gt_depth": std_gt_depth,
+                "std_est_depth": std_est_depth,
+                "avg_gt_depth / avg_est_depth": avg_gt_depth / avg_est_depth,
+                "std_gt_depth / std_est_depth": std_gt_depth / std_est_depth,
+            }
+            save_dict_to_yaml(save_path=self.save_path / "depth_exam.yaml", dict_to_save=depth_exam)
             print(depth_exam)
             return depth_exam
 

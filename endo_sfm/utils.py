@@ -2,9 +2,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+
+from colon3d.utils.general_util import save_dict_to_yaml
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -83,8 +84,7 @@ def save_checkpoint(
 
     # save the scene metadata as yaml file
     if scene_metadata is not None:
-        with (save_path / "scene_metadata.yaml").open("w") as f:
-            yaml.dump(scene_metadata, f)
+        save_dict_to_yaml(save_path=save_path / "scene_metadata.yaml", data=scene_metadata)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -103,19 +103,21 @@ def save_model_info(
         print(f"Model info file {model_info_path} already exists, skipping")
 
     # save an updated model_info.yaml file:
-    with model_info_path.open("w") as f:
-        model_info = {
-            "DispResNet_layers": disp_resnet_layers,
-            "PoseResNet_layers": pose_resnet_layers,
-            "frame_height": scene_metadata["frame_height"],
-            "frame_width": scene_metadata["frame_width"],
-            "fx": scene_metadata["fx"],
-            "fy": scene_metadata["fy"],
-            "cx": scene_metadata["cx"],
-            "cy": scene_metadata["cy"],
-            "distort_pram": scene_metadata["distort_pram"],
-            "fps": scene_metadata["fps"],
-        }
-        if extra_info is not None:
-            model_info.update(extra_info)
-        yaml.dump(model_info, f)
+    model_info = {
+        "DispResNet_layers": disp_resnet_layers,
+        "PoseResNet_layers": pose_resnet_layers,
+        "frame_height": scene_metadata["frame_height"],
+        "frame_width": scene_metadata["frame_width"],
+        "fx": scene_metadata["fx"],
+        "fy": scene_metadata["fy"],
+        "cx": scene_metadata["cx"],
+        "cy": scene_metadata["cy"],
+        "distort_pram": scene_metadata["distort_pram"],
+        "fps": scene_metadata["fps"],
+    }
+    if extra_info is not None:
+        model_info.update(extra_info)
+        save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info)
+
+
+# ---------------------------------------------------------------------------------------------------------------------

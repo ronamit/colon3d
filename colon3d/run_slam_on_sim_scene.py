@@ -156,6 +156,7 @@ def run_slam_on_scene(
     depth_maps_source: str,
     egomotions_source: str,
     depth_and_egomotion_model_path: str,
+    use_bundle_adjustment: bool = True,
     draw_interval: int = 0,
     plot_names: list | None = None,
 ):
@@ -168,6 +169,7 @@ def run_slam_on_scene(
         alg_fov_ratio: If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.
         depth_maps_source: The source of the depth maps.
         egomotions_source: The source of the egomotion.
+        use_bundle_adjustment: if True then bundle adjustment is used to refine the initially estimated camera egomotion.
         draw_interval: plot and save figures each draw_interval frame, if 0 then no plots are saved.
         plot_names: list of plot names to save, if None then all plots are saved.
 
@@ -193,6 +195,7 @@ def run_slam_on_scene(
         scene_loader=scene_loader,
         detections_tracker=detections_tracker,
         depth_estimator=depth_estimator,
+        use_bundle_adjustment=use_bundle_adjustment,
         save_path=save_path,
         draw_interval=draw_interval,
     )

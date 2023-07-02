@@ -106,6 +106,7 @@ class SlamOnDatasetRunner:
         alg_fov_ratio: float = 0,
         n_frames_lim: int = 0,
         n_cases_lim: int = 0,
+        use_bundle_adjustment: bool = True,
         save_overwrite: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
@@ -118,6 +119,7 @@ class SlamOnDatasetRunner:
         self.n_frames_lim = n_frames_lim
         self.n_cases_lim = n_cases_lim
         self.save_overwrite = save_overwrite
+        self.use_bundle_adjustment = use_bundle_adjustment
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -152,6 +154,7 @@ class SlamOnDatasetRunner:
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
                     depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                    use_bundle_adjustment=self.use_bundle_adjustment,
                     plot_names=["aided_nav", "keypoints_and_tracks"],  # plots to create
                 )
 

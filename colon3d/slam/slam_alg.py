@@ -112,7 +112,8 @@ class SlamAlgRunner:
         scene_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
-        save_path: Path,
+        use_bundle_adjustment: bool = True,
+        save_path: Path | None = None,
         draw_interval: int = 0,
         verbose_print_interval: int = 0,
     ) -> SlamOutput:
@@ -147,6 +148,7 @@ class SlamAlgRunner:
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
                 fps=fps,
+                use_bundle_adjustment=use_bundle_adjustment,
                 draw_interval=draw_interval,
                 verbose_print_interval=verbose_print_interval,
                 save_path=save_path,
@@ -187,9 +189,10 @@ class SlamAlgRunner:
         alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
+        use_bundle_adjustment: bool,
         draw_interval: int,
         verbose_print_interval: int,
-        save_path: Path,
+        save_path: Path | None = None,
     ):
         """Run the algorithm on a new frame.
         1. Detect salient keypoints in the new frame
@@ -232,11 +235,19 @@ class SlamAlgRunner:
                 pose_change=curr_egomotion_est.unsqueeze(0),
             )
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
-
-        # find salient keypoints with ORB
-        salient_KPs_B = self.kp_detector.detect(cur_rgb_frame, None)
-        # compute the descriptors with ORB
-        salient_KPs_B, descriptors_B = self.kp_detector.compute(cur_rgb_frame, salient_KPs_B)
+        
+        
+        if use_bundle_adjustment:
+            # in this case - we need to find KPs matches for the bundle adjustment
+            # find salient keypoints with ORB
+            salient_KPs_B = self.kp_detector.detect(cur_rgb_frame, None)
+            # compute the descriptors with ORB
+            salient_KPs_B, descriptors_B = self.kp_detector.compute(cur_rgb_frame, salient_KPs_B)
+        else:
+            # in this case - we don't need salient KPs, since we don't run bundle adjustment (we only need the tracks)
+            salient_KPs_B = []
+            descriptors_B = []
+            
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_tracks
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
@@ -368,7 +379,7 @@ class SlamAlgRunner:
         self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:
-        if i_frame > 0 and i_frame % alg_prm.optimize_each_n_frames == 0:
+        if i_frame > 0 and  use_bundle_adjustment and  i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             self.cam_poses, self.points_3d = run_bundle_adjust(
