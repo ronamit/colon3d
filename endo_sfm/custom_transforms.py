@@ -7,6 +7,7 @@ from PIL import Image
 """Set of tranform random routines that takes list of inputs as arguments,
 in order to have random but coherent transformations."""
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class Compose:
     def __init__(self, transforms):
@@ -17,6 +18,7 @@ class Compose:
             images, intrinsics = t(images, intrinsics)
         return images, intrinsics
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class Normalize:
     def __init__(self, mean, std):
@@ -28,6 +30,7 @@ class Normalize:
             for t, m, s in zip(tensor, self.mean, self.std, strict=True):
                 t.sub_(m).div_(s)
         return images, intrinsics
+# --------------------------------------------------------------------------------------------------------------------
 
 
 class ArrayToTensor:
@@ -42,6 +45,7 @@ class ArrayToTensor:
             tensors.append(torch.from_numpy(im_chw).float() / 255)
         return tensors, intrinsics
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class RandomHorizontalFlip:
     """Randomly horizontally flips the given numpy array with a probability of 0.5"""
@@ -58,6 +62,7 @@ class RandomHorizontalFlip:
             output_intrinsics = intrinsics
         return output_images, output_intrinsics
 
+# --------------------------------------------------------------------------------------------------------------------
 
 class RandomScaleCrop:
     """Randomly zooms images up to 15% and crop them to keep same size as before."""
@@ -85,3 +90,4 @@ class RandomScaleCrop:
         output_intrinsics[1, 2] -= offset_y
 
         return cropped_images, output_intrinsics
+# --------------------------------------------------------------------------------------------------------------------
