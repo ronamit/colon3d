@@ -136,6 +136,7 @@ class SlamOnDatasetRunner:
         n_cases = len(cases_paths)
         metrics_table = pd.DataFrame()
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
+            print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
             for i_case, case_path in enumerate(cases_paths):
                 save_path = self.save_path / case_path.name
                 print(
@@ -157,14 +158,14 @@ class SlamOnDatasetRunner:
                     use_bundle_adjustment=self.use_bundle_adjustment,
                     plot_names=["aided_nav", "keypoints_and_tracks"],  # plots to create
                 )
-
                 # add current case to the error metrics table
                 if i_case == 0:
                     metrics_table = pd.DataFrame(metrics_stats, index=[0])
                 else:
                     metrics_table.loc[i_case] = metrics_stats
                 print("-" * 100)
-
+                
+        print(f"Finished running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
         # save the error metrics table to a csv file
         metrics_table.to_csv(self.save_path / "err_table.csv", index=[0])
         print(f"Error metrics table saved to {self.save_path / 'err_table.csv'}")
@@ -182,6 +183,7 @@ class SlamOnDatasetRunner:
         print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
         # save to csv file
         pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
+        print("-" * 100)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

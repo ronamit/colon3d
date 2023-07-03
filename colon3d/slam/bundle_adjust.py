@@ -136,8 +136,10 @@ def compute_cost_function(
     # sum the cost components
     tot_cost = 0
     for cost_name, cost_term in cost_components.items():
-        tot_cost += cost_term
-        assert is_finite(cost_term), f"cost term is not finite: {cost_name}"
+        if is_finite(cost_term):
+            tot_cost += cost_term
+        else:
+            raise Warning(f"cost term is not finite: {cost_name}={cost_term}")
 
     return tot_cost, cost_components
 
