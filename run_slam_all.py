@@ -4,14 +4,14 @@ from pathlib import Path
 from colon3d.run_slam_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.create_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.utils.general_util import ArgsHelpFormatter
+from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg
 
 # --------------------------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
-    type=bool,
+    type=bool_arg,
     required=True,
     help="If True then the save folders will be overwritten if they already exists",
 )
