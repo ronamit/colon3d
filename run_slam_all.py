@@ -37,63 +37,58 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
-sim_importer = SimImporter(
+SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
     save_overwrite=save_overwrite,
-)
-sim_importer.run()
+).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 
 # Generate several cases from each scene, each with randomly chosen target location and size.
-cases_creator = CasesCreator(
+CasesCreator(
     sim_data_path=scenes_dataset_path,
     path_to_save_cases=cases_dataset_path,
     n_cases_per_scene=5,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
-)
-cases_creator.run()
+).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 # Run the algorithm on a dataset of simulated examples:
 # --------------------------------------------------------------------------------------------------------------------
 
 # 1) without monocular depth and egomotion estimation
-slam_on_dataset_runner = SlamOnDatasetRunner(
+SlamOnDatasetRunner(
     dataset_path=cases_dataset_path,
     save_path=base_results_path / "SLAM_without_monocular_estimation",
     depth_maps_source="none",
     egomotions_source="none",
     save_overwrite=save_overwrite,
-)
-slam_on_dataset_runner.run()
+).run()
 # --------------------------------------------------------------------------------------------------------------------
 # 2) with the original EndoSFM monocular depth and egomotion estimation
-slam_on_dataset_runner = SlamOnDatasetRunner(
+SlamOnDatasetRunner(
     dataset_path=cases_dataset_path,
     save_path=base_results_path / "SLAM_with_EndoSFM_orig",
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     save_overwrite=save_overwrite,
-)
-slam_on_dataset_runner.run()
+).run()
 # --------------------------------------------------------------------------------------------------------------------
 # 3) with the tuned EndoSFM monocular depth and egomotion estimation
-slam_on_dataset_runner = SlamOnDatasetRunner(
+SlamOnDatasetRunner(
     dataset_path=cases_dataset_path,
     save_path=base_results_path / "SLAM_with_EndoSFM_tuned",
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     save_overwrite=save_overwrite,
-)
-slam_on_dataset_runner.run()
+).run()
 # --------------------------------------------------------------------------------------------------------------------
 # 4) the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
-slam_on_dataset_runner = SlamOnDatasetRunner(
+SlamOnDatasetRunner(
     dataset_path=cases_dataset_path,
     save_path=base_results_path / "no_BA_with_EndoSFM_orig",
     depth_maps_source="online_estimates",
@@ -101,10 +96,10 @@ slam_on_dataset_runner = SlamOnDatasetRunner(
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     use_bundle_adjustment=False,
     save_overwrite=save_overwrite,
-)
+).run()
 # --------------------------------------------------------------------------------------------------------------------
 # 5)  the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
-slam_on_dataset_runner = SlamOnDatasetRunner(
+SlamOnDatasetRunner(
     dataset_path=cases_dataset_path,
     save_path=base_results_path / "no_BA_with_EndoSFM_tuned",
     depth_maps_source="online_estimates",
@@ -112,5 +107,33 @@ slam_on_dataset_runner = SlamOnDatasetRunner(
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     use_bundle_adjustment=False,
     save_overwrite=save_overwrite,
-)
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+# 6) using the ground truth depth maps no egomotions
+SlamOnDatasetRunner(
+    dataset_path=cases_dataset_path,
+    save_path=base_results_path / "BA_with_GT_depth_maps",
+    depth_maps_source="ground_truth",
+    egomotions_source="none",
+    save_overwrite=save_overwrite,
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+# 7) using the ground truth depth maps and egomotions - with bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=cases_dataset_path,
+    save_path=base_results_path / "BA_with_GT_depth_maps_and_egomotions",
+    depth_maps_source="ground_truth",
+    egomotions_source="ground_truth",
+    save_overwrite=save_overwrite,
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+# 8) using the ground truth depth maps and egomotions - without bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=cases_dataset_path,
+    save_path=base_results_path / "no_BA_with_GT_depth_maps_and_egomotions",
+    depth_maps_source="ground_truth",
+    egomotions_source="ground_truth",
+    use_bundle_adjustment=False,
+    save_overwrite=save_overwrite,
+).run()
 # --------------------------------------------------------------------------------------------------------------------
