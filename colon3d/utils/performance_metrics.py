@@ -240,13 +240,6 @@ def calc_nav_aid_metrics(
                 # in this case, the estimated location of the track is in front of the camera (in z-axis)
                 is_front_est[i, track_id] = True
 
-                # TODO: fix - y_est/x_est vs. y_gt/x_gt
-                
-
-                # # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
-                # gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
-                # est_angle_rad = np.arccos(est_z_dist / max(np.linalg.norm(est_p3d_cam), eps))  # [rad]
-                
                 # get the angle of the 2D vector which is the projection of the vector from the camera origin to the camera system XY plane
                 gt_angle_rad = np.arctan2(gt_p3d_cam[1], gt_p3d_cam[0])  # [rad]
                 est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
