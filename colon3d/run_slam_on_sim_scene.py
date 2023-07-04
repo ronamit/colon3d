@@ -224,8 +224,13 @@ def run_slam_on_scene(
     save_slam_out_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
 
     # load the  ground truth targets info
-    with (scene_path / "targets_info.pkl").open("rb") as file:
-        gt_targets_info = pickle.load(file)
+    targets_info_path = scene_path / "targets_info.pkl"
+    if targets_info_path.exists():
+        with targets_info_path.open("rb") as file:
+            gt_targets_info = pickle.load(file)
+    else:
+        gt_targets_info = None
+        print("No targets info file found...")
 
     # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:

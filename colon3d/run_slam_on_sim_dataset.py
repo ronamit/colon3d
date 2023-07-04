@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import ray
 
 from colon3d.run_slam_on_sim_scene import run_slam_on_scene
 from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str
@@ -15,7 +16,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/SimData14_test_cases",
+        default="data/sim_data/TestData21_cases",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
@@ -65,13 +66,13 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=0,
+        default=10,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
         "--n_cases_lim",
         type=int,
-        default=0,
+        default=10,
         help="upper limit on the number of cases used, if 0 then all cases are used",
     )
     parser.add_argument(
@@ -133,6 +134,8 @@ class SlamOnDatasetRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
+        ray.init()
+
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists.. " + "-" * 50)
@@ -143,10 +146,16 @@ class SlamOnDatasetRunner:
         if self.n_cases_lim:
             cases_paths = cases_paths[: self.n_cases_lim]
         n_cases = len(cases_paths)
-        metrics_table = pd.DataFrame()
+
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
             print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
-            for i_case, case_path in enumerate(cases_paths):
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # run the SLAM algorithm on all the cases in parallel
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            @ray.remote
+            def run_on_case(i_case: int):
+                case_path = cases_paths[i_case]
                 save_path = self.save_path / case_path.name
                 print(
                     "-" * 100
@@ -168,13 +177,23 @@ class SlamOnDatasetRunner:
                     use_bundle_adjustment=self.use_bundle_adjustment,
                     plot_names=["aided_nav", "keypoints_and_tracks"],  # plots to create
                 )
-                # add current case to the error metrics table
-                if i_case == 0:
-                    metrics_table = pd.DataFrame(metrics_stats, index=[0])
-                else:
-                    metrics_table.loc[i_case] = metrics_stats
-                print("-" * 100)
-                
+                print("-" * 20 + f"\nFinished running SLAM on case {i_case + 1} out of {n_cases}\n" + "-" * 20)
+                return metrics_stats
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        # gather the results from all cases in a single table
+        futures = [run_on_case.remote(i_case) for i_case in range(n_cases)]
+        metrics_stats_all = ray.get(futures)
+
+        metrics_table = pd.DataFrame()
+        for i_case in range(n_cases):
+            metrics_stats = metrics_stats_all[i_case]
+            # add current case to the error metrics table
+            if i_case == 0:
+                metrics_table = pd.DataFrame(metrics_stats, index=[0])
+            else:
+                metrics_table.loc[i_case] = metrics_stats
+
         print(f"Finished running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
         # save the error metrics table to a csv file
         metrics_table.to_csv(self.save_path / "err_table.csv", index=[0])

@@ -302,7 +302,7 @@ def calc_nav_aid_metrics(
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def calc_performance_metrics(gt_cam_poses: np.ndarray, gt_targets_info: TargetsInfo, slam_out: SlamOutput) -> dict:
+def calc_performance_metrics(gt_cam_poses: np.ndarray, gt_targets_info: TargetsInfo | None, slam_out: SlamOutput) -> dict:
     """Calculate the SLAM performance metrics w.r.t ground truth."""
 
     # Extract the estimation results from the SLAM output:
@@ -326,16 +326,21 @@ def calc_performance_metrics(gt_cam_poses: np.ndarray, gt_targets_info: TargetsI
     ate_metrics_per_frame, ate_metrics_stats = compute_ATE(gt_cam_poses=gt_cam_poses, est_cam_poses=est_cam_poses)
     rpe_metrics_per_frame, rpe_metrics_stats = compute_RPE(gt_poses=gt_cam_poses, est_poses=est_cam_poses)
 
-    # Compute navigation-aid metrics
-    nav_metrics_per_frame, nav_metrics_stats = calc_nav_aid_metrics(
-        gt_cam_poses=gt_cam_poses,
-        gt_targets_info=gt_targets_info,
-        est_cam_poses=est_cam_poses,
-        online_est_track_world_loc=online_est_track_world_loc,
-        detections_tracker=slam_out.detections_tracker,
-    )
-    metrics_per_frame = ate_metrics_per_frame | rpe_metrics_per_frame | nav_metrics_per_frame
-    metrics_stats = ate_metrics_stats | rpe_metrics_stats | nav_metrics_stats
+    metrics_per_frame = ate_metrics_per_frame | rpe_metrics_per_frame
+    metrics_stats = ate_metrics_stats | rpe_metrics_stats
+    
+    # Compute navigation-aid metrics, if targets info is available
+    if gt_targets_info is not None:
+        nav_metrics_per_frame, nav_metrics_stats = calc_nav_aid_metrics(
+            gt_cam_poses=gt_cam_poses,
+            gt_targets_info=gt_targets_info,
+            est_cam_poses=est_cam_poses,
+            online_est_track_world_loc=online_est_track_world_loc,
+            detections_tracker=slam_out.detections_tracker,
+        )
+        # add the navigation-aid metrics
+        metrics_per_frame = metrics_per_frame | nav_metrics_per_frame
+        metrics_stats = metrics_stats | nav_metrics_stats
     metrics_stats["Num. frames"] = n_frames
     return metrics_per_frame, metrics_stats
 

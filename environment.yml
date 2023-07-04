@@ -23,4 +23,6 @@ dependencies:
   - pip>=21.3.2
   - scikit-image=0.20.0
   - pillow=9.4.0
+  - pip:
+      - ray[default]==2.5.1
 
