@@ -7,7 +7,7 @@ from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.slam.slam_alg import SlamOutput
 from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.utils.rotations_util import normalize_quaternions
+from colon3d.utils.rotations_util import get_rotation_angle, normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
 from colon3d.utils.transforms_util import apply_pose_change, find_pose_change
@@ -87,9 +87,10 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
         ate_trans[i] = np.linalg.norm(delta_loc)  # [mm]
         # angle of rotation of the unit-quaternion
         delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-        ate_rot_deg[i] = np.rad2deg(np.abs(2 * np.arccos(delta_rot[0])))
-        # take the 360-degree complement if the angle is greater than 180 degrees
-        ate_rot_deg[i] = min(ate_rot_deg[i], 360 - ate_rot_deg[i])
+        delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
+        assert np.abs(delta_rot_rad) <= np.pi, "delta_rot_rad should be in the range [-pi, pi]"
+        # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
+        ate_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
 
     metrics_per_frame = {
         "Translation ATE [mm]": ate_trans,
@@ -139,9 +140,10 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
         rpe_trans[i] = np.linalg.norm(delta_loc)  # [mm]
         # The angle of rotation of the unit-quaternion
         delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-        rpe_rot_deg[i] = np.rad2deg(np.abs(2 * np.arccos(delta_rot[0])))
-        # take the 360-degree complement if the angle is greater than 180 degrees
-        rpe_rot_deg[i] = min(rpe_rot_deg[i], 360 - rpe_rot_deg[i])
+        delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
+        assert np.abs(delta_rot_rad) <= np.pi, "delta_rot_rad should be in the range [-pi, pi]"
+        # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
+        rpe_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
 
     metrics_per_frame = {
         "Translation RPE [mm]": rpe_trans,

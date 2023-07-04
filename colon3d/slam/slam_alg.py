@@ -80,7 +80,6 @@ class SlamAlgRunner:
         * (x,y,z) is the translation vector from the initial (frame #0) position of the camera's focal point (units: mm).
         * (q0, qx, qy, qz) is the unit-quaternion that represents the rotation from the initial (frame #0) direction of the camera's optical (z) axis.
             We use the Hamilton convention for quaternions (q0 is the scalar part).
-            The quaternion represents a rotation of 2*arccos(q0) around the axis (q1, q2, q3).
             We always keep the quaternion normalized (i.e. q0^2 + q1^2 + q2^2 + q3^2 = 1).  also we always to a standard form: one in which the real
         part is non negative.
         """

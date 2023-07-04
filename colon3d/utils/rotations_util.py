@@ -179,7 +179,7 @@ def get_rotation_angles(rot_quats: torch.Tensor) -> torch.Tensor:
     Args:
         rot_quats (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
     Returns:
-        rot_angles (torch.Tensor): [n_vecs] rotation angles in radians.
+        rot_angles (torch.Tensor): [n_vecs] rotation angles in radians. (in the range [-pi, pi])
     Notes:
         *see https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Unit_quaternions
     """
@@ -194,7 +194,7 @@ def get_rotation_angle(rot_quat: torch.Tensor) -> torch.Tensor:
     Args:
         rot_quat (torch.Tensor): [4] unit-quaternion of the rotation in the format (q0, qx, qy, qz).
     Returns:
-        rot_angle (torch.Tensor): [1] rotation angle in radians.
+        rot_angle (torch.Tensor): [1] rotation angle in radians (in the range [-pi, pi])
     """
     assert rot_quat.ndim == 1
     assert rot_quat.shape[0] == 4

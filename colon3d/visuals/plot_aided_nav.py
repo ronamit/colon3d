@@ -80,8 +80,8 @@ def draw_aided_nav(
             z_dist_est = p3d_est_cam[2]  # [mm]
             # compute  the track position angle with the z axis
             ray_dist = np.linalg.norm(p3d_est_cam[0:3], axis=-1)  # [mm]
-            angle_rad = np.arccos(z_dist_est / max(ray_dist, eps))  # [rad]
-            angle_deg = np.rad2deg(angle_rad)  # [deg]
+            alpha_angle_rad = np.arccos(z_dist_est / max(ray_dist, eps))  # [rad]
+            alpha_angle_deg = np.rad2deg(alpha_angle_rad)  # [deg]
             xy_dist = np.linalg.norm(p3d_est_cam[0:2], axis=-1)  # [mm]
             xy_dir = p3d_est_cam[0:2] / max(xy_dist, eps)
             # start a little on the inside of the algorithm view circle (~0.85 of the alg-view radius), so the arrow will be visible:
@@ -105,14 +105,14 @@ def draw_aided_nav(
             extra_text = " (in front of cam.)" if z_dist_est > 0 else " (behind cam.)"
             vis_frame = put_unicode_text_on_img(
                 vis_frame,
-                text=f"z={round(z_dist_est)} [mm], \u03B1={round(angle_deg)}\xb0" + extra_text,
+                text=f"z={round(z_dist_est)} [mm], \u03B1={round(alpha_angle_deg)}\xb0" + extra_text,
                 pos=(5, 5 + track_id * 30),
                 font_size=int(0.04 * frame.shape[0]),
                 fill_color=colors_platte(track_id),
                 stroke_width=1,
                 stroke_fill="black",
             )
-        # we draw the navigation-aid arrow when the track went out of the algorithm view, and is estimated to be in front of the camera
+            # we draw the navigation-aid arrow when the track went out of the algorithm view, and is estimated to be in front of the camera
             # draw orientation arrow, if the estimated position is outside the algorithm view
             if z_dist_est > 0 and not is_track_center_in_alg_view:
                 # vis_frame = cv2.drawMarker(
@@ -132,7 +132,7 @@ def draw_aided_nav(
                 )
                 # draw text near the arrow
                 delta_z = z_dist_est - alg_cam_info.min_vis_z_mm
-                delta_alpha = angle_deg - 0.5 * np.rad2deg(alg_fov_deg)
+                delta_alpha = alpha_angle_deg - 0.5 * np.rad2deg(alg_fov_deg)
                 vis_frame = put_unicode_text_on_img(
                     vis_frame,
                     text=f"{round(delta_z):+g}mm\n{round(delta_alpha):+g}\xb0",
