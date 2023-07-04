@@ -32,6 +32,12 @@ def main():
         help="path to the save outputs",
     )
     parser.add_argument(
+        "--save_raw_outputs",
+        type=bool_arg,
+        default=False,
+        help="If True then all the raw outputs will be saved (as pickle file), not just the plots and summary",
+    )
+    parser.add_argument(
         "--depth_maps_source",
         type=str,
         default="online_estimates",
@@ -86,6 +92,7 @@ def main():
     slam_on_scene_runner = SlamOnSimSceneRunner(
         scene_path=Path(args.scene_path),
         save_path=Path(args.save_path),
+        save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
@@ -107,14 +114,16 @@ class SlamOnSimSceneRunner:
         self,
         scene_path: Path,
         save_path: Path,
+        save_raw_outputs: bool,
         depth_maps_source: str,
         alg_fov_ratio: float,
         n_frames_lim: int,
         draw_interval: int,
         save_overwrite: bool = True,
     ):
-        self.save_path = Path(save_path)
         self.scene_path = Path(scene_path)
+        self.save_path = Path(save_path)
+        self.save_raw_outputs = save_raw_outputs
         self.depth_maps_source = depth_maps_source
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
@@ -134,6 +143,7 @@ class SlamOnSimSceneRunner:
             metrics_per_frame, metrics_stats = run_slam_on_scene(
                 scene_path=self.scene_path,
                 save_path=self.save_path,
+                save_raw_outputs=self.save_raw_outputs,
                 n_frames_lim=self.n_frames_lim,
                 alg_fov_ratio=self.alg_fov_ratio,
                 depth_maps_source=self.depth_maps_source,
@@ -151,6 +161,7 @@ class SlamOnSimSceneRunner:
 def run_slam_on_scene(
     scene_path: Path,
     save_path: Path,
+    save_raw_outputs: bool,
     n_frames_lim: int,
     alg_fov_ratio: float,
     depth_maps_source: str,
@@ -200,7 +211,7 @@ def run_slam_on_scene(
         draw_interval=draw_interval,
     )
 
-    if save_path:
+    if save_path and save_raw_outputs:
         results_file_path = save_path / "out_variables.pkl"
         # save results to a file
         with results_file_path.open("wb") as file:

@@ -7,7 +7,7 @@ from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.slam_alg import SlamAlgRunner
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_empty_folder
+from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -27,6 +27,13 @@ def main():
         default="data/my_videos/Example_4_rotV2/Results",
         help="path to the save outputs",
     )
+    parser.add_argument(
+        "--save_raw_outputs",
+        type=bool_arg,
+        default=False,
+        help="If True then all the raw outputs will be saved (as pickle file), not just the plots",
+    )
+        
     parser.add_argument(
         "--depth_maps_source",
         type=str,
@@ -82,6 +89,7 @@ def main():
     slam_runner = SlamRunner(
         scene_path=args.scene_path,
         save_path=args.save_path,
+        save_raw_outputs = args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
         depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
@@ -100,6 +108,7 @@ class SlamRunner:
         self,
         scene_path: Path,
         save_path: Path,
+        save_raw_outputs: bool,
         depth_maps_source: str,
         egomotions_source: str,
         depth_and_egomotion_model_path: Path | None = None,
@@ -110,6 +119,7 @@ class SlamRunner:
     ):
         self.scene_path = Path(scene_path)
         self.save_path = Path(save_path)
+        self.save_raw_outputs = save_raw_outputs
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
         self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
@@ -162,7 +172,7 @@ class SlamRunner:
                 verbose_print_interval=self.verbose_print_interval,
             )
 
-            if self.save_path:
+            if self.save_path and self.save_raw_outputs:
                 results_file_path = self.save_path / "out_variables.pkl"
                 with results_file_path.open("wb") as file:
                     pickle.dump(slam_out, file)

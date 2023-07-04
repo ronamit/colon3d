@@ -25,6 +25,12 @@ def main():
         help="path to the save outputs",
     )
     parser.add_argument(
+        "--save_raw_outputs",
+        type=bool_arg,
+        default=False,
+        help="If True then all the raw outputs will be saved (as pickle file), not just the plots and summary.",
+    )
+    parser.add_argument(
         "--depth_maps_source",
         type=str,
         default="none",
@@ -80,6 +86,7 @@ def main():
     slam_on_dataset_runner = SlamOnDatasetRunner(
         dataset_path=Path(args.dataset_path),
         save_path=Path(args.save_path),
+        save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
@@ -100,6 +107,7 @@ class SlamOnDatasetRunner:
         self,
         dataset_path: Path,
         save_path: Path,
+        save_raw_outputs: bool,
         depth_maps_source: str,
         egomotions_source: str,
         depth_and_egomotion_model_path: Path | None = None,
@@ -112,6 +120,7 @@ class SlamOnDatasetRunner:
         self.dataset_path = Path(dataset_path)
         assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
         self.save_path = Path(save_path)
+        self.save_raw_outputs = save_raw_outputs
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
         self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
@@ -150,6 +159,7 @@ class SlamOnDatasetRunner:
                 _, metrics_stats = run_slam_on_scene(
                     scene_path=case_path,
                     save_path=save_path,
+                    save_raw_outputs=self.save_raw_outputs,
                     n_frames_lim=self.n_frames_lim,
                     alg_fov_ratio=self.alg_fov_ratio,
                     depth_maps_source=self.depth_maps_source,

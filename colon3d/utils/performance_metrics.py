@@ -100,8 +100,8 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     rmse_ate_trans = np.sqrt(np.mean(ate_trans**2))
     rmse_ate_rot_deg = np.sqrt(np.mean(ate_rot_deg**2))
     metrics_stats = {
-        "Translation ATE RMSE [mm]": rmse_ate_trans,
-        "Rotation ATE RMSE [deg]": rmse_ate_rot_deg,
+        "Trans_ATE_RMSE_mm": rmse_ate_trans,
+        "Rot_ATE_RMSE_Deg": rmse_ate_rot_deg,
     }
 
     return metrics_per_frame, metrics_stats
@@ -153,8 +153,8 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
     rase_rpe_rot_deg = np.sqrt(np.mean(rpe_rot_deg**2))
 
     metrics_stats = {
-        "Translate RPE RMSE [mm]": rmse_rpe_trans,
-        "Rotation RPE RMSE [deg]": rase_rpe_rot_deg,
+        "Trans_RPE_RMSE_mm": rmse_rpe_trans,
+        "Rot_RPE_RMSE_Deg": rase_rpe_rot_deg,
     }
 
     return metrics_per_frame, metrics_stats
@@ -240,6 +240,9 @@ def calc_nav_aid_metrics(
                 # in this case, the estimated location of the track is in front of the camera (in z-axis)
                 is_front_est[i, track_id] = True
 
+                # TODO: fix - y_est/x_est vs. y_gt/x_gt
+
+
                 # the angle in degrees between the z-axis and the ray from the camera center to the tracked polyp
                 gt_angle_rad = np.arccos(gt_z_dist / max(np.linalg.norm(gt_p3d_cam), eps))  # [rad]
                 est_angle_rad = np.arccos(est_z_dist / max(np.linalg.norm(est_p3d_cam), eps))  # [rad]
@@ -278,22 +281,22 @@ def calc_nav_aid_metrics(
 
     if np.any(is_nav_arrow[:]):
         # calculate the percentage of arrows in frames in which the angle error is less than a threshold
-        angle_err_less_than_thresh_ratio = np.mean(angle_err_deg_per_frame < deg_err_thresh)
+        large_angle_err_ratio = np.mean(angle_err_deg_per_frame > deg_err_thresh)
         angle_err_deg_rmse = np.sqrt(np.nanmean(angle_err_deg_per_frame**2))
     else:
-        angle_err_less_than_thresh_ratio = np.nan
+        large_angle_err_ratio = np.nan
         angle_err_deg_rmse = np.nan
 
     metrics_per_frame = {
-        "Nav. Angle error [deg]": angle_err_deg_per_frame,
-        "Nav. Z error [mm]": z_err_mm_per_frame,
-        "Nav. Z sign error": z_sign_err_per_frame,
+        "Nav_Angle_Err_Deg": angle_err_deg_per_frame,
+        "Nav_Z_Err_mm": z_err_mm_per_frame,
+        "Nav_Z_Sign_Err": z_sign_err_per_frame,
     }
     metrics_stats = {
-        "Nav. Z error RMSE [mm]": z_err_mm_rmse,
-        "Nav. Z sign error [%]": 100 * z_sign_err_ratio,
-        "Nav-Arrow Angle error RMSE [deg]": angle_err_deg_rmse,
-        f"Nav-Arrow Angle error less than {deg_err_thresh} [deg] [%]": angle_err_less_than_thresh_ratio * 100,
+        "Nav_Z_Err_RMSE_mm": z_err_mm_rmse,
+        "Nav_Z_Sign_Err_Percent": 100 * z_sign_err_ratio,
+        "Nav_Arrow_Err_RMSE_Deg": angle_err_deg_rmse,
+        f"Nav_Arrow_Err_Over_{deg_err_thresh}_Deg_Percent": large_angle_err_ratio * 100,
     }
     return metrics_per_frame, metrics_stats
 
