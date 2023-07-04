@@ -22,14 +22,14 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/SimData11_with_tracks/Scene_00002_0000",
-        help=" path to the video",
+        default="data/sim_data/TestData21_cases/Scene_00000_0000",
+        help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData11_with_tracks/Scene_00002_0000/Results",
-        help="path to the save outputs",
+        default="results/Temp_Results/temp_run_on_sim_scene",
+        help="Path to the save outputs",
     )
     parser.add_argument(
         "--save_raw_outputs",
@@ -84,7 +84,7 @@ def main():
     parser.add_argument(
         "--save_overwrite",
         type=bool_arg,
-        default=False,
+        default=True,
         help="if True then the save folder will be overwritten",
     )
     args = parser.parse_args()
@@ -94,6 +94,8 @@ def main():
         save_path=Path(args.save_path),
         save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
+        egomotions_source=args.egomotions_source,
+        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
         draw_interval=args.draw_interval,
@@ -102,10 +104,6 @@ def main():
     slam_on_scene_runner.run()
 
 
-# ---------------------------------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -116,6 +114,8 @@ class SlamOnSimSceneRunner:
         save_path: Path,
         save_raw_outputs: bool,
         depth_maps_source: str,
+        egomotions_source: str,
+        depth_and_egomotion_model_path: Path,
         alg_fov_ratio: float,
         n_frames_lim: int,
         draw_interval: int,
@@ -125,6 +125,8 @@ class SlamOnSimSceneRunner:
         self.save_path = Path(save_path)
         self.save_raw_outputs = save_raw_outputs
         self.depth_maps_source = depth_maps_source
+        self.egomotions_source = egomotions_source
+        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
         self.draw_interval = draw_interval
@@ -242,5 +244,9 @@ def run_slam_on_scene(
 
     return metrics_per_frame, metrics_stats
 
+# ---------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    main()
 
 # ---------------------------------------------------------------------------------------------------------------------

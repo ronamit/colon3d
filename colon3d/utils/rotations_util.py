@@ -171,43 +171,37 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     return rotated_points
 
 
+
 # --------------------------------------------------------------------------------------------------------------------
-
-
 @torch.jit.script  # disable this for debugging
-def get_cos_half_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor):
-    """
-    Find the smallest angle to rotate a unit-quaternion rot2 to become rot1.
-    see https://math.stackexchange.com/questions/3999557/how-to-compare-two-rotations-represented-by-axis-angle-rotation-vectors
+def get_rotation_angles(rot_quats: torch.Tensor) -> torch.Tensor:
+    """Get the rotation angle of the given rotation quaternions (of the axis-angle representation)
     Args:
-        @rot1 (torch.Tensor)[vector of size 4]:  a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
-        rot2 (torch.Tensor)[vector of size 4]:  a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+        rot_quats (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
     Returns:
-        cos_half_angle_change (torch.Tensor) [scalar] [rad]: cosine of half the  smallest angle to rotate a unit-quaternion rot1 to become rot2 (units: rad)
+        rot_angles (torch.Tensor): [n_vecs] rotation angles in radians.
+    Notes:
+        *see https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Unit_quaternions
     """
-    assert rot1.shape == rot2.shape == (4,)
-    # find the quaternion representing the rotation from rot2 to rot1 by dividing rot1 by rot2
-    inv_rot2 = invert_rotation(rot2.unsqueeze(0))
-    quotient = quaternion_raw_multiply(rot1.unsqueeze(0), inv_rot2)
-    # find the angle of the rotation
-    real_part = torch.abs(quotient[:, 0])
-    # find the cosine of half the angle of the rotation
-    cos_half_angle_change = real_part
-    cos_half_angle_change = torch.clamp(cos_half_angle_change, -1.0, 1.0)
-    return cos_half_angle_change.squeeze()
-
+    assert rot_quats.ndim == 2
+    assert rot_quats.shape[1] == 4
+    rot_angles = 2 * torch.atan2(torch.norm(rot_quats[:, 1:], dim=1), rot_quats[:, 0])
+    return rot_angles
+# --------------------------------------------------------------------------------------------------------------------
+@torch.jit.script  # disable this for debugging
+def get_rotation_angle(rot_quat: torch.Tensor) -> torch.Tensor:
+    """Get the rotation angle of the given rotation quaternion (of the axis-angle representation)
+    Args:
+        rot_quat (torch.Tensor): [4] unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+    Returns:
+        rot_angle (torch.Tensor): [1] rotation angle in radians.
+    """
+    assert rot_quat.ndim == 1
+    assert rot_quat.shape[0] == 4
+    rot_angle = 2 * torch.atan2(torch.norm(rot_quat[1:]), rot_quat[0])
+    return rot_angle
 
 # --------------------------------------------------------------------------------------------------------------------
-
-
-def get_smallest_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor):
-    cos_half_angle_change = get_cos_half_angle_between_rotations(rot1, rot2)
-    angle = 2 * torch.acos(cos_half_angle_change)
-    return angle
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
 
 def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: int):
     """Get a random rotation quaternion.
@@ -283,3 +277,35 @@ def rotate_around(in_quat: torch.tensor, rot_axis: torch.tensor, rot_angle: torc
 
 
 # ----------------------------------------------------------------------
+
+
+# @torch.jit.script  # disable this for debugging
+# def get_cos_half_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor):
+#     """
+#     Find the smallest angle to rotate a unit-quaternion rot2 to become rot1.
+#     see https://math.stackexchange.com/questions/3999557/how-to-compare-two-rotations-represented-by-axis-angle-rotation-vectors
+#     Args:
+#         @rot1 (torch.Tensor)[vector of size 4]:  a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+#         rot2 (torch.Tensor)[vector of size 4]:  a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+#     Returns:
+#         cos_half_angle_change (torch.Tensor) [scalar] [rad]: cosine of half the  smallest angle to rotate a unit-quaternion rot1 to become rot2 (units: rad)
+#     """
+#     assert rot1.shape == rot2.shape == (4,)
+#     # find the quaternion representing the rotation from rot2 to rot1 by dividing rot1 by rot2
+#     inv_rot2 = invert_rotation(rot2.unsqueeze(0))
+#     quotient = quaternion_raw_multiply(rot1.unsqueeze(0), inv_rot2)
+#     # find the angle of the rotation
+#     real_part = torch.abs(quotient[:, 0])
+#     # find the cosine of half the angle of the rotation
+#     cos_half_angle_change = real_part
+#     cos_half_angle_change = torch.clamp(cos_half_angle_change, -1.0, 1.0)
+#     return cos_half_angle_change.squeeze()
+
+
+# # --------------------------------------------------------------------------------------------------------------------
+
+
+# def get_smallest_angle_between_rotations(rot1: torch.Tensor, rot2: torch.Tensor):
+#     cos_half_angle_change = get_cos_half_angle_between_rotations(rot1, rot2)
+#     angle = 2 * torch.acos(cos_half_angle_change)
+#     return angle

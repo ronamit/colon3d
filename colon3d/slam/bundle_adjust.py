@@ -6,7 +6,7 @@ import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.utils.rotations_util import get_cos_half_angle_between_rotations, normalize_quaternions
+from colon3d.utils.rotations_util import find_rotation_change, get_rotation_angle, normalize_quaternions
 from colon3d.utils.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.utils.transforms_util import project_world_to_image_normalized_coord
 
@@ -101,23 +101,24 @@ def compute_cost_function(
 
             # penalty term of the l2 norm of the camera translation (from previous frame)
             penalty_cam_trans += cam_trans_sqr * alg_prm.w_cam_trans
-            
+
             # penalty term of the 3D points change (from initial values)
             penalty_p3d_change + alg_prm.w_p3d_change * torch.sum(torch.square(points_3d_opt - points_3d[p3d_opt_flag]))
 
             # add a log-barrier penalty for violating the max position change bound
             penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
 
-            # Find the smallest angle between the two rotations (cur_cam_rot and prev_cam_rot)
-            cos_half_change_angle = get_cos_half_angle_between_rotations(rot1=cur_rot, rot2=prev_rot)
+            # Get the rotation change between the current frame and the previous frame [rad]
+            rot_change = find_rotation_change(start_rot=prev_rot, final_rot=cur_rot)
+            rot_change_angle = get_rotation_angle(rot_change)
 
             # penalty term of the camera rotation (from previous frame)
-            penalty_cam_rot += (1 - cos_half_change_angle) * alg_prm.w_cam_rot
+            penalty_cam_rot += rot_change_angle  * alg_prm.w_cam_rot
 
             # add a log-barrier penalty for violating the max angle change bound:
             penalty_lim_angular_vel += penalizer.get_penalty(
                 constraint_name="lim_angular_vel",
-                val=cos_half_change_angle,
+                val=rot_change_angle,
             )
 
         # log the cost components
@@ -186,8 +187,7 @@ def run_bundle_adjust(
     max_cam_trans = time_interval * alg_prm.max_vel
     max_cam_trans_sqr = max_cam_trans**2
     max_angle_change = time_interval * alg_prm.max_angular_vel
-    # note that cos() is monotonic decreasing in this range - so max angle  gives mi cos()
-    min_cos_half_change_angle = np.cos(0.5 * max_angle_change)
+
     # create flag vector of the frame indexes and p3d indexes we are optimizing now
     p3d_opt_flag = np.zeros(n_3d_pts, dtype=bool)
     frames_opt_flag = np.zeros(n_frames, dtype=bool)
@@ -231,8 +231,8 @@ def run_bundle_adjust(
     constraints = {}
     constraints["lim_vel"] = {"lim_type": "upper", "lim": max_cam_trans_sqr, "weight": alg_prm.w_lim_vel}
     constraints["lim_angular_vel"] = {
-        "lim_type": "lower",
-        "lim": min_cos_half_change_angle,
+        "lim_type": "upper",
+        "lim": max_angle_change,
         "weight": alg_prm.w_lim_angular_vel,
         "margin_ratio": 0.001,
     }
