@@ -171,34 +171,73 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     return rotated_points
 
 
-
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
-def get_rotation_angles(rot_quats: torch.Tensor) -> torch.Tensor:
+
+def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as quaternions to axis/angle.
+
+    Args:
+        quaternions: quaternions with real part first,
+            as tensor of shape (..., 4).
+
+    Returns:
+        Rotations given as a vector in axis angle form, as a tensor
+            of shape (..., 3), where the magnitude is the angle
+            turned anticlockwise in radians around the vector's
+            direction.
+    Notes:
+        * source: https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
+        * This calculation is more numerically stable - see https://math.stackexchange.com/a/2544658
+    """
+    norms = torch.norm(quaternions[..., 1:], p=2, dim=-1, keepdim=True)
+    half_angles = torch.atan2(norms, quaternions[..., :1])
+    angles = 2 * half_angles
+    eps = 1e-6
+    small_angles = angles.abs() < eps
+    sin_half_angles_over_angles = torch.empty_like(angles)
+    sin_half_angles_over_angles[~small_angles] = (
+        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
+    )
+    # for x small, sin(x/2) is about x/2 - (x/2)^3/6
+    # so sin(x/2)/x is about 1/2 - (x*x)/48
+    sin_half_angles_over_angles[small_angles] = (
+        0.5 - (angles[small_angles] * angles[small_angles]) / 48
+    )
+    return quaternions[..., 1:] / sin_half_angles_over_angles
+# --------------------------------------------------------------------------------------------------------------------
+# @torch.jit.script  # disable this for debugging
+def get_rotation_angles(rot_q: torch.Tensor) -> torch.Tensor:
     """Get the rotation angle of the given rotation quaternions (of the axis-angle representation)
     Args:
-        rot_quats (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+        rot_q (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
     Returns:
         rot_angles (torch.Tensor): [n_vecs] rotation angles in radians. (in the range [-pi, pi])
     Notes:
         *see https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation#Unit_quaternions
     """
-    assert rot_quats.ndim == 2
-    assert rot_quats.shape[1] == 4
-    rot_angles = 2 * torch.atan2(torch.norm(rot_quats[:, 1:], dim=1), rot_quats[:, 0])
+    assert rot_q.ndim == 2
+    assert rot_q.shape[1] == 4
+    # rot_angles = 2 * torch.atan2(torch.norm(rot_q[:, 1:], dim=1), rot_q[:, 0])
+    
+    # convert to axis-angle representation
+    ax_angle_rep = quaternion_to_axis_angle(rot_q)
+    # get the rotation angles
+    rot_angles = torch.norm(ax_angle_rep, dim=-1)
     return rot_angles
+
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
-def get_rotation_angle(rot_quat: torch.Tensor) -> torch.Tensor:
+# @torch.jit.script  # disable this for debugging
+def get_rotation_angle(rot_q: torch.Tensor) -> torch.Tensor:
     """Get the rotation angle of the given rotation quaternion (of the axis-angle representation)
     Args:
         rot_quat (torch.Tensor): [4] unit-quaternion of the rotation in the format (q0, qx, qy, qz).
     Returns:
         rot_angle (torch.Tensor): [1] rotation angle in radians (in the range [-pi, pi])
     """
-    assert rot_quat.ndim == 1
-    assert rot_quat.shape[0] == 4
-    rot_angle = 2 * torch.atan2(torch.norm(rot_quat[1:]), rot_quat[0])
+    assert rot_q.ndim == 1
+    assert rot_q.shape[0] == 4
+    rot_angle = get_rotation_angles(rot_q.unsqueeze(0))[0]
     return rot_angle
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -235,8 +274,8 @@ def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
 
     Returns:
         quaternions with real part first, as tensor of shape (..., 4).
-    Source:
-        https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
+    Notes:
+        * Source: https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
     """
     angles = torch.norm(axis_angle, p=2, dim=-1, keepdim=True)
     half_angles = angles * 0.5

@@ -21,7 +21,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/sim_data/SimData14_test_cases/Results",
+        default="results/Temp/temp_on_sim_dataset",
         help="path to the save outputs",
     )
     parser.add_argument(
