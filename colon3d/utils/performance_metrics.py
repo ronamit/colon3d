@@ -175,7 +175,6 @@ def calc_nav_aid_metrics(
         gt_cam_poses [N x 7] ground-truth camera poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
         est_cam_poses [N x 7] estimated camera poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
     """
-    eps = 1e-20  # to avoid division by zero
     n_frames = est_cam_poses.shape[0]
     n_targets = gt_targets_info.n_targets
 
