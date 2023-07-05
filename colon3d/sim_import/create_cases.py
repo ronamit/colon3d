@@ -151,7 +151,7 @@ class CasesCreator:
         # run the generation of the cases in parallel using ray:
         ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
         @ray.remote
-        def generate_cases_from_scene(scene_path: Path):
+        def generate_cases_from_scene_wrapper(scene_path: Path):
             print(f"Generating cases from scene {scene_path}")
             generate_cases_from_scene(
                 scene_path=scene_path,
@@ -162,7 +162,7 @@ class CasesCreator:
             )
             print(f"Finished generating cases from scene {scene_path}")
 
-        futures = [generate_cases_from_scene.remote(scene_path) for scene_path in scenes_paths_list]
+        futures = [generate_cases_from_scene_wrapper.remote(scene_path) for scene_path in scenes_paths_list]
         ray.get(futures)
         ray.shutdown()
         # save the cases parameters to a json file:

@@ -19,7 +19,7 @@ parser.add_argument(
     "--local_mode" ,
     type=bool_arg,
     help="If true, ray will run in local mode (single process) - useful for debugging",
-    default=False,
+    default=True,
 )
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
