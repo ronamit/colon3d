@@ -279,10 +279,10 @@ def apply_pose_change(
     start_rot = start_pose[:, 3:7]  # [n x 4]
     change_loc = pose_change[:, 0:3]  # [n x 3]
     rot_change = pose_change[:, 3:7]  # [n x 4]
-    # Rotate change_loc by rot_change
+    # Rotate change_loc by rot_change  Rc @ t1
     start_loc_rotated = rotate_points(points3d=start_loc, rot_vecs=rot_change)  # [n x 3]
-    final_loc = start_loc_rotated + change_loc
-    final_rot = apply_rotation_change(start_rot=start_rot, rot_change=rot_change)
+    final_loc = start_loc_rotated + change_loc # Rc @ t1 + tc
+    final_rot = apply_rotation_change(start_rot=start_rot, rot_change=rot_change) # Rc @ R1  [n x 4]
     final_pose = torch.cat((final_loc, final_rot), dim=1)
     return final_pose
 

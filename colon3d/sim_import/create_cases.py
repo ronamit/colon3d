@@ -10,7 +10,7 @@ import yaml
 from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
-from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, to_str
+from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder, to_str
 from colon3d.utils.rotations_util import get_random_rot_quat
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.transforms_util import apply_pose_change
@@ -41,6 +41,12 @@ def main():
     )
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
 
+    parser.add_argument(
+        "--run_parallel",
+        type=bool_arg,
+        help="If true, ray will run in local mode (single process) - useful for debugging",
+        default=False,
+    )
     args = parser.parse_args()
 
     cases_creator = CasesCreator(
@@ -48,6 +54,7 @@ def main():
         path_to_save_cases=args.path_to_save_cases,
         n_cases_per_scene=args.n_cases_per_scene,
         rand_seed=args.rand_seed,
+        run_parallel=args.run_parallel,
     )
     cases_creator.run()
 
@@ -75,7 +82,7 @@ class CasesCreator:
         cam_motion_loc_std_mm: float = 0.0,
         cam_motion_rot_std_deg: float = 0.0,
         save_overwrite: bool = True,
-        local_mode: bool = True,
+        run_parallel: bool = False,
     ):
         """Create cases with random targets (polyps) for each scene in the dataset.
         Args:
@@ -103,7 +110,7 @@ class CasesCreator:
         self.sim_data_path = Path(sim_data_path)
         self.path_to_save_cases = Path(path_to_save_cases)
         self.save_overwrite = save_overwrite
-        self.local_mode = local_mode
+        self.run_parallel = run_parallel
         self.rand_seed = rand_seed
         self.n_cases_per_scene = n_cases_per_scene
         self.cases_params = {
@@ -148,24 +155,33 @@ class CasesCreator:
         scenes_paths_list.sort()
         print(f"Found {len(scenes_paths_list)} scenes.")
 
-        # run the generation of the cases in parallel using ray:
-        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
-        @ray.remote
-        def generate_cases_from_scene_wrapper(scene_path: Path):
-            print(f"Generating cases from scene {scene_path}")
-            generate_cases_from_scene(
-                scene_path=scene_path,
-                n_cases_per_scene=self.n_cases_per_scene,
-                cases_params=self.cases_params,
-                path_to_save_cases=self.path_to_save_cases,
-                rng=rng,
-            )
-            print(f"Finished generating cases from scene {scene_path}")
+        if self.run_parallel:
+            # run the generation of the cases in parallel using ray:
+            ray.init(ignore_reinit_error=True)
 
-        futures = [generate_cases_from_scene_wrapper.remote(scene_path) for scene_path in scenes_paths_list]
-        ray.get(futures)
-        ray.shutdown()
-        # save the cases parameters to a json file:
+            @ray.remote
+            def generate_cases_from_scene_wrapper(scene_path: Path):
+                generate_cases_from_scene(
+                    scene_path=scene_path,
+                    n_cases_per_scene=self.n_cases_per_scene,
+                    cases_params=self.cases_params,
+                    path_to_save_cases=self.path_to_save_cases,
+                    rng=rng,
+                )
+
+            futures = [generate_cases_from_scene_wrapper.remote(scene_path) for scene_path in scenes_paths_list]
+            ray.get(futures)
+            ray.shutdown()
+        else:
+            for scene_path in scenes_paths_list:
+                generate_cases_from_scene(
+                    scene_path=scene_path,
+                    n_cases_per_scene=self.n_cases_per_scene,
+                    cases_params=self.cases_params,
+                    path_to_save_cases=self.path_to_save_cases,
+                    rng=rng,
+                )
+        # save the cases paramet/ers to a json file:
         with (self.path_to_save_cases / "cases_prams.json").open("w") as file:
             json.dump(self.cases_params, file, indent=4)
 
@@ -180,6 +196,8 @@ def generate_cases_from_scene(
     path_to_save_cases: Path,
     rng,
 ):
+    print(f"Generating cases from scene {scene_path}")
+
     # load the ground truth depth maps and camera poses:
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
         gt_depth_maps = h5f["z_depth_map"][:]
@@ -273,8 +291,7 @@ def generate_cases_from_scene(
             path_to_save=case_path / "Video_with_tracks",
             fps=fps,
         )
-        print("Done generating cases from scene", scene_path.name)
-    print("Done generating cases from all scenes")
+    print("Done generating cases from scene", scene_path.name)
 
 
 # --------------------------------------------------------------------------------------------------------------------

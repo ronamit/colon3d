@@ -42,8 +42,8 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
     # find the rigid transformation that best aligns the estimated trajectory with the ground-truth trajectory
     # (in terms of minimizing the sum of position squared errors)
     align_trans, align_rot = find_rigid_registration(
-        points1=est_cam_poses[:n_frames, :3],
-        points2=gt_cam_poses[:n_frames, :3],
+        poses1=est_cam_poses[:n_frames, :],
+        poses2=gt_cam_poses[:n_frames, :],
     )
     pose_align = np.concatenate([align_trans, align_rot], axis=0)
 
@@ -372,46 +372,60 @@ def plot_trajectory_metrics(metrics_per_frame: dict, save_path: Path):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def find_rigid_registration(points1: np.ndarray, points2: np.ndarray):
-    """Finds the rigid registration that aligns points1 to points2 with minimal L2 error.
+def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str = "first_frame"):
+    """Finds the rigid registration that aligns poses1 to poses2
     Args:
-        points1: (N, 3) array of points.
-        points2: (N, 3) array of points.
+        poses1: (N, 7) array of poses.
+        poses2: (N, 7) array of poses.
     Returns:
         trans: (3,) translation vector.
         rot_quat: (4,) rotation quaternion.
     Notes:
-        * Uses the Kabsch-Umeyama algorithm to find the rigid registration.
     """
-    # Compute the centroids of each point set
-    centroid1 = np.mean(points1, axis=0)
-    centroid2 = np.mean(points2, axis=0)
 
-    #  # Center the point sets by subtracting the centroids
-    centered1 = points1 - centroid1
-    centered2 = points2 - centroid2
+    if method == "first_frame":
+        #  Find the pose change in the first frame of poses1 to the first frame of poses2.
+        pose_align = find_pose_change(start_pose=poses1[0], final_pose=poses2[0])
+        align_trans = pose_align[:3]
+        align_rot = pose_align[3:]
 
-    # Compute the covariance matrix
-    H = centered1.T @ centered2
+    elif method == "Kabsch":
+        # * Uses the Kabsch-Umeyama algorithm to find the rigid registration.
+        # minimize ||points2 - (points1 * R + t)||^2 - where R is a rotation matrix and t is a translation vector.
+        # does not take into account the rotations of the poses, only the locations
 
-    # Perform singular value decomposition (SVD) on the covariance matrix
-    U, _, Vt = np.linalg.svd(H)
+        points1 = poses1[:, :3]  # (N, 3)
+        points2 = poses2[:, :3]  # (N, 3)
 
-    # Compute the rotation matrix using the SVD results
-    R = Vt.T @ U.T
+        # Compute the centroids of each point set
+        centroid1 = np.mean(points1, axis=0)
+        centroid2 = np.mean(points2, axis=0)
 
-    # Handle the special case of reflections
-    if np.linalg.det(R) < 0:
-        Vt[-1, :] *= -1
+        #  # Center the point sets by subtracting the centroids
+        centered1 = points1 - centroid1
+        centered2 = points2 - centroid2
+
+        # Compute the covariance matrix
+        H = centered1.T @ centered2
+
+        # Perform singular value decomposition (SVD) on the covariance matrix
+        U, _, Vt = np.linalg.svd(H)
+
+        # Compute the rotation matrix using the SVD results
         R = Vt.T @ U.T
 
-    # Compute the translation vector
-    align_trans = centroid2 - R @ centroid1
+        # Handle the special case of reflections
+        if np.linalg.det(R) < 0:
+            Vt[-1, :] *= -1
+            R = Vt.T @ U.T
 
-    # transform the rotation matrix to a unit quaternion
-    align_rot = scipy.spatial.transform.Rotation.from_matrix(R).as_quat()
-    # change to real-first form quaternion (qw, qx, qy, qz)
-    align_rot = align_rot[[3, 0, 1, 2]]
-    align_rot = np_func(normalize_quaternions)(align_rot)
+        # Compute the translation vector
+        align_trans = centroid2 - R @ centroid1
+
+        # transform the rotation matrix to a unit quaternion
+        align_rot = scipy.spatial.transform.Rotation.from_matrix(R).as_quat()
+        # change to real-first form quaternion (qw, qx, qy, qz)
+        align_rot = align_rot[[3, 0, 1, 2]]
+        align_rot = np_func(normalize_quaternions)(align_rot)
 
     return align_trans, align_rot

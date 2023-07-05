@@ -117,7 +117,7 @@ class SlamOnDatasetRunner:
         n_cases_lim: int = 0,
         use_bundle_adjustment: bool = True,
         save_overwrite: bool = True,
-        local_mode: bool = True,
+        run_parallel: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
         assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
@@ -131,7 +131,7 @@ class SlamOnDatasetRunner:
         self.n_cases_lim = n_cases_lim
         self.save_overwrite = save_overwrite
         self.use_bundle_adjustment = use_bundle_adjustment
-        self.local_mode = local_mode
+        self.run_parallel = run_parallel
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -148,15 +148,13 @@ class SlamOnDatasetRunner:
             cases_paths = cases_paths[: self.n_cases_lim]
         n_cases = len(cases_paths)
         
-        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
 
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
             print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            # run the SLAM algorithm on all the cases in parallel
+            # function to run the SLAM algorithm per case
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            @ray.remote
             def run_on_case(i_case: int):
                 case_path = cases_paths[i_case]
                 save_path = self.save_path / case_path.name
@@ -182,41 +180,50 @@ class SlamOnDatasetRunner:
                 )
                 print("-" * 20 + f"\nFinished running SLAM on case {i_case + 1} out of {n_cases}\n" + "-" * 20)
                 return metrics_stats
-                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        # gather the results from all cases in a single table
-        futures = [run_on_case.remote(i_case) for i_case in range(n_cases)]
-        metrics_stats_all = ray.get(futures)
-        ray.shutdown()
-        metrics_table = pd.DataFrame()
-        for i_case in range(n_cases):
-            metrics_stats = metrics_stats_all[i_case]
-            # add current case to the error metrics table
-            if i_case == 0:
-                metrics_table = pd.DataFrame(metrics_stats, index=[0])
+            #------------------------------------------------------------------------
+            if self.run_parallel:
+                ray.init(ignore_reinit_error=True)
+                @ray.remote
+                def run_on_case_wrapper(i_case):
+                    return run_on_case(i_case)
+                # gather the results from all cases in a single table
+                futures = [run_on_case_wrapper.remote(i_case) for i_case in range(n_cases)]
+                metrics_stats_all = ray.get(futures)
+                ray.shutdown()
             else:
-                metrics_table.loc[i_case] = metrics_stats
+                metrics_stats_all = []
+                for i_case in range(n_cases):
+                    metrics_stats_all.append(run_on_case(i_case))
+                    
+            metrics_table = pd.DataFrame()
+            for i_case in range(n_cases):
+                metrics_stats = metrics_stats_all[i_case]
+                # add current case to the error metrics table
+                if i_case == 0:
+                    metrics_table = pd.DataFrame(metrics_stats, index=[0])
+                else:
+                    metrics_table.loc[i_case] = metrics_stats
 
-        print(f"Finished running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
-        # save the error metrics table to a csv file
-        metrics_table.to_csv(self.save_path / "err_table.csv", index=[0])
-        print(f"Error metrics table saved to {self.save_path / 'err_table.csv'}")
+            print(f"Finished running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
+            # save the error metrics table to a csv file
+            metrics_table.to_csv(self.save_path / "err_table.csv", index=[0])
+            print(f"Error metrics table saved to {self.save_path / 'err_table.csv'}")
 
-        # compute statistics over all cases
-        numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
-        metrics_summary = {}
-        for col in numeric_columns:
-            mean_val = np.nanmean(metrics_table[col])  # ignore nan values
-            std_val = np.nanstd(metrics_table[col])
-            n_cases = np.sum(~np.isnan(metrics_table[col]))
-            confidence_interval = 1.96 * std_val / np.sqrt(max(n_cases, 1))  # 95% confidence interval
-            metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
+            # compute statistics over all cases
+            numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
+            metrics_summary = {}
+            for col in numeric_columns:
+                mean_val = np.nanmean(metrics_table[col])  # ignore nan values
+                std_val = np.nanstd(metrics_table[col])
+                n_cases = np.sum(~np.isnan(metrics_table[col]))
+                confidence_interval = 1.96 * std_val / np.sqrt(max(n_cases, 1))  # 95% confidence interval
+                metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
 
-        print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
-        # save to csv file
-        metrics_summary = {"save_path": str(self.save_path)} | metrics_summary
-        pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
-        print("-" * 100)
+            print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
+            # save to csv file
+            metrics_summary = {"save_path": str(self.save_path)} | metrics_summary
+            pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
+            print("-" * 100)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
