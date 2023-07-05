@@ -8,7 +8,7 @@ from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.slam.slam_alg import SlamOutput
 from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.utils.rotations_util import get_rotation_angle, normalize_quaternions
+from colon3d.utils.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
 from colon3d.utils.transforms_util import apply_pose_change, find_pose_change
@@ -80,21 +80,18 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     # The ATE_rot per frame is computed as the angle of rotation from the estimated-aligned rotation to the ground-truth rotation.
     ate_rot_deg = np.zeros(n_frames)
 
-    for i in range(n_frames):
-        # find the pose difference (estimation error) (order does not matter, since we take the absolute value of the change)
-        delta_pose = np_func(find_pose_change)(start_pose=gt_cam_poses[i], final_pose=est_poses_aligned[i])
-        delta_pose = delta_pose.squeeze()
-        delta_loc = delta_pose[:3]
-        delta_rot = delta_pose[3:]
+    # find the pose difference (estimation error) (order does not matter, since we take the absolute value of the change)
+    delta_poses = np_func(find_pose_change)(start_pose=gt_cam_poses[:n_frames], final_pose=est_poses_aligned[:n_frames])
+    delta_locs = delta_poses[:, :3]
+    delta_rots = delta_poses[:, 3:]
+    # angle of rotation of the unit-quaternion  [rad] in the range [-pi, pi]
+    delta_rots_rad = np_func(get_rotation_angles)(delta_rots)
 
-        # translation error
-        ate_trans[i] = np.linalg.norm(delta_loc)  # [mm]
-        # angle of rotation of the unit-quaternion
-        delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-        delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
-        assert np.abs(delta_rot_rad) <= np.pi, "delta_rot_rad should be in the range [-pi, pi]"
-        # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
-        ate_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
+    # translation error
+    ate_trans = np.linalg.norm(delta_locs, axis=-1)  # [mm]
+
+    # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
+    ate_rot_deg = np.rad2deg(np.abs(delta_rots_rad))  # [deg]
 
     metrics_per_frame = {
         "Translation ATE [mm]": ate_trans,
@@ -144,7 +141,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
         rpe_trans[i] = np.linalg.norm(delta_loc)  # [mm]
         # The angle of rotation of the unit-quaternion
         delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-        delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
+        delta_rot_rad = np_func(get_rotation_angles)(delta_rot)  # [rad] in the range [-pi, pi]
         assert np.abs(delta_rot_rad) <= np.pi, "delta_rot_rad should be in the range [-pi, pi]"
         # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
         rpe_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]

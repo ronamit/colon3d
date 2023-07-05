@@ -260,6 +260,9 @@ def apply_pose_change(
     pose_change: torch.Tensor,
 ) -> torch.Tensor:
     """Applies a pose change to a given pose. (both are given in the same coordinate system)
+        We assume the transformation is applied in the following order:
+        If Pose1 = [R1 | t1] and PoseChange = [Rc | tc] [in 4x4 matrix format],
+        then the final pose is Pose2 = [Rc @ R1 | Rc @ t1 + tc]
     Args:
         start_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
         pose_change: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
@@ -276,7 +279,9 @@ def apply_pose_change(
     start_rot = start_pose[:, 3:7]  # [n x 4]
     change_loc = pose_change[:, 0:3]  # [n x 3]
     rot_change = pose_change[:, 3:7]  # [n x 4]
-    final_loc = start_loc + change_loc
+    # Rotate change_loc by rot_change
+    start_loc_rotated = rotate_points(points3d=start_loc, rot_vecs=rot_change)  # [n x 3]
+    final_loc = start_loc_rotated + change_loc
     final_rot = apply_rotation_change(start_rot=start_rot, rot_change=rot_change)
     final_pose = torch.cat((final_loc, final_rot), dim=1)
     return final_pose
@@ -289,7 +294,10 @@ def find_pose_change(
     start_pose: torch.Tensor,
     final_pose: torch.Tensor,
 ) -> torch.Tensor:
-    """Finds the pose change that transforms start_pose to final_pose. (both are given in the same coordinate system).
+    """ Finds the pose change that transforms start_pose to final_pose. (both are given in the same coordinate system).
+        If the start pose is Pose1 = [R1 | t1] and Pose2 = [R2 | t2] is the final_pose  [in 4x4 matrix format],
+        then the pose change is given by:
+        PoseChange = Pose2 * (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     Args:
         start_pose: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
         final_pose: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
@@ -306,8 +314,14 @@ def find_pose_change(
     start_rot = start_pose[:, 3:7]  # [n_points x 4]
     final_loc = final_pose[:, 0:3]  # [n_points x 3]
     final_rot = final_pose[:, 3:7]  # [n_points x 4]
-    change_loc = final_loc - start_loc
-    rot_change = find_rotation_change(start_rot=start_rot, final_rot=final_rot)
+    
+    # find the change in rotation R2 @ (R1)^(-1)
+    rot_change = find_rotation_change(start_rot=start_rot, final_rot=final_rot) # [n_points x 4]
+
+    # find the change in location and rotation  t2 - R2 @ (R1)^(-1) @ t1
+    # rotate start_loc by rot_change
+    start_loc_rot = rotate_points(points3d=start_loc, rot_vecs=rot_change) # [n_points x 3]
+    change_loc = final_loc - start_loc_rot # [n_points x 3]
     pose_change = torch.cat((change_loc, rot_change), dim=1)
     return pose_change
 

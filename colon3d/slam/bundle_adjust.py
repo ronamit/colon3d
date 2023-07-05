@@ -108,7 +108,7 @@ def compute_cost_function(
             # add a log-barrier penalty for violating the max position change bound
             penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
 
-            # Get the rotation change between the current frame and the previous frame [rad]
+            # Get the rotation change angle between the current frame and the previous frame [rad]
             rot_change = find_rotation_change(start_rot=prev_rot, final_rot=cur_rot)
             rot_change_angle = get_rotation_angle(rot_change)
 

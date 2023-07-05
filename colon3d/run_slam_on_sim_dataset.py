@@ -136,7 +136,7 @@ class SlamOnDatasetRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-        ray.init(local_mode=self.local_mode)
+        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
 
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:

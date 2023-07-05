@@ -227,7 +227,7 @@ def get_rotation_angles(rot_q: torch.Tensor) -> torch.Tensor:
     return rot_angles
 
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
+
 def get_rotation_angle(rot_q: torch.Tensor) -> torch.Tensor:
     """Get the rotation angle of the given rotation quaternion (of the axis-angle representation)
     Args:
