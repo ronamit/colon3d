@@ -7,6 +7,7 @@ from colon3d.utils.rotations_util import (
     find_rotation_change,
     get_identity_quaternion,
     invert_rotation,
+    normalize_quaternions,
     rotate_points,
 )
 from colon3d.utils.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func, to_numpy
@@ -69,7 +70,7 @@ def transform_rectilinear_image_norm_coords_to_pixel(
         fy = cam_info.fy
         cx = cam_info.cx
         cy = cam_info.cy
-        
+
     elif cam_K is not None:
         fx = cam_K[0, 0]
         fy = cam_K[1, 1]
@@ -77,19 +78,19 @@ def transform_rectilinear_image_norm_coords_to_pixel(
         cy = cam_K[1, 2]
     x_pix = points_nrm[:, 0] * fx + cx  # u = u_nrm * fx + cx
     y_pix = points_nrm[:, 1] * fy + cy  # v = v_nrm * fy + cy
-    points_pix =np.stack((x_pix, y_pix), axis=1)
-    
+    points_pix = np.stack((x_pix, y_pix), axis=1)
+
     # Round to nearest pixel
     points_pix = points_pix.round().astype(int)
-    
+
     if im_height is not None:
         # clip the y value
         points_pix[:, 1] = np.clip(points_pix[:, 1], 0, im_height - 1)
-        
+
     if im_width is not None:
         # clip the x value
         points_pix[:, 0] = np.clip(points_pix[:, 0], 0, im_width - 1)
-            
+
     return points_pix
 
 
@@ -379,3 +380,23 @@ def infer_egomotions(cam_poses: torch.Tensor):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    # create random camera poses:
+    n = 3
+    poses = torch.rand(n, 7)
+    for i in range(n):
+        poses[i, 3:] = normalize_quaternions(poses[i, 3:])
+
+    # test find_pose_change and apply_pose_change:
+    pose_changes = find_pose_change(start_pose=poses[:-1, :], final_pose=poses[1:, :])
+
+    poses_reconstructed = apply_pose_change(start_pose=poses[:-1, :], pose_change=pose_changes)
+    poses_reconstructed = torch.cat((poses[0:1, :], poses_reconstructed), dim=0)
+
+    print("poses:\n", poses)
+    print("pose_changes:\n", pose_changes)
+    print("poses_reconstructed:\n", poses_reconstructed)
+    print("poses - poses_reconstructed:\n", poses - poses_reconstructed)
+    print("norm(poses - poses_reconstructed):\n", torch.norm(poses - poses_reconstructed, dim=1))
+    # --------------------------------------------------------------------------------------------------------------------

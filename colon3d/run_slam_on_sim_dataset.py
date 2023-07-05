@@ -184,7 +184,7 @@ class SlamOnDatasetRunner:
         # gather the results from all cases in a single table
         futures = [run_on_case.remote(i_case) for i_case in range(n_cases)]
         metrics_stats_all = ray.get(futures)
-
+        ray.shutdown()
         metrics_table = pd.DataFrame()
         for i_case in range(n_cases):
             metrics_stats = metrics_stats_all[i_case]

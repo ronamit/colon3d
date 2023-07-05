@@ -28,6 +28,12 @@ def main():
         help="path to the save outputs",
     )
     parser.add_argument(
+        "--save_overwrite",
+        type=bool_arg,
+        default=False,
+        help="If True then the save folder will be overwritten if exists",
+    )
+    parser.add_argument(
         "--save_raw_outputs",
         type=bool_arg,
         default=False,
@@ -89,6 +95,7 @@ def main():
     slam_runner = SlamRunner(
         scene_path=args.scene_path,
         save_path=args.save_path,
+        save_overwrite=args.save_overwrite,
         save_raw_outputs = args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
@@ -108,6 +115,7 @@ class SlamRunner:
         self,
         scene_path: Path,
         save_path: Path,
+        save_overwrite: bool,
         save_raw_outputs: bool,
         depth_maps_source: str,
         egomotions_source: str,
@@ -119,6 +127,7 @@ class SlamRunner:
     ):
         self.scene_path = Path(scene_path)
         self.save_path = Path(save_path)
+        self.save_overwrite = save_overwrite
         self.save_raw_outputs = save_raw_outputs
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
