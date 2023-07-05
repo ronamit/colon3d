@@ -15,9 +15,16 @@ parser.add_argument(
     default=False,
     help="If True then the save folders will be overwritten if they already exists",
 )
+parser.add_argument(
+    "--local_mode" ,
+    type=bool_arg,
+    help="If true, ray will run in local mode (single process) - useful for debugging",
+    default=True,
+)
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
-print(f"save_overwrite={save_overwrite}")
+local_mode = args.local_mode
+print(f"save_overwrite={save_overwrite}, local_mode={local_mode}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 1  # random seed for reproducibility
@@ -65,6 +72,7 @@ SlamOnDatasetRunner(
     egomotions_source="ground_truth",
     use_bundle_adjustment=False,
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -75,6 +83,7 @@ SlamOnDatasetRunner(
     depth_maps_source="none",
     egomotions_source="none",
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # with the original EndoSFM monocular depth and egomotion estimation
@@ -85,6 +94,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # with the tuned EndoSFM monocular depth and egomotion estimation
@@ -95,6 +105,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -117,6 +128,7 @@ SlamOnDatasetRunner(
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     use_bundle_adjustment=False,
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth depth maps no egomotions
@@ -135,5 +147,6 @@ SlamOnDatasetRunner(
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------

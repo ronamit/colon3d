@@ -117,6 +117,7 @@ class SlamOnDatasetRunner:
         n_cases_lim: int = 0,
         use_bundle_adjustment: bool = True,
         save_overwrite: bool = True,
+        local_mode: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
         assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
@@ -130,11 +131,12 @@ class SlamOnDatasetRunner:
         self.n_cases_lim = n_cases_lim
         self.save_overwrite = save_overwrite
         self.use_bundle_adjustment = use_bundle_adjustment
+        self.local_mode = local_mode
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-        ray.init()
+        ray.init(local_mode=self.local_mode)
 
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
