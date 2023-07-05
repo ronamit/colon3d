@@ -75,6 +75,7 @@ class CasesCreator:
         cam_motion_loc_std_mm: float = 0.0,
         cam_motion_rot_std_deg: float = 0.0,
         save_overwrite: bool = True,
+        local_mode: bool = True,
     ):
         """Create cases with random targets (polyps) for each scene in the dataset.
         Args:
@@ -102,6 +103,7 @@ class CasesCreator:
         self.sim_data_path = Path(sim_data_path)
         self.path_to_save_cases = Path(path_to_save_cases)
         self.save_overwrite = save_overwrite
+        self.local_mode = local_mode
         self.rand_seed = rand_seed
         self.n_cases_per_scene = n_cases_per_scene
         self.cases_params = {
