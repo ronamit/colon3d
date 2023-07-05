@@ -206,7 +206,7 @@ def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     return quaternions[..., 1:] / sin_half_angles_over_angles
 
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def get_rotation_angles(rot_q: torch.Tensor) -> torch.Tensor:
     """Get the rotation angle of the given rotation quaternions (of the axis-angle representation)
     Args:

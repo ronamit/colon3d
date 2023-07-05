@@ -3,7 +3,6 @@ import pickle
 from pathlib import Path
 
 import h5py
-import numpy as np
 
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam.alg_settings import AlgorithmParam
@@ -102,8 +101,6 @@ def main():
         save_overwrite=args.save_overwrite,
     )
     slam_on_scene_runner.run()
-
-
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -234,7 +231,7 @@ def run_slam_on_scene(
 
     # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:
-        gt_cam_poses = np.array(hf["cam_poses"])
+        gt_cam_poses = hf["cam_poses"][:] # load the ground-truth camera poses into memory
 
     # calculate performance metrics
     metrics_per_frame, metrics_stats = calc_performance_metrics(
@@ -248,6 +245,7 @@ def run_slam_on_scene(
     print(f"Error metrics stats: {metrics_stats}")
 
     return metrics_per_frame, metrics_stats
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
