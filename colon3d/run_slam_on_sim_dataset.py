@@ -136,7 +136,6 @@ class SlamOnDatasetRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
 
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
@@ -148,6 +147,8 @@ class SlamOnDatasetRunner:
         if self.n_cases_lim:
             cases_paths = cases_paths[: self.n_cases_lim]
         n_cases = len(cases_paths)
+        
+        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
 
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
             print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")

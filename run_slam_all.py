@@ -59,6 +59,7 @@ CasesCreator(
     n_cases_per_scene=5,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
+    local_mode=local_mode,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------

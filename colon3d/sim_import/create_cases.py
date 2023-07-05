@@ -5,6 +5,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import ray
 import yaml
 from numpy.random import default_rng
 
@@ -144,7 +145,11 @@ class CasesCreator:
         ]
         scenes_paths_list.sort()
         print(f"Found {len(scenes_paths_list)} scenes.")
-        for scene_path in scenes_paths_list:
+
+        # run the generation of the cases in parallel using ray:
+        ray.init(local_mode=self.local_mode, ignore_reinit_error=True)
+        @ray.remote
+        def generate_cases_from_scene(scene_path: Path):
             print(f"Generating cases from scene {scene_path}")
             generate_cases_from_scene(
                 scene_path=scene_path,
@@ -153,6 +158,11 @@ class CasesCreator:
                 path_to_save_cases=self.path_to_save_cases,
                 rng=rng,
             )
+            print(f"Finished generating cases from scene {scene_path}")
+
+        futures = [generate_cases_from_scene.remote(scene_path) for scene_path in scenes_paths_list]
+        ray.get(futures)
+        ray.shutdown()
         # save the cases parameters to a json file:
         with (self.path_to_save_cases / "cases_prams.json").open("w") as file:
             json.dump(self.cases_params, file, indent=4)
@@ -297,6 +307,7 @@ def get_egomotion_and_depth_estimations(
     # create the estimated egomotions by applying the error egomotions to the ground truth egomotions:
     est_egomotions = np_func(apply_pose_change)(start_pose=gt_egomotions, pose_change=err_egomotions)
     return est_depth_maps, est_egomotions
+
 
 if __name__ == "__main__":
     main()
