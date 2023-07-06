@@ -34,7 +34,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="none",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="none",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
@@ -66,13 +66,13 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=10,
+        default=20,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
         "--n_cases_lim",
         type=int,
-        default=10,
+        default=1,
         help="upper limit on the number of cases used, if 0 then all cases are used",
     )
     parser.add_argument(
@@ -80,6 +80,12 @@ def main():
         type=bool_arg,
         default=True,
         help="If True then the save folder will be overwritten if it already exists",
+    )
+    parser.add_argument(
+        "--run_parallel",
+        type=bool_arg,
+        default=False,
+        help="If True then the scenes will be processed in parallel",
     )
 
     args = parser.parse_args()
@@ -95,6 +101,7 @@ def main():
         n_frames_lim=args.n_frames_lim,
         n_cases_lim=args.n_cases_lim,
         save_overwrite=args.save_overwrite,
+        run_parallel=args.run_parallel,
     )
 
     slam_on_dataset_runner.run()
