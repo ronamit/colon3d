@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+import attrs
 import numpy as np
 import pandas as pd
 import ray
@@ -110,40 +111,25 @@ def main():
 # ---------------------------------------------------------------------------------------------------------------------
 
 
+@attrs.define
 class SlamOnDatasetRunner:
-    def __init__(
-        self,
-        dataset_path: Path,
-        save_path: Path,
-        save_raw_outputs: bool = False,
-        depth_maps_source: str = "none",
-        egomotions_source: str = "none",
-        depth_and_egomotion_model_path: Path | None = None,
-        alg_fov_ratio: float = 0,
-        n_frames_lim: int = 0,
-        n_cases_lim: int = 0,
-        use_bundle_adjustment: bool = True,
-        save_overwrite: bool = True,
-        run_parallel: bool = True,
-    ):
-        self.dataset_path = Path(dataset_path)
-        assert dataset_path.exists(), f"dataset_path={dataset_path} does not exist"
-        self.save_path = Path(save_path)
-        self.save_raw_outputs = save_raw_outputs
-        self.depth_maps_source = depth_maps_source
-        self.egomotions_source = egomotions_source
-        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
-        self.alg_fov_ratio = alg_fov_ratio
-        self.n_frames_lim = n_frames_lim
-        self.n_cases_lim = n_cases_lim
-        self.save_overwrite = save_overwrite
-        self.use_bundle_adjustment = use_bundle_adjustment
-        self.run_parallel = run_parallel
+    dataset_path: Path
+    save_path: Path
+    save_raw_outputs: bool = False
+    depth_maps_source: str = "none"
+    egomotions_source: str = "none"
+    depth_and_egomotion_model_path: Path | None = None
+    alg_fov_ratio: float = 0
+    n_frames_lim: int = 0
+    n_cases_lim: int = 0
+    use_bundle_adjustment: bool = True
+    save_overwrite: bool = True
+    run_parallel: bool = True
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-
+        assert self.dataset_path.exists(), f"dataset_path={self.dataset_path} does not exist"
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists.. " + "-" * 50)
@@ -154,7 +140,6 @@ class SlamOnDatasetRunner:
         if self.n_cases_lim:
             cases_paths = cases_paths[: self.n_cases_lim]
         n_cases = len(cases_paths)
-        
 
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
             print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
@@ -187,12 +172,15 @@ class SlamOnDatasetRunner:
                 )
                 print("-" * 20 + f"\nFinished running SLAM on case {i_case + 1} out of {n_cases}\n" + "-" * 20)
                 return metrics_stats
-            #------------------------------------------------------------------------
+
+            # ------------------------------------------------------------------------
             if self.run_parallel:
                 ray.init(ignore_reinit_error=True)
+
                 @ray.remote
                 def run_on_case_wrapper(i_case):
                     return run_on_case(i_case)
+
                 # gather the results from all cases in a single table
                 futures = [run_on_case_wrapper.remote(i_case) for i_case in range(n_cases)]
                 metrics_stats_all = ray.get(futures)
@@ -201,7 +189,7 @@ class SlamOnDatasetRunner:
                 metrics_stats_all = []
                 for i_case in range(n_cases):
                     metrics_stats_all.append(run_on_case(i_case))
-                    
+
             metrics_table = pd.DataFrame()
             for i_case in range(n_cases):
                 metrics_stats = metrics_stats_all[i_case]

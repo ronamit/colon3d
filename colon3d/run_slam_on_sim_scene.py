@@ -2,6 +2,7 @@ import argparse
 import pickle
 from pathlib import Path
 
+import attrs
 import h5py
 
 from colon3d.show_slam_out import save_slam_out_plots
@@ -39,7 +40,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
@@ -49,7 +50,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
@@ -71,7 +72,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=20,
+        default=30,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
@@ -104,30 +105,18 @@ def main():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+@attrs.define
 class SlamOnSimSceneRunner:
-    def __init__(
-        self,
-        scene_path: Path,
-        save_path: Path,
-        save_raw_outputs: bool,
-        depth_maps_source: str,
-        egomotions_source: str,
-        depth_and_egomotion_model_path: Path,
-        alg_fov_ratio: float,
-        n_frames_lim: int,
-        draw_interval: int,
-        save_overwrite: bool = True,
-    ):
-        self.scene_path = Path(scene_path)
-        self.save_path = Path(save_path)
-        self.save_raw_outputs = save_raw_outputs
-        self.depth_maps_source = depth_maps_source
-        self.egomotions_source = egomotions_source
-        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
-        self.alg_fov_ratio = alg_fov_ratio
-        self.n_frames_lim = n_frames_lim
-        self.draw_interval = draw_interval
-        self.save_overwrite = save_overwrite
+    scene_path: Path
+    save_path: Path
+    save_raw_outputs: bool
+    depth_maps_source: str
+    egomotions_source: str
+    depth_and_egomotion_model_path: Path
+    alg_fov_ratio: float
+    n_frames_lim: int
+    draw_interval: int
+    save_overwrite: bool = True
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -231,7 +220,7 @@ def run_slam_on_scene(
 
     # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:
-        gt_cam_poses = hf["cam_poses"][:] # load the ground-truth camera poses into memory
+        gt_cam_poses = hf["cam_poses"][:]  # load the ground-truth camera poses into memory
 
     # calculate performance metrics
     metrics_per_frame, metrics_stats = calc_performance_metrics(

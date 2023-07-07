@@ -2,7 +2,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 
 from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.slam.slam_alg import SlamOutput
@@ -11,7 +10,7 @@ from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.utils.rotations_util import get_rotation_angle, get_rotation_angles, normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import apply_pose_change, find_pose_change
+from colon3d.utils.transforms_util import apply_pose_change, find_pose_change, find_rigid_registration
 
 # ---------------------------------------------------------------------------------------------------------------------
 """"
@@ -41,16 +40,15 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
 
     # find the rigid transformation that best aligns the estimated trajectory with the ground-truth trajectory
     # (in terms of minimizing the sum of position squared errors)
-    align_trans, align_rot = np_func(find_rigid_registration)(
+    rigid_align = np_func(find_rigid_registration)(
         poses1=est_cam_poses[:n_frames, :],
         poses2=gt_cam_poses[:n_frames, :],
     )
-    pose_align = np.concatenate([align_trans, align_rot], axis=0)
 
     # apply the alignment transformation to the estimated trajectory
     aligned_est_poses = np.zeros_like(est_cam_poses)
     for i in range(n_frames):
-        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=est_cam_poses[i], pose_change=pose_align)
+        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=est_cam_poses[i], pose_change=rigid_align)
     return aligned_est_poses
 
 
@@ -87,6 +85,9 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     # angle of rotation of the unit-quaternion  [rad] in the range [-pi, pi]
     delta_rots_rad = np_func(get_rotation_angles)(delta_rots)
 
+    for i_frame in range(n_frames):
+        print(f"%%%%%%%%%% Eval. i_frame={i_frame}, gt_pose={gt_cam_poses[i_frame]}, est_pose_align={est_poses_aligned[i_frame]}, est_pose={est_cam_poses[i_frame]},  delta_loc={delta_locs[i_frame]}, delta_rot={delta_rots_rad[i_frame]}")
+        
     # translation error
     ate_trans = np.linalg.norm(delta_locs, axis=-1)  # [mm]
 
@@ -372,60 +373,3 @@ def plot_trajectory_metrics(metrics_per_frame: dict, save_path: Path):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str = "first_frame"):
-    """Finds the rigid registration that aligns poses1 to poses2
-    Args:
-        poses1: (N, 7) array of poses.
-        poses2: (N, 7) array of poses.
-    Returns:
-        trans: (3,) translation vector.
-        rot_quat: (4,) rotation quaternion.
-    Notes:
-    """
-
-    if method == "first_frame":
-        #  Find the pose change in the first frame of poses1 to the first frame of poses2.
-        pose_align = find_pose_change(start_pose=poses1[0], final_pose=poses2[0])
-        align_trans = pose_align[:3]
-        align_rot = pose_align[3:]
-
-    elif method == "Kabsch":
-        # * Uses the Kabsch-Umeyama algorithm to find the rigid registration.
-        # minimize ||points2 - (points1 * R + t)||^2 - where R is a rotation matrix and t is a translation vector.
-        # does not take into account the rotations of the poses, only the locations
-
-        points1 = poses1[:, :3]  # (N, 3)
-        points2 = poses2[:, :3]  # (N, 3)
-
-        # Compute the centroids of each point set
-        centroid1 = np.mean(points1, axis=0)
-        centroid2 = np.mean(points2, axis=0)
-
-        #  # Center the point sets by subtracting the centroids
-        centered1 = points1 - centroid1
-        centered2 = points2 - centroid2
-
-        # Compute the covariance matrix
-        H = centered1.T @ centered2
-
-        # Perform singular value decomposition (SVD) on the covariance matrix
-        U, _, Vt = np.linalg.svd(H)
-
-        # Compute the rotation matrix using the SVD results
-        R = Vt.T @ U.T
-
-        # Handle the special case of reflections
-        if np.linalg.det(R) < 0:
-            Vt[-1, :] *= -1
-            R = Vt.T @ U.T
-
-        # Compute the translation vector
-        align_trans = centroid2 - R @ centroid1
-
-        # transform the rotation matrix to a unit quaternion
-        align_rot = scipy.spatial.transform.Rotation.from_matrix(R).as_quat()
-        # change to real-first form quaternion (qw, qx, qy, qz)
-        align_rot = align_rot[[3, 0, 1, 2]]
-        align_rot = np_func(normalize_quaternions)(align_rot)
-
-    return align_trans, align_rot

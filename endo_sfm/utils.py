@@ -84,7 +84,7 @@ def save_checkpoint(
 
     # save the scene metadata as yaml file
     if scene_metadata is not None:
-        save_dict_to_yaml(save_path=save_path / "scene_metadata.yaml", data=scene_metadata)
+        save_dict_to_yaml(save_path=save_path / "scene_metadata.yaml", dict_to_save=scene_metadata)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

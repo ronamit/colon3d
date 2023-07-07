@@ -431,6 +431,8 @@ def get_most_common_values(array, num_values=5):
 
 
 def to_str(a):
+    if isinstance(a, torch.Tensor):
+        return to_str(a.detach().cpu().numpy())
     if isinstance(a, tuple):
         return "(" + (", ".join([to_str(val) for val in a])) + ")"
     if isinstance(a, list):

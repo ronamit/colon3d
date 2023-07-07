@@ -4,6 +4,7 @@ import random
 import time
 from pathlib import Path
 
+import attrs
 import torch
 import torch.optim
 import torch.utils.data
@@ -87,7 +88,7 @@ def main():
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )
-    parser.add_argument("--learning_rate", default=1e-4, type=float,  help="initial learning rate")
+    parser.add_argument("--learning_rate", default=1e-4, type=float, help="initial learning rate")
     parser.add_argument(
         "--momentum",
         default=0.9,
@@ -108,7 +109,12 @@ def main():
         default="progress_log_full.csv",
         help="csv where to save per-gradient descent train stats",
     )
-    parser.add_argument("--log_output", type=bool_arg, default=False, help="will log dispnet outputs at validation step")
+    parser.add_argument(
+        "--log_output",
+        type=bool_arg,
+        default=False,
+        help="will log dispnet outputs at validation step",
+    )
     parser.add_argument(
         "--disp_resnet_layers",
         type=int,
@@ -147,7 +153,12 @@ def main():
         default=True,
         help="with the the mask for moving objects and occlusions or not",
     )
-    parser.add_argument("--with_auto_mask", type=bool_arg, default=False, help="with the the mask for stationary points")
+    parser.add_argument(
+        "--with_auto_mask",
+        type=bool_arg,
+        default=False,
+        help="with the the mask for stationary points",
+    )
     parser.add_argument(
         "--padding_mode",
         type=str,
@@ -195,71 +206,39 @@ def main():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+@attrs.define
 class TrainRunner:
-    def __init__(
-        self,
-        save_path: Path,
-        dataset_path: Path,
-        validation_ratio: float = 0.1,
-        pretrained_disp: str = "",
-        pretrained_pose: str = "",
-        with_pretrain: bool = True,
-        sequence_length: int = 3,
-        n_workers: int = 4,
-        n_epochs: int = 100,
-        epoch_size: int = 0,
-        batch_size: int = 8,
-        learning_rate: float = 1e-4,
-        momentum: float = 0.9,
-        beta: float = 0.999,
-        weight_decay: float = 1e-4,
-        print_freq: int = 10,
-        seed: int = 0,
-        log_summary: str = "progress_log_summary.csv",
-        log_full: str = "progress_log_full.csv",
-        log_output: bool = False,
-        disp_resnet_layers: int = 18,
-        num_scales: int = 1,
-        photo_loss_weight: float = 1,
-        smooth_loss_weight: float = 0.1,
-        geometry_consistency_weight: float = 0.5,
-        with_ssim: bool = True,
-        with_mask: bool = True,
-        with_auto_mask: bool = False,
-        padding_mode: str = "zeros",
-        save_overwrite: bool = True,
-    ):
-        self.save_path = Path(save_path)
-        self.dataset_path = Path(dataset_path)
-        self.validation_ratio = validation_ratio
-        self.pretrained_disp = pretrained_disp
-        self.pretrained_pose = pretrained_pose
-        self.with_pretrain = with_pretrain
-        self.sequence_length = sequence_length
-        self.n_workers = n_workers
-        self.n_epochs = n_epochs
-        self.epoch_size = epoch_size
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
-        self.momentum = momentum
-        self.beta = beta
-        self.weight_decay = weight_decay
-        self.print_freq = print_freq
-        self.seed = seed
-        self.log_summary = log_summary
-        self.log_full = log_full
-        self.log_output = log_output
-        self.disp_resnet_layers = disp_resnet_layers
-        self.pose_resnet_layers = 18  # only 18 is supported for now
-        self.num_scales = num_scales
-        self.photo_loss_weight = photo_loss_weight
-        self.smooth_loss_weight = smooth_loss_weight
-        self.geometry_consistency_weight = geometry_consistency_weight
-        self.with_ssim = with_ssim
-        self.with_mask = with_mask
-        self.with_auto_mask = with_auto_mask
-        self.padding_mode = padding_mode
-        self.save_overwrite = save_overwrite
+    save_path: Path
+    dataset_path: Path
+    validation_ratio: float = 0.1
+    pretrained_disp: str = ""
+    pretrained_pose: str = ""
+    with_pretrain: bool = True
+    sequence_length: int = 3
+    n_workers: int = 4
+    n_epochs: int = 100
+    epoch_size: int = 0
+    batch_size: int = 8
+    learning_rate: float = 1e-4
+    momentum: float = 0.9
+    beta: float = 0.999
+    weight_decay: float = 1e-4
+    print_freq: int = 10
+    seed: int = 0
+    log_summary: str = "progress_log_summary.csv"
+    log_full: str = "progress_log_full.csv"
+    log_output: bool = False
+    disp_resnet_layers: int = 18
+    pose_resnet_layers: int = 18  # only 18 is supported for now
+    num_scales: int = 1
+    photo_loss_weight: float = 1
+    smooth_loss_weight: float = 0.1
+    geometry_consistency_weight: float = 0.5
+    with_ssim: bool = True
+    with_mask: bool = True
+    with_auto_mask: bool = False
+    padding_mode: str = "zeros"
+    save_overwrite: bool = True
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -628,5 +607,3 @@ if __name__ == "__main__":
     main()
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-

@@ -2,6 +2,8 @@ import argparse
 import pickle
 from pathlib import Path
 
+import attrs
+
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.slam_alg import SlamAlgRunner
@@ -39,7 +41,7 @@ def main():
         default=False,
         help="If True then all the raw outputs will be saved (as pickle file), not just the plots",
     )
-        
+
     parser.add_argument(
         "--depth_maps_source",
         type=str,
@@ -96,7 +98,7 @@ def main():
         scene_path=args.scene_path,
         save_path=args.save_path,
         save_overwrite=args.save_overwrite,
-        save_raw_outputs = args.save_raw_outputs,
+        save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
         depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
@@ -106,36 +108,23 @@ def main():
         verbose_print_interval=args.verbose_print_interval,
     )
     slam_runner.run()
-    
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+@attrs.define
 class SlamRunner:
-    def __init__(
-        self,
-        scene_path: Path,
-        save_path: Path,
-        save_overwrite: bool,
-        save_raw_outputs: bool,
-        depth_maps_source: str,
-        egomotions_source: str,
-        depth_and_egomotion_model_path: Path | None = None,
-        alg_fov_ratio: float = 0,
-        n_frames_lim: int = 0,
-        draw_interval: int = 0,
-        verbose_print_interval: int = 0,
-    ):
-        self.scene_path = Path(scene_path)
-        self.save_path = Path(save_path)
-        self.save_overwrite = save_overwrite
-        self.save_raw_outputs = save_raw_outputs
-        self.depth_maps_source = depth_maps_source
-        self.egomotions_source = egomotions_source
-        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
-        self.alg_fov_ratio = alg_fov_ratio
-        self.n_frames_lim = n_frames_lim
-        self.draw_interval = draw_interval
-        self.verbose_print_interval = verbose_print_interval
+    scene_path: Path
+    save_path: Path
+    save_overwrite: bool
+    save_raw_outputs: bool
+    depth_maps_source: str
+    egomotions_source: str
+    depth_and_egomotion_model_path: Path | None = None
+    alg_fov_ratio: float = 0
+    n_frames_lim: int = 0
+    draw_interval: int = 0
+    verbose_print_interval: int = 0
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
@@ -196,4 +185,3 @@ if __name__ == "__main__":
     main()
 
 # ---------------------------------------------------------------------------------------------------------------------
-

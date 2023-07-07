@@ -159,13 +159,21 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
         rot_vecs = rot_vecs.repeat(n_points, 1)
     assert_2d_tensor(rot_vecs, 4)
 
-    qw = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion
-    q_v = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
-
+    # # extend the original points with a column of zeros (for the real part of the quaternion)
+    # point3d_ext = torch.cat((torch.zeros(n_points, 1, device=points3d.device), points3d), dim=1)  # [n x 4]
+    # # rotate the points
+    # rot_vecs_inv = invert_rotation(rot_vecs)
+    # rotated_points = quaternion_raw_multiply(rot_vecs, point3d_ext)
+    # rotated_points = quaternion_raw_multiply(rotated_points, rot_vecs_inv)
+    # # take only the last 3 columns (the first column is the real part of the quaternion)
+    # rotated_points = rotated_points[:, 1:]
+    
+    s = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
+    u = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
     rotated_points = (
-        2 * q_v * torch.sum(q_v * points3d, dim=-1, keepdim=True)
-        + points3d * (qw**2 - torch.sum(q_v * q_v, dim=-1, keepdim=True))
-        + 2 * qw * torch.cross(q_v, points3d, dim=1)
+        2 * u * torch.sum(u * points3d, dim=-1, keepdim=True)
+        + points3d * (s**2 - torch.sum(u * u, dim=-1, keepdim=True))
+        + 2 * s * torch.cross(u, points3d, dim=1)
     )
     return rotated_points
 
