@@ -12,7 +12,7 @@ from colon3d.slam.slam_out_analysis import AnalysisLogger, SlamOutput
 from colon3d.utils.camera_util import FishEyeUndistorter
 from colon3d.utils.data_util import RadialImageCropper, SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import convert_sec_to_str, get_time_now_str, to_str
+from colon3d.utils.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.utils.keypoints_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.utils.rotations_util import get_identity_quaternion
 from colon3d.utils.torch_util import get_default_dtype, get_device
@@ -234,8 +234,7 @@ class SlamAlgRunner:
                 pose_change=curr_egomotion_est.unsqueeze(0),
             )
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
-        
-        
+
         if use_bundle_adjustment:
             # in this case - we need to find KPs matches for the bundle adjustment
             # find salient keypoints with ORB
@@ -246,7 +245,7 @@ class SlamAlgRunner:
             # in this case - we don't need salient KPs, since we don't run bundle adjustment (we only need the tracks)
             salient_KPs_B = []
             descriptors_B = []
-            
+
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_tracks
         track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
@@ -378,7 +377,7 @@ class SlamAlgRunner:
         self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:
-        if i_frame > 0 and  use_bundle_adjustment and  i_frame % alg_prm.optimize_each_n_frames == 0:
+        if i_frame > 0 and use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             self.cam_poses, self.points_3d = run_bundle_adjust(
