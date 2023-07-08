@@ -37,18 +37,22 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
         * we assume N < N_gt_frames, i.e. the estimated trajectory is shorter than the ground-truth trajectory.
     """
     n_frames = est_cam_poses.shape[0]
+    
 
     # find the rigid transformation that best aligns the estimated trajectory with the ground-truth trajectory
-    # (in terms of minimizing the sum of position squared errors)
+    # I.e find an 6DOF alignment A s.t, P_{est} @ A ~= P_{gt}
     rigid_align = np_func(find_rigid_registration)(
         poses1=est_cam_poses[:n_frames, :],
         poses2=gt_cam_poses[:n_frames, :],
     )
 
     # apply the alignment transformation to the estimated trajectory
+    # I.e., P_{est_aligned} = P_{est} @ inv(A)
     aligned_est_poses = np.zeros_like(est_cam_poses)
     for i in range(n_frames):
-        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=est_cam_poses[i], pose_change=rigid_align)
+        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=rigid_align, pose_change=est_cam_poses[i])
+
+    
     return aligned_est_poses
 
 
