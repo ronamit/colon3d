@@ -4,4 +4,13 @@
         "/home/repos/pytorch-minimize"
     ],
     "workbench.colorTheme": "One Dark Modern",
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "data/**:": true,
+        "results/**": true,
+        "saved_models/**": true,
+        "build/**": true,
+    }
 }

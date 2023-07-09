@@ -12,7 +12,7 @@ from numpy.random import default_rng
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder, to_str
 from colon3d.utils.rotations_util import get_random_rot_quat
-from colon3d.utils.torch_util import np_func, to_numpy
+from colon3d.utils.torch_util import np_func, to_default_type, to_numpy
 from colon3d.utils.transforms_util import apply_pose_change
 from colon3d.visuals.plots_2d import save_video_with_tracks
 
@@ -159,7 +159,7 @@ class CasesCreator:
             # run the generation of the cases in parallel using ray:
             ray.init(ignore_reinit_error=True)
 
-            @ray.remote
+            @ray.remote(num_cpus=1, num_gpus=1)
             def generate_cases_from_scene_wrapper(scene_path: Path):
                 generate_cases_from_scene(
                     scene_path=scene_path,
@@ -200,7 +200,7 @@ def generate_cases_from_scene(
 
     # load the ground truth depth maps and camera poses:
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-        gt_depth_maps = h5f["z_depth_map"][:]
+        gt_depth_maps = to_default_type(h5f["z_depth_map"][:], num_type="float32")
         gt_cam_poses = to_numpy(h5f["cam_poses"][:])
         gt_egomotions = to_numpy(h5f["egomotions"][:])
 
@@ -256,8 +256,8 @@ def generate_cases_from_scene(
             )
             # save the estimated depth maps and egomotions to a file:
             with h5py.File(case_path / "est_depth_and_egomotion.h5", "w") as hf:
-                hf.create_dataset("z_depth_map", data=est_depth_maps, compression="gzip")
-                hf.create_dataset("egomotions", data=est_egomotions)
+                hf.create_dataset("z_depth_map", data=to_default_type(est_depth_maps, num_type="float32"), compression="gzip")
+                hf.create_dataset("egomotions", data=to_default_type(est_egomotions))
             # save depth info to a file (unchanged from the ground truth):
             with (case_path / "est_depth_info.pkl").open("wb") as file:
                 pickle.dump(depth_info, file)

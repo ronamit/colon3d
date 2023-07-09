@@ -8,7 +8,7 @@ import yaml
 
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.utils.torch_util import get_device, resize_images, to_numpy, to_torch
+from colon3d.utils.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
 from colon3d.utils.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
     unproject_image_normalized_coord_to_world,
@@ -96,7 +96,7 @@ class DepthAndEgoMotionLoader:
 
     def init_loaded_egomotions(self, egomotions_file_name: str):
         with h5py.File(self.scene_path / egomotions_file_name, "r") as h5f:
-            self.egomotions_buffer = h5f["egomotions"][:]  # load all into memory
+            self.egomotions_buffer = to_default_type(h5f["egomotions"][:])  # load all into memory
         n_frames = self.egomotions_buffer.shape[0]
         self.egomotions_buffer_frame_inds = list(range(n_frames))
 
@@ -111,7 +111,7 @@ class DepthAndEgoMotionLoader:
             self.depth_info = to_numpy(pickle.load(file))
         # load the depth maps
         with h5py.File(self.depth_maps_path, "r") as h5f:
-            self.depth_maps_buffer = h5f["z_depth_map"][:]  # load all into memory
+            self.depth_maps_buffer = to_default_type(h5f["z_depth_map"][:], num_type="float32")  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))
         self.loaded_depth_map_size = self.depth_info["depth_map_size"]

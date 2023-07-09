@@ -21,17 +21,32 @@ def get_device(gpu_id: int = 0):
 def get_default_dtype(package="torch", num_type="float"):
     if package == "torch":
         if num_type == "float":
+            return torch.float64
+        if num_type == "float32":
             return torch.float32
         if num_type == "int":
             return torch.int32
         raise ValueError(f"Unknown num_type: {num_type}")
     if package == "numpy":
         if num_type == "float":
+            return np.float64
+        if num_type == "float32":
             return np.float32
         if num_type == "int":
             return np.int32
         raise ValueError(f"Unknown num_type: {num_type}")
     raise ValueError(f"Unknown package: {package}")
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def to_default_type(x, num_type="float"):
+    if isinstance(x, torch.Tensor):
+        return to_torch(x, dtype=get_default_dtype("torch", num_type=num_type))
+    if isinstance(x, np.ndarray):
+        return to_numpy(x, dtype=get_default_dtype("numpy", num_type=num_type))
+    return x
 
 
 # --------------------------------------------------------------------------------------------------------------------

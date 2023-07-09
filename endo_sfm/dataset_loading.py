@@ -6,6 +6,7 @@ import yaml
 from imageio import imread
 from torch.utils import data
 
+from colon3d.utils.torch_util import to_default_type
 from endo_sfm.custom_transforms import Compose
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -126,9 +127,8 @@ class ScenesDataset(data.Dataset):
         if self.load_tgt_depth:
             # load the depth map of the target frame and return it as part of the sample (As is, without any transformation)
             with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                depth_img = h5f["z_depth_map"][target_frame_ind]
+                depth_img = to_default_type(h5f["z_depth_map"][target_frame_ind], num_type="float32")
                 sample["depth_img"] = depth_img
-
         return sample
 
     # ---------------------------------------------------------------------------------------------------------------------

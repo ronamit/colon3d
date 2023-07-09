@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation as spat_rot
 
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.general_util import ArgsHelpFormatter
+from colon3d.utils.torch_util import to_default_type
 from tsdf_fusion import fusion
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -60,8 +61,8 @@ def main():
     example_path = Path(args.example_path)
 
     with h5py.File(example_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-        gt_depth_maps = h5f["z_depth_map"][:]
-        gt_cam_poses = h5f["cam_poses"][:]
+        gt_depth_maps = to_default_type(h5f["z_depth_map"][:], num_type="float32")
+        gt_cam_poses = to_default_type(h5f["cam_poses"][:])
     with (example_path / "gt_depth_info.pkl").open("rb") as file:
         depth_info = pickle.load(file)
 

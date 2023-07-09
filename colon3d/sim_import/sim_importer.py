@@ -18,7 +18,7 @@ from colon3d.utils.general_util import (
     save_video_from_func,
 )
 from colon3d.utils.rotations_util import normalize_quaternions
-from colon3d.utils.torch_util import np_func
+from colon3d.utils.torch_util import np_func, to_default_type
 from colon3d.utils.transforms_util import infer_egomotions
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
@@ -250,9 +250,13 @@ class SimImporter:
             file_path = scene_path / "gt_depth_and_egomotion.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
-                hf.create_dataset("z_depth_map", data=z_depth_frames, compression="gzip")
-                hf.create_dataset("cam_poses", data=cam_poses)
-                hf.create_dataset("egomotions", data=egomotions)
+                hf.create_dataset(
+                    "z_depth_map",
+                    data=to_default_type(z_depth_frames, num_type="float32"),
+                    compression="gzip",
+                )
+                hf.create_dataset("cam_poses", data=to_default_type(cam_poses))
+                hf.create_dataset("egomotions", data=to_default_type(egomotions))
         print(f"Done creating {n_scenes} scenes in {self.output_data_path}")
         return scenes_paths
 

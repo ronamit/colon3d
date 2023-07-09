@@ -129,6 +129,8 @@ class SlamOnDatasetRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
+        self.dataset_path = Path(self.dataset_path)
+        self.save_path = Path(self.save_path)
         assert self.dataset_path.exists(), f"dataset_path={self.dataset_path} does not exist"
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
@@ -177,7 +179,7 @@ class SlamOnDatasetRunner:
             if self.run_parallel:
                 ray.init(ignore_reinit_error=True)
 
-                @ray.remote
+                @ray.remote(num_cpus=1, num_gpus=1)
                 def run_on_case_wrapper(i_case):
                     return run_on_case(i_case)
 

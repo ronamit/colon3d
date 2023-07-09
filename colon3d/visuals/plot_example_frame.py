@@ -14,6 +14,7 @@ from colon3d.utils.general_util import (
     get_most_common_values,
     save_plot_and_close,
 )
+from colon3d.utils.torch_util import to_default_type
 from colon3d.utils.transforms_util import get_frame_point_cloud
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
@@ -94,7 +95,7 @@ def main():
     # if ground-truth camera pose is available, use it for the point cloud plot
     if args.depth_maps_source == "ground_truth":
         with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-            gt_cam_poses = h5f["cam_poses"][:]
+            gt_cam_poses = to_default_type(h5f["cam_poses"][:])
             cam_pose = gt_cam_poses[frame_idx]
             print("Using ground-truth camera pose for the point cloud plot")
             print(f"(x,y,z)={cam_pose[:3]} [mm]\n (qw,qx,qy,qz)={cam_pose[3:]}")

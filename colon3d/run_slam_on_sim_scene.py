@@ -12,6 +12,7 @@ from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.utils.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
+from colon3d.utils.torch_util import to_default_type
 from colon3d.utils.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -121,6 +122,8 @@ class SlamOnSimSceneRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def run(self):
+        self.scene_path = Path(self.scene_path)
+        self.save_path = Path(self.save_path)
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists...\n" + "-" * 50)
@@ -220,7 +223,7 @@ def run_slam_on_scene(
 
     # load the  ground-truth egomotions per frame (for evaluation)
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:
-        gt_cam_poses = hf["cam_poses"][:]  # load the ground-truth camera poses into memory
+        gt_cam_poses = to_default_type(hf["cam_poses"][:])  # load the ground-truth camera poses into memory
 
     # calculate performance metrics
     metrics_per_frame, metrics_stats = calc_performance_metrics(

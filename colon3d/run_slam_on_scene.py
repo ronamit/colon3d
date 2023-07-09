@@ -26,13 +26,13 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4_rotV2/Results",
+        default="data/my_videos/Example_4_rotV2/Temp_pResults",
         help="path to the save outputs",
     )
     parser.add_argument(
         "--save_overwrite",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the save folder will be overwritten if exists",
     )
     parser.add_argument(
@@ -128,6 +128,8 @@ class SlamRunner:
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
+        self.save_path = Path(self.save_path)
+        self.scene_path = Path(self.scene_path)
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists...\n" + "-" * 50)
