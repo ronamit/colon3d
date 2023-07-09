@@ -17,7 +17,7 @@ from colon3d.utils.keypoints_util import get_kp_matchings, get_tracks_keypoints
 from colon3d.utils.rotations_util import get_identity_quaternion
 from colon3d.utils.torch_util import get_default_dtype, get_device
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import apply_pose_change
+from colon3d.utils.transforms_util import compose_poses
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 torch.set_default_dtype(get_default_dtype())
@@ -229,9 +229,9 @@ class SlamAlgRunner:
             curr_egomotion_est = depth_estimator.get_egomotions_at_frame(
                 curr_frame_idx=i_frame,
             )
-            cur_guess_cam_pose = apply_pose_change(
-                start_pose=prev_cam_pose.unsqueeze(0),
-                pose_change=curr_egomotion_est.unsqueeze(0),
+            cur_guess_cam_pose = compose_poses(
+                pose1=prev_cam_pose.unsqueeze(0),
+                pose2=curr_egomotion_est.unsqueeze(0),
             )
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
 

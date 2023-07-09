@@ -179,7 +179,7 @@ class SlamOnDatasetRunner:
             if self.run_parallel:
                 ray.init(ignore_reinit_error=True)
 
-                @ray.remote(num_cpus=1, num_gpus=1)
+                @ray.remote(num_gpus=1)
                 def run_on_case_wrapper(i_case):
                     return run_on_case(i_case)
 

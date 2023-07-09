@@ -3,8 +3,7 @@ import torch
 
 from colon3d.utils.camera_util import CamInfo
 from colon3d.utils.rotations_util import (
-    apply_rotation_change,
-    find_rotation_change,
+    compose_rotations,
     get_identity_quaternion,
     invert_rotation,
     normalize_quaternions,
@@ -139,6 +138,7 @@ def transform_points_in_world_sys_to_cam_sys(
     if cam_poses.ndim == 1:
         cam_poses = cam_poses.unsqueeze(0)
     assert_2d_tensor(cam_poses, 7)
+
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
     # translate & rotate to camera system
@@ -255,79 +255,106 @@ def unproject_image_normalized_coord_to_cam_sys(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def apply_pose_change(
-    start_pose: torch.Tensor,
-    pose_change: torch.Tensor,
+def compose_poses(
+    pose1: torch.Tensor,
+    pose2: torch.Tensor,
 ) -> torch.Tensor:
-    """Applies a pose change to a given pose. (both are given in the same coordinate system)
+    """Composes two pose transform to a single equivalent pose transform (both are given in the same coordinate system)
         We assume the transformation is applied in the following order:
-        If Pose1 = [R1 | t1] and PoseChange = [Rc | tc] [in 4x4 matrix format],
-        then the final pose is Pose2 = [Rc @ R1 | Rc @ t1 + tc]
+        If Pose1 = [R1 | t1] and PoseChange = [R2 | t2] [in 4x4 matrix format],
+        then the final pose is Pose2 = [R2 @ R1 | R2 @ t1 + t2]
     Args:
-        start_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
-        pose_change: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+        pose1: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+        pose2: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     Returns:
-        final_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+        pose_tot: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
-    if start_pose.ndim == 1:
-        start_pose = start_pose.unsqueeze(0)
-    if pose_change.ndim == 1:
-        pose_change = pose_change.unsqueeze(0)
-    assert start_pose.ndim == 2, f"Start pose is not 2D, {start_pose.ndim}."
-    assert start_pose.shape[1] == 7, f"Start pose is not in 7D, {start_pose.shape}."
-    start_loc = start_pose[:, 0:3]  # [n x 3]
-    start_rot = start_pose[:, 3:7]  # [n x 4]
-    change_loc = pose_change[:, 0:3]  # [n x 3]
-    change_rot = pose_change[:, 3:7]  # [n x 4]
-    # Rotate change_loc by rot_change  Rc @ t1
-    start_loc_rotated = rotate_points(points3d=start_loc, rot_vecs=change_rot)  # [n x 3]
-    
-    # rotate the start_rot by change_rot  Rc @ R1
-    
-    
-    final_loc = start_loc_rotated + change_loc  # Rc @ t1 + tc
-    final_rot = apply_rotation_change(start_rot=start_rot, rot_change=change_rot)  # Rc @ R1  [n x 4]
-    final_pose = torch.cat((final_loc, final_rot), dim=1)
-    return final_pose
+    if pose1.ndim == 1:
+        pose1 = pose1.unsqueeze(0)
+    if pose2.ndim == 1:
+        pose2 = pose2.unsqueeze(0)
+    assert pose1.ndim == 2, f"Start pose is not 2D, {pose1.ndim}."
+    assert pose1.shape[1] == 7, f"Start pose is not in 7D, {pose1.shape}."
+    trans1 = pose1[:, 0:3]  # [n x 3]
+    rot1 = pose1[:, 3:7]  # [n x 4]
+    trans2 = pose2[:, 0:3]  # [n x 3]
+    rot2 = pose2[:, 3:7]  # [n x 4]
+    #  get R2 @ t1
+    rot2_trans1 = rotate_points(points3d=trans1, rot_vecs=rot2)  # [n x 3]
+    # get R2 @ t1 + t2
+    trans_tot = rot2_trans1 + trans2
+    # get R2 @ R1
+    rot_tot = compose_rotations(rot1=rot1, rot2=rot2)  #   [n x 4]
+    pose_tot = torch.cat((trans_tot, rot_tot), dim=1)
+    return pose_tot
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def find_pose_change(
-    start_pose: torch.Tensor,
-    final_pose: torch.Tensor,
+def get_inverse_pose(
+    pose: torch.Tensor,
 ) -> torch.Tensor:
-    """Finds the pose change that transforms start_pose to final_pose. (both are given in the same coordinate system).
-        If the start pose is Pose1 = [R1 | t1] and Pose2 = [R2 | t2] is the final_pose  [in 4x4 matrix format],
-        then the pose change is given by:
-        PoseChange = Pose2 * (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
+    """Returns the inverse pose of a given pose. (both are given in the same coordinate system)
+        If Pose = [R | t] [in 4x4 matrix format], then the inverse pose  [R^{-1} | -R^{-1} @ t]
     Args:
-        start_pose: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
-        final_pose: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+        pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     Returns:
-        pose_change: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+        inv_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
-    if start_pose.ndim == 1:
-        start_pose = start_pose.unsqueeze(dim=0)
-    if final_pose.ndim == 1:
-        final_pose = final_pose.unsqueeze(dim=0)
-    assert_2d_tensor(start_pose, 7)
-    assert_2d_tensor(final_pose, 7)
-    start_loc = start_pose[:, 0:3]  # [n_points x 3]
-    start_rot = start_pose[:, 3:7]  # [n_points x 4]
-    final_loc = final_pose[:, 0:3]  # [n_points x 3]
-    final_rot = final_pose[:, 3:7]  # [n_points x 4]
+    assert pose.ndim == 2, f"Pose is not 2D, {pose.ndim}."
+    trans = pose[:, 0:3]  # [n x 3]
+    rot = pose[:, 3:7]  # [n x 4]
+    # get R^{-1}
+    inv_rot = invert_rotation(rot)  # [n x 4]
+    # get -R^{-1} @ t
+    inv_loc = rotate_points(points3d=-trans, rot_vecs=inv_rot)  # [n x 3]
+    inv_pose = torch.cat((inv_loc, inv_rot), dim=1)
+    return inv_pose
 
-    # find the change in rotation R2 @ (R1)^(-1)
-    rot_change = find_rotation_change(start_rot=start_rot, final_rot=final_rot)  # [n_points x 4]
 
-    # find the change in location and rotation  t2 - R2 @ (R1)^(-1) @ t1
-    # rotate start_loc by rot_change
-    start_loc_rot = rotate_points(points3d=start_loc, rot_vecs=rot_change)  # [n_points x 3]
-    change_loc = final_loc - start_loc_rot  # [n_points x 3]
-    pose_change = torch.cat((change_loc, rot_change), dim=1)
-    return pose_change
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_pose_delta(
+    pose1: torch.Tensor,
+    pose2: torch.Tensor,
+) -> torch.Tensor:
+    """Finds the pose that when applied after pose1 gives in total the transform of pose2. (both are given in the same coordinate system).
+        If  Pose1 = [R1 | t1] and Pose2 = [R2 | t2]  [in 4x4 matrix format],
+        then the pose_delta is given by:
+        PoseDelta = Pose2 * (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
+    Args:
+        pose1: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+        pose2: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+    Returns:
+        pose_delta: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+    """
+    if pose1.ndim == 1:
+        pose1 = pose1.unsqueeze(dim=0)
+    if pose2.ndim == 1:
+        pose2 = pose2.unsqueeze(dim=0)
+    assert_2d_tensor(pose1, 7)
+    assert_2d_tensor(pose2, 7)
+    # get (Pose1)^(-1)
+    inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
+    # get Pose2 * (Pose1)^(-1)
+    pose_delta = compose_poses(pose1=inv_pose1, pose2=pose2)  # [n_points x 7]
+    
+    # start_loc = start_pose[:, 0:3]  # [n_points x 3]
+    # start_rot = start_pose[:, 3:7]  # [n_points x 4]
+    # final_loc = final_pose[:, 0:3]  # [n_points x 3]
+    # final_rot = final_pose[:, 3:7]  # [n_points x 4]
+
+    # # find the change in rotation R2 @ (R1)^(-1)
+    # rot_change = find_rotation_change(start_rot=start_rot, final_rot=final_rot)  # [n_points x 4]
+
+    # # find the change in location and rotation  t2 - R2 @ (R1)^(-1) @ t1
+    # # rotate start_loc by rot_change
+    # start_loc_rot = rotate_points(points3d=start_loc, rot_vecs=rot_change)  # [n_points x 3]
+    # change_loc = final_loc - start_loc_rot  # [n_points x 3]
+    # pose_change = torch.cat((change_loc, rot_change), dim=1)
+    return pose_delta
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -387,8 +414,8 @@ def infer_egomotions(cam_poses: torch.Tensor):
     prev_poses = cam_poses[:-1, :]
     cur_poses = cam_poses[1:, :]
 
-    poses_changes = find_pose_change(start_pose=prev_poses, final_pose=cur_poses)
-    
+    poses_changes = get_pose_delta(pose1=prev_poses, pose2=cur_poses)
+
     # set the first egomotion to be the identity rotation and zero translation:
     egomotions = torch.zeros_like(cam_poses)
     egomotions[0, :3] = 0
@@ -415,8 +442,8 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
 
     if method == "first_frame":
         #  Find the pose change in the first frame of poses1 to the first frame of poses2.
-        rigid_align = find_pose_change(start_pose=poses1[0], final_pose=poses2[0])
-     
+        rigid_align = get_pose_delta(pose1=poses1[0], pose2=poses2[0])
+
     # elif method == "Kabsch":
     #     # * Uses the Kabsch-Umeyama algorithm to find the rigid registration.
     #     # minimize ||points2 - (points1 * R + t)||^2 - where R is a rotation matrix and t is a translation vector.
@@ -461,40 +488,40 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
     #     align_rot = np_func(normalize_quaternions)(align_rot)
     #     rigid_align = torch.cat((align_trans, align_rot))
 
-
     else:
         raise ValueError(f"Unknown method: {method}")
     return rigid_align
 
-    # --------------------------------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
+def main():
     # set random seed:
     torch.manual_seed(0)
-    
+
     # create random camera poses:
     n = 4
     poses = torch.rand(n, 7, dtype=torch.float64)
-    
+
     print("original poses:")
     for i in range(n):
         poses[i, 3:] = normalize_quaternions(poses[i, 3:])
-        print("i=", i, "loc=", poses[i, :3],  "rot=", poses[i, 3:])
+        print("i=", i, "loc=", poses[i, :3], "rot=", poses[i, 3:])
 
     #  infer_egomotions:
     egomotions = infer_egomotions(cam_poses=poses)
     print("egomotions:")
     for i in range(n):
-        print("i=", i, "egomotion loc.=", egomotions[i, :3]," rot.=", egomotions[i, 3:])
-        
+        print("i=", i, "egomotion loc.=", egomotions[i, :3], " rot.=", egomotions[i, 3:])
+
     # Reconstruct the camera poses from the egomotions:
     poses_rec = torch.zeros_like(poses)
     poses_rec[0, 3:] = get_identity_quaternion()
     for i in range(1, n):
-        poses_rec[i, :] = apply_pose_change(
-            start_pose=poses_rec[i - 1, :].unsqueeze(0),
-            pose_change=egomotions[i, :].unsqueeze(0),
+        poses_rec[i, :] = compose_poses(
+            pose1=poses_rec[i - 1, :].unsqueeze(0),
+            pose2=egomotions[i, :].unsqueeze(0),
         )
     print("reconstructed poses:")
     for i in range(n):
@@ -503,16 +530,20 @@ if __name__ == "__main__":
     # Find rigid transform that aligns the reconstructed poses with the original poses:
     rigid_align = find_rigid_registration(poses1=poses_rec, poses2=poses)
     print("rigid_align_loc=", rigid_align[0][:3], "rigid_align_rot=", rigid_align[0][3:])
-    
-    
+
     print("aligned reconstructed poses:")
     poses_rec_aligned = torch.zeros_like(poses)
     # apply the alignment to the reconstructed poses:
     for i in range(n):
-        poses_rec_aligned[i] = apply_pose_change(start_pose=rigid_align, pose_change=poses_rec[i])
+        poses_rec_aligned[i] = compose_poses(pose1=rigid_align, pose2=poses_rec[i])
 
     # print the results:
     for i in range(n):
         print("i=", i, "rec. align. loc=", poses_rec_aligned[i, :3], "rot=", poses_rec_aligned[i, 3:])
+
+
+# --------------------------------------------------------------------------------------------------------------------
+if __name__ == "__main__":
+    main()
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -13,7 +13,7 @@ from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate
 from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder, to_str
 from colon3d.utils.rotations_util import get_random_rot_quat
 from colon3d.utils.torch_util import np_func, to_default_type, to_numpy
-from colon3d.utils.transforms_util import apply_pose_change
+from colon3d.utils.transforms_util import compose_poses
 from colon3d.visuals.plots_2d import save_video_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -159,7 +159,7 @@ class CasesCreator:
             # run the generation of the cases in parallel using ray:
             ray.init(ignore_reinit_error=True)
 
-            @ray.remote(num_cpus=1, num_gpus=1)
+            @ray.remote(num_gpus=1)
             def generate_cases_from_scene_wrapper(scene_path: Path):
                 generate_cases_from_scene(
                     scene_path=scene_path,
@@ -256,7 +256,11 @@ def generate_cases_from_scene(
             )
             # save the estimated depth maps and egomotions to a file:
             with h5py.File(case_path / "est_depth_and_egomotion.h5", "w") as hf:
-                hf.create_dataset("z_depth_map", data=to_default_type(est_depth_maps, num_type="float32"), compression="gzip")
+                hf.create_dataset(
+                    "z_depth_map",
+                    data=to_default_type(est_depth_maps, num_type="float32"),
+                    compression="gzip",
+                )
                 hf.create_dataset("egomotions", data=to_default_type(est_egomotions))
             # save depth info to a file (unchanged from the ground truth):
             with (case_path / "est_depth_info.pkl").open("wb") as file:
@@ -324,8 +328,11 @@ def get_egomotion_and_depth_estimations(
     rot_err_quat = get_random_rot_quat(rng=rng, angle_std_deg=cam_motion_rot_std_deg, n_vecs=n_frames)
     err_egomotions = np.concatenate([loc_err, rot_err_quat], axis=1)
     # create the estimated egomotions by applying the error egomotions to the ground truth egomotions:
-    est_egomotions = np_func(apply_pose_change)(start_pose=gt_egomotions, pose_change=err_egomotions)
+    est_egomotions = np_func(compose_poses)(start_pose=gt_egomotions, pose_change=err_egomotions)
     return est_depth_maps, est_egomotions
+
+
+# --------------------------------------------------------------------------------------------------------------------
 
 
 if __name__ == "__main__":

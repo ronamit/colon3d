@@ -60,8 +60,8 @@ def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def apply_rotation_change(start_rot: torch.Tensor, rot_change: torch.Tensor) -> torch.Tensor:
-    """apply a rotation to a rotation (both are given in the same coordinate system)
+def compose_rotations(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
+    """composes two rotations  into a single rotation (both are given in the same coordinate system)
     Args:
         start_rot: [n x 4] unit-quaternions (real part first).
         rot_change:  [n x 4] unit-quaternions (real part first).
@@ -72,24 +72,25 @@ def apply_rotation_change(start_rot: torch.Tensor, rot_change: torch.Tensor) -> 
     """
     # note: the order of multiplication is important (https://math.stackexchange.com/questions/331539/combining-rotation-quaternions
     # the first rotation is the right side in the multiplication
-    final_rot = quaternion_raw_multiply(a=rot_change, b=start_rot)
-    return final_rot
+    tot_rot = quaternion_raw_multiply(a=rot2, b=rot1)
+    return tot_rot
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def find_rotation_change(start_rot: torch.Tensor, final_rot: torch.Tensor) -> torch.Tensor:
-    """Find the rotation change from one rotation to another.
+def find_rotation_delta(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
+    """Find the rotation that needs to be applied after rot1 to get in total the rotation rot2.
     Args:
-        start_rot: Initial rotation, as a tensor of shape (..., 4), real part first.
-        final_rot: Final rotation, as a tensor of shape (..., 4), real part first.
+        rot1:  rotation as a tensor of shape (..., 4), given as unit-quaternions with real part first.
+        rot2:   rotation as a tensor of shape (..., 4),given as unit-quaternions with real part first.
     Returns:
-        The rotation change, a tensor of quaternions of shape (..., 4)."""
+        The rotation delta, a tensor of quaternions of shape (..., 4), given as unit-quaternions with real part first.
+    """
 
-    rot_change = quaternion_raw_multiply(a=final_rot, b=invert_rotation(start_rot))
-    rot_change = normalize_quaternions(rot_change)  # normalize to unit quaternion (to avoid numerical errors)
-    return rot_change
+    rot_delta = compose_rotations(rot1=invert_rotation(rot1), rot2=rot2)
+    rot_delta = normalize_quaternions(rot_delta)  # normalize to unit quaternion (to avoid numerical errors)
+    return rot_delta
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -139,6 +140,7 @@ def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Ten
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 @torch.jit.script  # disable this for debugging
 def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """Rotate points by given unit-quaternion rotation vectors.
@@ -150,6 +152,8 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     References:
         https://gamedev.stackexchange.com/questions/28395/rotating-vec tor3-by-a-quaternion
     """
+    # change the type of point3d:
+    points3d = points3d.to(rot_vecs.dtype)
     if points3d.ndim == 1:
         points3d = points3d.unsqueeze(0)  # [1 x 3]
     assert_2d_tensor(points3d, 3)
@@ -167,7 +171,7 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     # rotated_points = quaternion_raw_multiply(rotated_points, rot_vecs_inv)
     # # take only the last 3 columns (the first column is the real part of the quaternion)
     # rotated_points = rotated_points[:, 1:]
-    
+
     s = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
     u = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
     rotated_points = (
@@ -179,6 +183,7 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     """
@@ -203,15 +208,12 @@ def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     eps = 1e-6
     small_angles = angles.abs() < eps
     sin_half_angles_over_angles = torch.empty_like(angles)
-    sin_half_angles_over_angles[~small_angles] = (
-        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
-    )
+    sin_half_angles_over_angles[~small_angles] = torch.sin(half_angles[~small_angles]) / angles[~small_angles]
     # for x small, sin(x/2) is about x/2 - (x/2)^3/6
     # so sin(x/2)/x is about 1/2 - (x*x)/48
-    sin_half_angles_over_angles[small_angles] = (
-        0.5 - (angles[small_angles] * angles[small_angles]) / 48
-    )
+    sin_half_angles_over_angles[small_angles] = 0.5 - (angles[small_angles] * angles[small_angles]) / 48
     return quaternions[..., 1:] / sin_half_angles_over_angles
+
 
 # --------------------------------------------------------------------------------------------------------------------
 # @torch.jit.script  # disable this for debugging
@@ -227,14 +229,16 @@ def get_rotation_angles(rot_q: torch.Tensor) -> torch.Tensor:
     assert rot_q.ndim == 2
     assert rot_q.shape[1] == 4
     # rot_angles = 2 * torch.atan2(torch.norm(rot_q[:, 1:], dim=1), rot_q[:, 0])
-    
+
     # convert to axis-angle representation
     ax_angle_rep = quaternion_to_axis_angle(rot_q)
     # get the rotation angles
     rot_angles = torch.norm(ax_angle_rep, dim=-1)
     return rot_angles
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def get_rotation_angle(rot_q: torch.Tensor) -> torch.Tensor:
     """Get the rotation angle of the given rotation quaternion (of the axis-angle representation)
@@ -248,7 +252,9 @@ def get_rotation_angle(rot_q: torch.Tensor) -> torch.Tensor:
     rot_angle = get_rotation_angles(rot_q.unsqueeze(0))[0]
     return rot_angle
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: int):
     """Get a random rotation quaternion.
@@ -319,6 +325,8 @@ def rotate_around(in_quat: torch.tensor, rot_axis: torch.tensor, rot_angle: torc
     rot_axis = torch.tensor(rot_axis, dtype=in_quat.dtype)
     axis_angle = rot_axis * rot_angle
     rot_quat = axis_angle_to_quaternion(axis_angle)
-    out_quat = apply_rotation_change(start_rot=in_quat, rot_change=rot_quat)
+    out_quat = compose_rotations(rot1=in_quat, rot2=rot_quat)
     return out_quat
+
+
 # ----------------------------------------------------------------------

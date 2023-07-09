@@ -401,7 +401,7 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float32
+        self.dtype = torch.float64
         weights = torch.load(self.disp_net_path)
         self.disp_net = DispResNet(self.resnet_layers, pretrained=True).to(self.device)
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)
@@ -470,7 +470,7 @@ class EgomotionModel:
         assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()
-        self.dtype = torch.float32
+        self.dtype = torch.float64
         self.resnet_layers = self.model_info["PoseResNet_layers"]
         self.model_im_height = self.model_info["frame_height"]
         self.model_im_width = self.model_info["frame_width"]

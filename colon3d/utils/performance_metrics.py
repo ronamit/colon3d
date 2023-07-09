@@ -10,7 +10,7 @@ from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.utils.rotations_util import get_rotation_angle, get_rotation_angles, normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import apply_pose_change, find_pose_change, find_rigid_registration
+from colon3d.utils.transforms_util import compose_poses, find_rigid_registration, get_pose_delta
 
 # ---------------------------------------------------------------------------------------------------------------------
 """"
@@ -37,7 +37,6 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
         * we assume N < N_gt_frames, i.e. the estimated trajectory is shorter than the ground-truth trajectory.
     """
     n_frames = est_cam_poses.shape[0]
-    
 
     # find the rigid transformation that best aligns the estimated trajectory with the ground-truth trajectory
     # I.e find an 6DOF alignment A s.t, P_{est} @ A ~= P_{gt}
@@ -50,9 +49,8 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
     # I.e., P_{est_aligned} = P_{est} @ inv(A)
     aligned_est_poses = np.zeros_like(est_cam_poses)
     for i in range(n_frames):
-        aligned_est_poses[i] = np_func(apply_pose_change)(start_pose=rigid_align, pose_change=est_cam_poses[i])
+        aligned_est_poses[i] = np_func(compose_poses)(start_pose=rigid_align, pose_change=est_cam_poses[i])
 
-    
     return aligned_est_poses
 
 
@@ -83,15 +81,12 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     ate_rot_deg = np.zeros(n_frames)
 
     # find the pose difference (estimation error) (order does not matter, since we take the absolute value of the change)
-    delta_poses = np_func(find_pose_change)(start_pose=gt_cam_poses[:n_frames], final_pose=est_poses_aligned[:n_frames])
+    delta_poses = np_func(get_pose_delta)(start_pose=gt_cam_poses[:n_frames], final_pose=est_poses_aligned[:n_frames])
     delta_locs = delta_poses[:, :3]
     delta_rots = delta_poses[:, 3:]
     # angle of rotation of the unit-quaternion  [rad] in the range [-pi, pi]
     delta_rots_rad = np_func(get_rotation_angles)(delta_rots)
 
-    for i_frame in range(n_frames):
-        print(f"%%%%%%%%%% Eval. i_frame={i_frame}, gt_pose={gt_cam_poses[i_frame]}, est_pose_align={est_poses_aligned[i_frame]}, est_pose={est_cam_poses[i_frame]},  delta_loc={delta_locs[i_frame]}, delta_rot={delta_rots_rad[i_frame]}")
-        
     # translation error
     ate_trans = np.linalg.norm(delta_locs, axis=-1)  # [mm]
 
@@ -133,12 +128,12 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
 
     for i in range(n_frames - 1):
         # Find the pose change from the current frame to the next frame according to the ground-truth trajectory
-        delta_pose_gt = np_func(find_pose_change)(start_pose=gt_poses[i], final_pose=gt_poses[i + 1])
+        delta_pose_gt = np_func(get_pose_delta)(start_pose=gt_poses[i], final_pose=gt_poses[i + 1])
         # Find the pose change from the current frame to the next frame according to the estimated trajectory
-        delta_pose_est = np_func(find_pose_change)(start_pose=est_poses[i], final_pose=est_poses[i + 1])
+        delta_pose_est = np_func(get_pose_delta)(start_pose=est_poses[i], final_pose=est_poses[i + 1])
 
         # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
-        delta_pose = np_func(find_pose_change)(start_pose=delta_pose_gt, final_pose=delta_pose_est)
+        delta_pose = np_func(get_pose_delta)(start_pose=delta_pose_gt, final_pose=delta_pose_est)
 
         delta_pose = delta_pose.squeeze()
         delta_loc = delta_pose[:3]
@@ -251,8 +246,8 @@ def calc_nav_aid_metrics(
                 gt_angle_rad = np.arctan2(gt_p3d_cam[1], gt_p3d_cam[0])  # [rad]
                 est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
 
-                gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg]
-                est_angle_deg = np.rad2deg(est_angle_rad)  # [deg]
+                gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg] in the range [-180, 180]
+                est_angle_deg = np.rad2deg(est_angle_rad)  # [deg] in the range [-180, 180]
 
             angle_err_deg[i, track_id] = np.abs(gt_angle_deg - est_angle_deg)  # [deg]
 
@@ -375,5 +370,3 @@ def plot_trajectory_metrics(metrics_per_frame: dict, save_path: Path):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-
-

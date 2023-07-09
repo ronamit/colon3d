@@ -6,7 +6,7 @@ import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.utils.rotations_util import find_rotation_change, get_rotation_angle, normalize_quaternions
+from colon3d.utils.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.utils.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.utils.transforms_util import project_world_to_image_normalized_coord
 
@@ -109,11 +109,11 @@ def compute_cost_function(
             penalty_lim_vel += penalizer.get_penalty(constraint_name="lim_vel", val=cam_trans_sqr)
 
             # Get the rotation change angle between the current frame and the previous frame [rad]
-            rot_change = find_rotation_change(start_rot=prev_rot, final_rot=cur_rot)
+            rot_change = find_rotation_delta(rot1=prev_rot, rot2=cur_rot)
             rot_change_angle = get_rotation_angle(rot_change)
 
             # penalty term of the camera rotation (from previous frame)
-            penalty_cam_rot += rot_change_angle  * alg_prm.w_cam_rot
+            penalty_cam_rot += rot_change_angle * alg_prm.w_cam_rot
 
             # add a log-barrier penalty for violating the max angle change bound:
             penalty_lim_angular_vel += penalizer.get_penalty(
