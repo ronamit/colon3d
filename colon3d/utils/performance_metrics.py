@@ -92,6 +92,8 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
 
     # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
     ate_rot_deg = np.rad2deg(np.abs(delta_rots_rad))  # [deg]
+    # take into account the fact that the rotation is cyclic
+    ate_rot_deg = np.minimum(ate_rot_deg, 360.0 - ate_rot_deg)  # [deg]
 
     metrics_per_frame = {
         "Translation ATE [mm]": ate_trans,
@@ -142,9 +144,10 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
         # The angle of rotation of the unit-quaternion
         delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
         delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
-        assert np.abs(delta_rot_rad) <= np.pi, "delta_rot_rad should be in the range [-pi, pi]"
-        # take the absolute value of the angle (since the rotation can be clockwise or counter-clockwise)
+        # take the absolute value of the angle
         rpe_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
+        # taje into account the fact that the rotation is cyclic
+        rpe_rot_deg[i] = np.minimum(rpe_rot_deg[i], 360.0 - rpe_rot_deg[i])  # [deg]
 
     metrics_per_frame = {
         "Translation RPE [mm]": rpe_trans,
