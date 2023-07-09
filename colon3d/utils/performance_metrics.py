@@ -249,7 +249,9 @@ def calc_nav_aid_metrics(
                 gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg] in the range [-180, 180]
                 est_angle_deg = np.rad2deg(est_angle_rad)  # [deg] in the range [-180, 180]
 
-            angle_err_deg[i, track_id] = np.abs(gt_angle_deg - est_angle_deg)  # [deg]
+            angle_abs_diff = np.abs(gt_angle_deg - est_angle_deg)  # [deg]
+            # take into account the fact that the angle is cyclic
+            angle_err_deg[i, track_id] = np.minimum(angle_abs_diff, 360 - angle_abs_diff)  # [deg] in the range [0, 180]
 
     # for each frame calculate the average absolute error over the tracked targets
     z_err_mm_per_frame = np.ones(n_frames) * np.nan
