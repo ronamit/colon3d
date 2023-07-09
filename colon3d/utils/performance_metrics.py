@@ -81,7 +81,7 @@ def compute_ATE(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarray) -> dict:
     ate_rot_deg = np.zeros(n_frames)
 
     # find the pose difference (estimation error) (order does not matter, since we take the absolute value of the change)
-    delta_poses = np_func(get_pose_delta)(start_pose=gt_cam_poses[:n_frames], final_pose=est_poses_aligned[:n_frames])
+    delta_poses = np_func(get_pose_delta)(pose1=gt_cam_poses[:n_frames], pose2=est_poses_aligned[:n_frames])
     delta_locs = delta_poses[:, :3]
     delta_rots = delta_poses[:, 3:]
     # angle of rotation of the unit-quaternion  [rad] in the range [-pi, pi]
@@ -128,12 +128,12 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
 
     for i in range(n_frames - 1):
         # Find the pose change from the current frame to the next frame according to the ground-truth trajectory
-        delta_pose_gt = np_func(get_pose_delta)(start_pose=gt_poses[i], final_pose=gt_poses[i + 1])
+        delta_pose_gt = np_func(get_pose_delta)(pose1=gt_poses[i], pose2=gt_poses[i + 1])
         # Find the pose change from the current frame to the next frame according to the estimated trajectory
-        delta_pose_est = np_func(get_pose_delta)(start_pose=est_poses[i], final_pose=est_poses[i + 1])
+        delta_pose_est = np_func(get_pose_delta)(pose1=est_poses[i], pose2=est_poses[i + 1])
 
         # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
-        delta_pose = np_func(get_pose_delta)(start_pose=delta_pose_gt, final_pose=delta_pose_est)
+        delta_pose = np_func(get_pose_delta)(pose1=delta_pose_gt, pose2=delta_pose_est)
 
         delta_pose = delta_pose.squeeze()
         delta_loc = delta_pose[:3]
