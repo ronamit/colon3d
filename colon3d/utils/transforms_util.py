@@ -109,13 +109,14 @@ def transform_points_in_cam_sys_to_world_sys(
     """
     assert_2d_tensor(points_3d_cam_sys, 3)
     assert_2d_tensor(cam_poses, 7)
-    cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
-    cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
-
-    # cam_rot is the rotation from world to camera system, so we need to invert it to transform points from camera system to world system
-    inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]
-    #  translate & rotate to world system
-    points_3d_world = cam_loc + rotate_points(points_3d_cam_sys, inv_cam_rot)
+    
+    # get the the transform back to world system from the camera system
+    inv_cam_pose = get_inverse_pose(cam_poses)  # [n_points x 7]
+    inv_cam_loc = inv_cam_pose[:, 0:3]  # [n_points x 3] (units: mm)
+    inv_cam_rot = inv_cam_pose[:, 3:7]  # [n_points x 4]
+    
+    # apply the transform to the points
+    points_3d_world = inv_cam_loc + rotate_points(points_3d_cam_sys, inv_cam_rot)
     return points_3d_world
 
 
@@ -142,7 +143,7 @@ def transform_points_in_world_sys_to_cam_sys(
     cam_loc = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
     # translate & rotate to camera system
-    points_3d_cam_sys = rotate_points(points_3d_world - cam_loc, cam_rot)
+    points_3d_cam_sys = cam_loc + rotate_points(points_3d_world, cam_rot)
     return points_3d_cam_sys
 
 
@@ -323,7 +324,7 @@ def get_pose_delta(
     """Finds the pose that when applied after pose1 gives in total the transform of pose2. (both are given in the same coordinate system).
         If  Pose1 = [R1 | t1] and Pose2 = [R2 | t2]  [in 4x4 matrix format],
         then the pose_delta is given by:
-        PoseDelta = Pose2 * (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
+        PoseDelta = Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     Args:
         pose1: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
         pose2: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
@@ -336,9 +337,9 @@ def get_pose_delta(
         pose2 = pose2.unsqueeze(dim=0)
     assert_2d_tensor(pose1, 7)
     assert_2d_tensor(pose2, 7)
-    # get (Pose1)^(-1)
+    # get (Pose1)^(-1) = [R1^{-1} | -R1^{-1} @ t1]
     inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
-    # get Pose2 * (Pose1)^(-1)
+    # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     pose_delta = compose_poses(pose1=inv_pose1, pose2=pose2)  # [n_points x 7]
     
     # start_loc = start_pose[:, 0:3]  # [n_points x 3]
