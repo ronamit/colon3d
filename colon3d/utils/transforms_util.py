@@ -110,11 +110,8 @@ def transform_points_in_cam_sys_to_world_sys(
     """
     assert_2d_tensor(points_3d_cam_sys, 3)
     assert_2d_tensor(cam_poses, 7)
-    
-
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
-    cam_rot = cam_poses[:, 3:7]  # [n_points x 4]
-    
+    cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
     # apply the transform to the points
     points_3d_world = cam_trans + rotate_points(points_3d_cam_sys, cam_rot)
     return points_3d_world
@@ -140,13 +137,14 @@ def transform_points_in_world_sys_to_cam_sys(
     if cam_poses.ndim == 1:
         cam_poses = cam_poses.unsqueeze(0)
     assert_2d_tensor(cam_poses, 7)
+    cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
+    cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
 
-    # get the inverse camera pose (i.e., the transform from camera to world system)
-    inv_cam_poses = get_inverse_pose(cam_poses)
-    inv_cam_trans = inv_cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
-    inv_cam_rot = inv_cam_poses[:, 3:7]  # [n_points x 4]
+    # get the inverse rotation:
+    inv_cam_rot = invert_rotation(cam_rot)
+ 
     # translate & rotate to camera system
-    points_3d_cam_sys = inv_cam_trans + rotate_points(points_3d_world, inv_cam_rot)
+    points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, inv_cam_rot)
     return points_3d_cam_sys
 
 
