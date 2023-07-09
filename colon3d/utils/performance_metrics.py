@@ -49,7 +49,7 @@ def align_estimated_trajectory(gt_cam_poses: np.ndarray, est_cam_poses: np.ndarr
     # I.e., P_{est_aligned} = P_{est} @ inv(A)
     aligned_est_poses = np.zeros_like(est_cam_poses)
     for i in range(n_frames):
-        aligned_est_poses[i] = np_func(compose_poses)(start_pose=rigid_align, pose_change=est_cam_poses[i])
+        aligned_est_poses[i] = np_func(compose_poses)(pose1=rigid_align, pose2=est_cam_poses[i])
 
     return aligned_est_poses
 

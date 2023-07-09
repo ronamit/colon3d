@@ -328,7 +328,7 @@ def get_egomotion_and_depth_estimations(
     rot_err_quat = get_random_rot_quat(rng=rng, angle_std_deg=cam_motion_rot_std_deg, n_vecs=n_frames)
     err_egomotions = np.concatenate([loc_err, rot_err_quat], axis=1)
     # create the estimated egomotions by applying the error egomotions to the ground truth egomotions:
-    est_egomotions = np_func(compose_poses)(start_pose=gt_egomotions, pose_change=err_egomotions)
+    est_egomotions = np_func(compose_poses)(pose1=gt_egomotions, pose2=err_egomotions)
     return est_depth_maps, est_egomotions
 
 
