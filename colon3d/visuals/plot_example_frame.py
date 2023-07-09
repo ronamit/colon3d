@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/SimData11/Scene_00000",
+        default="data/sim_data/TestData21/Scene_00000",
         help="Path to the scene folder",
     )
     parser.add_argument(
@@ -103,6 +103,8 @@ def main():
         print("Max depth value:", np.max(z_depth_frame[:]))
         print("Min depth value:", np.min(z_depth_frame[:]))
         print("Most common depth values:", get_most_common_values(z_depth_frame, num_values=5))
+        
+        # get the point cloud (in the world coordinate system)
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
         plot_cam_and_point_cloud(
             points3d=points3d,

@@ -109,11 +109,12 @@ def transform_points_in_cam_sys_to_world_sys(
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
     """
     assert_2d_tensor(points_3d_cam_sys, 3)
-    assert_2d_tensor(cam_poses, 7)
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
-    # apply the transform to the points
-    points_3d_world = cam_trans + rotate_points(points_3d_cam_sys, cam_rot)
+    # get the inverse of the camera rotation : R^{-1}
+    inv_cam_rot = invert_rotation(cam_rot)
+    # apply the transform to the points : (R^{-1} @ point3d) + t
+    points_3d_world = cam_trans + rotate_points(points_3d_cam_sys, inv_cam_rot)
     return points_3d_world
 
 
@@ -140,11 +141,9 @@ def transform_points_in_world_sys_to_cam_sys(
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
 
-    # get the inverse rotation:
-    inv_cam_rot = invert_rotation(cam_rot)
  
-    # translate & rotate to camera system
-    points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, inv_cam_rot)
+    # translate & rotate to camera system  R @ (point3d - t)
+    points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, cam_rot)
     return points_3d_cam_sys
 
 
@@ -343,19 +342,6 @@ def get_pose_delta(
     # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     pose_delta = compose_poses(pose1=inv_pose1, pose2=pose2)  # [n_points x 7]
     
-    # start_loc = start_pose[:, 0:3]  # [n_points x 3]
-    # start_rot = start_pose[:, 3:7]  # [n_points x 4]
-    # final_loc = final_pose[:, 0:3]  # [n_points x 3]
-    # final_rot = final_pose[:, 3:7]  # [n_points x 4]
-
-    # # find the change in rotation R2 @ (R1)^(-1)
-    # rot_change = find_rotation_change(start_rot=start_rot, final_rot=final_rot)  # [n_points x 4]
-
-    # # find the change in location and rotation  t2 - R2 @ (R1)^(-1) @ t1
-    # # rotate start_loc by rot_change
-    # start_loc_rot = rotate_points(points3d=start_loc, rot_vecs=rot_change)  # [n_points x 3]
-    # change_loc = final_loc - start_loc_rot  # [n_points x 3]
-    # pose_change = torch.cat((change_loc, rot_change), dim=1)
     return pose_delta
 
 

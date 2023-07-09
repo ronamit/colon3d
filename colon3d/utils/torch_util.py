@@ -99,7 +99,7 @@ def from_numpy(x):
 
 
 def np_func(func):
-    """Decorator that converts all Numpy arrays to PyTorch tensors before calling the function and converts the result back to Numpy array."""
+    """Decorator that chttps://beta.ruff.rs/docs/rules/unnecessary-comprehension-any-allonverts all Numpy arrays to PyTorch tensors before calling the function and converts the result back to Numpy array."""
 
     def wrapper(*args, **kwargs):
         args = [from_numpy(x) for x in args]

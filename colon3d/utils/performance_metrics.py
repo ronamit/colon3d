@@ -197,6 +197,7 @@ def calc_nav_aid_metrics(
     gt_tracks_world_loc = [
         {track_id: gt_targets_info.points3d[track_id] for track_id in range(n_targets)} for _ in range(n_frames_gt)
     ]
+    
     # find their GT locations in the GT camera system per frame:
     gt_targets_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
         tracks_world_locs=gt_tracks_world_loc,
