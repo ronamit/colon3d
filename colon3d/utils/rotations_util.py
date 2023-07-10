@@ -2,12 +2,12 @@ import numpy as np
 import torch
 from torch.nn.functional import normalize
 
-from colon3d.utils.torch_util import assert_2d_tensor
+from colon3d.utils.torch_util import assert_2d_tensor, to_default_type
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def normalize_quaternions(q_in: torch.Tensor) -> torch.Tensor:
     """
     normalize the quaternions to unit quaternions and convert a standard form: one in which the real
@@ -37,7 +37,7 @@ def get_identity_quaternion() -> torch.Tensor:
 
 
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """Multiply two quaternions.  Usual torch rules for broadcasting apply.
     Args:
@@ -48,13 +48,31 @@ def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
         The product of a and b, a tensor of quaternions shape (..., 4).
     References: https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
     """
-    aw, ax, ay, az = torch.unbind(a, -1)
-    bw, bx, by, bz = torch.unbind(b, -1)
-    ow = aw * bw - ax * bx - ay * by - az * bz
-    ox = aw * bx + ax * bw + ay * bz - az * by
-    oy = aw * by - ax * bz + ay * bw + az * bx
-    oz = aw * bz + ax * by - ay * bx + az * bw
-    return torch.stack((ow, ox, oy, oz), -1)
+    # aw, ax, ay, az = torch.unbind(a, -1)
+    # bw, bx, by, bz = torch.unbind(b, -1)
+    # ow = aw * bw - ax * bx - ay * by - az * bz
+    # ox = aw * bx + ax * bw + ay * bz - az * by
+    # oy = aw * by - ax * bz + ay * bw + az * bx
+    # oz = aw * bz + ax * by - ay * bx + az * bw
+    # ab = torch.stack((ow, ox, oy, oz), -1)
+
+    # change the type to the default type (float64)
+    a = to_default_type(a)
+    b = to_default_type(b)
+    # get the real-part of each quaternion:
+    aw = a[..., 0:1]
+    bw = b[..., 0:1]
+    # get the imaginary part of each quaternion:
+    av = a[..., 1:]
+    bv = b[..., 1:]
+    # compute the real part of the product:
+    abw = aw * bw - torch.sum(av * bv, dim=-1, keepdim=True)
+    # compute the imaginary part of the product:
+    abv = aw * bv + bw * av + torch.cross(av, bv, dim=-1)
+    # return the product:
+    ab = torch.cat((abw, abv), dim=-1)
+
+    return ab
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -94,7 +112,7 @@ def find_rotation_delta(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
 
 
 # --------------------------------------------------------------------------------------------------------------------
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     """Given a quaternion representing rotation, get the quaternion representing its inverse.
 
@@ -112,7 +130,7 @@ def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
 # --------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Tensor:
     """
     Apply the rotation given by a quaternion to a 3D point.
@@ -141,7 +159,7 @@ def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Ten
 # --------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
+# @torch.jit.script  # disable this for debugging
 def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """Rotate points by given unit-quaternion rotation vectors.
     Args:
@@ -173,11 +191,10 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     # # take only the last 3 columns (the first column is the real part of the quaternion)
     # rotated_points = rotated_points[:, 1:]
 
-
     # w = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
     # r = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
     # rotated_points = points3d + 2 * torch.cross(r, w * points3d + torch.cross(r, points3d, dim=1), dim=1)
-    
+
     s = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
     u = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
     rotated_points = (
@@ -185,8 +202,9 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
         + points3d * (s**2 - torch.sum(u * u, dim=-1, keepdim=True))
         + 2 * s * torch.cross(u, points3d, dim=1)
     )
-    
+
     return rotated_points
+
 
 # --------------------------------------------------------------------------------------------------------------------
 # @torch.jit.script  # disable this for debugging
@@ -239,5 +257,6 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
     err_dir /= np.linalg.norm(err_dir, axis=1, keepdims=True)
     rot_quat = np.concatenate([np.cos(angle_err / 2), np.sin(angle_err / 2) * err_dir], axis=1)
     return rot_quat
+
 
 # ----------------------------------------------------------------------

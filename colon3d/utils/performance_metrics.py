@@ -7,7 +7,7 @@ from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.slam.slam_alg import SlamOutput
 from colon3d.utils.general_util import save_plot_and_close
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.utils.rotations_util import get_rotation_angle, get_rotation_angles, normalize_quaternions
+from colon3d.utils.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
 from colon3d.utils.transforms_util import compose_poses, find_rigid_registration, get_pose_delta
@@ -135,12 +135,12 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
 
     # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
     delta_pose = np_func(get_pose_delta)(pose1=delta_pose_gt, pose2=delta_pose_est)
-    delta_trans = delta_pose[:3]
-    delta_rot = delta_pose[3:]
+    delta_trans = delta_pose[:, :3]
+    delta_rot = delta_pose[:, 3:]
     rpe_trans = np.linalg.norm(delta_trans)  # [mm]
     # The angle of rotation of the unit-quaternion
-    delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-    delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
+    delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternions (avoid numerical issues)
+    delta_rot_rad = np_func(get_rotation_angles)(delta_rot)  # [rad] in the range [-pi, pi]
     # take the absolute value of the angle
     rpe_rot_deg = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
     # taje into account the fact that the rotation is cyclic
@@ -194,7 +194,7 @@ def calc_nav_aid_metrics(
     gt_tracks_world_loc = [
         {track_id: gt_targets_info.points3d[track_id] for track_id in range(n_targets)} for _ in range(n_frames_gt)
     ]
-    
+
     # find their GT locations in the GT camera system per frame:
     gt_targets_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
         tracks_world_locs=gt_tracks_world_loc,

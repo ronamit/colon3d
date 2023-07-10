@@ -484,6 +484,62 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
+
+def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as quaternions to rotation matrices.
+
+    Args:
+        quaternions: quaternions with real part first,
+            as tensor of shape (..., 4).
+
+    Returns:
+        Rotation matrices as tensor of shape (..., 3, 3).
+    """
+    """
+The transformation matrices returned from the functions in this file assume
+the points on which the transformation will be applied are column vectors.
+i.e. the R matrix is structured as
+
+    R = [
+            [Rxx, Rxy, Rxz],
+            [Ryx, Ryy, Ryz],
+            [Rzx, Rzy, Rzz],
+        ]  # (3, 3)
+
+This matrix can be applied to column vectors by post multiplication
+by the points e.g.
+
+    points = [[0], [1], [2]]  # (3 x 1) xyz coordinates of a point
+    transformed_points = R * points
+
+To apply the same matrix to points which are row vectors, the R matrix
+can be transposed and pre multiplied by the points:
+
+e.g.
+    points = [[0, 1, 2]]  # (1 x 3) xyz coordinates of a point
+    transformed_points = points * R.transpose(1, 0)
+"""
+    r, i, j, k = torch.unbind(quaternions, -1)
+    # pyre-fixme[58]: `/` is not supported for operand types `float` and `Tensor`.
+    two_s = 2.0 / (quaternions * quaternions).sum(-1)
+
+    o = torch.stack(
+        (
+            1 - two_s * (j * j + k * k),
+            two_s * (i * j - k * r),
+            two_s * (i * k + j * r),
+            two_s * (i * j + k * r),
+            1 - two_s * (i * i + k * k),
+            two_s * (j * k - i * r),
+            two_s * (i * k - j * r),
+            two_s * (j * k + i * r),
+            1 - two_s * (i * i + j * j),
+        ),
+        -1,
+    )
+    return o.reshape(quaternions.shape[:-1] + (3, 3))
 # --------------------------------------------------------------------------------------------------------------------
 
 
