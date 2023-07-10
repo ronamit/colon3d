@@ -26,7 +26,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4_rotV2/Temp_pResults",
+        default="data/my_videos/Example_4_rotV2/Temp_Results",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -71,7 +71,7 @@ def main():
     parser.add_argument(
         "--alg_fov_ratio",
         type=float,
-        default=0.9,
+        default=0.,
         help="If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.",
     )
     parser.add_argument(

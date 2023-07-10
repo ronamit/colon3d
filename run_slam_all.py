@@ -59,12 +59,21 @@ CasesCreator(
     n_cases_per_scene=5,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
-    use_bundle_adjustment=True,
     run_parallel=run_parallel,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 # Run the algorithm on a dataset of simulated examples:
+# --------------------------------------------------------------------------------------------------------------------
+
+common_args = {
+    "save_raw_outputs": False,
+    "alg_fov_ratio": 0,
+    "n_frames_lim": 0,
+    "n_cases_lim": 0,
+    "save_overwrite": save_overwrite,
+    "run_parallel": run_parallel,
+    }
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth depth maps and egomotions - without bundle adjustment
 SlamOnDatasetRunner(
@@ -73,8 +82,7 @@ SlamOnDatasetRunner(
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
     use_bundle_adjustment=False,
-    save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -84,8 +92,7 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_no_depth_no_ego",
     depth_maps_source="none",
     egomotions_source="none",
-    save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # with the original EndoSFM monocular depth and egomotion estimation
@@ -95,9 +102,8 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    save_overwrite=save_overwrite,
     use_bundle_adjustment=True,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # with the tuned EndoSFM monocular depth and egomotion estimation
@@ -107,9 +113,8 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
-    save_overwrite=save_overwrite,
     use_bundle_adjustment=True,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -120,8 +125,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     use_bundle_adjustment=False,
-    save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -132,8 +136,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     use_bundle_adjustment=False,
-    save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth depth maps no egomotions
@@ -143,8 +146,7 @@ SlamOnDatasetRunner(
     depth_maps_source="ground_truth",
     egomotions_source="none",
     use_bundle_adjustment=True,
-    save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 #  using the ground truth depth maps and egomotions - with bundle adjustment
@@ -153,8 +155,7 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_with_GT_depth_and_ego",
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
-    save_overwrite=save_overwrite,
     use_bundle_adjustment=True,
-    run_parallel=run_parallel,
+    **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
