@@ -89,21 +89,20 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 * Run the algorithm on a single simulated scene:
 
 ```bash
-  python -m colon3d.run_slam_on_sim --example_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "data/sim_data/Scene_00009_short/Examples/0000/Results"
+  python -m colon3d.run_on_sim --example_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "data/sim_data/Scene_00009_short/Examples/0000/Results"
 ```
 
 * Run the algorithm on a dataset of simulated examples:
 
   ```bash
-     python -m colon3d.run_slam_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
+     python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-  
 * Runthe algorithm on real data example:
 
 ```bash
-  python -m colon3d.run_slam --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_on_scene --example_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
 
 ```bash
-  python -m colon3d.run_slam --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_on_scene --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```

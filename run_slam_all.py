@@ -59,6 +59,7 @@ CasesCreator(
     n_cases_per_scene=5,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
+    use_bundle_adjustment=True,
     run_parallel=run_parallel,
 ).run()
 
@@ -95,6 +96,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     save_overwrite=save_overwrite,
+    use_bundle_adjustment=True,
     run_parallel=run_parallel,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -106,6 +108,7 @@ SlamOnDatasetRunner(
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
     save_overwrite=save_overwrite,
+    use_bundle_adjustment=True,
     run_parallel=run_parallel,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -118,6 +121,7 @@ SlamOnDatasetRunner(
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     use_bundle_adjustment=False,
     save_overwrite=save_overwrite,
+    run_parallel=run_parallel,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -138,7 +142,9 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_with_GT_depth_no_ego",
     depth_maps_source="ground_truth",
     egomotions_source="none",
+    use_bundle_adjustment=True,
     save_overwrite=save_overwrite,
+    run_parallel=run_parallel,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 #  using the ground truth depth maps and egomotions - with bundle adjustment
@@ -148,6 +154,7 @@ SlamOnDatasetRunner(
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
     save_overwrite=save_overwrite,
+    use_bundle_adjustment=True,
     run_parallel=run_parallel,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
