@@ -238,11 +238,11 @@ def calc_nav_aid_metrics(
             gt_p3d_cam = track_loc_gt_cam[track_id].reshape(3)  # [mm]
             est_p3d_cam = track_loc_est_cam[track_id].reshape(3)  # [mm]
             # The locations on the z-axis of the tracked polyps in the current frame (in camera system)
-            gt_z_dist = gt_p3d_cam[2]  # [mm]
-            est_z_dist = est_p3d_cam[2]  # [mm]
-            z_err_mm[i, track_id] = np.abs(gt_z_dist - est_z_dist)  # [mm]
-            z_sign_err[i, track_id] = np.sign(gt_z_dist) != np.sign(est_z_dist)
-            if est_z_dist > 0:
+            gt_z_cam = gt_p3d_cam[2]  # [mm]
+            est_z_cam = est_p3d_cam[2]  # [mm]
+            z_err_mm[i, track_id] = np.abs(gt_z_cam - est_z_cam)  # [mm]
+            z_sign_err[i, track_id] = np.sign(gt_z_cam) != np.sign(est_z_cam)
+            if est_z_cam > 0:
                 # in this case, the estimated location of the track is in front of the camera (in z-axis)
                 is_front_est[i, track_id] = True
 

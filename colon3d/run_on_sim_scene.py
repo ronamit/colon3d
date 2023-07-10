@@ -39,9 +39,15 @@ def main():
         help="If True then all the raw outputs will be saved (as pickle file), not just the plots and summary",
     )
     parser.add_argument(
+        "--use_bundle_adjustment",
+        type=bool_arg,
+        default=False,
+        help="If True then the bundle adjustment will be used to refine the trajectory",
+    )
+    parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
@@ -51,7 +57,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
@@ -73,7 +79,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=30,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
@@ -99,6 +105,7 @@ def main():
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
+        use_bundle_adjustment=args.use_bundle_adjustment,
         draw_interval=args.draw_interval,
         save_overwrite=args.save_overwrite,
     )
@@ -116,6 +123,7 @@ class SlamOnSimSceneRunner:
     depth_and_egomotion_model_path: Path
     alg_fov_ratio: float
     n_frames_lim: int
+    use_bundle_adjustment: bool
     draw_interval: int
     save_overwrite: bool = True
 
@@ -140,6 +148,7 @@ class SlamOnSimSceneRunner:
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
                 depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                use_bundle_adjustment=self.use_bundle_adjustment,
                 draw_interval=self.draw_interval,
                 plot_names=None,  # create all plots
             )

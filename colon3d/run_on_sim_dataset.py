@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import ray
 
-from colon3d.run_slam_on_sim_scene import run_slam_on_scene
+from colon3d.run_on_sim_scene import run_slam_on_scene
 from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=20,
+        default=0,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(

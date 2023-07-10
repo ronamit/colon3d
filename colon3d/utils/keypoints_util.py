@@ -35,13 +35,13 @@ def kp_to_p3d(kp_per_frame, map_kp_to_p3d_idx, points_3d):
 
 def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:
     """
-    Transform 3D points of from world system to the camera system per frame
+    Transform 3D points of from world system to the camera system per frame.
     Parameters:
         tracks_world_locs: list per frame of dict with key=track_id, value = array of 3D coordinates of the track's KPs (in world system) (units: mm)
 
         cam_poses: Tensor[n_frames ,7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     Return:
-        cam_p3d_per_frame_per_track: transformed to the camera system (units: mm)
+        cam_p3d_per_frame_per_track: transformed to the per-frame camera system (units: mm)
     """
     n_frames = cam_poses.shape[0]
     if cam_poses.ndim == 1:
@@ -49,11 +49,12 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
         cam_poses = cam_poses.repeat(n_frames)
     cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
     for i_frame in range(n_frames):
+        cam_pose = cam_poses[i_frame]
         for track_id, track_world_p3d in tracks_world_locs[i_frame].items():
             # Rotate & translate to camera view (of the current frame camera pose)
             track_cam_p3d = transform_points_in_world_sys_to_cam_sys(
                 points_3d_world=track_world_p3d,
-                cam_poses=cam_poses[i_frame],
+                cam_poses=cam_pose,
             )
             cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
     return cam_p3d_per_frame_per_track
