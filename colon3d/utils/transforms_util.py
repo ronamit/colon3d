@@ -9,14 +9,21 @@ from colon3d.utils.rotations_util import (
     normalize_quaternions,
     rotate_points,
 )
-from colon3d.utils.torch_util import assert_1d_tensor, assert_2d_tensor, get_default_dtype, np_func, to_numpy
+from colon3d.utils.torch_util import (
+    assert_1d_tensor,
+    assert_2d_tensor,
+    get_default_dtype,
+    get_device,
+    np_func,
+    to_numpy,
+)
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def get_identity_transform():
     """Returns the identity pose transform (no change)"""
-    return torch.cat((torch.zeros(3), get_identity_quaternion()), dim=0)
+    return torch.cat((torch.zeros(3), get_identity_quaternion()), dim=0).to(get_default_dtype()).to(get_device())
 
 
 # --------------------------------------------------------------------------------------------------------------------

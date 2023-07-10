@@ -88,11 +88,14 @@ def to_torch(x, dtype=None, device=None):
 
 def from_numpy(x):
     dtype = get_default_dtype("torch")
+    device = get_device()
     if isinstance(x, dict):
         return {k: from_numpy(v) for k, v in x.items()}
     if isinstance(x, list):
         return [from_numpy(v) for v in x]
-    return torch.from_numpy(x).to(dtype)
+    if isinstance(x, torch.Tensor):
+        return x.to(dtype).to(device)
+    return torch.from_numpy(x).to(dtype).to(device)
 
 
 # --------------------------------------------------------------------------------------------------------------------
