@@ -128,26 +128,23 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
     # the RPE_rot per-frame:
     rpe_rot_deg = np.zeros(n_frames - 1)
 
-    for i in range(n_frames - 1):
-        # Find the pose change from the current frame to the next frame according to the ground-truth trajectory
-        delta_pose_gt = np_func(get_pose_delta)(pose1=gt_poses[i], pose2=gt_poses[i + 1])
-        # Find the pose change from the current frame to the next frame according to the estimated trajectory
-        delta_pose_est = np_func(get_pose_delta)(pose1=est_poses[i], pose2=est_poses[i + 1])
+    # Find the pose change from the current frame to the next frame according to the ground-truth trajectory
+    delta_pose_gt = np_func(get_pose_delta)(pose1=gt_poses[:-1, :], pose2=gt_poses[1:, :])
+    # Find the pose change from the current frame to the next frame according to the estimated trajectory
+    delta_pose_est = np_func(get_pose_delta)(pose1=est_poses[:-1, :], pose2=est_poses[1:, :])
 
-        # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
-        delta_pose = np_func(get_pose_delta)(pose1=delta_pose_gt, pose2=delta_pose_est)
-
-        delta_pose = delta_pose.squeeze()
-        delta_loc = delta_pose[:3]
-        delta_rot = delta_pose[3:]
-        rpe_trans[i] = np.linalg.norm(delta_loc)  # [mm]
-        # The angle of rotation of the unit-quaternion
-        delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
-        delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
-        # take the absolute value of the angle
-        rpe_rot_deg[i] = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
-        # taje into account the fact that the rotation is cyclic
-        rpe_rot_deg[i] = np.minimum(rpe_rot_deg[i], 360.0 - rpe_rot_deg[i])  # [deg]
+    # find the relative pose change between the estimated and ground-truth poses (order doesn't matter - since we take the magnitude of the rotation and translation)
+    delta_pose = np_func(get_pose_delta)(pose1=delta_pose_gt, pose2=delta_pose_est)
+    delta_trans = delta_pose[:3]
+    delta_rot = delta_pose[3:]
+    rpe_trans = np.linalg.norm(delta_trans)  # [mm]
+    # The angle of rotation of the unit-quaternion
+    delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternion (avoid numerical issues)
+    delta_rot_rad = np_func(get_rotation_angle)(delta_rot)  # [rad] in the range [-pi, pi]
+    # take the absolute value of the angle
+    rpe_rot_deg = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
+    # taje into account the fact that the rotation is cyclic
+    rpe_rot_deg = np.minimum(rpe_rot_deg, 360.0 - rpe_rot_deg)  # [deg]
 
     metrics_per_frame = {
         "Translation RPE [mm]": rpe_trans,

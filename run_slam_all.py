@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -26,8 +26,10 @@ save_overwrite = args.save_overwrite
 run_parallel = args.run_parallel
 print(f"save_overwrite={save_overwrite}, run_parallel={run_parallel}")
 
+debug_mode = True  # if True then only one scene will be processed
+
 # --------------------------------------------------------------------------------------------------------------------
-rand_seed = 1  # random seed for reproducibility
+rand_seed = 0  # random seed for reproducibility
 test_dataset_name = "TestData21"
 # path to the raw data generate by the unity simulator:
 raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
@@ -48,15 +50,17 @@ SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
     save_overwrite=save_overwrite,
+    limit_n_scenes= 1 if debug_mode else 0,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 
 # Generate several cases from each scene, each with randomly chosen target location and size.
+default_n_cases_per_scene = 5
 CasesCreator(
     sim_data_path=scenes_dataset_path,
     path_to_save_cases=cases_dataset_path,
-    n_cases_per_scene=5,
+    n_cases_per_scene=1 if debug_mode else default_n_cases_per_scene,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
     run_parallel=run_parallel,
@@ -70,7 +74,7 @@ common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
-    "n_cases_lim": 0,
+    "n_cases_lim": 1 if debug_mode else 0,
     "save_overwrite": save_overwrite,
     "run_parallel": run_parallel,
     }

@@ -153,7 +153,7 @@ class SimImporter:
         metadata_per_scene = []  # list of metadata per scene
         scene_idx = -1
         frame_idx = -1
-
+        n_scenes = 0
         for capture in captures:
             frame_idx += 1
             rgb_file_path = capture["filename"]
@@ -166,6 +166,7 @@ class SimImporter:
                 # check if we reached the limit of scenes
                 if self.limit_n_scenes > 0 and scene_idx >= self.limit_n_scenes:
                     break
+                n_scenes = scene_idx + 1
                 scene_name = "Scene_" + str(scene_idx).zfill(5)
                 scene_path = self.output_data_path / scene_name
                 metadata = self.get_scene_metadata(capture)
@@ -194,7 +195,7 @@ class SimImporter:
             raw_trans_per_scene[-1].append(translation)
             raw_rot_per_scene[-1].append(rotation)
         # end for capture in captures
-        n_scenes = scene_idx + 1
+        n_scenes = scene_idx
         print(f"Number of extracted scenes: {n_scenes}")
 
         # save the camera poses and depth frames for each scene

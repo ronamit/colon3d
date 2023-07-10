@@ -151,6 +151,7 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
         rotated_points3d (np.array): [n_points x 3] rotated points.
     References:
         https://gamedev.stackexchange.com/questions/28395/rotating-vec tor3-by-a-quaternion
+        https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Performance_comparisons
     """
     # change the type of point3d:
     points3d = points3d.to(rot_vecs.dtype)
@@ -172,6 +173,11 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     # # take only the last 3 columns (the first column is the real part of the quaternion)
     # rotated_points = rotated_points[:, 1:]
 
+
+    # w = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
+    # r = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
+    # rotated_points = points3d + 2 * torch.cross(r, w * points3d + torch.cross(r, points3d, dim=1), dim=1)
+    
     s = rot_vecs[:, 0].unsqueeze(-1)  # [n x 1] real part of quaternion qw
     u = rot_vecs[:, 1:]  # [n x 3] (qx, qy, qz)
     rotated_points = (
@@ -179,6 +185,7 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
         + points3d * (s**2 - torch.sum(u * u, dim=-1, keepdim=True))
         + 2 * s * torch.cross(u, points3d, dim=1)
     )
+    
     return rotated_points
 
 # --------------------------------------------------------------------------------------------------------------------

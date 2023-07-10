@@ -260,7 +260,7 @@ def compose_poses(
     pose1: torch.Tensor,
     pose2: torch.Tensor,
 ) -> torch.Tensor:
-    """Composes two pose transform to a single equivalent pose transform (both are given in the same coordinate system)
+    """Composes two pose transform (pose1 applied first, then pose2) to a single equivalent pose transform (both are given in the same coordinate system)
         We assume the transformation is applied in the following order:
         If Pose1 = [R1 | t1] and PoseChange = [R2 | t2] [in 4x4 matrix format],
         then the final pose is Pose2 = [R2 @ R1 | R2 @ t1 + t2]
@@ -337,6 +337,7 @@ def get_pose_delta(
         pose2 = pose2.unsqueeze(dim=0)
     assert_2d_tensor(pose1, 7)
     assert_2d_tensor(pose2, 7)
+    assert pose1.shape[0] == pose2.shape[0]
     # get (Pose1)^(-1) = [R1^{-1} | -R1^{-1} @ t1]
     inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
     # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
@@ -480,6 +481,8 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
         raise ValueError(f"Unknown method: {method}")
     return rigid_align
 
+
+# --------------------------------------------------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------------------------------------------------
 
