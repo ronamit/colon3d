@@ -37,7 +37,7 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
     """
     Transform 3D points of from world system to the camera system per frame.
     Parameters:
-        tracks_world_locs: list per frame of dict with key=track_id, value = array of 3D coordinates of the track's KPs (in world system) (units: mm)
+        tracks_world_locs: list per frame of dict with key=track_id, value = 3D coordinates of the track's KP (in world system) (units: mm)
 
         cam_poses: Tensor[n_frames ,7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     Return:
@@ -63,26 +63,28 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_tracks_keypoints(tracks_in_frame, alg_prm):
+def get_tracks_keypoints(tracks_in_frame):
     """
     Args:
         curr_bb: current bounding box
     Returns:
         polyps_kps keypoints of the polyp in the bounding box
     """
-    detect_bb_kps_ratios = alg_prm.detect_bb_kps_ratios
     tracks_kps_in_frame = {}
     for track_id, track_info in tracks_in_frame.items():
-        x_min = track_info["xmin"]
-        y_min = track_info["ymin"]
-        x_max = track_info["xmax"]
-        y_max = track_info["ymax"]
-        x_mid = (x_min + x_max) / 2
-        y_mid = (y_min + y_max) / 2
-        x_len = x_max - x_min
-        y_len = y_max - y_min
-        kps = [(x_mid + x_ratio * x_len, y_mid + y_ratio * y_len) for (x_ratio, y_ratio) in detect_bb_kps_ratios]
-        tracks_kps_in_frame[track_id] = kps
+        if "target_x_pix" in track_info and np.isfinite(track_info["target_x_pix"]):
+            # in this case we have the pixel coordinates of the target physical center point:
+            kp = (track_info["target_x_pix"], track_info["target_y_pix"])
+        else:
+            # in this case we have the pixel coordinates of target, so we need to calculate the center point of the bounding box:
+            x_min = track_info["xmin"]
+            y_min = track_info["ymin"]
+            x_max = track_info["xmax"]
+            y_max = track_info["ymax"]
+            x_mid = (x_min + x_max) / 2
+            y_mid = (y_min + y_max) / 2
+            kp = (x_mid, y_mid)
+        tracks_kps_in_frame[track_id] = kp
     return tracks_kps_in_frame
 
 

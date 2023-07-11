@@ -67,31 +67,29 @@ def plot_world_sys_per_frame(
                 ),
             )
             max_dist = max(max_dist, np.linalg.norm(salient_kps, axis=1).max())
+            
     # plot the tracks\polyps estimated 3D location in the world system per frame:
-
     for i_step, i_frame in enumerate(frame_inds):
         for track_id, track_p3d_tensor in online_est_track_world_loc[i_frame].items():
-            track_p3d = track_p3d_tensor.numpy(force=True)  # location of the KPs in the world system
+            track_p3d_world = track_p3d_tensor.numpy(force=True)  # location of the track in the world system
             # check if the track is in the view of the algorithm
             is_track_in_view = detections_tracker.is_track_in_alg_view(track_id, [i_frame])[0]
-            for i_kp, kp_p3d in enumerate(track_p3d):
-                color = "green" if is_track_in_view else "red"
-                opacity = 0.9 if i_kp == 0 else 0.3  # make the the center KP more opaque
-                #  plot the center KP
-                per_step_objs_lists[i_step].append(
-                    go.Scatter3d(
-                        x=[kp_p3d[0]],
-                        y=[kp_p3d[1]],
-                        z=[kp_p3d[2]],
-                        mode="markers",
-                        marker={"size": 3, "color": color, "opacity": opacity},
-                        text=f"track_id: {track_id}",
-                        name=f"Track #{track_id}",
-                        showlegend=False,
-                    ),
-                )
-            # find the maximum distance of the camera from a track point
-            max_dist = max(max_dist, np.linalg.norm(track_p3d, axis=1).max())
+            color = "green" if is_track_in_view else "red"
+            #  plot the track KP in the world system
+            per_step_objs_lists[i_step].append(
+                go.Scatter3d(
+                    x=[track_p3d_world[0]],
+                    y=[track_p3d_world[1]],
+                    z=[track_p3d_world[2]],
+                    mode="markers",
+                    marker={"size": 3, "color": color, "opacity": 0.9},
+                    text=f"track_id: {track_id}",
+                    name=f"Track #{track_id}",
+                    showlegend=False,
+                ),
+            )
+            # find the distance of the camera from a track point
+            max_dist = max(max_dist, np.linalg.norm(track_p3d_world, axis=1).max())
     # plot the camera estimated 3D location and FOV cone, in the world system per frame:
     for i_step, i_frame in enumerate(frame_inds):
         # the camera trajectory up to the current frame (including the current frame)

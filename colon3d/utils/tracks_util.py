@@ -91,6 +91,8 @@ class DetectionsTracker:
         new_xmax = np.zeros(n_tracks_orig)
         new_ymin = np.zeros(n_tracks_orig)
         new_ymax = np.zeros(n_tracks_orig)
+        new_target_x_pix = np.ones(n_tracks_orig) * np.nan
+        new_target_y_pix = np.ones(n_tracks_orig) * np.nan
         is_valid = np.zeros(n_tracks_orig, dtype=bool)
         for i, cur_track in self.tracks_original.iterrows():
             # get the o pixel coordinates inside the original track box in the full frame
@@ -111,6 +113,14 @@ class DetectionsTracker:
             new_xmax[i] = np.max(x_orig[is_in_box]) - x_min
             new_ymin[i] = np.min(y_orig[is_in_box]) - y_min
             new_ymax[i] = np.max(y_orig[is_in_box]) - y_min
+
+            # get the location of the target physical center in the cropped area
+            if "target_x_pix" in cur_track:
+                x_trg, y_trg = cur_track["target_x_pix"], cur_track["target_y_pix"]
+                if (x_trg - cx_orig) ** 2 + (y_trg - cy_orig) ** 2 <= view_radius**2:
+                    new_target_x_pix[i] = x_trg - x_min
+                    new_target_y_pix[i] = y_trg - y_min
+
         detections_new = pd.DataFrame(
             {
                 "frame_idx": self.tracks_original["frame_idx"][is_valid],
@@ -119,6 +129,8 @@ class DetectionsTracker:
                 "ymin": new_ymin[is_valid],
                 "xmax": new_xmax[is_valid],
                 "ymax": new_ymax[is_valid],
+                "target_x_pix": new_target_x_pix[is_valid],
+                "target_y_pix": new_target_y_pix[is_valid],
             },
         ).astype({"frame_idx": int, "track_id": int})
         self.tracks_for_alg = detections_new

@@ -5,7 +5,7 @@ from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
 from colon3d.utils.torch_util import to_numpy
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_tracks_on_frame
+from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track_box_on_frame
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -52,7 +52,7 @@ def draw_aided_nav(
         # draw bounding boxes for the original detections in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id, cur_detect in orig_tracks.items():
-            vis_frame = draw_tracks_on_frame(
+            vis_frame = draw_track_box_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -63,7 +63,7 @@ def draw_aided_nav(
         # draw bounding boxes for the tracks in the algorithm view (on top of the original tracks)
         alg_view_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
         for track_id, cur_detect in alg_view_tracks.items():
-            vis_frame = draw_tracks_on_frame(
+            vis_frame = draw_track_box_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,

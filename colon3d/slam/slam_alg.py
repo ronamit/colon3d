@@ -35,7 +35,7 @@ class SlamAlgRunner:
         self.alg_prm = alg_prm
         # ---- ORB feature detector and descriptor (https://docs.opencv.org/4.x/db/d95/classcv_1_1ORB.html)
         self.kp_detector = cv2.ORB_create(
-            nfeatures=500,  # maximum number of features (keypoints) to retain
+            nfeatures=300,  # maximum number of features (keypoints) to retain
             scaleFactor=1.2,  # Pyramid decimation ratio, greater than 1.
             nlevels=8,  # The number of pyramid levels.
             edgeThreshold=31,  # This is size of the border where the features are not detected.
@@ -92,7 +92,7 @@ class SlamAlgRunner:
         self.points_3d = torch.full((0, 3), torch.nan, device=self.device)
         self.p3d_inds_in_frame = []  # for each frame - a list of the 3D points indexes seen in that frame
         self.map_kp_to_p3d_idx = {}  # maps a KP (i_frame, i_cord, j_cord) to a an index of a 3D world point
-        self.tracks_p3d_inds = {}  # maps a track_id to its associated 3D world points indexes
+        self.tracks_p3d_inds = {}  # maps a track_id to its associated 3D world points index
         self.n_world_points = 0  # number of 3D world points identified so far
         self.online_logger = AnalysisLogger(self.alg_prm)
         # saves data about the previous frame:
@@ -248,7 +248,7 @@ class SlamAlgRunner:
 
         # Find the track-keypoints according to the detection bounding box
         tracks_in_frameB = curr_tracks
-        track_KPs_B = get_tracks_keypoints(tracks_in_frameB, self.alg_prm)
+        track_KPs_B = get_tracks_keypoints(tracks_in_frameB)
         if draw_interval and i_frame % draw_interval == 0:
             draw_kp_on_img(
                 img=cur_rgb_frame,
@@ -329,36 +329,32 @@ class SlamAlgRunner:
                 self.p3d_inds_in_frame[-1].add(p3d_id)
 
         # ----- Update the inputs to the bundle-adjustment using the tracks(polyps) KPs
-        for track_id, track_kps in track_KPs_B.items():
-            if track_id not in self.tracks_p3d_inds:
-                # in case we have not seen this track before, we need to create a new 3d points for it
-                self.tracks_p3d_inds[track_id] = []
-                register_new_p3d = True
+        for track_id, kpB_xy in track_KPs_B.items():
+            # in case we have not seen this track before, we need to create a new 3d points for it
+            register_new_p3d = track_id not in self.tracks_p3d_inds
+            kpB_nrm, is_validB = cam_undistorter.undistort_point(kpB_xy)
+            if not is_validB:
+                # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
+                continue
+            kpB_nrm = torch.as_tensor(kpB_nrm, device=self.device).unsqueeze(0)
+            kpB_frame_idx = i_frame
+            self.kp_frame_idx_all.append(kpB_frame_idx)
+            self.kp_px_all.append(kpB_xy)
+            self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
+            idx_kp_B = len(self.kp_px_all) - 1
+            if register_new_p3d:
+                # Register a new world 3d point
+                p3d_id = deepcopy(self.n_world_points)  # index of the new 3d point
+                self.n_world_points += 1
+                # KP B will be used to guess the 3d location of the new world point
+                kp_inds_of_new.append(idx_kp_B)
+                self.tracks_p3d_inds[track_id] = p3d_id
             else:
-                register_new_p3d = False
-            for i_kp, kpB_xy in enumerate(track_kps):
-                kpB_nrm, is_validB = cam_undistorter.undistort_point(kpB_xy)
-                if not is_validB:
-                    # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
-                    continue
-                kpB_nrm = torch.as_tensor(kpB_nrm, device=self.device).unsqueeze(0)
-                kpB_frame_idx = i_frame
-                self.kp_frame_idx_all.append(kpB_frame_idx)
-                self.kp_px_all.append(kpB_xy)
-                self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
-                idx_kp_B = len(self.kp_px_all) - 1
-                if register_new_p3d:
-                    # Register a new world 3d point
-                    p3d_id = deepcopy(self.n_world_points)
-                    self.n_world_points += 1
-                    # KP B will be used to guess the 3d location of the new world point
-                    kp_inds_of_new.append(idx_kp_B)
-                    self.tracks_p3d_inds[track_id].append(p3d_id)
-                else:
-                    p3d_id = self.tracks_p3d_inds[track_id][i_kp]
-                self.kp_id_all.append(track_id)
-                self.kp_p3d_idx_all.append(p3d_id)
-                self.p3d_inds_in_frame[-1].add(p3d_id)
+                # in this case we already have a 3D point for this track, so we use the same p3d index
+                p3d_id = self.tracks_p3d_inds[track_id]
+            self.kp_id_all.append(track_id)
+            self.kp_p3d_idx_all.append(p3d_id)
+            self.p3d_inds_in_frame[-1].add(p3d_id)
 
         # Use the depth estimation to guess the 3d location of the newly found world points
         n_new_kps = len(kp_inds_of_new)
@@ -397,8 +393,8 @@ class SlamAlgRunner:
 
         # ----  Save online-estimates for the current frame
         # save the currently estimated 3D KP of the tracks that have been seen until now
-        for track_id, track_kps_p3d_inds in self.tracks_p3d_inds.items():
-            self.online_est_track_world_loc[i_frame][track_id] = self.points_3d[track_kps_p3d_inds]
+        for track_id, track_kps_p3d_ind in self.tracks_p3d_inds.items():
+            self.online_est_track_world_loc[i_frame][track_id] = self.points_3d[track_kps_p3d_ind]
 
         # save the currently estimated 3D world system location of the salient KPs
         self.online_est_salient_kp_world_loc.append(deepcopy(self.points_3d))

@@ -37,7 +37,7 @@ def draw_kps(vis_frame, kps, color):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def draw_tracks_on_frame(
+def draw_track_box_on_frame(
     vis_frame,
     cur_detect,
     track_id: int,
@@ -76,7 +76,7 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
         vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
         for cur_detect in tracks_in_frame:
-            vis_frame = draw_tracks_on_frame(
+            vis_frame = draw_track_box_on_frame(
                 vis_frame=vis_frame,
                 cur_detect=cur_detect,
                 track_id=cur_detect["track_id"],
@@ -124,7 +124,7 @@ def draw_keypoints_and_tracks(
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id in orig_tracks:
             cur_detect = orig_tracks[track_id]
-            vis_frame = draw_tracks_on_frame(
+            vis_frame = draw_track_box_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -136,7 +136,7 @@ def draw_keypoints_and_tracks(
         cur_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
         for track_id in cur_tracks:
             cur_detect = cur_tracks[track_id]
-            vis_frame = draw_tracks_on_frame(
+            vis_frame = draw_track_box_on_frame(
                 vis_frame,
                 cur_detect,
                 track_id,
@@ -190,18 +190,18 @@ def draw_kp_on_img(
     vis_frame = np.copy(img)  # RGB
     for track_id in curr_tracks:
         cur_detect = curr_tracks[track_id]
-        vis_frame = draw_tracks_on_frame(
+        vis_frame = draw_track_box_on_frame(
             vis_frame=vis_frame,
             cur_detect=cur_detect,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
     vis_frame = draw_kps(vis_frame, salient_KPs, color=colors_platte(0))
-    for track_id, track_kps in track_KPs.items():
-        track_kps_for_plot = [coord_to_cv2kp(kp) for kp in track_kps]
+    for track_id, track_kp in track_KPs.items():
+        track_kp_for_plot = coord_to_cv2kp(track_kp)
         vis_frame = cv2.drawKeypoints(
             vis_frame,
-            track_kps_for_plot,
+            [track_kp_for_plot],
             None,
             color=colors_platte(track_id + 1),
             flags=0,
@@ -254,14 +254,14 @@ def draw_matches(
     img_B_vis = np.copy(img_B)
     # draw detections bounding boxes
     for track_id, cur_detect in tracks_in_frameA.items():
-        img_A_vis = draw_tracks_on_frame(
+        img_A_vis = draw_track_box_on_frame(
             vis_frame=img_A_vis,
             cur_detect=cur_detect,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
     for track_id, cur_detect in tracks_in_frameB.items():
-        img_B_vis = draw_tracks_on_frame(
+        img_B_vis = draw_track_box_on_frame(
             vis_frame=img_B_vis,
             cur_detect=cur_detect,
             track_id=track_id,
@@ -287,25 +287,24 @@ def draw_matches(
         end2 = (int(kp_B[0]) + img_A.shape[1], int(kp_B[1]))
         cv2.circle(new_img, end1, radius=1, color=colors_platte(0), thickness=1)
         cv2.circle(new_img, end2, radius=1, color=colors_platte(0), thickness=1)
-    # draw tracks KPs
-    for track_id, track_kps in track_KPs_A.items():
-        for kp in track_kps:
-            cv2.circle(
-                new_img,
-                center=(round(kp[0]), round(kp[1])),
-                radius=2,
-                color=colors_platte(track_id + 1),
-                thickness=1,
-            )
-    for track_id, track_kps in track_KPs_B.items():
-        for kp in track_kps:
-            cv2.circle(
-                new_img,
-                center=(round(kp[0]) + img_A.shape[1], round(kp[1])),
-                radius=2,
-                color=colors_platte(track_id + 1),
-                thickness=1,
-            )
+    # draw tracks KPs in the first image
+    for track_id, track_kp in track_KPs_A.items():
+        cv2.circle(
+            new_img,
+            center=(round(track_kp[0]), round(track_kp[1])),
+            radius=2,
+            color=colors_platte(track_id + 1),
+            thickness=1,
+        )
+    # draw tracks KPs in the second image
+    for track_id, track_kp in track_KPs_B.items():
+        cv2.circle(
+            new_img,
+            center=(round(track_kp[0]) + img_A.shape[1], round(track_kp[1])),
+            radius=2,
+            color=colors_platte(track_id + 1),
+            thickness=1,
+        )
     plt.figure()
     display_image_in_actual_size(new_img)
     if save_path:

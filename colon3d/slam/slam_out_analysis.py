@@ -144,7 +144,7 @@ class SlamOutput:
     kp_px_all: torch.Tensor  # (M, 2) tensor of 2D keypoints
     kp_nrm_all: torch.Tensor  # (M, 2) tensor of 2D keypoints normalized image coordinates
     kp_p3d_idx_all: torch.Tensor  # (M,) tensor of 3D points corresponding to each keypoint
-    tracks_p3d_inds: list[list[int]]  #  maps a track_id to its associated 3D world points indexes
+    tracks_p3d_inds: list[int]  #  maps a track_id to its associated 3D world points index
     kp_id_all: torch.Tensor  # (M,) tensor of keypoint ids
     p3d_inds_in_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
     map_kp_to_p3d_idx: list[int]  # maps a keypoint index to its associated 3D world point index

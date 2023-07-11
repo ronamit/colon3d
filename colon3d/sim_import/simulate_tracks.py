@@ -131,7 +131,7 @@ def generate_targets(
         # ensure minimum number of pixels in the bounding box of each target in the first frame:
         if np.any(initial_pixels_in_bb < min_initial_pixels_in_bb):
             continue
-
+        
         break  # we found a valid target
 
     if i_attempt == max_attempts:
@@ -161,9 +161,9 @@ def create_tracks_per_frame(
     Returns:
         a dataframe containing the bounding boxes of the tracks in each frame
     """
-    tracks_point3d = targets_info.points3d
-    tracks_radiuses = targets_info.radiuses
-    n_tracks = tracks_point3d.shape[0]
+    targets_p3d_world = targets_info.points3d
+    targets_radiuses = targets_info.radiuses
+    n_targets = targets_p3d_world.shape[0]
     n_frames, frame_width, frame_height = gt_depth_maps.shape
     K_of_depth_map = depth_info["K_of_depth_map"]
     # pixel coordinates of all the pixels in the image - we use (y, x) since this is the index order of the depth image
@@ -174,6 +174,8 @@ def create_tracks_per_frame(
     ymin_list = []
     xmax_list = []
     ymax_list = []
+    target_x_list = []
+    target_y_list = []
     frame_idx_list = []
     track_id_list = []
     n_pix_in_bb_list = []
@@ -181,13 +183,15 @@ def create_tracks_per_frame(
     for i_frame in range(n_frames):
         cam_pose = gt_cam_poses[i_frame].reshape(1, 7)
         depth_map = gt_depth_maps[i_frame]
-        # get the point cloud of the first frame (in world coordinate:)
-        points3d = get_frame_point_cloud(z_depth_frame=depth_map, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
-        for i_track in range(n_tracks):
-            # find the pixels that are inside the ball around each track center:
-            track_center = tracks_point3d[i_track]
-            track_radius = tracks_radiuses[i_track]
-            is_inside = np.linalg.norm(points3d - track_center, axis=-1) < track_radius
+        # get the point cloud that the camera views (in world coordinates)
+        point_cloud_world = get_frame_point_cloud(z_depth_frame=depth_map, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
+        for i_trg in range(n_targets):
+            trg_cent_world = targets_p3d_world[i_trg]
+            trg_radius = targets_radiuses[i_trg]
+            # find the distance of each point in the point cloud from the target center:
+            dists_to_trg = np.linalg.norm(point_cloud_world - trg_cent_world, axis=-1)
+            # find the pixels that are inside the ball around each target center:
+            is_inside = dists_to_trg <= trg_radius
             pixels_x_inside = pixels_x[is_inside]
             pixels_y_inside = pixels_y[is_inside]
             n_inside = np.sum(is_inside)
@@ -205,19 +209,29 @@ def create_tracks_per_frame(
             if n_pix_in_bb < min_pixels_in_bb:
                 # if the number of pixels in the bounding box is too small - ignore this detection
                 continue
-            # create a new detection of the track:
+            
             # find bounding box of the pixels that are inside the ball:
             x_min = pixels_x_inside.min()
             y_min = pixels_y_inside.min()
             x_max = pixels_x_inside.max()
             y_max = pixels_y_inside.max()
+            
+            # find the pixel coordinate that is closest to the target center:
+            pix_ind = np.argmin(dists_to_trg)
+            x_trg = pixels_x[pix_ind]
+            y_trg = pixels_y[pix_ind]
+            target_x_list.append(x_trg)
+            target_y_list.append(y_trg)
+            # print(f"i_frame: {i_frame}, trg_pos: {(x_trg, y_trg)}, bbbox center: {(x_min + x_max) / 2, (y_min + y_max) / 2}")
+            
+            ## create a new record for this track in this frame:
             xmin_list.append(x_min)
             ymin_list.append(y_min)
             xmax_list.append(x_max)
             ymax_list.append(y_max)
             n_pix_in_bb_list.append(n_pix_in_bb)
             frame_idx_list.append(i_frame)
-            track_id_list.append(i_track)
+            track_id_list.append(i_trg)
     tracks_per_frame = pd.DataFrame(
         {
             "frame_idx": np.array(frame_idx_list),
@@ -226,6 +240,8 @@ def create_tracks_per_frame(
             "ymin": np.array(ymin_list),
             "xmax": np.array(xmax_list),
             "ymax": np.array(ymax_list),
+            "target_x_pix": np.array(target_x_list),
+            "target_y_pix": np.array(target_y_list),
             "n_pix_in_bb": np.array(n_pix_in_bb_list),
         },
     ).astype({"frame_idx": int, "track_id": int})
