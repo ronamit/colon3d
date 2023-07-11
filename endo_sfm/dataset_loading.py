@@ -127,7 +127,7 @@ class ScenesDataset(data.Dataset):
         if self.load_tgt_depth:
             # load the depth map of the target frame and return it as part of the sample (As is, without any transformation)
             with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-                depth_img = to_default_type(h5f["z_depth_map"][target_frame_ind], num_type="float32")
+                depth_img = to_default_type(h5f["z_depth_map"][target_frame_ind], num_type="float_m")
                 sample["depth_img"] = depth_img
         return sample
 

@@ -200,7 +200,7 @@ def generate_cases_from_scene(
 
     # load the ground truth depth maps and camera poses:
     with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
-        gt_depth_maps = to_default_type(h5f["z_depth_map"][:], num_type="float32")
+        gt_depth_maps = to_default_type(h5f["z_depth_map"][:], num_type="float_m")
         gt_cam_poses = to_numpy(h5f["cam_poses"][:])
         gt_egomotions = to_numpy(h5f["egomotions"][:])
 
@@ -258,7 +258,7 @@ def generate_cases_from_scene(
             with h5py.File(case_path / "est_depth_and_egomotion.h5", "w") as hf:
                 hf.create_dataset(
                     "z_depth_map",
-                    data=to_default_type(est_depth_maps, num_type="float32"),
+                    data=to_default_type(est_depth_maps, num_type="float_m"),
                     compression="gzip",
                 )
                 hf.create_dataset("egomotions", data=to_default_type(est_egomotions))

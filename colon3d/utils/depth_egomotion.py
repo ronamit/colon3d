@@ -111,7 +111,7 @@ class DepthAndEgoMotionLoader:
             self.depth_info = to_numpy(pickle.load(file))
         # load the depth maps
         with h5py.File(self.depth_maps_path, "r") as h5f:
-            self.depth_maps_buffer = to_default_type(h5f["z_depth_map"][:], num_type="float32")  # load all into memory
+            self.depth_maps_buffer = to_default_type(h5f["z_depth_map"][:], num_type="float_m")  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))
         self.loaded_depth_map_size = self.depth_info["depth_map_size"]

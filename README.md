@@ -97,7 +97,8 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
   ```bash
      python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-* Runthe algorithm on real data example:
+
+* Run the algorithm on real data example:
 
 ```bash
   python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0

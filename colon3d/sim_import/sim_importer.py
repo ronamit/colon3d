@@ -253,7 +253,7 @@ class SimImporter:
             with h5py.File(file_path, "w") as hf:
                 hf.create_dataset(
                     "z_depth_map",
-                    data=to_default_type(z_depth_frames, num_type="float32"),
+                    data=to_default_type(z_depth_frames, num_type="float_m"),
                     compression="gzip",
                 )
                 hf.create_dataset("cam_poses", data=to_default_type(cam_poses))
