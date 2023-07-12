@@ -12,6 +12,7 @@ from colon3d.utils.rotations_util import (
 from colon3d.utils.torch_util import (
     assert_1d_tensor,
     assert_2d_tensor,
+    assert_same_sample_num,
     get_default_dtype,
     get_device,
     np_func,
@@ -115,8 +116,8 @@ def transform_points_in_cam_sys_to_world_sys(
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
     """
-    assert_2d_tensor(points_3d_cam_sys, 3)
-    assert points_3d_cam_sys.shape[1] == cam_poses.shape[1]
+    points_3d_cam_sys = assert_2d_tensor(points_3d_cam_sys, 3)
+    assert_same_sample_num((points_3d_cam_sys, cam_poses))
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
     # get the inverse of the camera rotation : R^{-1}
@@ -141,20 +142,15 @@ def transform_points_in_world_sys_to_cam_sys(
     Returns:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
-    if points_3d_world.ndim == 1:
-        points_3d_world = points_3d_world.unsqueeze(0)
-    if cam_poses.ndim == 1:
-        cam_poses = cam_poses.unsqueeze(0)
-    assert_2d_tensor(cam_poses, 7)
-    assert points_3d_world.shape[1] == cam_poses.shape[1]
+    points_3d_world = assert_2d_tensor(points_3d_world, 3)
+    cam_poses = assert_2d_tensor(cam_poses, 7)
+    assert_same_sample_num((points_3d_world, cam_poses))
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
 
- 
     # translate & rotate to camera system  R @ (point3d - t)
     points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, cam_rot)
     return points_3d_cam_sys
-
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -172,9 +168,10 @@ def unproject_image_normalized_coord_to_world(
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in worlds system coordinates
     """
-    assert_2d_tensor(points_nrm, 2)
-    assert_1d_tensor(z_depths)
-    assert_2d_tensor(cam_poses, 7)
+    points_nrm = assert_2d_tensor(points_nrm, 2)
+    z_depths = assert_1d_tensor(z_depths)
+    cam_poses = assert_2d_tensor(cam_poses, 7)
+    assert_same_sample_num((points_nrm, z_depths, cam_poses))
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)
     points3d_world_sys = transform_points_in_cam_sys_to_world_sys(
         points_3d_cam_sys=points3d_cam_sys,
@@ -197,7 +194,7 @@ def project_cam_sys_to_image_normalized_coord(
     Notes:
         No camera intrinsics are needed since we transform to normalized image coordinates (K = I)
     """
-    assert_2d_tensor(points3d_cam_sys, 3)
+    points3d_cam_sys = assert_2d_tensor(points3d_cam_sys, 3)
     # Perspective transform to 2d image-plane
     # (this transforms to normalized image coordinates, i.e., fx=1, fy=1, cx=0, cy=0)
     z_cam_sys = points3d_cam_sys[:, 2]  # [n_points x 1]
@@ -224,9 +221,10 @@ def project_world_to_image_normalized_coord(
     Notes:
         Assumes camera parameters set a rectilinear image transform from 3d to 2d (i.e., fisheye undistorting was done)
     """
-    assert_2d_tensor(points3d_world, 3)
-    assert_2d_tensor(cam_poses, 7)
-
+    points3d_world = assert_2d_tensor(points3d_world, 3)
+    cam_poses = assert_2d_tensor(cam_poses, 7)
+    assert_same_sample_num((points3d_world, cam_poses))
+    
     # Translate & rotate to camera system
     points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
         points_3d_world=points3d_world,
@@ -251,8 +249,9 @@ def unproject_image_normalized_coord_to_cam_sys(
     Returns:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
     """
-    assert_2d_tensor(points_nrm, 2)
-    assert_1d_tensor(z_depths)
+    points_nrm = assert_2d_tensor(points_nrm, 2)
+    z_depths = assert_1d_tensor(z_depths)
+    assert_same_sample_num((points_nrm, z_depths))
 
     # normalized coordinate corresponds to fx=1, fy=1, cx=0, cy=0, so we can just multiply by z_depth to get 3d point in the camera system
     z_cam_sys = z_depths
@@ -279,12 +278,10 @@ def compose_poses(
     Returns:
         pose_tot: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
-    if pose1.ndim == 1:
-        pose1 = pose1.unsqueeze(0)
-    if pose2.ndim == 1:
-        pose2 = pose2.unsqueeze(0)
-    assert pose1.ndim == 2, f"Start pose is not 2D, {pose1.ndim}."
-    assert pose1.shape[1] == 7, f"Start pose is not in 7D, {pose1.shape}."
+    pose1 = assert_2d_tensor(pose1, 7)
+    pose2 = assert_2d_tensor(pose2, 7)
+    assert_same_sample_num((pose1, pose2))
+    
     trans1 = pose1[:, 0:3]  # [n x 3]
     rot1 = pose1[:, 3:7]  # [n x 4]
     trans2 = pose2[:, 0:3]  # [n x 3]
@@ -312,7 +309,7 @@ def get_inverse_pose(
     Returns:
         inv_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
-    assert pose.ndim == 2, f"Pose is not 2D, {pose.ndim}."
+    pose = assert_2d_tensor(pose, 7)
     trans = pose[:, 0:3]  # [n x 3]
     rot = pose[:, 3:7]  # [n x 4]
     # get R^{-1}
@@ -340,13 +337,10 @@ def get_pose_delta(
     Returns:
         pose_delta: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     """
-    if pose1.ndim == 1:
-        pose1 = pose1.unsqueeze(dim=0)
-    if pose2.ndim == 1:
-        pose2 = pose2.unsqueeze(dim=0)
-    assert_2d_tensor(pose1, 7)
-    assert_2d_tensor(pose2, 7)
-    assert pose1.shape[0] == pose2.shape[0]
+    pose1 = assert_2d_tensor(pose1, 7)
+    pose2 = assert_2d_tensor(pose2, 7)
+    assert_same_sample_num((pose1, pose2))
+    
     # get (Pose1)^(-1) = [R1^{-1} | -R1^{-1} @ t1]
     inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
     # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
@@ -365,13 +359,10 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
             If None, then we assume the camera is at the origin and looking in the direction of the positive z axis.
     Returns:
         points3d: [n_points x 3]  (units: mm)
-
     """
     if cam_pose is None:
         cam_pose = np_func(get_identity_transform)()
-    if cam_pose.ndim == 1:
-        cam_pose = cam_pose[np.newaxis, :]
-    assert_2d_tensor(cam_pose, 7)
+
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
     # find the world coordinates that each pixel in the depth map corresponds to:
@@ -408,7 +399,7 @@ def infer_egomotions(cam_poses: torch.Tensor):
     Returns:
         egomotions (torch.Tensor): [n_frames x 7] each row is the camera egomotion (pose change) (x, y, z, q0, qx, qy, qz).
     """
-    assert_2d_tensor(cam_poses, 7)
+    cam_poses = assert_2d_tensor(cam_poses, 7)
     prev_poses = cam_poses[:-1, :]
     cur_poses = cam_poses[1:, :]
 
@@ -437,7 +428,7 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
         rigid_align: the rigid registration that aligns poses1 to poses2.
     Notes:
     """
-
+    
     if method == "first_frame":
         #  Find the pose change in the first frame of poses1 to the first frame of poses2.
         rigid_align = get_pose_delta(pose1=poses1[0], pose2=poses2[0])

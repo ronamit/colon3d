@@ -173,13 +173,11 @@ def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """
     # change the type of point3d:
     points3d = points3d.to(rot_vecs.dtype)
-    if points3d.ndim == 1:
-        points3d = points3d.unsqueeze(0)  # [1 x 3]
-    assert_2d_tensor(points3d, 3)
+    points3d = assert_2d_tensor(points3d, 3)
     n_points = points3d.shape[0]
     if rot_vecs.ndim == 1:
         # in case we have a single rotation vector, repeat it for all points
-        rot_vecs = rot_vecs.repeat(n_points, 1)
+        rot_vecs = rot_vecs.expand(n_points, -1)
     assert_2d_tensor(rot_vecs, 4)
 
     # # extend the original points with a column of zeros (for the real part of the quaternion)

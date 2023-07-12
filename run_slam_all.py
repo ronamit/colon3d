@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(

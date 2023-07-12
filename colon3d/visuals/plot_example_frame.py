@@ -11,12 +11,14 @@ from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
-    create_folder_if_not_exists,
+    create_empty_folder,
     save_plot_and_close,
 )
-from colon3d.utils.torch_util import to_default_type
+from colon3d.utils.torch_util import np_func, to_default_type
+from colon3d.utils.tracks_util import DetectionsTracker
 from colon3d.utils.transforms_util import get_frame_point_cloud, transform_points_in_world_sys_to_cam_sys
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
+from colon3d.visuals.plots_2d import draw_track_box_on_frame
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -29,6 +31,12 @@ def main():
         help="Path to the scene folder",
     )
     parser.add_argument(
+        "--save_path",
+        type=str,
+        default="results/plot_example_frame/Scene_00000_0000",
+        help="Path to save the results",
+    )
+    parser.add_argument(
         "--frame_time",
         type=float,
         default=-1,
@@ -37,7 +45,7 @@ def main():
     parser.add_argument(
         "--frame_index",
         type=float,
-        default=0,
+        default=250,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
@@ -65,15 +73,17 @@ def main():
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
     )
+    detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
 
-    plots_path = create_folder_if_not_exists(scene_path / "plots")
+    save_path = Path(args.save_path)
+    create_empty_folder(save_path, save_overwrite=True)
     fps = scene_loader.fps
     frame_idx = args.frame_index if args.frame_time == -1 else int(args.frame_time * fps)
     frame_name = f"Frame{frame_idx:04d}"
 
     # save the color frame
     bgr_frame = scene_loader.get_frame_at_index(frame_idx, color_type="BGR", frame_type="full")
-    file_path = str((plots_path / f"{frame_name}.png").resolve())
+    file_path = str((save_path / f"{frame_name}.png").resolve())
     cv2.imwrite(file_path, bgr_frame)
     print(f"Saved color frame to {file_path}")
 
@@ -84,7 +94,7 @@ def main():
     plt.imshow(z_depth_frame, aspect="equal")
     plt.xlabel("x [pixels]")
     plt.ylabel("y [pixels]")
-    save_plot_and_close(plots_path / f"{frame_name}_depth_{args.depth_maps_source}.png")
+    save_plot_and_close(save_path / f"{frame_name}_depth_{args.depth_maps_source}.png")
 
     depth_info = depth_loader.depth_info
     K_of_depth_map = depth_info["K_of_depth_map"]
@@ -105,8 +115,22 @@ def main():
         if targets_info_path.exists():
             with targets_info_path.open("rb") as file:
                 gt_targets_info = pickle.load(file)
-            target_p3d_world = gt_targets_info.points3d[0]
-            target_p3d_cam = transform_points_in_world_sys_to_cam_sys(target_p3d_world, cam_pose)
+            target_index = 0 # we are plotting only one target
+            target_p3d_world = gt_targets_info.points3d[target_index]
+            target_p3d_cam = np_func(transform_points_in_world_sys_to_cam_sys)(target_p3d_world, cam_pose).squeeze()
+            target_radius = gt_targets_info.radiuses[target_index]
+            tracks_in_frame = detections_tracker.get_tracks_in_frame(frame_idx)
+            for track_id, cur_detect in tracks_in_frame.items():
+                bgr_frame = draw_track_box_on_frame(
+                    vis_frame=bgr_frame,
+                    cur_detect=cur_detect,
+                    track_id=track_id,
+                )
+            # save the color frame with the detections
+            file_path = str((save_path / f"{frame_name}_tracks.png").resolve())
+            cv2.imwrite(file_path, bgr_frame)
+            print(f"Saved color frame + tracks to {file_path}")
+
         else:
             target_p3d_world = None
             print("No targets info file found...")
@@ -118,8 +142,9 @@ def main():
             cam_pose=cam_pose,
             cam_fov_deg=fov_deg,
             target_p3d=target_p3d_world,
+            target_radius=target_radius,
             verbose=True,
-            save_path=plots_path / f"{frame_name}_point_cloud_world_sys_{args.depth_maps_source}.html",
+            save_path=save_path / f"{frame_name}_world_sys_3d_{args.depth_maps_source}.html",
         )
         # get the point cloud (in the camera coordinate system)
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=None)
@@ -128,8 +153,9 @@ def main():
             cam_pose=None,
             cam_fov_deg=fov_deg,
             target_p3d=target_p3d_cam,
+            target_radius=target_radius,
             verbose=True,
-            save_path=plots_path / f"{frame_name}_point_cloud_camera_sys_{args.depth_maps_source}.html",
+            save_path=save_path / f"{frame_name}_cam_sys_3d_{args.depth_maps_source}.html",
         )
     else:
         print("No ground-truth camera pose is available, so the point cloud plot will not be saved")

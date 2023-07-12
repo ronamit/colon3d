@@ -46,7 +46,7 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
     n_frames = cam_poses.shape[0]
     if cam_poses.ndim == 1:
         # if only one camera pose is given, repeat it for all frames
-        cam_poses = cam_poses.repeat(n_frames)
+        cam_poses = cam_poses.expand(n_frames, -1)
     cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
     for i_frame in range(n_frames):
         cam_pose = cam_poses[i_frame]

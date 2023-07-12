@@ -128,16 +128,27 @@ def get_val(x):
 
 
 def assert_2d_tensor(t: torch.Tensor, dim2: int):
+    if t.ndim == 1:
+        t = t.unsqueeze(0) # add the "number of samples" dimension
     assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
-
+    return t
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def assert_1d_tensor(t: torch.Tensor):
+    if t.ndim == 0:
+        t = t.unsqueeze(0) # add the "number of samples" dimension
     assert t.ndim == 1, "Tensor should be 1D."
-
+    return t
+    
+# --------------------------------------------------------------------------------------------------------------------
+def assert_same_sample_num(tensor_list: tuple):
+    n = tensor_list[0].shape[0]
+    for t in tensor_list:
+        assert t.shape[0] == n, "Different number of samples."
+    return n
 
 # --------------------------------------------------------------------------------------------------------------------
 
