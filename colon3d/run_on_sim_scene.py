@@ -29,7 +29,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/Temp/temp_run_on_sim_scene",
+        default="results/Temp/temp_Scene_00000_0000",
         help="Path to the save outputs",
     )
     parser.add_argument(
@@ -85,7 +85,7 @@ def main():
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=50,
+        default=100,
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(

@@ -1,4 +1,5 @@
 import argparse
+import pickle
 from pathlib import Path
 
 import cv2
@@ -11,11 +12,10 @@ from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import (
     ArgsHelpFormatter,
     create_folder_if_not_exists,
-    get_most_common_values,
     save_plot_and_close,
 )
 from colon3d.utils.torch_util import to_default_type
-from colon3d.utils.transforms_util import get_frame_point_cloud
+from colon3d.utils.transforms_util import get_frame_point_cloud, transform_points_in_world_sys_to_cam_sys
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 
 
@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/TestData21/Scene_00000",
+        default="data/sim_data/TestData21_cases/Scene_00000_0000",
         help="Path to the scene folder",
     )
     parser.add_argument(
@@ -99,17 +99,25 @@ def main():
             cam_pose = gt_cam_poses[frame_idx]
             print("Using ground-truth camera pose for the point cloud plot")
             print(f"(x,y,z)={cam_pose[:3]} [mm]\n (qw,qx,qy,qz)={cam_pose[3:]}")
-        # get the point cloud (in the world coordinate system)
-        print("Max depth value:", np.max(z_depth_frame[:]))
-        print("Min depth value:", np.min(z_depth_frame[:]))
-        print("Most common depth values:", get_most_common_values(z_depth_frame, num_values=5))
-        
+
+        # load the  ground truth targets info
+        targets_info_path = scene_path / "targets_info.pkl"
+        if targets_info_path.exists():
+            with targets_info_path.open("rb") as file:
+                gt_targets_info = pickle.load(file)
+            target_p3d_world = gt_targets_info.points3d[0]
+            target_p3d_cam = transform_points_in_world_sys_to_cam_sys(target_p3d_world, cam_pose)
+        else:
+            target_p3d_world = None
+            print("No targets info file found...")
+
         # get the point cloud (in the world coordinate system)
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
         plot_cam_and_point_cloud(
             points3d=points3d,
             cam_pose=cam_pose,
             cam_fov_deg=fov_deg,
+            target_p3d=target_p3d_world,
             verbose=True,
             save_path=plots_path / f"{frame_name}_point_cloud_world_sys_{args.depth_maps_source}.html",
         )
@@ -119,6 +127,7 @@ def main():
             points3d=points3d,
             cam_pose=None,
             cam_fov_deg=fov_deg,
+            target_p3d=target_p3d_cam,
             verbose=True,
             save_path=plots_path / f"{frame_name}_point_cloud_camera_sys_{args.depth_maps_source}.html",
         )

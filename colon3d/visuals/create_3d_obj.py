@@ -165,6 +165,7 @@ def plot_cam_and_point_cloud(
     points3d: np.ndarray,
     cam_pose: np.ndarray,
     cam_fov_deg: float = 120,
+    target_p3d: np.ndarray | None = None,
     verbose=False,
     show_fig=False,
     save_path=None,
@@ -213,6 +214,17 @@ def plot_cam_and_point_cloud(
         verbose=verbose,
         add_legend=True,
     )
+    if target_p3d is not None:
+        fig_data.append(
+            go.Scatter3d(
+                x=[target_p3d[0]],
+                y=[target_p3d[1]],
+                z=[target_p3d[2]],
+                mode="markers",
+                marker={"color": "red", "size": 5},
+                name="Target point",
+            ),
+        )
     fig_data += fov_cone
     fig = go.Figure(
         data=fig_data,
@@ -252,6 +264,8 @@ def main():
 
     # Show the plot
     fig.show()
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
