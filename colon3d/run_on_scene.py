@@ -41,7 +41,6 @@ def main():
         default=False,
         help="If True then all the raw outputs will be saved (as pickle file), not just the plots",
     )
-
     parser.add_argument(
         "--depth_maps_source",
         type=str,

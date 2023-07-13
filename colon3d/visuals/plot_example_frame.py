@@ -62,6 +62,12 @@ def main():
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotions",
     )
+    parser.add_argument(
+        "--depth_and_egomotion_model_path",
+        type=str,
+        default="saved_models/EndoSFM_tuned",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
+    )
     args = parser.parse_args()
     scene_path = Path(args.scene_path)
 
@@ -135,7 +141,9 @@ def main():
             target_p3d_world = None
             print("No targets info file found...")
 
+        print("Frame index:", frame_idx)
         # get the point cloud (in the world coordinate system)
+        print("World system:")
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
         plot_cam_and_point_cloud(
             points3d=points3d,
@@ -147,6 +155,7 @@ def main():
             save_path=save_path / f"{frame_name}_world_sys_3d_{args.depth_maps_source}.html",
         )
         # get the point cloud (in the camera coordinate system)
+        print("Camera system:")
         points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=None)
         plot_cam_and_point_cloud(
             points3d=points3d,

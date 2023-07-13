@@ -228,6 +228,7 @@ def plot_cam_and_point_cloud(
                 opacity=0.5,
             ),
         )
+        print(f"Plotted target point: {target_p3d} [mm]")
     fig_data += fov_cone
     fig = go.Figure(
         data=fig_data,
