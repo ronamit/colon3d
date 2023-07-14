@@ -126,7 +126,7 @@ def plot_fov_cone(
     if verbose:
         cam_forward = np_func(rotate_points)(np.array([0, 0, 1], dtype=dtype), cam_rot)
         print(
-            f"Plotted camera location: {cam_loc} [mm], direction vector: {cam_forward}, FOV: {fov_deg:.1f} [deg]",
+            f"Plotted camera location: {cam_loc} [mm]\n(q0,qx,qy,qz)={cam_rot}\nForward Direction: {cam_forward}\nFOV: {fov_deg:.1f} [deg]",
         )
     # translate and rotate the cone points:
     inv_cam_rot = np_func(invert_rotation)(cam_rot)

@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 import yaml
 
-from colon3d.utils.camera_util import CamInfo, FishEyeUndistorter
+from colon3d.utils.camera_info import CamInfo
+from colon3d.utils.pix_coord_util import PixelCoordNormalizer
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -66,7 +67,7 @@ class SceneLoader:
             fps=fps,
             min_vis_z_mm=metadata["min_vis_z_mm"],
         )
-        self.orig_cam_undistorter = FishEyeUndistorter(self.orig_cam_info)
+        self.orig_cam_undistorter = PixelCoordNormalizer(self.orig_cam_info)
         if alg_fov_ratio == 0:
             # in this case, the algorithm sees the entire image, so no need to crop it
             self.alg_view_cropper = None
@@ -91,7 +92,7 @@ class SceneLoader:
                 fps=fps,
                 min_vis_z_mm=metadata["min_vis_z_mm"],
             )
-            self.alg_cam_undistorter = FishEyeUndistorter(self.alg_cam_info)
+            self.alg_cam_undistorter = PixelCoordNormalizer(self.alg_cam_info)
             self.alg_view_radius = self.alg_view_cropper.view_radius
 
         # the FOV of the algorithm (for visualization purposes):

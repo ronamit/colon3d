@@ -9,11 +9,11 @@ import torch
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.bundle_adjust import run_bundle_adjust
 from colon3d.slam.slam_out_analysis import AnalysisLogger, SlamOutput
-from colon3d.utils.camera_util import FishEyeUndistorter
 from colon3d.utils.data_util import RadialImageCropper, SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.utils.keypoints_util import get_kp_matchings, get_tracks_keypoints
+from colon3d.utils.pix_coord_util import PixelCoordNormalizer
 from colon3d.utils.rotations_util import get_identity_quaternion
 from colon3d.utils.torch_util import get_default_dtype, get_device
 from colon3d.utils.tracks_util import DetectionsTracker
@@ -143,7 +143,7 @@ class SlamAlgRunner:
                 cur_rgb_frame=cur_rgb_frame,
                 i_frame=i_frame,
                 curr_tracks=curr_tracks,
-                cam_undistorter=cam_undistorter,
+                pix_normalizer=cam_undistorter,
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
                 fps=fps,
@@ -169,7 +169,7 @@ class SlamAlgRunner:
             map_kp_to_p3d_idx=self.map_kp_to_p3d_idx,
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
-            cam_undistorter=cam_undistorter,
+            pix_normalizer=cam_undistorter,
             depth_estimator=depth_estimator,
             online_est_track_world_loc=self.online_est_track_world_loc,
             online_est_salient_kp_world_loc=self.online_est_salient_kp_world_loc,
@@ -184,7 +184,7 @@ class SlamAlgRunner:
         cur_rgb_frame: np.array,
         i_frame: int,
         curr_tracks: dict,
-        cam_undistorter: FishEyeUndistorter,
+        pix_normalizer: PixelCoordNormalizer,
         alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
@@ -291,8 +291,8 @@ class SlamAlgRunner:
                 # Get KP A (from previous frame) and KP B (from current frame
                 kpA_xy = matched_A_kps[i_match]
                 kpB_xy = matched_B_kps[i_match]
-                kpB_nrm, is_validB = cam_undistorter.undistort_point(kpB_xy)
-                kpA_nrm, is_validA = cam_undistorter.undistort_point(kpA_xy)
+                kpB_nrm, is_validB = pix_normalizer.get_normalized_coord(kpB_xy)
+                kpA_nrm, is_validA = pix_normalizer.get_normalized_coord(kpA_xy)
                 if not is_validB or not is_validA:
                     # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
                     continue
@@ -332,7 +332,7 @@ class SlamAlgRunner:
         for track_id, kpB_xy in track_KPs_B.items():
             # in case we have not seen this track before, we need to create a new 3d points for it
             register_new_p3d = track_id not in self.tracks_p3d_inds
-            kpB_nrm, is_validB = cam_undistorter.undistort_point(kpB_xy)
+            kpB_nrm, is_validB = pix_normalizer.get_normalized_coord(kpB_xy)
             if not is_validB:
                 # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
                 continue

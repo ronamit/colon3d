@@ -39,7 +39,7 @@ def get_identity_quaternion() -> torch.Tensor:
 # --------------------------------------------------------------------------------------------------------------------
 # @torch.jit.script  # disable this for debugging
 def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """Multiply two quaternions.  Usual torch rules for broadcasting apply.
+    """Multiply two unit-quaternions.  Usual torch rules for broadcasting apply.
     Args:
         a: Quaternions as tensor of shape (..., 4), real part first.
         b: Quaternions as tensor of shape (..., 4), real part first.
@@ -71,7 +71,8 @@ def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     abv = aw * bv + bw * av + torch.cross(av, bv, dim=-1)
     # return the product:
     ab = torch.cat((abw, abv), dim=-1)
-
+    # normalize the result (to avoid numerical errors)
+    ab = normalize_quaternions(ab)
     return ab
 
 

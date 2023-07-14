@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.utils.camera_util import FishEyeUndistorter
+from colon3d.utils.pix_coord_util import PixelCoordNormalizer
 from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import save_plot_and_close
@@ -150,7 +150,7 @@ class SlamOutput:
     map_kp_to_p3d_idx: list[int]  # maps a keypoint index to its associated 3D world point index
     scene_loader: SceneLoader  # frames loader object
     detections_tracker: DetectionsTracker  # detections tracker object
-    cam_undistorter: FishEyeUndistorter  # camera undistorter object
+    pix_normalizer: PixelCoordNormalizer  # camera undistorter object
     depth_estimator: DepthAndEgoMotionLoader  # depth estimator object
     online_logger: AnalysisLogger  # analysis logger object
     online_est_salient_kp_world_loc: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)

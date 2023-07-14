@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from colon3d.utils.camera_util import CamInfo
+from colon3d.utils.camera_info import CamInfo
 from colon3d.utils.rotations_util import (
     compose_rotations,
     get_identity_quaternion,
@@ -46,9 +46,15 @@ def transform_rectilinear_image_pixel_coords_to_normalized(
     """
     assert_1d_tensor(pixels_x)
     assert_1d_tensor(pixels_y)
+    assert_same_sample_num([pixels_x, pixels_y])
     dtype = get_default_dtype("numpy")
-    x_nrm = (pixels_x - cam_K[0, 2]) / cam_K[0, 0]  # u_nrm = (u - cx) / fx
-    y_nrm = (pixels_y - cam_K[1, 2]) / cam_K[1, 1]  # v_nrm = (v - cy) / fy
+    fx = cam_K[0, 0]
+    fy = cam_K[1, 1]
+    cx = cam_K[0, 2]
+    cy = cam_K[1, 2]
+
+    x_nrm = (pixels_x - cx) / fx
+    y_nrm = (pixels_y - cy) / fy
     points_nrm = np.stack((x_nrm, y_nrm), axis=1, dtype=dtype)
     return points_nrm
 
@@ -83,6 +89,8 @@ def transform_rectilinear_image_norm_coords_to_pixel(
         fy = cam_K[1, 1]
         cx = cam_K[0, 2]
         cy = cam_K[1, 2]
+    else:
+        raise ValueError("Either cam_info or cam_K must be provided")
     x_pix = points_nrm[:, 0] * fx + cx  # u = u_nrm * fx + cx
     y_pix = points_nrm[:, 1] * fy + cy  # v = v_nrm * fy + cy
     points_pix = np.stack((x_pix, y_pix), axis=1)
@@ -151,6 +159,7 @@ def transform_points_in_world_sys_to_cam_sys(
     # translate & rotate to camera system  R @ (point3d - t)
     points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, cam_rot)
     return points_3d_cam_sys
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -224,7 +233,7 @@ def project_world_to_image_normalized_coord(
     points3d_world = assert_2d_tensor(points3d_world, 3)
     cam_poses = assert_2d_tensor(cam_poses, 7)
     assert_same_sample_num((points3d_world, cam_poses))
-    
+
     # Translate & rotate to camera system
     points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
         points_3d_world=points3d_world,
@@ -281,7 +290,7 @@ def compose_poses(
     pose1 = assert_2d_tensor(pose1, 7)
     pose2 = assert_2d_tensor(pose2, 7)
     assert_same_sample_num((pose1, pose2))
-    
+
     trans1 = pose1[:, 0:3]  # [n x 3]
     rot1 = pose1[:, 3:7]  # [n x 4]
     trans2 = pose2[:, 0:3]  # [n x 3]
@@ -340,12 +349,12 @@ def get_pose_delta(
     pose1 = assert_2d_tensor(pose1, 7)
     pose2 = assert_2d_tensor(pose2, 7)
     assert_same_sample_num((pose1, pose2))
-    
+
     # get (Pose1)^(-1) = [R1^{-1} | -R1^{-1} @ t1]
     inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
     # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     pose_delta = compose_poses(pose1=inv_pose1, pose2=pose2)  # [n_points x 7]
-    
+
     return pose_delta
 
 
@@ -428,7 +437,7 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
         rigid_align: the rigid registration that aligns poses1 to poses2.
     Notes:
     """
-    
+
     if method == "first_frame":
         #  Find the pose change in the first frame of poses1 to the first frame of poses2.
         rigid_align = get_pose_delta(pose1=poses1[0], pose2=poses2[0])
@@ -485,7 +494,6 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-
 def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
     """
     Convert rotations given as quaternions to rotation matrices.
@@ -540,6 +548,8 @@ e.g.
         -1,
     )
     return o.reshape(quaternions.shape[:-1] + (3, 3))
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
