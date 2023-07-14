@@ -139,8 +139,10 @@ def get_kp_matchings(
     matched_A_kps = []
     matched_B_kps = []
     for match in good_matches:
-        matched_A_kps.append(keypoints_A[match.queryIdx].pt)
-        matched_B_kps.append(keypoints_B[match.trainIdx].pt)
+        kp_A = np.round(keypoints_A[match.queryIdx].pt).astype(int)
+        kp_B = np.round(keypoints_B[match.trainIdx].pt).astype(int)
+        matched_A_kps.append(kp_A)
+        matched_B_kps.append(kp_B)
     return matched_A_kps, matched_B_kps
 
 

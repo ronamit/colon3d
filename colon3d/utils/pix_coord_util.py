@@ -72,7 +72,6 @@ class PixelCoordNormalizer:
         Notes:
             * Normalized coordinates correspond to the rectilinear camera with focal length is 1 and the optical center is at (0,0)
         """
-        assert isinstance(point2d, tuple)
         assert len(point2d) == 2
         nrm_coords, is_valid = self.get_normalized_coords(np.array([point2d]))
         return nrm_coords.squeeze(0), is_valid.squeeze(0)

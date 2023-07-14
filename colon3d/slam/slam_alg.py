@@ -359,12 +359,16 @@ class SlamAlgRunner:
         # Use the depth estimation to guess the 3d location of the newly found world points
         n_new_kps = len(kp_inds_of_new)
         if n_new_kps > 0:
+            # get the frame indexes of the new KPs
             frame_inds_of_new = [self.kp_frame_idx_all[i_kp] for i_kp in kp_inds_of_new]
+            # get the camera poses corresponding to the new KPs
             cam_poses_of_new = self.cam_poses[frame_inds_of_new]
+            # get the normalized pixel coordinates of the new KPs
             kp_nrm_of_new = torch.stack([self.kp_nrm_all[i_kp] for i_kp in kp_inds_of_new], dim=0)
+            # estimate the 3d points of the new KPs (using the depth estimator)
             new_p3d_est = depth_estimator.estimate_3d_points(
                 cam_poses=cam_poses_of_new,
-                queried_points_nrm=kp_nrm_of_new,
+                queried_pix_nrm=kp_nrm_of_new,
                 frame_indexes=frame_inds_of_new,
             )
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)

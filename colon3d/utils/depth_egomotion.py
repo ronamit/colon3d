@@ -204,9 +204,9 @@ class DepthAndEgoMotionLoader:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def get_depth_at_nrm_points(
+    def get_z_depth_at_pixels(
         self,
-        queried_points_nrm: torch.Tensor,
+        queried_pix_nrm: torch.Tensor,
         frame_indexes: np.ndarray | None = None,
     ):
         """Get the depth estimation at a given point in the image.
@@ -220,9 +220,9 @@ class DepthAndEgoMotionLoader:
 
         Notes: - Normalized coordinates correspond to a rectilinear camera with focal length is 1 and the optical center is at (0,0))
         """
-        n_points = queried_points_nrm.shape[0]
-        device = queried_points_nrm.device
-        dtype = queried_points_nrm.dtype
+        n_points = queried_pix_nrm.shape[0]
+        device = queried_pix_nrm.device
+        dtype = queried_pix_nrm.dtype
 
         if self.depth_maps_source == "none":
             # just return the default depth for all points
@@ -243,7 +243,7 @@ class DepthAndEgoMotionLoader:
         # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
         # that the depth estimation map was created with
         pixels_cord = transform_rectilinear_image_norm_coords_to_pixel(
-            points_nrm=queried_points_nrm,
+            points_nrm=queried_pix_nrm,
             cam_K=depth_map_K,
             im_height=depth_map_height,
             im_width=depth_map_width,
@@ -275,7 +275,7 @@ class DepthAndEgoMotionLoader:
     def estimate_3d_points(
         self,
         cam_poses: torch.Tensor,
-        queried_points_nrm: torch.Tensor,
+        queried_pix_nrm: torch.Tensor,
         frame_indexes: list | None = None,
     ):
         """Estimate the 3D point in the world coordinate system.
@@ -288,12 +288,12 @@ class DepthAndEgoMotionLoader:
         Returns:
             p3d_est: the estimated 3D point in the world coordinate system [n_points x 3] (units: mm)
         """
-        depth_z_est = self.get_depth_at_nrm_points(
-            queried_points_nrm=queried_points_nrm,
+        depth_z_est = self.get_z_depth_at_pixels(
+            queried_pix_nrm=queried_pix_nrm,
             frame_indexes=frame_indexes,
         )
         p3d_est = unproject_image_normalized_coord_to_world(
-            points_nrm=queried_points_nrm,
+            points_nrm=queried_pix_nrm,
             z_depths=depth_z_est,
             cam_poses=cam_poses,
         )
