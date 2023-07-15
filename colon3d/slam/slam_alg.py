@@ -17,7 +17,7 @@ from colon3d.utils.pix_coord_util import PixelCoordNormalizer
 from colon3d.utils.rotations_util import get_identity_quaternion
 from colon3d.utils.torch_util import get_default_dtype, get_device
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import compose_poses
+from colon3d.utils.transforms_util import compose_poses, unproject_image_normalized_coord_to_world
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 torch.set_default_dtype(get_default_dtype())
@@ -366,10 +366,15 @@ class SlamAlgRunner:
             # get the normalized pixel coordinates of the new KPs
             kp_nrm_of_new = torch.stack([self.kp_nrm_all[i_kp] for i_kp in kp_inds_of_new], dim=0)
             # estimate the 3d points of the new KPs (using the depth estimator)
-            new_p3d_est = depth_estimator.estimate_3d_points(
-                cam_poses=cam_poses_of_new,
+            # note: the depth estimator already process the frame index until the current frame, and saved the results in a buffer
+            z_depths_of_new = depth_estimator.get_z_depth_at_pixels(
                 queried_pix_nrm=kp_nrm_of_new,
                 frame_indexes=frame_inds_of_new,
+            )
+            new_p3d_est = unproject_image_normalized_coord_to_world(
+                points_nrm=kp_nrm_of_new,
+                z_depths=z_depths_of_new,
+                cam_poses=cam_poses_of_new,
             )
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)
 

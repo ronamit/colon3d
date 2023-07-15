@@ -11,7 +11,6 @@ from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quat
 from colon3d.utils.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
 from colon3d.utils.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
-    unproject_image_normalized_coord_to_world,
 )
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
@@ -269,35 +268,6 @@ class DepthAndEgoMotionLoader:
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             z_depths = torch.clamp(z_depths, min=self.depth_lower_bound, max=self.depth_upper_bound)
         return z_depths
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def estimate_3d_points(
-        self,
-        cam_poses: torch.Tensor,
-        queried_pix_nrm: torch.Tensor,
-        frame_indexes: list | None = None,
-    ):
-        """Estimate the 3D point in the world coordinate system.
-
-        Args:
-            frame_idx (list): the frame indexes for each point [n_points]
-            cam_poses (np.ndarray): the camera poses [n_points x 7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, q1, q2 , q3) is the unit-quaternion of the rotation.
-            queried_points_nrm np.ndarray: the point in the image [n_points x 2] (normalized coordinates)
-
-        Returns:
-            p3d_est: the estimated 3D point in the world coordinate system [n_points x 3] (units: mm)
-        """
-        depth_z_est = self.get_z_depth_at_pixels(
-            queried_pix_nrm=queried_pix_nrm,
-            frame_indexes=frame_indexes,
-        )
-        p3d_est = unproject_image_normalized_coord_to_world(
-            points_nrm=queried_pix_nrm,
-            z_depths=depth_z_est,
-            cam_poses=cam_poses,
-        )
-        return p3d_est
 
     # --------------------------------------------------------------------------------------------------------------------
     def process_frames_sequence(self, scene_loader: SceneLoader):

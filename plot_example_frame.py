@@ -45,7 +45,7 @@ def main():
     parser.add_argument(
         "--frame_index",
         type=float,
-        default=250,
+        default=0,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
