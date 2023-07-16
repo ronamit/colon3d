@@ -19,14 +19,19 @@ parser.add_argument(
     "--run_parallel" ,
     type=bool_arg,
     help="If true, ray will run in local mode (single process) - useful for debugging",
+    default=True,
+)
+parser.add_argument(
+    "--debug_mode",
+    type=bool_arg,
+    help="If true, only one scene will be processed",
     default=False,
 )
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
 run_parallel = args.run_parallel
-print(f"save_overwrite={save_overwrite}, run_parallel={run_parallel}")
-
-debug_mode = True  # if True then only one scene will be processed
+debug_mode = args.debug_mode
+print(f"save_overwrite={save_overwrite}, run_parallel={run_parallel}, debug_mode={debug_mode}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility
