@@ -19,7 +19,7 @@ from colon3d.utils.general_util import (
 )
 from colon3d.utils.rotations_util import normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_default_type
-from colon3d.utils.transforms_util import infer_egomotions
+from colon3d.utils.transforms_util import get_pose_delta, infer_egomotions
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
@@ -41,12 +41,6 @@ def main():
         help="The path to the folder where the processed simulated scenes will be saved.",
     )
     parser.add_argument(
-        "--save_overwrite",
-        type=bool_arg,
-        default=True,
-        help="If True,the output folder will be overwritten if it already exists",
-    )
-    parser.add_argument(
         "--limit_n_scenes",
         type=int,
         default=0,
@@ -57,6 +51,24 @@ def main():
         type=int,
         default=0,
         help="The number maximal number of frames to take from each scenes, if 0 all frames will be processed",
+    )
+    parser.add_argument(
+        "--fps_override",
+        type=float,
+        default=0.0,
+        help="If >0 then the FPS of the output videos will be set to this value",
+    )
+    parser.add_argument(
+        "--world_sys_to_first_cam",
+        type=bool_arg,
+        default=True,
+        help="If True, the world coordinate system will be set to the first camera pose",
+    )
+    parser.add_argument(
+        "--save_overwrite",
+        type=bool_arg,
+        default=True,
+        help="If True,the output folder will be overwritten if it already exists",
     )
     args = parser.parse_args()
 
@@ -87,6 +99,7 @@ class SimImporter:
         processed_sim_data_path: str,
         limit_n_scenes: int = 0,
         limit_n_frames: int = 0,
+        world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
     ):
@@ -96,6 +109,7 @@ class SimImporter:
             processed_sim_data_path: The path to the folder where the processed simulated scenes will be saved.
             limit_n_scenes: The number maximal number of scenes to process, if 0 all scenes will be processed.
             limit_n_frames: The number maximal number of frames to take from each scenes, if 0 all frames will be processed
+            world_sys_to_first_cam: If True, the world coordinate system will be set to the first camera pose.
             fps_override: frame rate in Hz of the output videos, if 0 the frame rate will be extracted from the settings file.
         """
         input_data_path = Path(raw_sim_data_path)
@@ -106,6 +120,7 @@ class SimImporter:
         print("Path to save simulated scenes will be saved to: ", self.output_data_path)
         self.limit_n_frames = limit_n_frames
         self.limit_n_scenes = limit_n_scenes
+        self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
         # In our models, 1 Unity distance unit = 100 mm
         self.UNITY_TO_MM = 100
@@ -219,6 +234,11 @@ class SimImporter:
                 raw_trans=raw_trans_per_scene[i_scene],
                 raw_rot=raw_rot_per_scene[i_scene],
             )
+
+            if self.world_sys_to_first_cam:
+                first_cam_pose = cam_poses[0]
+                # change the world system to the first camera system
+                cam_poses = np_func(get_pose_delta)(pose1=np.tile(first_cam_pose, (n_frames, 1)), pose2=cam_poses)
 
             # infer the egomotions (camera pose changes) from the camera poses:
             egomotions = np_func(infer_egomotions)(cam_poses)

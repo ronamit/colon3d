@@ -49,8 +49,8 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
-    save_overwrite=save_overwrite,
     limit_n_scenes= 1 if debug_mode else 0,
+    save_overwrite=save_overwrite,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -183,19 +183,18 @@ def calc_nav_aid_metrics(
 
     deg_err_thresh = 15  # [deg] the threshold for the angular error to consider a target as "detected"
 
-    # Transform to the camera system of each frame (according the estimated camera poses)
+    # Transform estimated target location (in the estimation world coordinates) to the est. camera system per frame.
     online_est_track_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
         tracks_world_locs=online_est_track_world_loc,
         cam_poses=est_cam_poses,
     )
 
-    # the targets are static in world system (same for all frames)
+    # The GT target location in the GT world system is static (same for all frames)
     n_frames_gt = gt_cam_poses.shape[0]
     gt_tracks_world_loc = [
         {track_id: gt_targets_info.points3d[track_id] for track_id in range(n_targets)} for _ in range(n_frames_gt)
     ]
-
-    # find their GT locations in the GT camera system per frame:
+    # Find the GT location in the camera system per frame
     gt_targets_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
         tracks_world_locs=gt_tracks_world_loc,
         cam_poses=gt_cam_poses,
