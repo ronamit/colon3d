@@ -350,10 +350,10 @@ class SimImporter:
         cam_trans *= self.UNITY_TO_MM
 
         # Change the camera transform from left-handed to right-handed coordinate system.
-
         # y <-> -y
         cam_trans[:, 1] *= -1
-        # # change the rotation accordingly: qy <-> -qy
+        
+        # change the rotation accordingly: qy <-> -qy
         cam_rot[:, 2] *= -1
 
         # ensure that the quaternion is unit

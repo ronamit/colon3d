@@ -112,12 +112,11 @@ def transform_rectilinear_image_norm_coords_to_pixel(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def transform_points_in_cam_sys_to_world_sys(
+def transform_points_in_cam_sys_to_world(
     points_3d_cam_sys: torch.Tensor,
     cam_poses: torch.Tensor,
 ) -> torch.Tensor:
     """Transforms points in 3D camera system to a 3D points in world coordinates.
-        Note that cam_poses is the the transformation from world to camera system.
     Args:
         points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
         cam_poses: [n_points x 7]  [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
@@ -128,22 +127,22 @@ def transform_points_in_cam_sys_to_world_sys(
     assert_same_sample_num((points_3d_cam_sys, cam_poses))
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
-    # get the inverse of the camera rotation : R^{-1}
-    inv_cam_rot = invert_rotation(cam_rot)
-    # apply the transform to the points : (R^{-1} @ point3d) + t
-    points_3d_world = cam_trans + rotate_points(points_3d_cam_sys, inv_cam_rot)
+    inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]  (unit-quaternion)
+    # get the translation from the camera location to the points, in the world system
+    cam_to_points_world = rotate_points(points_3d_cam_sys, inv_cam_rot)  # [n_points x 3]  (units: mm)
+    # get the points location in world system
+    points_3d_world = cam_trans + cam_to_points_world
     return points_3d_world
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def transform_points_in_world_sys_to_cam_sys(
+def transform_points_in_world_sys_to_cam(
     points_3d_world: torch.Tensor,
     cam_poses: torch.Tensor,
 ) -> torch.Tensor:
     """Transforms points in 3D world system to a 3D points in camera system coordinates.
-        Note that cam_poses is the the transformation from world to camera system.
     Args:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
         cam_poses: [n_points x 7]  [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
@@ -155,9 +154,10 @@ def transform_points_in_world_sys_to_cam_sys(
     assert_same_sample_num((points_3d_world, cam_poses))
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
-
-    # translate & rotate to camera system  R @ (point3d - t)
-    points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, cam_rot)
+    # get the translation from the camera location to the points, in the world system
+    cam_to_points_world = points_3d_world - cam_trans  # [n_points x 3]  (units: mm)
+    # get the points location in the camera system
+    points_3d_cam_sys = rotate_points(cam_to_points_world, cam_rot)
     return points_3d_cam_sys
 
 
@@ -182,7 +182,7 @@ def unproject_image_normalized_coord_to_world(
     cam_poses = assert_2d_tensor(cam_poses, 7)
     assert_same_sample_num((points_nrm, z_depths, cam_poses))
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)
-    points3d_world_sys = transform_points_in_cam_sys_to_world_sys(
+    points3d_world_sys = transform_points_in_cam_sys_to_world(
         points_3d_cam_sys=points3d_cam_sys,
         cam_poses=cam_poses,
     )
@@ -235,7 +235,7 @@ def project_world_to_image_normalized_coord(
     assert_same_sample_num((points3d_world, cam_poses))
 
     # Translate & rotate to camera system
-    points3d_cam_sys = transform_points_in_world_sys_to_cam_sys(
+    points3d_cam_sys = transform_points_in_world_sys_to_cam(
         points_3d_world=points3d_world,
         cam_poses=cam_poses,
     )
@@ -391,7 +391,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
     if cam_pose is None:
         return points3d_cam_sys
 
-    points3d_world_sys = np_func(transform_points_in_cam_sys_to_world_sys)(
+    points3d_world_sys = np_func(transform_points_in_cam_sys_to_world)(
         points_3d_cam_sys=points3d_cam_sys,
         cam_poses=np.tile(cam_pose, (n_pix, 1)),
     )
