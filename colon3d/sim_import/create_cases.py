@@ -14,7 +14,7 @@ from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg, create_empty
 from colon3d.utils.rotations_util import get_random_rot_quat
 from colon3d.utils.torch_util import np_func, to_default_type, to_numpy
 from colon3d.utils.transforms_util import compose_poses
-from colon3d.visuals.plots_2d import save_video_with_tracks
+from colon3d.visuals.plots_2d import save_frames_with_tracks, save_video_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -195,6 +195,7 @@ def generate_cases_from_scene(
     cases_params: dict,
     path_to_save_cases: Path,
     rng,
+    save_images_of_tracks: bool = False,
 ):
     print(f"Generating cases from scene {scene_path}")
 
@@ -290,11 +291,18 @@ def generate_cases_from_scene(
 
         # save video with the tracks bounding boxes (for visualization)
         save_video_with_tracks(
-            rgb_frames_path=case_path / "RGB_Frames",
+            frames_folder_path=case_path / "RGB_Frames",
             tracks=tracks,
             path_to_save=case_path / "Video_with_tracks",
             fps=fps,
         )
+        # save frames with the tracks bounding boxes (for visualization)
+        if save_images_of_tracks:
+            save_frames_with_tracks(
+                frames_folder_path=case_path / "RGB_Frames",
+                tracks=tracks,
+                path_to_save=case_path / "Frames_with_tracks",
+            )
     print("Done generating cases from scene", scene_path.name)
 
 

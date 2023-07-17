@@ -11,6 +11,7 @@ from colon3d.utils.data_util import RadialImageCropper, SceneLoader
 from colon3d.utils.general_util import (
     colors_platte,
     coord_to_cv2kp,
+    create_empty_folder,
     save_plot_and_close,
     save_video_from_frames_list,
     save_video_from_func,
@@ -39,14 +40,14 @@ def draw_kps(vis_frame, kps, color):
 
 def draw_track_box_on_frame(
     vis_frame,
-    cur_detect,
+    track,
     track_id: int,
     alg_view_cropper: RadialImageCropper | None = None,
     convert_from_alg_view_to_full=False,
     color=None,
 ):
-    top_left = (round(cur_detect["xmin"]), round(cur_detect["ymin"]))
-    bottom_right = (round(cur_detect["xmax"]), round(cur_detect["ymax"]))
+    top_left = (round(track["xmin"]), round(track["ymin"]))
+    bottom_right = (round(track["xmax"]), round(track["ymax"]))
     if alg_view_cropper is not None and convert_from_alg_view_to_full:
         top_left = alg_view_cropper.convert_coord_in_crop_to_full(point2d=top_left)
         bottom_right = alg_view_cropper.convert_coord_in_crop_to_full(point2d=bottom_right)
@@ -66,8 +67,8 @@ def draw_track_box_on_frame(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd.DataFrame, fps: float):
-    frames_paths = sorted(rgb_frames_path.glob("*.png"))
+def save_video_with_tracks(frames_folder_path: Path, path_to_save: Path, tracks: pd.DataFrame, fps: float):
+    frames_paths = sorted(frames_folder_path.glob("*.png"))
     n_frames = len(frames_paths)
 
     def get_frame_with_tracks(i_frame):
@@ -75,15 +76,37 @@ def save_video_with_tracks(rgb_frames_path: Path, path_to_save: Path, tracks: pd
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
-        for cur_detect in tracks_in_frame:
+        for track in tracks_in_frame:
             vis_frame = draw_track_box_on_frame(
                 vis_frame=vis_frame,
-                cur_detect=cur_detect,
-                track_id=cur_detect["track_id"],
+                track=track,
+                track_id=track["track_id"],
             )
         return vis_frame
 
     save_video_from_func(save_path=path_to_save, make_frame=get_frame_with_tracks, n_frames=n_frames, fps=fps)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def save_frames_with_tracks(frames_folder_path: Path, tracks: pd.DataFrame, path_to_save: Path):
+    frames_paths = sorted(frames_folder_path.glob("*.png"))
+    create_empty_folder(path_to_save)
+    n_frames = len(frames_paths)
+    for i_frame in range(n_frames):
+        tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
+        if tracks_in_frame:
+            frame = cv2.imread(str(frames_paths[i_frame]))
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            vis_frame = np.copy(frame)
+            for track in tracks_in_frame:
+                vis_frame = draw_track_box_on_frame(
+                    vis_frame=vis_frame,
+                    track=track,
+                    track_id=track["track_id"],
+                )
+            cv2.imwrite(str(path_to_save / f"{i_frame}.png"), cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR))
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -192,7 +215,7 @@ def draw_kp_on_img(
         cur_detect = curr_tracks[track_id]
         vis_frame = draw_track_box_on_frame(
             vis_frame=vis_frame,
-            cur_detect=cur_detect,
+            track=cur_detect,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
@@ -253,17 +276,17 @@ def draw_matches(
     img_A_vis = np.copy(img_A)
     img_B_vis = np.copy(img_B)
     # draw detections bounding boxes
-    for track_id, cur_detect in tracks_in_frameA.items():
+    for track_id, cur_track in tracks_in_frameA.items():
         img_A_vis = draw_track_box_on_frame(
             vis_frame=img_A_vis,
-            cur_detect=cur_detect,
+            track=cur_track,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
-    for track_id, cur_detect in tracks_in_frameB.items():
+    for track_id, cur_track in tracks_in_frameB.items():
         img_B_vis = draw_track_box_on_frame(
             vis_frame=img_B_vis,
-            cur_detect=cur_detect,
+            track=cur_track,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )

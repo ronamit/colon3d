@@ -19,7 +19,7 @@ from colon3d.utils.general_util import (
 )
 from colon3d.utils.rotations_util import normalize_quaternions
 from colon3d.utils.torch_util import np_func, to_default_type
-from colon3d.utils.transforms_util import get_pose_delta, infer_egomotions
+from colon3d.utils.transforms_util import compose_poses, get_identity_pose, infer_egomotions
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
@@ -156,7 +156,6 @@ class SimImporter:
             file_index += 1
 
         # extract the data from the captures
-
         rgb_frames_paths_per_scene = []  # list of lists
         depth_frames_paths_per_scene = []  # list of lists
         # list of lists of the camera translation per frame per scene, before changing to our format:
@@ -236,9 +235,14 @@ class SimImporter:
             )
 
             if self.world_sys_to_first_cam:
-                first_cam_pose = cam_poses[0]
-                # change the world system to the first camera system
-                cam_poses = np_func(get_pose_delta)(pose1=np.tile(first_cam_pose, (n_frames, 1)), pose2=cam_poses)
+                # infer the egomotions (camera pose changes) from the camera poses:
+                egomotions = np_func(infer_egomotions)(cam_poses)
+
+                # get the new camera poses, by composing the egomotions starting from identity pose:
+                cam_poses[0] = np_func(get_identity_pose)()
+
+                for i_frame in range(1, n_frames):
+                    cam_poses[i_frame] = np_func(compose_poses)(pose1=cam_poses[i_frame - 1], pose2=egomotions[i_frame])
 
             # infer the egomotions (camera pose changes) from the camera poses:
             egomotions = np_func(infer_egomotions)(cam_poses)
@@ -338,6 +342,9 @@ class SimImporter:
             raw_rot: a list of 4D rotation unit-quaternion in Unity units
         Returns:
             cam_poses: the camera-poses in out format, a numpy array with shape (N, 7) where N is the number of frames.
+        See also:
+        - https://gamedev.stackexchange.com/a/201978
+        - https://github.com/zsustc/colon_reconstruction_dataset
         """
 
         cam_trans = np.row_stack(raw_trans)
@@ -352,9 +359,12 @@ class SimImporter:
         # Change the camera transform from left-handed to right-handed coordinate system.
         # y <-> -y
         cam_trans[:, 1] *= -1
-        
+
         # change the rotation accordingly: qy <-> -qy
         cam_rot[:, 2] *= -1
+        
+        # change the rotation to direction (to comply with the right-handed coordinate system)
+        cam_rot[:, 1:] *= -1
 
         # ensure that the quaternion is unit
         cam_rot = np_func(normalize_quaternions)(cam_rot)
@@ -431,24 +441,5 @@ class SimImporter:
         return z_depth_frames, depth_info
 
     # --------------------------------------------------------------------------------------------------------------------
+ 
 
-
-def change_cam_transform_to_right_handed(cam_trans: np.ndarray, cam_rot: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Transforms the camera transform from left-handed to right-handed coordinate system.
-    Args:
-        cam_trans: (N, 3) array of camera translations
-        cam_rot: (N, 4) array of camera rotations (quaternions) in the format (qw, qx, qy, qz)
-    Notes:
-        see - https://gamedev.stackexchange.com/a/201978
-            - https://github.com/zsustc/colon_reconstruction_dataset
-    """
-    # y <-> -y
-    cam_trans[:, 1] *= -1
-    # # change the rotation accordingly: qy <-> -qy
-    cam_rot[:, 2] *= -1
-
-    return cam_trans, cam_rot
-
-
-# --------------------------------------------------------------------------------------------------------------------

@@ -221,19 +221,24 @@ class SlamAlgRunner:
         self.p3d_inds_in_frame.append(set())
         self.online_est_track_world_loc.append({})
 
-        #  guess of cam pose for current frame, based on the last estimate and the egomotion estimation
+        #  Guess the cam pose for current frame, based on the last estimate and the egomotion estimation
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
         if i_frame > 0:
-            # get the estimated 6DOF cam pose change from the previous frame (egomotion)
+            # Get the previous est. cam pose (w.r.t. the world system)
             prev_cam_pose = self.cam_poses[i_frame - 1, :]
+            # Get the estimated cam pose change from the previous frame to the current frame (egomotion) w.r.t. the previous frame
+            #  i.e., Egomotion_{i} = inv(Pose_{i-1}^{world}) @ Pose_i^{world}
             curr_egomotion_est = depth_estimator.get_egomotions_at_frame(
                 curr_frame_idx=i_frame,
             )
+            # Get the estimated cam pose for the current frame (w.r.t. the world system)
+            #  Pose_i^{world} = Pose_{i-1}^{world} @ Egomotion_{i}
             cur_guess_cam_pose = compose_poses(
-                pose1=prev_cam_pose.unsqueeze(0),
-                pose2=curr_egomotion_est.unsqueeze(0),
+                pose1=curr_egomotion_est.unsqueeze(0),
+                pose2=prev_cam_pose.unsqueeze(0),
             )
-            self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)  # extend the cam_poses tensor
+            # concat the current guess to the cam_poses tensor
+            self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)
 
         if use_bundle_adjustment:
             # in this case - we need to find KPs matches for the bundle adjustment

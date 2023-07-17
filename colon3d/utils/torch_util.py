@@ -132,6 +132,7 @@ def assert_2d_tensor(t: torch.Tensor, dim2: int):
         t = t.unsqueeze(0) # add the "number of samples" dimension
     assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
+    assert is_finite(t), "Tensor should be finite."
     return t
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -141,6 +142,7 @@ def assert_1d_tensor(t: torch.Tensor):
     if t.ndim == 0:
         t = t.unsqueeze(0) # add the "number of samples" dimension
     assert t.ndim == 1, "Tensor should be 1D."
+    assert is_finite(t), "Tensor should be finite."
     return t
     
 # --------------------------------------------------------------------------------------------------------------------

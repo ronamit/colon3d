@@ -6,7 +6,7 @@ from colon3d.utils.data_util import SceneLoader
 from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.torch_util import np_func, to_torch
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import compose_poses, get_identity_transform, get_pose_delta
+from colon3d.utils.transforms_util import compose_poses, get_identity_pose, get_pose_delta
 
 scene_path = Path("data/sim_data/TestData21_cases/Scene_00000_0000")
 
@@ -20,7 +20,7 @@ depth_estimator = DepthAndEgoMotionLoader(
 n_frames = scene_loader.n_frames
 
 # initial the cam_pose to be the unit pose
-cum_pose = get_identity_transform()
+cum_pose = get_identity_pose()
 for i in range(n_frames):
     egomotion = depth_estimator.get_egomotions_at_frame(i)
     cum_pose = compose_poses(pose1=cum_pose, pose2=egomotion)
@@ -45,7 +45,7 @@ print("err=\n", err)
 
 
 # initial the cam_pose to be the unit pose
-cum_pose2 = get_identity_transform()
+cum_pose2 = get_identity_pose()
 for i in range(n_frames):
     egomotion = gt_egomotions[i]
     cum_pose2 = compose_poses(pose1=cum_pose2, pose2=egomotion)

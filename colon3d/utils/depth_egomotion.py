@@ -119,7 +119,7 @@ class DepthAndEgoMotionLoader:
 
     # --------------------------------------------------------------------------------------------------------------------
     def process_new_frame(self, i_frame: int, cur_rgb_frame: np.ndarray, prev_rgb_frame: np.ndarray):
-        """Process the current frame and add the estimated depth map to the buffer.
+        """Process the current frame and add the estimated depth map and to the buffer.
         If the previous frame is also given, then the egomotion will be estimated and added to the buffer.
         """
         if self.depth_maps_source == "none" or i_frame in self.depth_maps_buffer_frame_inds:
@@ -148,10 +148,10 @@ class DepthAndEgoMotionLoader:
         frame_idx: int,
         rgb_frame: np.ndarray | None = None,
     ):
-        """Get the depth estimation at a given frame.
+        """Get the estimated z-depth map at a given frame.
         Notes: we assume process_new_frame was called before this function on this frame index.
         Returns:
-            depth_map: the depth estimation map (units: mm)
+            depth_map: the depth estimation map [width x height] (units: mm)
         """
         if self.depth_maps_source == "none":
             # return the default depth map
@@ -172,7 +172,7 @@ class DepthAndEgoMotionLoader:
         prev_rgb_frame: np.ndarray | None = None,
     ) -> torch.Tensor:
         """Get the egomotion at a given frame.
-        The egomotion is the 6-DOF current camera pose w.r.t. the previous camera pose.
+        The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
         The egomotion is represented as a 7D vector: (x, y, z, q0, qx, qy, qz)
         x,y,z are the translation in mm.
         The quaternion (q0, qx, qy, qz) represents the rotation.
@@ -458,6 +458,7 @@ class EgomotionModel:
 
     def estimate_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
         """Estimate the 6DOF egomotion from the from image to to image.
+            The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
         Args:
             from_imgs: the 'from' images (target) [N x 3 x H x W] where N is the number of image pairs
             to_imgs: the corresponding 'to' images  (reference) [N X 3 x H x W]
@@ -485,7 +486,9 @@ class EgomotionModel:
     # --------------------------------------------------------------------------------------------------------------------
 
     def estimate_egomotion(self, prev_frame: np.ndarray, curr_frame: np.ndarray):
-        """Estimate the 6DOF egomotion from the previous frame to the current frame."""
+        """Estimate the 6DOF egomotion from the previous frame to the current frame.
+            The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
+        """
         assert prev_frame.ndim == 3
         assert curr_frame.ndim == 3
         egomotion = self.estimate_egomotions(

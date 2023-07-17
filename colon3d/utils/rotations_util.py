@@ -39,7 +39,8 @@ def get_identity_quaternion() -> torch.Tensor:
 # --------------------------------------------------------------------------------------------------------------------
 # @torch.jit.script  # disable this for debugging
 def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """Multiply two unit-quaternions.  Usual torch rules for broadcasting apply.
+    """Multiply two unit-quaternions. output = a * b.
+    Usual torch rules for broadcasting apply.
     Args:
         a: Quaternions as tensor of shape (..., 4), real part first.
         b: Quaternions as tensor of shape (..., 4), real part first.
@@ -81,6 +82,7 @@ def quaternion_raw_multiply(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 def compose_rotations(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
     """composes two rotations  into a single rotation (both are given in the same coordinate system)
+        I.e., if R1 and R2 are the rotation matrices corresponding to rot1 and rot2, then we compute R_tot = R2 @ R1
     Args:
         start_rot: [n x 4] unit-quaternions (real part first).
         rot_change:  [n x 4] unit-quaternions (real part first).
@@ -100,6 +102,7 @@ def compose_rotations(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
 
 def find_rotation_delta(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
     """Find the rotation that needs to be applied after rot1 to get in total the rotation rot2.
+        I.e., if R1 and R2 are the rotation matrices corresponding to rot1 and rot2, then we compute R2 = R_delta @ R1
     Args:
         rot1:  rotation as a tensor of shape (..., 4), given as unit-quaternions with real part first.
         rot2:   rotation as a tensor of shape (..., 4),given as unit-quaternions with real part first.
@@ -108,7 +111,6 @@ def find_rotation_delta(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
     """
 
     rot_delta = compose_rotations(rot1=invert_rotation(rot1), rot2=rot2)
-    rot_delta = normalize_quaternions(rot_delta)  # normalize to unit quaternion (to avoid numerical errors)
     return rot_delta
 
 
@@ -116,7 +118,7 @@ def find_rotation_delta(rot1: torch.Tensor, rot2: torch.Tensor) -> torch.Tensor:
 # @torch.jit.script  # disable this for debugging
 def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     """Given a quaternion representing rotation, get the quaternion representing its inverse.
-
+        I.e., if R is the rotation matrix corresponding to a quaternion q, then we compute R.T == R.inv()
     Args:
         quaternion: Quaternions as tensor of shape (..., 4), with real part
             first, which must be versors (unit quaternions).
@@ -127,42 +129,13 @@ def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     scaling = torch.tensor([1, -1, -1, -1], device=quaternion.device)
     return quaternion * scaling
 
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-# @torch.jit.script  # disable this for debugging
-def quaternion_apply(quaternion: torch.Tensor, point: torch.Tensor) -> torch.Tensor:
-    """
-    Apply the rotation given by a quaternion to a 3D point.
-    Usual torch rules for broadcasting apply.
-    Note that we use "passive rotation", i.e. the rotation is applied to the coordinate system.
-    Args:
-        quaternion: Tensor of quaternions, real part first, of shape (..., 4).
-        point: Tensor of 3D points of shape (..., 3).
-    Returns:
-        Tensor of rotated points of shape (..., 3).
-    References:
-                https://github.com/facebookresearch/pytorch3d/blob/main/pytorch3d/transforms/rotation_conversions.py
-                https://gamedev.stackexchange.com/questions/28395/rotating-vector3-by-a-quaternion
-    """
-    assert point.size(-1) == 3, f"Points are not in 3D, {point.shape}."
-    assert quaternion.size(-1) == 4, f"Quaternions are not in 4D, {quaternion.shape}."
-    real_parts = point.new_zeros(point.shape[:-1] + (1,))
-    point_as_quaternion = torch.cat((real_parts, point), -1)
-    out = quaternion_raw_multiply(
-        quaternion_raw_multiply(quaternion, point_as_quaternion),
-        invert_rotation(quaternion),
-    )
-    return out[..., 1:]
-
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
 # @torch.jit.script  # disable this for debugging
 def rotate_points(points3d: torch.Tensor, rot_vecs: torch.Tensor):
     """Rotate points by given unit-quaternion rotation vectors.
+        I.e., if R is the rotation matrix corresponding to a quaternion q, then we compute R @ point
     Args:
         points3d (torch.Tensor): [n_points x 3] each row is  (x, y, z) coordinates of a point to be rotated.
         rot_vecs (torch.Tensor): [n_points x 4] each row is the unit-quaternion of the rotation (q0, qx, qy, qz).

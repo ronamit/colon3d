@@ -12,7 +12,7 @@ from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close
 from colon3d.utils.torch_util import np_func, to_default_type
 from colon3d.utils.tracks_util import DetectionsTracker
-from colon3d.utils.transforms_util import get_frame_point_cloud, transform_points_in_world_sys_to_cam
+from colon3d.utils.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 from colon3d.visuals.plots_2d import draw_track_box_on_frame
 
@@ -119,13 +119,13 @@ def main():
                 gt_targets_info = pickle.load(file)
             target_index = 0  # we are plotting only one target
             target_p3d_world = gt_targets_info.points3d[target_index]
-            target_p3d_cam = np_func(transform_points_in_world_sys_to_cam)(target_p3d_world, cam_pose).squeeze()
+            target_p3d_cam = np_func(transform_points_world_to_cam)(target_p3d_world, cam_pose).squeeze()
             target_radius = gt_targets_info.radiuses[target_index]
             tracks_in_frame = detections_tracker.get_tracks_in_frame(frame_idx)
-            for track_id, cur_detect in tracks_in_frame.items():
+            for track_id, cur_track in tracks_in_frame.items():
                 bgr_frame = draw_track_box_on_frame(
                     vis_frame=bgr_frame,
-                    cur_detect=cur_detect,
+                    track=cur_track,
                     track_id=track_id,
                 )
             # save the color frame with the detections

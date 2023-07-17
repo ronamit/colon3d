@@ -1,7 +1,11 @@
+"""Utility functions for transforming points between different coordinate systems.
+    * see background material here: https://www.tu-chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf
+"""
 import numpy as np
 import torch
 
 from colon3d.utils.camera_info import CamInfo
+from colon3d.utils.general_util import to_str
 from colon3d.utils.rotations_util import (
     compose_rotations,
     get_identity_quaternion,
@@ -22,7 +26,7 @@ from colon3d.utils.torch_util import (
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_identity_transform():
+def get_identity_pose():
     """Returns the identity pose transform (no change)"""
     return torch.cat((torch.zeros(3), get_identity_quaternion()), dim=0).to(get_default_dtype()).to(get_device())
 
@@ -112,14 +116,16 @@ def transform_rectilinear_image_norm_coords_to_pixel(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def transform_points_in_cam_sys_to_world(
+def transform_points_cam_to_world(
     points_3d_cam_sys: torch.Tensor,
     cam_poses: torch.Tensor,
 ) -> torch.Tensor:
     """Transforms points in 3D camera system to a 3D points in world coordinates.
     Args:
-        points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
-        cam_poses: [n_points x 7]  [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+        points_3d_world_sys: [n x 3]  (units: mm) 3D points in camera system.
+        cam_poses: [n x 7], each row is the camera pose w.r.t world system (x, y, z, q0, qx, qy, qz) where
+            described by (x, y, z) = translation from world origin to cam location [mm]
+            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from world to cam.
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
     """
@@ -127,37 +133,36 @@ def transform_points_in_cam_sys_to_world(
     assert_same_sample_num((points_3d_cam_sys, cam_poses))
     cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
     cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
-    inv_cam_rot = invert_rotation(cam_rot)  # [n_points x 4]  (unit-quaternion)
-    # get the translation from the camera location to the points, in the world system
-    cam_to_points_world = rotate_points(points_3d_cam_sys, inv_cam_rot)  # [n_points x 3]  (units: mm)
-    # get the points location in world system
-    points_3d_world = cam_trans + cam_to_points_world
+    # transform the points from camera system to world system
+    points_3d_world = rotate_points(points_3d_cam_sys, cam_rot) + cam_trans  # [n_points x 3]  (units: mm)
     return points_3d_world
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def transform_points_in_world_sys_to_cam(
+def transform_points_world_to_cam(
     points_3d_world: torch.Tensor,
     cam_poses: torch.Tensor,
 ) -> torch.Tensor:
     """Transforms points in 3D world system to a 3D points in camera system coordinates.
     Args:
-        points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
-        cam_poses: [n_points x 7]  [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+        points_3d_world_sys: [n x 3]  (units: mm) 3D points in world coordinates.
+        cam_poses: [n x 7], each row is the camera pose w.r.t world system (x, y, z, q0, qx, qy, qz) where
+            described by (x, y, z) = translation from world origin to cam location [mm]
+            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from world to cam.
     Returns:
-        points_3d_cam_sys: [n_points x 3]  (units: mm) 3D points in camera system coordinates
+        points_3d_cam_sys: [n x 3]  (units: mm) 3D points in camera system coordinates
     """
     points_3d_world = assert_2d_tensor(points_3d_world, 3)
     cam_poses = assert_2d_tensor(cam_poses, 7)
     assert_same_sample_num((points_3d_world, cam_poses))
-    cam_trans = cam_poses[:, 0:3]  # [n_points x 3] (units: mm)
-    cam_rot = cam_poses[:, 3:7]  # [n_points x 4]  (unit-quaternion)
-    # get the translation from the camera location to the points, in the world system
-    cam_to_points_world = points_3d_world - cam_trans  # [n_points x 3]  (units: mm)
-    # get the points location in the camera system
-    points_3d_cam_sys = rotate_points(cam_to_points_world, cam_rot)
+    cam_trans = cam_poses[:, 0:3]  # [n x 3] (units: mm)
+    cam_rot = cam_poses[:, 3:7]  # [n x 4]  (unit-quaternion)
+    # get the inverse of the rotation from world to cam:
+    inv_cam_rot = invert_rotation(cam_rot)  # [n x 4]  (unit-quaternion)
+    # transform the points from world system to camera system
+    points_3d_cam_sys = rotate_points(points_3d_world - cam_trans, inv_cam_rot)
     return points_3d_cam_sys
 
 
@@ -182,7 +187,7 @@ def unproject_image_normalized_coord_to_world(
     cam_poses = assert_2d_tensor(cam_poses, 7)
     assert_same_sample_num((points_nrm, z_depths, cam_poses))
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)
-    points3d_world_sys = transform_points_in_cam_sys_to_world(
+    points3d_world_sys = transform_points_cam_to_world(
         points_3d_cam_sys=points3d_cam_sys,
         cam_poses=cam_poses,
     )
@@ -235,7 +240,7 @@ def project_world_to_image_normalized_coord(
     assert_same_sample_num((points3d_world, cam_poses))
 
     # Translate & rotate to camera system
-    points3d_cam_sys = transform_points_in_world_sys_to_cam(
+    points3d_cam_sys = transform_points_world_to_cam(
         points_3d_world=points3d_world,
         cam_poses=cam_poses,
     )
@@ -277,10 +282,11 @@ def compose_poses(
     pose1: torch.Tensor,
     pose2: torch.Tensor,
 ) -> torch.Tensor:
-    """Composes two pose transform (pose1 applied first, then pose2) to a single equivalent pose transform (both are given in the same coordinate system)
+    """Composes two pose transform (pose1 applied first, then pose2) to a single equivalent pose transform (both are given in the same *fixed* coordinate system)
         We assume the transformation is applied in the following order:
-        If Pose1 = [R1 | t1] and PoseChange = [R2 | t2] [in 4x4 matrix format],
-        then the final pose is Pose2 = [R2 @ R1 | R2 @ t1 + t2]
+        If Pose1 = [R1 | t1] and Pose2 = [R2 | t2] [in 4x4 matrix format],
+        then the OutputPose := Pose2 @ Pose1  = [R2 @ R1 | R2 @ t1 + t2] [in 4x4 matrix format]
+        * the result is given in the same coordinate system as Pose1 and Pose2
     Args:
         pose1: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
         pose2: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
@@ -312,7 +318,7 @@ def get_inverse_pose(
     pose: torch.Tensor,
 ) -> torch.Tensor:
     """Returns the inverse pose of a given pose. (both are given in the same coordinate system)
-        If Pose = [R | t] [in 4x4 matrix format], then the inverse pose  [R^{-1} | -R^{-1} @ t]
+        If Pose = [R | t] [in 4x4 matrix format], then the inverse pose  [R^{-1} | -R^{-1} @ t] [in 4x4 matrix format]
     Args:
         pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     Returns:
@@ -337,9 +343,11 @@ def get_pose_delta(
     pose2: torch.Tensor,
 ) -> torch.Tensor:
     """Finds the pose that when applied after pose1 gives in total the transform of pose2. (both are given in the same coordinate system).
-        If  Pose1 = [R1 | t1] and Pose2 = [R2 | t2]  [in 4x4 matrix format],
-        then the pose_delta is given by:
-        PoseDelta = Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
+        If Pose1 = [R1 | t1] and Pose2 = [R2 | t2]  [in 4x4 matrix format],
+        then output is given by:
+        PoseDelta := Pose2 @ (Pose1)^(-1)
+        = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
+        * the output is also given in the same coordinate system as Pose1 and Pose2
     Args:
         pose1: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
         pose2: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
@@ -370,7 +378,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
         points3d: [n_points x 3]  (units: mm)
     """
     if cam_pose is None:
-        cam_pose = np_func(get_identity_transform)()
+        cam_pose = np_func(get_identity_pose)()
 
     frame_width, frame_height = z_depth_frame.shape
     n_pix = frame_width * frame_height
@@ -391,7 +399,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
     if cam_pose is None:
         return points3d_cam_sys
 
-    points3d_world_sys = np_func(transform_points_in_cam_sys_to_world)(
+    points3d_world_sys = np_func(transform_points_cam_to_world)(
         points_3d_cam_sys=points3d_cam_sys,
         cam_poses=np.tile(cam_pose, (n_pix, 1)),
     )
@@ -402,24 +410,33 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
 
 
 def infer_egomotions(cam_poses: torch.Tensor):
-    """infer the egomotions from the previous and current camera poses
+    """
+    Given a sequence of camera poses (w.r.t the world system) derives the corresponding sequence of egomotions.
+    The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
     Args:
-        cam_poses (torch.Tensor): [n_frames x 7] each row is the camera pose (x, y, z, q0, qx, qy, qz).
+        cam_poses (torch.Tensor): [n x 7] each row is the camera pose w.r.t. the world system at each frame.(x, y, z, q0, qx, qy, qz)
     Returns:
-        egomotions (torch.Tensor): [n_frames x 7] each row is the camera egomotion (pose change) (x, y, z, q0, qx, qy, qz).
+        egomotions (torch.Tensor): [n x 7] each row is the camera egomotion (pose change) at frame i (x, y, z, q0, qx, qy, qz)
+
+    Notes:
+        - The first egomotion is set to be NaN.
+        - Denote the input as Pose_0^{world}, Pose_1^{world}, ..., Pose_n^{world}.
+        The motion from {i-1} to {i}, described in the world system, is  MotionInWorld_i := Pose_i^{world}  @ inv(Pose_{i-1}^{world})
+        to describe this motion in the {i-1} system, we need to transform it to the {i-1} system:
+        Egomotion_{i} :=  inv(Pose_{i-1}^{world}) @  MotionInWorld_i  @ Pose_{i-1}^{world}
+                    =  inv(Pose_{i-1}^{world}) @ Pose_i^{world}  @ inv(Pose_{i-1}^{world}) @ Pose_{i-1}^{world}
+                    =  inv(Pose_{i-1}^{world}) @ Pose_i^{world}
     """
     cam_poses = assert_2d_tensor(cam_poses, 7)
-    prev_poses = cam_poses[:-1, :]
-    cur_poses = cam_poses[1:, :]
+    prev_poses = cam_poses[:-1, :]  # [n-1 x 7]
+    cur_poses = cam_poses[1:, :]  # [n-1 x 7]
+    inv_prev_poses = get_inverse_pose(prev_poses)  # [n-1 x 7]
 
-    poses_changes = get_pose_delta(pose1=prev_poses, pose2=cur_poses)
-
-    # set the first egomotion to be the identity rotation and zero translation:
-    egomotions = torch.zeros_like(cam_poses)
-    egomotions[0, :3] = 0
-    egomotions[0, 3:] = get_identity_quaternion()
+    # set the first egomotion to be NaN:
+    egomotions = torch.ones_like(cam_poses) * np.nan  # [n x 7]
     # set the rest of the egomotions:
-    egomotions[1:, :] = poses_changes
+    # inv(Pose_{i-1}^{world}) @ Pose_i^{world}
+    egomotions[1:, :] = compose_poses(pose1=cur_poses, pose2=inv_prev_poses)
     return egomotions
 
 
@@ -494,66 +511,8 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
-    """
-    Convert rotations given as quaternions to rotation matrices.
-
-    Args:
-        quaternions: quaternions with real part first,
-            as tensor of shape (..., 4).
-
-    Returns:
-        Rotation matrices as tensor of shape (..., 3, 3).
-    """
-    """
-The transformation matrices returned from the functions in this file assume
-the points on which the transformation will be applied are column vectors.
-i.e. the R matrix is structured as
-
-    R = [
-            [Rxx, Rxy, Rxz],
-            [Ryx, Ryy, Ryz],
-            [Rzx, Rzy, Rzz],
-        ]  # (3, 3)
-
-This matrix can be applied to column vectors by post multiplication
-by the points e.g.
-
-    points = [[0], [1], [2]]  # (3 x 1) xyz coordinates of a point
-    transformed_points = R * points
-
-To apply the same matrix to points which are row vectors, the R matrix
-can be transposed and pre multiplied by the points:
-
-e.g.
-    points = [[0, 1, 2]]  # (1 x 3) xyz coordinates of a point
-    transformed_points = points * R.transpose(1, 0)
-"""
-    r, i, j, k = torch.unbind(quaternions, -1)
-    # pyre-fixme[58]: `/` is not supported for operand types `float` and `Tensor`.
-    two_s = 2.0 / (quaternions * quaternions).sum(-1)
-
-    o = torch.stack(
-        (
-            1 - two_s * (j * j + k * k),
-            two_s * (i * j - k * r),
-            two_s * (i * k + j * r),
-            two_s * (i * j + k * r),
-            1 - two_s * (i * i + k * k),
-            two_s * (j * k - i * r),
-            two_s * (i * k - j * r),
-            two_s * (j * k + i * r),
-            1 - two_s * (i * i + j * j),
-        ),
-        -1,
-    )
-    return o.reshape(quaternions.shape[:-1] + (3, 3))
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
 def main():
+    """Main function for testing."""
     # set random seed:
     torch.manual_seed(0)
 
@@ -564,25 +523,25 @@ def main():
     print("original poses:")
     for i in range(n):
         poses[i, 3:] = normalize_quaternions(poses[i, 3:])
-        print("i=", i, "loc=", poses[i, :3], "rot=", poses[i, 3:])
+        print("i=", i, "loc=", to_str(poses[i, :3]), "rot=", to_str(poses[i, 3:]))
 
     #  infer_egomotions:
     egomotions = infer_egomotions(cam_poses=poses)
     print("egomotions:")
     for i in range(n):
-        print("i=", i, "egomotion loc.=", egomotions[i, :3], " rot.=", egomotions[i, 3:])
+        print("i=", i, "egomotion loc.=", to_str(egomotions[i, :3]), " rot.=", to_str(egomotions[i, 3:]))
 
     # Reconstruct the camera poses from the egomotions:
     poses_rec = torch.zeros_like(poses)
-    poses_rec[0, 3:] = get_identity_quaternion()
+    poses_rec[0] = poses[0]
     for i in range(1, n):
         poses_rec[i, :] = compose_poses(
-            pose1=poses_rec[i - 1, :].unsqueeze(0),
-            pose2=egomotions[i, :].unsqueeze(0),
+            pose1=egomotions[i, :].unsqueeze(0),
+            pose2=poses_rec[i - 1, :].unsqueeze(0),
         )
     print("reconstructed poses:")
     for i in range(n):
-        print("i=", i, "rec. loc=", poses_rec[i, :3], "rot=", poses_rec[i, 3:])
+        print("i=", i, "rec. loc=", to_str(poses_rec[i, :3]), "rot=", to_str(poses_rec[i, 3:]))
 
     # Find rigid transform that aligns the reconstructed poses with the original poses:
     rigid_align = find_rigid_registration(poses1=poses_rec, poses2=poses)
@@ -596,7 +555,7 @@ def main():
 
     # print the results:
     for i in range(n):
-        print("i=", i, "rec. align. loc=", poses_rec_aligned[i, :3], "rot=", poses_rec_aligned[i, 3:])
+        print("i=", i, "rec. align. loc=", to_str(poses_rec_aligned[i, :3]), "rot=", to_str(poses_rec_aligned[i, 3:]))
 
 
 # --------------------------------------------------------------------------------------------------------------------

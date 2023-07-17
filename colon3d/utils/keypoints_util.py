@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from colon3d.utils.torch_util import get_default_dtype
-from colon3d.utils.transforms_util import transform_points_in_world_sys_to_cam
+from colon3d.utils.transforms_util import transform_points_world_to_cam
 
 np_dtype = get_default_dtype("numpy")
 # --------------------------------------------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
         cam_pose = cam_poses[i_frame]
         for track_id, track_world_p3d in tracks_world_locs[i_frame].items():
             # Rotate & translate to camera view (of the current frame camera pose)
-            track_cam_p3d = transform_points_in_world_sys_to_cam(
+            track_cam_p3d = transform_points_world_to_cam(
                 points_3d_world=track_world_p3d,
                 cam_poses=cam_pose,
             )
