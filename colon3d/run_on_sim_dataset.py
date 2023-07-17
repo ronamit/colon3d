@@ -4,10 +4,15 @@ from pathlib import Path
 import attrs
 import numpy as np
 import pandas as pd
-import ray
 
 from colon3d.run_on_sim_scene import run_slam_on_scene
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str
+from colon3d.utils.general_util import (
+    ArgsHelpFormatter,
+    Tee,
+    bool_arg,
+    create_empty_folder,
+    get_time_now_str,
+)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -82,12 +87,6 @@ def main():
         default=True,
         help="If True then the save folder will be overwritten if it already exists",
     )
-    parser.add_argument(
-        "--run_parallel",
-        type=bool_arg,
-        default=False,
-        help="If True then the scenes will be processed in parallel",
-    )
 
     args = parser.parse_args()
 
@@ -102,7 +101,6 @@ def main():
         n_frames_lim=args.n_frames_lim,
         n_cases_lim=args.n_cases_lim,
         save_overwrite=args.save_overwrite,
-        run_parallel=args.run_parallel,
     )
 
     slam_on_dataset_runner.run()
@@ -124,7 +122,6 @@ class SlamOnDatasetRunner:
     n_cases_lim: int = 0
     use_bundle_adjustment: bool = True
     save_overwrite: bool = True
-    run_parallel: bool = True
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -176,21 +173,10 @@ class SlamOnDatasetRunner:
                 return metrics_stats
 
             # ------------------------------------------------------------------------
-            if self.run_parallel:
-                ray.init(ignore_reinit_error=True)
 
-                @ray.remote(num_gpus=1)
-                def run_on_case_wrapper(i_case):
-                    return run_on_case(i_case)
-
-                # gather the results from all cases in a single table
-                futures = [run_on_case_wrapper.remote(i_case) for i_case in range(n_cases)]
-                metrics_stats_all = ray.get(futures)
-                ray.shutdown()
-            else:
-                metrics_stats_all = []
-                for i_case in range(n_cases):
-                    metrics_stats_all.append(run_on_case(i_case))
+            metrics_stats_all = []
+            for i_case in range(n_cases):
+                metrics_stats_all.append(run_on_case(i_case))
 
             metrics_table = pd.DataFrame()
             for i_case in range(n_cases):

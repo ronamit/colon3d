@@ -453,6 +453,7 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
     Returns:
         rigid_align: the rigid registration that aligns poses1 to poses2.
     Notes:
+        - all poses are in the same coordinate system.
     """
 
     if method == "first_frame":

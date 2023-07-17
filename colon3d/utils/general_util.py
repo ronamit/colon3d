@@ -17,15 +17,17 @@ from torch.backends import cudnn
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 def bool_arg(v):
     # from https://stackoverflow.com/questions/60999816/argparse-not-parsing-boolean-arguments
     if isinstance(v, bool):
         return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if v.lower() in ("yes", "true", "t", "y", "1"):
         return True
-    if v.lower() in ('no', 'false', 'f', 'n', '0'):
+    if v.lower() in ("no", "false", "f", "n", "0"):
         return False
-    raise argparse.ArgumentTypeError('Boolean value expected.')
+    raise argparse.ArgumentTypeError("Boolean value expected.")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 def val_to_yaml_format(v):
@@ -34,6 +36,7 @@ def val_to_yaml_format(v):
     if isinstance(v, np.float64 | np.float32):
         return float(v)
     return v
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 def save_dict_to_yaml(save_path: Path, dict_to_save: dict):
@@ -444,7 +447,4 @@ def to_str(a):
     return str(a)
 
 
-# --------------------------------------------------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------

@@ -16,12 +16,6 @@ parser.add_argument(
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
-    "--run_parallel" ,
-    type=bool_arg,
-    help="If true, ray will run in local mode (single process) - useful for debugging",
-    default=False,
-)
-parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
@@ -29,9 +23,8 @@ parser.add_argument(
 )
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
-run_parallel = args.run_parallel
 debug_mode = args.debug_mode
-print(f"save_overwrite={save_overwrite}, run_parallel={run_parallel}, debug_mode={debug_mode}")
+print(f"save_overwrite={save_overwrite}, debug_mode={debug_mode}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility
@@ -54,7 +47,7 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
-    limit_n_scenes= 1 if debug_mode else 0,
+    limit_n_scenes=1 if debug_mode else 0,
     save_overwrite=save_overwrite,
 ).run()
 
@@ -68,7 +61,6 @@ CasesCreator(
     n_cases_per_scene=1 if debug_mode else default_n_cases_per_scene,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
-    run_parallel=run_parallel,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -81,8 +73,7 @@ common_args = {
     "n_frames_lim": 0,
     "n_cases_lim": 1 if debug_mode else 0,
     "save_overwrite": save_overwrite,
-    "run_parallel": run_parallel,
-    }
+}
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth depth maps and egomotions - without bundle adjustment
 SlamOnDatasetRunner(
