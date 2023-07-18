@@ -125,6 +125,6 @@ ignore = ["E501", # line too long (let Black handle this)
           "NPY002", # Replace legacy `np.random.seed` call with `np.random.Generator`
           "N999", # Invalid module name
           "C419", # Unnecessary list comprehension 
-          "UP038" 
+          "PLR0911", # Too many return statements
 ]
 

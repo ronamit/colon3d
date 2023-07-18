@@ -24,7 +24,7 @@ def get_default_dtype(package="torch", num_type="float"):
             return torch.float64
         if num_type == "float_m":
             # the precision for depth maps
-            return torch.float64
+            return torch.float32
         if num_type == "int":
             return torch.int32
         raise ValueError(f"Unknown num_type: {num_type}")
@@ -33,7 +33,7 @@ def get_default_dtype(package="torch", num_type="float"):
             return np.float64
         if num_type == "float_m":
         # the precision for depth maps
-            return np.float64
+            return np.float32
         if num_type == "int":
             return np.int32
         raise ValueError(f"Unknown num_type: {num_type}")
