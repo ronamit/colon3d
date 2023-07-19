@@ -197,7 +197,7 @@ def compute_depths(
     for i in range(n_frames):
         rgb_frame = scene_loader.get_frame_at_index(frame_idx=i)
         depth_map = depth_loader.get_depth_map_at_frame(frame_idx=i, rgb_frame=rgb_frame)
-        depth_map = to_numpy(depth_map)
+        depth_map = to_numpy(depth_map, num_type="float_m")
         all_frames_avg_depth[i] = np.mean(depth_map)
     scene_avg_depth = np.mean(all_frames_avg_depth)
     return scene_avg_depth

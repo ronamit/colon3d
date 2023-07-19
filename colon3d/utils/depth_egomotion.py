@@ -309,7 +309,7 @@ def imgs_to_net_in(
 
     # transform to channels first
     imgs = np.transpose(imgs, (0, 3, 1, 2))
-    imgs = to_torch(imgs, device=device, dtype=dtype)
+    imgs = to_torch(imgs, device=device).to(dtype=dtype)
     # normalize the images to fit the pre-trained weights (based on https://github.com/CapsuleEndoscope/EndoSLAM/blob/master/EndoSfMLearner/run_inference.py)
     imgs = (imgs / 255 - 0.45) / 0.225
     return imgs
@@ -371,7 +371,7 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float64
+        self.dtype = torch.float32 # the network was trained with float32
         weights = torch.load(self.disp_net_path)
         self.disp_net = DispResNet(self.resnet_layers, pretrained=True).to(self.device)
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)

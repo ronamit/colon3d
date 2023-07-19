@@ -18,7 +18,8 @@ def get_device(gpu_id: int = 0):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_default_dtype(package="torch", num_type="float"):
+def get_default_dtype(package="torch", num_type=None):
+    num_type = num_type or "float"
     if package == "torch":
         if num_type == "float":
             return torch.float64
@@ -45,18 +46,17 @@ def get_default_dtype(package="torch", num_type="float"):
 
 def to_default_type(x, num_type="float"):
     if isinstance(x, torch.Tensor):
-        return to_torch(x, dtype=get_default_dtype("torch", num_type=num_type))
+        return to_torch(x, num_type=num_type)
     if isinstance(x, np.ndarray):
-        return to_numpy(x, dtype=get_default_dtype("numpy", num_type=num_type))
+        return to_numpy(x, num_type=num_type)
     return x
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_numpy(x, dtype=None):
-    if dtype is None:
-        dtype = get_default_dtype("numpy")
+def to_numpy(x, num_type=None):
+    dtype = get_default_dtype("numpy", num_type)
     if isinstance(x, np.ndarray):
         return x.astype(dtype)
     if isinstance(x, dict):
@@ -71,8 +71,8 @@ def to_numpy(x, dtype=None):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_torch(x, dtype=None, device=None):
-    dtype = dtype or get_default_dtype("torch")
+def to_torch(x, num_type=None, device=None):
+    dtype = get_default_dtype("torch", num_type)
     device = device or get_device()
     if isinstance(x, torch.Tensor):
         return x.to(dtype)
@@ -88,27 +88,12 @@ def to_torch(x, dtype=None, device=None):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def from_numpy(x):
-    dtype = get_default_dtype("torch")
-    device = get_device()
-    if isinstance(x, dict):
-        return {k: from_numpy(v) for k, v in x.items()}
-    if isinstance(x, list):
-        return [from_numpy(v) for v in x]
-    if isinstance(x, torch.Tensor):
-        return x.to(dtype).to(device)
-    return torch.from_numpy(x).to(dtype).to(device)
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
 def np_func(func):
     """Decorator that chttps://beta.ruff.rs/docs/rules/unnecessary-comprehension-any-allonverts all Numpy arrays to PyTorch tensors before calling the function and converts the result back to Numpy array."""
 
     def wrapper(*args, **kwargs):
-        args = [from_numpy(x) for x in args]
-        kwargs = {k: from_numpy(v) for k, v in kwargs.items()}
+        args = [to_torch(x) for x in args]
+        kwargs = {k: to_torch(v) for k, v in kwargs.items()}
         result = func(*args, **kwargs)
         return to_numpy(result)
 

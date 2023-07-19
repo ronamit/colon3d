@@ -52,7 +52,7 @@ def plot_world_sys_per_frame(
 
     if show_salient_kps:
         for i_step, i_frame in enumerate(frame_inds):
-            salient_kps = to_numpy(online_est_salient_kp_world_loc[i_frame], dtype=np.float16)
+            salient_kps = to_numpy(online_est_salient_kp_world_loc[i_frame]).astype(np.float32)
             if salient_kps.shape[0] == 0:
                 continue
             per_step_objs_lists[i_step].append(

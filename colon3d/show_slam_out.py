@@ -5,7 +5,7 @@ from pathlib import Path
 from colon3d.slam.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.utils.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
 from colon3d.utils.keypoints_util import transform_tracks_points_to_cam_frame
-from colon3d.utils.torch_util import from_numpy, get_device
+from colon3d.utils.torch_util import to_torch
 from colon3d.visuals.plot_aided_nav import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
@@ -57,7 +57,6 @@ def save_slam_out_plots(
     plot_names=None,
     max_anim_frames=10,
 ):
-    device = get_device()
     save_path = Path(save_path)
     create_folder_if_not_exists(save_path)
     # Extract the relevant variables
@@ -73,7 +72,7 @@ def save_slam_out_plots(
     detections_tracker = slam_out.detections_tracker
     online_logger = slam_out.online_logger
     # Get the online estimated camera poses
-    est_cam_poses = from_numpy(online_logger.cam_pose_estimates).to(device)
+    est_cam_poses = to_torch(online_logger.cam_pose_estimates)
     tracks_ids = tracks_p3d_inds.keys()
     #  List of the estimated 3D locations of each track's KPs (in the world system):
     online_est_track_world_loc = slam_out.online_est_track_world_loc
