@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 import yaml
 
-from colon3d.utils.camera_info import CamInfo
-from colon3d.utils.pix_coord_util import PixelCoordNormalizer
+from colon3d.util.camera_info import CamInfo
+from colon3d.util.pix_coord_util import PixelCoordNormalizer
 
 
 # --------------------------------------------------------------------------------------------------------------------

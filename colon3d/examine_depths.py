@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-from colon3d.utils.data_util import SceneLoader
-from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import (
+from colon3d.util.data_util import SceneLoader
+from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
     bool_arg,
@@ -15,7 +15,7 @@ from colon3d.utils.general_util import (
     save_dict_to_yaml,
     save_plot_and_close,
 )
-from colon3d.utils.torch_util import to_numpy
+from colon3d.util.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps

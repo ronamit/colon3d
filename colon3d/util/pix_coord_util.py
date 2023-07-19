@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon3d.utils.camera_info import CamInfo
+from colon3d.util.camera_info import CamInfo
 
 # --------------------------------------------------------------------------------------------------------------------
 

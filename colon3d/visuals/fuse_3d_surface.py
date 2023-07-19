@@ -9,9 +9,9 @@ import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation as spat_rot
 
-from colon3d.utils.data_util import SceneLoader
-from colon3d.utils.general_util import ArgsHelpFormatter
-from colon3d.utils.torch_util import to_default_type
+from colon3d.util.data_util import SceneLoader
+from colon3d.util.general_util import ArgsHelpFormatter
+from colon3d.util.torch_util import to_default_type
 from tsdf_fusion import fusion
 
 # --------------------------------------------------------------------------------------------------------------------

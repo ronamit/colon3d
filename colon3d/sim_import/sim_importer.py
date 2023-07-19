@@ -8,7 +8,7 @@ import cv2
 import h5py
 import numpy as np
 
-from colon3d.utils.general_util import (
+from colon3d.util.general_util import (
     ArgsHelpFormatter,
     bool_arg,
     create_empty_folder,
@@ -17,9 +17,9 @@ from colon3d.utils.general_util import (
     save_dict_to_yaml,
     save_video_from_func,
 )
-from colon3d.utils.rotations_util import normalize_quaternions
-from colon3d.utils.torch_util import np_func, to_default_type
-from colon3d.utils.transforms_util import compose_poses, get_identity_pose, infer_egomotions
+from colon3d.util.rotations_util import normalize_quaternions
+from colon3d.util.torch_util import np_func, to_default_type
+from colon3d.util.transforms_util import compose_poses, get_identity_pose, infer_egomotions
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 

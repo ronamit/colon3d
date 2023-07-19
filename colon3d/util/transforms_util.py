@@ -4,16 +4,16 @@
 import numpy as np
 import torch
 
-from colon3d.utils.camera_info import CamInfo
-from colon3d.utils.general_util import to_str
-from colon3d.utils.rotations_util import (
+from colon3d.util.camera_info import CamInfo
+from colon3d.util.general_util import to_str
+from colon3d.util.rotations_util import (
     compose_rotations,
     get_identity_quaternion,
     invert_rotation,
     normalize_quaternions,
     rotate_points,
 )
-from colon3d.utils.torch_util import (
+from colon3d.util.torch_util import (
     assert_1d_tensor,
     assert_2d_tensor,
     assert_same_sample_num,

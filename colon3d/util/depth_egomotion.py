@@ -6,10 +6,10 @@ import numpy as np
 import torch
 import yaml
 
-from colon3d.utils.data_util import SceneLoader
-from colon3d.utils.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.utils.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
-from colon3d.utils.transforms_util import (
+from colon3d.util.data_util import SceneLoader
+from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
+from colon3d.util.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
+from colon3d.util.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
 )
 from endo_sfm.models_def.DispResNet import DispResNet

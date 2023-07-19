@@ -10,14 +10,14 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
-from colon3d.utils.general_util import (
+from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
     bool_arg,
     create_empty_folder,
     set_rand_seed,
 )
-from colon3d.utils.torch_util import get_device
+from colon3d.util.torch_util import get_device
 from endo_sfm import custom_transforms
 from endo_sfm.dataset_loading import ScenesDataset
 from endo_sfm.logger import AverageMeter

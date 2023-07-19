@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.nn.functional import normalize
 
-from colon3d.utils.torch_util import assert_2d_tensor, to_default_type
+from colon3d.util.torch_util import assert_2d_tensor, to_default_type
 
 # --------------------------------------------------------------------------------------------------------------------
 

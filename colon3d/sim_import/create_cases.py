@@ -9,10 +9,10 @@ import yaml
 from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
-from colon3d.utils.general_util import ArgsHelpFormatter, create_empty_folder, to_str
-from colon3d.utils.rotations_util import get_random_rot_quat
-from colon3d.utils.torch_util import np_func, to_default_type, to_numpy
-from colon3d.utils.transforms_util import compose_poses
+from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, to_str
+from colon3d.util.rotations_util import get_random_rot_quat
+from colon3d.util.torch_util import np_func, to_default_type, to_numpy
+from colon3d.util.transforms_util import compose_poses
 from colon3d.visuals.plots_2d import save_frames_with_tracks, save_video_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------

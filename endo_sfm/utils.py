@@ -5,7 +5,7 @@ import torch
 from matplotlib import cm
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
 
-from colon3d.utils.general_util import save_dict_to_yaml
+from colon3d.util.general_util import save_dict_to_yaml
 
 # ---------------------------------------------------------------------------------------------------------------------
 

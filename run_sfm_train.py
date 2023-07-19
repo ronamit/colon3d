@@ -5,7 +5,7 @@ import yaml
 
 from colon3d.examine_depths import DepthExaminer
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.utils.general_util import ArgsHelpFormatter, bool_arg
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
 from endo_sfm.train import TrainRunner
 from endo_sfm.utils import save_model_info
 
@@ -38,7 +38,7 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{train_dataset_name}")
 train_scenes_dataset_path = Path(f"data/sim_data/{train_dataset_name}")
 
 # path to save the trained model:
-path_to_save_model = Path("saved_models/EndoSFM_tunedV2")
+path_to_save_model = Path("saved_models/EndoSFM_tuned")
 
 # path of the pretrained models:
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"

@@ -1,8 +1,8 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from colon3d.utils.torch_util import to_numpy
-from colon3d.utils.tracks_util import DetectionsTracker
+from colon3d.util.torch_util import to_numpy
+from colon3d.util.tracks_util import DetectionsTracker
 from colon3d.visuals.animate_util import create_animation_video, create_interactive_3d_animation
 from colon3d.visuals.create_3d_obj import plot_fov_cone
 

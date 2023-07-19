@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.run_on_sim_scene import run_slam_on_scene
-from colon3d.utils.general_util import (
+from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
     bool_arg,

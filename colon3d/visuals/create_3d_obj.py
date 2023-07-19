@@ -1,8 +1,8 @@
 import numpy as np
 import plotly.graph_objects as go
 
-from colon3d.utils.rotations_util import get_identity_quaternion, invert_rotation, rotate_points
-from colon3d.utils.torch_util import get_default_dtype, np_func
+from colon3d.util.rotations_util import get_identity_quaternion, invert_rotation, rotate_points
+from colon3d.util.torch_util import get_default_dtype, np_func
 
 # --------------------------------------------------------------------------------------------------------------------
 

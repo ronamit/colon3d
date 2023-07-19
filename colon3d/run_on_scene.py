@@ -7,10 +7,10 @@ import attrs
 from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.slam_alg import SlamAlgRunner
-from colon3d.utils.data_util import SceneLoader
-from colon3d.utils.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.utils.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
-from colon3d.utils.tracks_util import DetectionsTracker
+from colon3d.util.data_util import SceneLoader
+from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
+from colon3d.util.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 

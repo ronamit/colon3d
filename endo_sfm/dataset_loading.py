@@ -6,7 +6,7 @@ import yaml
 from imageio import imread
 from torch.utils import data
 
-from colon3d.utils.torch_util import to_default_type
+from colon3d.util.torch_util import to_default_type
 from endo_sfm.custom_transforms import Compose
 
 # ---------------------------------------------------------------------------------------------------------------------
