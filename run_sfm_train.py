@@ -51,6 +51,7 @@ if args.debug_mode:
     limit_n_scenes = 10
     limit_n_frames = 10
     n_epochs = 1
+    path_to_save_model = path_to_save_model / "debug"
 else:
     limit_n_scenes = 0
     limit_n_frames = 0

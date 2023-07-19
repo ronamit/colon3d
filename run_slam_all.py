@@ -41,24 +41,36 @@ cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
 # base path to save the algorithm runs results:
 base_results_path = Path(f"results/{test_dataset_name}_results")
 
+
+if debug_mode:
+    limit_n_scenes = 1 # num scenes to import
+    n_cases_per_scene = 1 # num cases to generate from each scene
+    scenes_dataset_path = scenes_dataset_path / "debug"
+    cases_dataset_path = cases_dataset_path / "debug"
+    base_results_path = base_results_path / "debug"
+    n_cases_lim = 1 # num cases to run the algorithm on
+else:
+    limit_n_scenes = 0 # 0 means no limit
+    n_cases_per_scene = 5 # num cases to generate from each scene
+    n_cases_lim = 0 # 0 means no limit
+
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
 SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
-    limit_n_scenes=1 if debug_mode else 0,
+    limit_n_scenes=limit_n_scenes,
     save_overwrite=save_overwrite,
 ).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 
 # Generate several cases from each scene, each with randomly chosen target location and size.
-default_n_cases_per_scene = 5
 CasesCreator(
     sim_data_path=scenes_dataset_path,
     path_to_save_cases=cases_dataset_path,
-    n_cases_per_scene=1 if debug_mode else default_n_cases_per_scene,
+    n_cases_per_scene=n_cases_per_scene,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
 ).run()
@@ -71,7 +83,7 @@ common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
-    "n_cases_lim": 1 if debug_mode else 0,
+    "n_cases_lim": n_cases_lim,
     "save_overwrite": save_overwrite,
 }
 # --------------------------------------------------------------------------------------------------------------------
