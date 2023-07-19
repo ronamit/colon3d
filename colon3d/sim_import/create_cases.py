@@ -308,7 +308,7 @@ class CasesCreator:
                 path_to_save_cases=self.path_to_save_cases,
                 rng=rng,
             )
-        # save the cases paramet/ers to a json file:
+        # save the cases parameters to a json file:
         with (self.path_to_save_cases / "cases_prams.json").open("w") as file:
             json.dump(self.cases_params, file, indent=4)
 

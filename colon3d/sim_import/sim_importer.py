@@ -363,7 +363,7 @@ class SimImporter:
         # change the rotation accordingly: qy <-> -qy
         cam_rot[:, 2] *= -1
         
-        # change the rotation to direction (to comply with the right-handed coordinate system)
+        # change the rotation to direction (since the switch y <-> -y took a mirror image of the world)
         cam_rot[:, 1:] *= -1
 
         # ensure that the quaternion is unit
