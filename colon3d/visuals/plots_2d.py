@@ -39,13 +39,14 @@ def draw_kps(vis_frame, kps, color):
 
 
 def draw_track_box_on_frame(
-    vis_frame,
-    track,
+    rgb_frame: np.ndarray,
+    track: dict,
     track_id: int,
     alg_view_cropper: RadialImageCropper | None = None,
     convert_from_alg_view_to_full=False,
     color=None,
 ):
+    vis_frame = np.copy(rgb_frame)
     top_left = (round(track["xmin"]), round(track["ymin"]))
     bottom_right = (round(track["xmax"]), round(track["ymax"]))
     if alg_view_cropper is not None and convert_from_alg_view_to_full:

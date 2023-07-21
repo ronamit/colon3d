@@ -10,7 +10,7 @@ import numpy as np
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close
-from colon3d.util.torch_util import np_func, to_default_type
+from colon3d.util.torch_util import np_func, to_default_type, to_numpy
 from colon3d.util.tracks_util import DetectionsTracker
 from colon3d.util.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
@@ -23,13 +23,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/TestData21_cases/Scene_00000_0000",
+        default="data/sim_data/TestData21_cases/Scene_00004_0000",
         help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/plot_example_frame/Scene_00000_0000",
+        default="results/plot_example_frame/Scene_00004_0000",
         help="Path to save the results",
     )
     parser.add_argument(
@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         "--frame_index",
         type=float,
-        default=250,
+        default=0,
         help="The index of the frame to plot, if frame_time is not -1 then  frame_time will be used instead",
     )
     parser.add_argument(
@@ -61,7 +61,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_tuned",
+        default="saved_models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     args = parser.parse_args()
@@ -85,13 +85,14 @@ def main():
     frame_name = f"Frame{frame_idx:04d}"
 
     # save the color frame
-    bgr_frame = scene_loader.get_frame_at_index(frame_idx, color_type="BGR", frame_type="full")
+    rgb_frame = scene_loader.get_frame_at_index(frame_idx, color_type="RGB", frame_type="full")
     file_path = str((save_path / f"{frame_name}.png").resolve())
-    cv2.imwrite(file_path, bgr_frame)
+    cv2.imwrite(file_path, cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR))
     print(f"Saved color frame to {file_path}")
 
     # get the depth map
-    z_depth_frame = depth_loader.get_depth_map_at_frame(frame_idx)
+    z_depth_frame = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame)
+    z_depth_frame = to_numpy(z_depth_frame)
 
     plt.figure()
     plt.imshow(z_depth_frame, aspect="equal")
@@ -125,7 +126,7 @@ def main():
             tracks_in_frame = detections_tracker.get_tracks_in_frame(frame_idx)
             for track_id, cur_track in tracks_in_frame.items():
                 bgr_frame = draw_track_box_on_frame(
-                    vis_frame=bgr_frame,
+                    vis_frame=rgb_frame,
                     track=cur_track,
                     track_id=track_id,
                 )

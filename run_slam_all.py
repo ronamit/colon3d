@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
 
+import pandas as pd
+
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.create_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
@@ -43,16 +45,16 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 
 
 if debug_mode:
-    limit_n_scenes = 1 # num scenes to import
-    n_cases_per_scene = 1 # num cases to generate from each scene
+    limit_n_scenes = 1  # num scenes to import
+    n_cases_per_scene = 1  # num cases to generate from each scene
     scenes_dataset_path = scenes_dataset_path / "debug"
     cases_dataset_path = cases_dataset_path / "debug"
     base_results_path = base_results_path / "debug"
-    n_cases_lim = 1 # num cases to run the algorithm on
+    n_cases_lim = 1  # num cases to run the algorithm on
 else:
-    limit_n_scenes = 0 # 0 means no limit
-    n_cases_per_scene = 5 # num cases to generate from each scene
-    n_cases_lim = 0 # 0 means no limit
+    limit_n_scenes = 0  # 0 means no limit
+    n_cases_per_scene = 5  # num cases to generate from each scene
+    n_cases_lim = 0  # 0 means no limit
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -171,3 +173,14 @@ SlamOnDatasetRunner(
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
+
+# save unified results table for all the runs:
+unified_results_table = pd.DataFrame()
+for results_path in base_results_path.glob("*"):
+    if results_path.is_dir():
+        # load the current run results summary csv file:
+        run_results_summary = pd.read_csv(results_path / "metrics_summary.csv")
+        # add the run name to the results table:
+        unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
+# save the unified results table:
+unified_results_table.to_csv(base_results_path / "unified_results_table.csv", encoding="utf-8", index=False)

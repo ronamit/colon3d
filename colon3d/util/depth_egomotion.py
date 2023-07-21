@@ -57,7 +57,6 @@ class DepthAndEgoMotionLoader:
         self.egomotions_buffer_frame_inds = []
 
         # Initialize egomotions
-
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(depth_and_egomotion_model_path)
@@ -76,6 +75,7 @@ class DepthAndEgoMotionLoader:
                 depth_upper_bound=self.depth_upper_bound,
                 depth_and_egomotion_model_path=depth_and_egomotion_model_path,
             )
+            self.depth_info = self.depth_estimator.get_depth_info()
             print("Using online depth estimation")
 
         elif depth_maps_source == "ground_truth":
@@ -90,6 +90,7 @@ class DepthAndEgoMotionLoader:
             assert depth_default is not None
         else:
             raise ValueError(f"Unknown depth maps source: {depth_maps_source}")
+
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -380,6 +381,17 @@ class DepthModel:
         self.disp_net.eval()  # switch to evaluate mode
 
     # --------------------------------------------------------------------------------------------------------------------
+    
+    def get_depth_info(self) -> dict:
+        #  metadata for the depth maps
+        depth_info = {
+            "K_of_depth_map": self.depth_map_K,
+            "depth_map_size": {"width": self.depth_map_width, "height": self.depth_map_height},
+        }
+        return depth_info
+    
+    # --------------------------------------------------------------------------------------------------------------------
+
     def estimate_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
         """Estimate the depth map from the image.
 
@@ -455,7 +467,7 @@ class EgomotionModel:
         self.pose_net.to(self.device)
         self.pose_net.eval()  # switch to evaluate mode
 
-        # --------------------------------------------------------------------------------------------------------------------
+    # --------------------------------------------------------------------------------------------------------------------
 
     def estimate_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
         """Estimate the 6DOF egomotion from the from image to to image.
