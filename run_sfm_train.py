@@ -5,7 +5,7 @@ import yaml
 
 from colon3d.examine_depths import DepthExaminer
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml
 from endo_sfm.train import TrainRunner
 from endo_sfm.utils import save_model_info
 
@@ -123,8 +123,7 @@ info_model_path = path_to_save_model / "model_info.yaml"
 with info_model_path.open("r") as f:
     model_info = yaml.load(f, Loader=yaml.FullLoader)
     model_info["net_out_to_mm"] = net_out_to_mm
-with info_model_path.open("w") as f:
-    yaml.dump(model_info, f)
+save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
 print(f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]")
 
 # --------------------------------------------------------------------------------------------------------------------

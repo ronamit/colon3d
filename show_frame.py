@@ -47,14 +47,14 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="ground_truth",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth-map",
     )
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="ground_truth",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotions",
     )
@@ -74,6 +74,7 @@ def main():
         scene_path=scene_path,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
+        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
     )
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
 

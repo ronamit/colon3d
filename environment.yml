@@ -1,17 +1,22 @@
-name: py3
+# set up environment with:
+# go to the directory where this file is located
+# $ conda env create -f environment.yml
+# $ conda activate py
+# $ pip install -e .
+name: py
 channels:
   - pytorch
   - anaconda
   - conda-forge
   - defaults
 dependencies:
+  - python=3.11.4
   - h5py=3.8.0
   - numpy=1.24.3
   - numpy-base=1.24.3
   - pandas=2.0.2
   - pillow=9.4.0
   - plotly=5.14.1
-  - python=3.11.3
   - pyyaml=6.0
   - scikit-image=0.20.0
   - scipy=1.10.1
@@ -22,6 +27,13 @@ dependencies:
   - pip>=21.3.2
   - scikit-image=0.20.0
   - pillow=9.4.0
+  - sympy=1.11.1
   - pip:
-      - opencv-python==4.8.0
-
+      - opencv-python==4.8.0.74
+      - kornia==0.6.12
+      - configargparse==1.5.5
+      - torch==2.0.1
+      - torchvision 
+      - torchaudio
+      - tensorboard=2.13.0
+      - pytorch-lightning==2.0.5

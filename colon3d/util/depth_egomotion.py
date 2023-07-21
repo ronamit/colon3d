@@ -321,7 +321,8 @@ def imgs_to_net_in(
 def get_model_info(model_dir_path: Path):
     model_info_path = model_dir_path / "model_info.yaml"
     assert model_info_path.is_file(), f"Model info file not found at {model_info_path}"
-    model_info = yaml.safe_load(model_info_path.open("r"))
+    with model_info_path.open("r") as f:
+        model_info = yaml.load(f, Loader=yaml.FullLoader)
     if "net_out_to_mm" not in model_info:
         print("net_out_to_mm not found in model info, using default value of 1.0")
         model_info["net_out_to_mm"] = 1.0
