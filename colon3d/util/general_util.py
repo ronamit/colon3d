@@ -450,3 +450,8 @@ def to_str(a):
 
 
 # ------------------------------------------------------------
+
+def save_rgb_image(img: np.ndarray, save_path: Path):
+    cv2.imwrite(path_to_str(save_path), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    
+# ------------------------------------------------------------

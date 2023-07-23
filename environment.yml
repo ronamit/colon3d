@@ -28,13 +28,14 @@ dependencies:
   - scikit-image=0.20.0
   - pillow=9.4.0
   - sympy=1.11.1
+  - torchvision 
+  - torchaudio
   - pip:
       - opencv-python==4.8.0.74
       - kornia==0.6.12
       - configargparse==1.5.5
       - torch==2.0.1
-      - torchvision 
-      - torchaudio
       - tensorboard=2.13.0
       - pytorch-lightning==2.0.5
       - pytorch-minimize-0.0.2
+

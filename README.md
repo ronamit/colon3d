@@ -1,26 +1,19 @@
-# About
+# Colon3D
+
+## About
 
 This code loads the simulation output from the Simulator:  The simulator generates single-camera colonoscopic images with ground truth of camera poses.
 
-## References
-
-* [https://github.com/zsustc/colon_reconstruction_dataset](https://github.com/zsustc/colon_reconstruction_dataset)
-  that is described in "A Template-based 3D Reconstruction of Colon Structures and Textures from Stereo Colonoscopic Images", Zhang et al., IEEE Transactions on Medical Robotics  2022.
-* VR-Caps
-* EndoSLAM
-* tsdfusion
-* pytorch-minimize
-
 ## Setup
 
-* Install Conda \ Miniconda
+* Install Conda \ MiniConda
 * To create conda environment with the basic required packages use:
 
 ```bash
  conda env create -f environment.yml
 ```
 
-* activate the enviornment
+* activate the environment
 
 ```bash
  conda activate py3
@@ -107,3 +100,26 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 ```bash
   python -m colon3d.run_on_scene --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
+
+## References
+
+* [zsustc/colon_reconstruction_dataset](https://github.com/zsustc/colon_reconstruction_dataset)
+  that is described in "A Template-based 3D Reconstruction of Colon Structures and Textures from Stereo Colonoscopic Images", Zhang et al., IEEE Transactions on Medical Robotics  2022.
+* VR-Caps
+* EndoSLAM
+* tsdfusion
+* pytorch-minimize
+
+## Background sources
+
+* [OpenCV: Camera Calibration and 3D Reconstruction](https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html)
+
+* [On transformations.](chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf)
+
+* [OpenCV:L ORB features tutorial](https://docs.opencv.org/3.4/d1/d89/tutorial_py_orb.html)
+
+* [OpenCV: Feature matching tutorial](https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html)
+
+* [Scipy: bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html)
+
+* [OpenCV: Feature matching + homography](https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html)

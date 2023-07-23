@@ -51,22 +51,22 @@ def draw_aided_nav(
             vis_frame = draw_alg_view_in_the_full_frame(vis_frame, scene_loader)
         # draw bounding boxes for the original detections in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
-        for track_id, cur_detect in orig_tracks.items():
+        for track_id, cur_track in orig_tracks.items():
             vis_frame = draw_track_box_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
+                rgb_frame=vis_frame,
+                track=cur_track,
+                track_id=track_id,
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=False,
                 color=colors_platte(color_name="gray"),
             )
         # draw bounding boxes for the tracks in the algorithm view (on top of the original tracks)
         alg_view_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
-        for track_id, cur_detect in alg_view_tracks.items():
+        for track_id, cur_track in alg_view_tracks.items():
             vis_frame = draw_track_box_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
+                rgb_frame=vis_frame,
+                track=cur_track,
+                track_id=track_id,
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=True,
             )

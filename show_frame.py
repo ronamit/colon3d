@@ -2,14 +2,13 @@ import argparse
 import pickle
 from pathlib import Path
 
-import cv2
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
-from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close
+from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close, save_rgb_image
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
 from colon3d.util.tracks_util import DetectionsTracker
 from colon3d.util.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
@@ -86,8 +85,8 @@ def main():
 
     # save the color frame
     rgb_frame = scene_loader.get_frame_at_index(frame_idx, color_type="RGB", frame_type="full")
-    file_path = str((save_path / f"{frame_name}.png").resolve())
-    cv2.imwrite(file_path, cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR))
+    file_path = save_path / f"{frame_name}.png"
+    save_rgb_image(rgb_frame, file_path)
     print(f"Saved color frame to {file_path}")
 
     # get the depth map
@@ -125,14 +124,14 @@ def main():
             target_radius = gt_targets_info.radiuses[target_index]
             tracks_in_frame = detections_tracker.get_tracks_in_frame(frame_idx)
             for track_id, cur_track in tracks_in_frame.items():
-                bgr_frame = draw_track_box_on_frame(
-                    vis_frame=rgb_frame,
+                rgb_frame = draw_track_box_on_frame(
+                    rgb_frame=rgb_frame,
                     track=cur_track,
                     track_id=track_id,
                 )
             # save the color frame with the detections
-            file_path = str((save_path / f"{frame_name}_tracks.png").resolve())
-            cv2.imwrite(file_path, bgr_frame)
+            file_path = save_path / f"{frame_name}_tracks.png"
+            save_rgb_image(rgb_frame, file_path)
             print(f"Saved color frame + tracks to {file_path}")
 
         else:

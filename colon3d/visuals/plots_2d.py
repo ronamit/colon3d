@@ -13,6 +13,7 @@ from colon3d.util.general_util import (
     coord_to_cv2kp,
     create_empty_folder,
     save_plot_and_close,
+    save_rgb_image,
     save_video_from_frames_list,
     save_video_from_func,
 )
@@ -79,7 +80,7 @@ def save_video_with_tracks(frames_folder_path: Path, path_to_save: Path, tracks:
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
         for track in tracks_in_frame:
             vis_frame = draw_track_box_on_frame(
-                vis_frame=vis_frame,
+                rgb_frame=vis_frame,
                 track=track,
                 track_id=track["track_id"],
             )
@@ -103,11 +104,11 @@ def save_frames_with_tracks(frames_folder_path: Path, tracks: pd.DataFrame, path
             vis_frame = np.copy(frame)
             for track in tracks_in_frame:
                 vis_frame = draw_track_box_on_frame(
-                    vis_frame=vis_frame,
+                    rgb_frame=vis_frame,
                     track=track,
                     track_id=track["track_id"],
                 )
-            cv2.imwrite(str(path_to_save / f"{i_frame}.png"), cv2.cvtColor(vis_frame, cv2.COLOR_RGB2BGR))
+            save_rgb_image(vis_frame, path_to_save / f"{i_frame:06d}.png")
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -147,11 +148,11 @@ def draw_keypoints_and_tracks(
         # draw bounding boxes for the original tracks in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id in orig_tracks:
-            cur_detect = orig_tracks[track_id]
+            cur_track = orig_tracks[track_id]
             vis_frame = draw_track_box_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
+                rgb_frame=vis_frame,
+                track=cur_track,
+                track_id=track_id,
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=False,
                 color=[0, 0, 127],
@@ -159,11 +160,11 @@ def draw_keypoints_and_tracks(
         # draw bounding boxes for the tracks in the algorithm view
         cur_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
         for track_id in cur_tracks:
-            cur_detect = cur_tracks[track_id]
+            cur_track = cur_tracks[track_id]
             vis_frame = draw_track_box_on_frame(
-                vis_frame,
-                cur_detect,
-                track_id,
+                rgb_frame=vis_frame,
+                track=cur_track,
+                track_id=track_id,
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=True,
             )
@@ -213,10 +214,10 @@ def draw_kp_on_img(
 ):
     vis_frame = np.copy(img)  # RGB
     for track_id in curr_tracks:
-        cur_detect = curr_tracks[track_id]
+        cur_track = curr_tracks[track_id]
         vis_frame = draw_track_box_on_frame(
-            vis_frame=vis_frame,
-            track=cur_detect,
+            rgb_frame=vis_frame,
+            track=cur_track,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
@@ -279,14 +280,14 @@ def draw_matches(
     # draw detections bounding boxes
     for track_id, cur_track in tracks_in_frameA.items():
         img_A_vis = draw_track_box_on_frame(
-            vis_frame=img_A_vis,
+            rgb_frame=img_A_vis,
             track=cur_track,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,
         )
     for track_id, cur_track in tracks_in_frameB.items():
         img_B_vis = draw_track_box_on_frame(
-            vis_frame=img_B_vis,
+            rgb_frame=img_B_vis,
             track=cur_track,
             track_id=track_id,
             alg_view_cropper=alg_view_cropper,

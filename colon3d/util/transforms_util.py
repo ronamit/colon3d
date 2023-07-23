@@ -1,5 +1,6 @@
 """Utility functions for transforming points between different coordinate systems.
     * see background material here: https://www.tu-chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf
+    * https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html
 """
 import numpy as np
 import torch

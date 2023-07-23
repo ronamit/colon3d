@@ -34,13 +34,13 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/EndoSFM_tuned/DepthExaminerResults",
+        default="saved_models/EndoSFM_orig/DepthExaminerResults",
         help="Path to save the results.",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_tuned",
+        default="saved_models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     parser.add_argument(
