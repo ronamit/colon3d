@@ -21,16 +21,28 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=False,
+    default=True,
+)
+parser.add_argument(
+    "--test_dataset_name",
+    type=str,
+    help="The name of the dataset to run the algorithm on",
+    default="SanityCheck23",   # "TestData21" | "SanityCheck23"
+)
+parser.add_argument(
+    "--sanity_check_mode",
+    type=bool_arg,
+    help="If true, we generate easy cases for sanity check",
+    default=False, # "False"
 )
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
 debug_mode = args.debug_mode
-print(f"save_overwrite={save_overwrite}, debug_mode={debug_mode}")
+print(f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}, sanity_check_mode={args.sanity_check_mode}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility
-test_dataset_name = "SanityCheck23" # "TestData21"
+test_dataset_name = args.test_dataset_name
 # path to the raw data generate by the unity simulator:
 raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 
@@ -46,6 +58,7 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 
 if debug_mode:
     limit_n_scenes = 1  # num scenes to import
+    limit_n_frames = 30  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
     scenes_dataset_path = scenes_dataset_path / "debug"
     cases_dataset_path = cases_dataset_path / "debug"
@@ -53,9 +66,12 @@ if debug_mode:
     n_cases_lim = 1  # num cases to run the algorithm on
 else:
     limit_n_scenes = 0  # 0 means no limit
+    limit_n_frames = 0  # 0 means no limit
     n_cases_per_scene = 5  # num cases to generate from each scene
     n_cases_lim = 0  # 0 means no limit
 
+# in sanity check mode we generate easy cases for sanity check (the target may always be visible)
+min_non_visible_frames = 0 if args.sanity_check_mode else 20
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
@@ -63,6 +79,7 @@ SimImporter(
     raw_sim_data_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
     limit_n_scenes=limit_n_scenes,
+    limit_n_frames=limit_n_frames,
     save_overwrite=save_overwrite,
 ).run()
 
@@ -73,6 +90,7 @@ CasesCreator(
     sim_data_path=scenes_dataset_path,
     path_to_save_cases=cases_dataset_path,
     n_cases_per_scene=n_cases_per_scene,
+    min_non_visible_frames=min_non_visible_frames,
     rand_seed=rand_seed,
     save_overwrite=save_overwrite,
 ).run()

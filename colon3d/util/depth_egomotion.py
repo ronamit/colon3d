@@ -373,7 +373,7 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float32 # the network was trained with float32
+        self.dtype = torch.float64 # the network was trained with float64
         weights = torch.load(self.disp_net_path)
         self.disp_net = DispResNet(self.resnet_layers, pretrained=True).to(self.device)
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)
