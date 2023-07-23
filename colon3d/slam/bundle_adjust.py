@@ -6,8 +6,9 @@ import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
 from colon3d.slam.alg_settings import AlgorithmParam
+from colon3d.util.constraints_util import SoftConstraints
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
-from colon3d.util.torch_util import SoftConstraints, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
+from colon3d.util.torch_util import get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.util.transforms_util import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
