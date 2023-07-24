@@ -46,14 +46,14 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth-map",
     )
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="online_estimates",
+        default="ground_truth",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotions",
     )

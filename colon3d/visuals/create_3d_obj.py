@@ -56,11 +56,9 @@ def plot_xyz_axes(origin_loc: np.ndarray, rot_quat: np.ndarray, arrow_len: float
     axes_vecs = np.eye(3, dtype=get_default_dtype("numpy"))  # 3 x 3 identity matrix
 
     # rotate the axes vectors according to the camera rotation.
-    # (inverse rotation of the camera is applied to the axes vectors)
-    inv_cam_rot = np_func(invert_rotation)(rot_quat)
-    x_unit_vec = np_func(rotate_points)(axes_vecs[0], inv_cam_rot).squeeze()
-    y_unit_vec = np_func(rotate_points)(axes_vecs[1], inv_cam_rot).squeeze()
-    z_unit_vec = np_func(rotate_points)(axes_vecs[2], inv_cam_rot).squeeze()
+    x_unit_vec = np_func(rotate_points)(axes_vecs[0], rot_quat).squeeze()
+    y_unit_vec = np_func(rotate_points)(axes_vecs[1], rot_quat).squeeze()
+    z_unit_vec = np_func(rotate_points)(axes_vecs[2], rot_quat).squeeze()
     x_arrow_objs = plot_3d_arrow(origin_loc, x_unit_vec, "X", "red", arrow_len)
     y_arrow_objs = plot_3d_arrow(origin_loc, y_unit_vec, "Y", "green", arrow_len)
     z_arrow_objs = plot_3d_arrow(origin_loc, z_unit_vec, "Z", "blue", arrow_len)
@@ -129,8 +127,7 @@ def plot_fov_cone(
             f"Plotted camera location: {cam_loc} [mm]\n(q0,qx,qy,qz)={cam_rot}\nForward Direction: {cam_forward}\nFOV: {fov_deg:.1f} [deg]",
         )
     # translate and rotate the cone points:
-    inv_cam_rot = np_func(invert_rotation)(cam_rot)
-    points = np_func(rotate_points)(points, inv_cam_rot) + cam_loc
+    points = np_func(rotate_points)(points, cam_rot) + cam_loc
     cam_cone = go.Mesh3d(
         x=points[:, 0],
         y=points[:, 1],
@@ -188,8 +185,8 @@ def plot_cam_and_point_cloud(
     cam_loc = cam_pose[:3]
     cam_rot = cam_pose[3:]
     # get the z-depth of each point in the camera's coordinate system
-    # inv_cam_rot = np_func(invert_rotation)(cam_rot[np.newaxis, :])
-    point3_in_cam_sys = np_func(rotate_points)(points3d - cam_loc, cam_rot)
+    inv_cam_rot = np_func(invert_rotation)(cam_rot)
+    point3_in_cam_sys = np_func(rotate_points)(points3d - cam_loc, inv_cam_rot)
     points_z_depth = point3_in_cam_sys[:, 2]
     # plot the point cloud (in world system)
     fig_data = [
