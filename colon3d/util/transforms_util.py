@@ -1,6 +1,5 @@
 """Utility functions for transforming points between different coordinate systems.
     * see background material here: https://www.tu-chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf
-    * https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html
 """
 import numpy as np
 import torch
@@ -126,9 +125,11 @@ def transform_points_cam_to_world(
         points_3d_world_sys: [n x 3]  (units: mm) 3D points in camera system.
         cam_poses: [n x 7], each row is the camera pose w.r.t world system (x, y, z, q0, qx, qy, qz) where
             described by (x, y, z) = translation from world origin to cam location [mm]
-            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from world to cam.
+            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from cam to world.
     Returns:
         points_3d_world_sys: [n_points x 3]  (units: mm) 3D points in world coordinates
+    Notes:
+        see background material here: https://www.tu-chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf
     """
     points_3d_cam_sys = assert_2d_tensor(points_3d_cam_sys, 3)
     assert_same_sample_num((points_3d_cam_sys, cam_poses))
@@ -151,9 +152,11 @@ def transform_points_world_to_cam(
         points_3d_world_sys: [n x 3]  (units: mm) 3D points in world coordinates.
         cam_poses: [n x 7], each row is the camera pose w.r.t world system (x, y, z, q0, qx, qy, qz) where
             described by (x, y, z) = translation from world origin to cam location [mm]
-            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from world to cam.
+            and (q0, qx, qy, qz) is the unit-quaternion of the rotation from cam to world.
     Returns:
         points_3d_cam_sys: [n x 3]  (units: mm) 3D points in camera system coordinates
+    Notes:
+        see background material here: https://www.tu-chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf
     """
     points_3d_world = assert_2d_tensor(points_3d_world, 3)
     cam_poses = assert_2d_tensor(cam_poses, 7)

@@ -53,15 +53,12 @@ def plot_xyz_axes(origin_loc: np.ndarray, rot_quat: np.ndarray, arrow_len: float
     """Return plot objects for the XYZ axes at origin point with rotation according to a unit quaternion"""
 
     # arrows endpoints in camera coordinate system:
-    axes_vecs = np.eye(3, dtype=get_default_dtype("numpy"))  # 3 x 3 identity matrix
-
+    axes_vec_cam = np.eye(3, dtype=get_default_dtype("numpy"))  # 3 x 3 identity matrix
     # rotate the axes vectors according to the camera rotation.
-    x_unit_vec = np_func(rotate_points)(axes_vecs[0], rot_quat).squeeze()
-    y_unit_vec = np_func(rotate_points)(axes_vecs[1], rot_quat).squeeze()
-    z_unit_vec = np_func(rotate_points)(axes_vecs[2], rot_quat).squeeze()
-    x_arrow_objs = plot_3d_arrow(origin_loc, x_unit_vec, "X", "red", arrow_len)
-    y_arrow_objs = plot_3d_arrow(origin_loc, y_unit_vec, "Y", "green", arrow_len)
-    z_arrow_objs = plot_3d_arrow(origin_loc, z_unit_vec, "Z", "blue", arrow_len)
+    axes_vec_rot = np_func(rotate_points)(axes_vec_cam, np.tile(rot_quat[np.newaxis, :], (3,1)))
+    x_arrow_objs = plot_3d_arrow(origin_loc, axes_vec_rot[0], "X", "red", arrow_len)
+    y_arrow_objs = plot_3d_arrow(origin_loc, axes_vec_rot[1], "Y", "green", arrow_len)
+    z_arrow_objs = plot_3d_arrow(origin_loc, axes_vec_rot[2], "Z", "blue", arrow_len)
     axes3d_objs = x_arrow_objs + y_arrow_objs + z_arrow_objs
 
     # add custom legend handles
