@@ -27,7 +27,7 @@ parser.add_argument(
     "--test_dataset_name",
     type=str,
     help="The name of the dataset to run the algorithm on",
-    default="SanityCheck23",   # "TestData21" | "SanityCheck23"
+    default="TestData21",   # "TestData21" | "SanityCheck23"
 )
 parser.add_argument(
     "--sanity_check_mode",
@@ -58,7 +58,7 @@ base_results_path = Path(f"results/{test_dataset_name}_results")
 
 if debug_mode:
     limit_n_scenes = 1  # num scenes to import
-    limit_n_frames = 30  # num frames to import from each scene
+    limit_n_frames = 100  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
     scenes_dataset_path = scenes_dataset_path / "debug"
     cases_dataset_path = cases_dataset_path / "debug"

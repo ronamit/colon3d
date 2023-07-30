@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import pickle
 from pathlib import Path
@@ -8,6 +7,7 @@ import cv2
 import h5py
 import numpy as np
 
+from colon3d.sim_import import sim_load_colon_nav_sim, sim_load_zhang
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
     bool_arg,
@@ -17,7 +17,6 @@ from colon3d.util.general_util import (
     save_dict_to_yaml,
     save_video_from_func,
 )
-from colon3d.util.rotations_util import normalize_quaternions
 from colon3d.util.torch_util import np_func, to_default_type
 from colon3d.util.transforms_util import compose_poses, get_identity_pose, infer_egomotions
 
@@ -39,6 +38,13 @@ def main():
         type=str,
         default="data/sim_data/SimDataTrain20",
         help="The path to the folder where the processed simulated scenes will be saved.",
+    )
+    parser.add_argument(
+        "--sim_name",
+        type=str,
+        choices=["Zhang22", "ColonNavSim"],
+        default="ColonNavSim",
+        help="The name of the simulator that generated the data.",
     )
     parser.add_argument(
         "--limit_n_scenes",
@@ -79,6 +85,7 @@ def main():
         limit_n_frames=args.limit_n_frames,
         fps_override=args.fps_override,
         save_overwrite=args.save_overwrite,
+        sim_name=args.sim_name,
     )
     sim_importer.run()
 
@@ -102,6 +109,7 @@ class SimImporter:
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
+        sim_name: str = "ColonNavSim",
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
         Args:
@@ -122,96 +130,52 @@ class SimImporter:
         self.limit_n_scenes = limit_n_scenes
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
-        # In our models, 1 Unity distance unit = 100 mm
-        self.UNITY_TO_MM = 100
         self.save_overwrite = save_overwrite
+        self.sim_name = sim_name
+        print("Simulator: ", self.sim_name)
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def run(self):
         is_created = create_empty_folder(self.output_data_path, save_overwrite=self.save_overwrite)
+        # check if the dataset already exists
         if not is_created:
-            print(f"{self.output_data_path} already exists...\n" + "-" * 50)
+            # in this case the dataset already exists, so we will load it instead of creating it
             scenes_paths = [p for p in self.output_data_path.glob("Scene*") if p.is_dir()]
+            print(f"Loading existing dataset from {self.output_data_path}...\n" + "-" * 50)
             return scenes_paths
 
-        # gather all the "capture" files
-        assert self.input_data_path.is_dir(), "The input path should be a directory"
-        paths = [p for p in self.input_data_path.glob("Dataset*") if p.is_dir()]
-        assert (
-            len(paths) == 1
-        ), f"there should be exactly one Dataset* sub-folder in input_data_path={self.input_data_path}"
-        metadata_dir_path = paths[0]
-        print(f"Loading dataset metadata from {metadata_dir_path}")
-        captures = []
-        file_index = 0
-        while True:
-            filename = f"captures_{str(file_index).zfill(3)}.json"
-            f_path = metadata_dir_path / filename
-            if not f_path.exists():
-                break
-            with f_path.open("r") as f:
-                metadata = json.load(f)
-                captures += metadata["captures"]
-            file_index += 1
+        if self.sim_name == "ColonNavSim":
+            (
+                scenes_names,
+                metadata_per_scene,
+                rgb_frames_paths_per_scene,
+                cam_poses_per_scene,
+                depth_frames_paths_per_scene,
+            ) = sim_load_colon_nav_sim.load_sim_raw(
+                input_data_path=self.input_data_path,
+                limit_n_scenes=self.limit_n_scenes,
+                limit_n_frames=self.limit_n_frames,
+                fps_override=self.fps_override,
+            )
+        elif self.sim_name == "Zhang22":
+            (
+                scenes_names,
+                metadata_per_scene,
+                rgb_frames_paths_per_scene,
+                cam_poses_per_scene,
+            ) = sim_load_zhang.load_sim_raw(
+                input_data_path=self.input_data_path,
+                limit_n_scenes=self.limit_n_scenes,
+                limit_n_frames=self.limit_n_frames,
+                fps_override=self.fps_override,
+                cam_to_load="left",  # "left" or "right" camera (we only use one camera)
+            )
+            depth_frames_paths_per_scene = None  # this dataset does not have GT depth frames
+        else:
+            raise NotImplementedError(f"Unknown sim_name={self.sim_name}")
 
-        # extract the data from the captures
-        rgb_frames_paths_per_scene = []  # list of lists
-        depth_frames_paths_per_scene = []  # list of lists
-        # list of lists of the camera translation per frame per scene, before changing to our format:
-        raw_trans_per_scene = []
-        # list of lists of the camera rotation per frame per scene, before changing to our format:
-        raw_rot_per_scene = []
-        seen_rgb_dirs = {}  # set of seen rgb dirs
-        scenes_names = []  # list of scene names
-        metadata_per_scene = []  # list of metadata per scene
-        scene_idx = -1
-        frame_idx = -1
-        n_scenes = 0
-        for capture in captures:
-            frame_idx += 1
-            rgb_file_path = capture["filename"]
-            # check if we started a new scene (i.e. a new folder of RGB images)
-            rgb_dir_name = rgb_file_path.split("/")[-2]
-            if rgb_dir_name not in seen_rgb_dirs:
-                # we found a new scene
-                scene_idx += 1
-                seen_rgb_dirs[rgb_dir_name] = scene_idx
-                # check if we reached the limit of scenes
-                if self.limit_n_scenes > 0 and scene_idx >= self.limit_n_scenes:
-                    break
-                n_scenes = scene_idx + 1
-                scene_name = "Scene_" + str(scene_idx).zfill(5)
-                scene_path = self.output_data_path / scene_name
-                metadata = self.get_scene_metadata(capture)
-                metadata_per_scene.append(metadata)
-                scenes_names.append(scene_name)
-                rgb_frames_paths_per_scene.append([])
-                depth_frames_paths_per_scene.append([])
-                raw_trans_per_scene.append([])
-                raw_rot_per_scene.append([])
-            elif self.limit_n_frames > 0 and frame_idx >= self.limit_n_frames:
-                # check if we reached or passe te limit of frames per scene
-                # # in this case, just skip the current capture... until we reach the next scene
-                continue
-            # extract the current frame data
-            rgb_file_path = capture["filename"]
-            translation = np.array(capture["sensor"]["translation"])
-            rotation = np.array(capture["sensor"]["rotation"])
-            # ensure normalize unit-quaternion (to avoid numerical issues)
-            rotation = rotation / np.linalg.norm(rotation)
-            annotations = capture["annotations"]
-            depth_annotation = [a for a in annotations if a["@type"] == "type.unity.com/unity.solo.DepthAnnotation"][0]
-            depth_file_path = depth_annotation["filename"]
-            # store the current frame data:
-            rgb_frames_paths_per_scene[-1].append(rgb_file_path)
-            depth_frames_paths_per_scene[-1].append(depth_file_path)
-            raw_trans_per_scene[-1].append(translation)
-            raw_rot_per_scene[-1].append(rotation)
-        # end for capture in captures
-        n_scenes = scene_idx
-        print(f"Number of extracted scenes: {n_scenes}")
-
+        n_scenes = len(scenes_names)
         # save the camera poses and depth frames for each scene
         scenes_paths = []
         for i_scene in range(n_scenes):
@@ -220,6 +184,7 @@ class SimImporter:
             print(f"Saving a new scene to {scene_path}")
             scenes_paths.append(scene_path)
             metadata = metadata_per_scene[i_scene]
+            cam_poses = cam_poses_per_scene[i_scene]
             print(f"Saving scene #{i_scene} to {scene_path}... ")
             n_frames = len(rgb_frames_paths_per_scene[i_scene])
             time_length = n_frames / metadata["fps"]
@@ -227,12 +192,6 @@ class SimImporter:
 
             # save metadata
             save_dict_to_yaml(save_path=scene_path / "meta_data.yaml", dict_to_save=metadata)
-
-            # extract the camera poses in our format
-            cam_poses = self.get_scene_cam_poses(
-                raw_trans=raw_trans_per_scene[i_scene],
-                raw_rot=raw_rot_per_scene[i_scene],
-            )
 
             if self.world_sys_to_first_cam:
                 # infer the egomotions (camera pose changes) from the camera poses:
@@ -247,12 +206,6 @@ class SimImporter:
             # infer the egomotions (camera pose changes) from the camera poses:
             egomotions = np_func(infer_egomotions)(cam_poses)
 
-            # extract the depth frames
-            z_depth_frames, depth_info = self.get_ground_truth_depth(
-                depth_frames_paths=depth_frames_paths_per_scene[i_scene],
-                metadata=metadata,
-            )
-
             # Save RGB video
             self.save_rgb_frames(
                 scene_path=scene_path,
@@ -260,117 +213,42 @@ class SimImporter:
                 metadata=metadata,
                 save_video=True,
             )
-            # save depth info
-            with (scene_path / "gt_depth_info.pkl").open("wb") as file:
-                pickle.dump(depth_info, file)
 
-            # save depth video
-            save_depth_video(
-                depth_frames=z_depth_frames,
-                save_path=scene_path / "gt_depth_video",
-                fps=metadata["fps"],
-            )
+            if self.sim_name == "ColonNavSim":
+                # extract the depth frames
+                z_depth_frames, depth_info = sim_load_colon_nav_sim.get_ground_truth_depth(
+                    input_data_path=self.input_data_path,
+                    depth_frames_paths=depth_frames_paths_per_scene[i_scene],
+                    metadata=metadata,
+                )
+                # save depth info
+                with (scene_path / "gt_depth_info.pkl").open("wb") as file:
+                    pickle.dump(depth_info, file)
+                # save depth video
+                save_depth_video(
+                    depth_frames=z_depth_frames,
+                    save_path=scene_path / "gt_depth_video",
+                    fps=metadata["fps"],
+                )
+            else:
+                z_depth_frames = None
+                print("No ground-truth depth data available.")
 
             # save h5 file of depth frames and camera poses
             file_path = scene_path / "gt_depth_and_egomotion.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
-                hf.create_dataset(
-                    "z_depth_map",
-                    data=to_default_type(z_depth_frames, num_type="float_m"),
-                    compression="gzip",
-                )
                 hf.create_dataset("cam_poses", data=to_default_type(cam_poses))
                 hf.create_dataset("egomotions", data=to_default_type(egomotions))
+                if z_depth_frames is not None:
+                    hf.create_dataset(
+                        "z_depth_map",
+                        data=to_default_type(z_depth_frames, num_type="float_m"),
+                        compression="gzip",
+                    )
+
         print(f"Done creating {n_scenes} scenes in {self.output_data_path}")
         return scenes_paths
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def get_scene_metadata(self, capture: dict):
-        cam_intrinsic = [a for a in capture["annotations"] if a["@type"] == "camDataDef"][0]
-        frame_width = cam_intrinsic["pixelWidth"]  # [pixels]
-        frame_height = cam_intrinsic["pixelHeight"]  # [pixels]
-        # the physical specs of the camera are given in 0.001 Unity distance units
-        total_sensor_size_x_mm = cam_intrinsic["sensorSizeX"] * 0.001 * self.UNITY_TO_MM  # [mm]
-        total_sensor_size_y_mm = cam_intrinsic["sensorSizeY"] * 0.001 * self.UNITY_TO_MM  # [mm]
-        focal_length_mm = cam_intrinsic["focalLength"] * 0.001 * self.UNITY_TO_MM  # [mm]
-        min_vis_z_mm = cam_intrinsic["nearClipPlane"] * self.UNITY_TO_MM  # [mm]
-        assert cam_intrinsic["lensShiftX"] == 0 and cam_intrinsic["lensShiftY"] == 0, "lens shift is not supported"
-        frame_time_interval = cam_intrinsic["simulationDeltaTime"]  # [sec]
-        fps = 1 / frame_time_interval  # [Hz]
-        if self.fps_override != 0:
-            fps = self.fps_override
-
-        # per-pixel sensor size
-        sx = total_sensor_size_x_mm / frame_width  # [millimeter/pixel]
-        sy = total_sensor_size_y_mm / frame_height  # [millimeter/pixel]
-        # focal-length in pixel units
-        fx = focal_length_mm / sx
-        fy = focal_length_mm / sy
-        # the optical center pixel location
-        cx = frame_width / 2
-        cy = frame_height / 2
-        metadata = {
-            "frame_width": frame_width,  # [pixels]
-            "frame_height": frame_height,  # [pixels]
-            "fx": float(fx),  # focal length in x-axis [pixels]
-            "fy": float(fy),  # focal length in y-axis [pixels]
-            "cx": cx,  # optical center in x-axis [pixels]
-            "cy": cy,  # optical center in y-axis [pixels]
-            "fps": fps,  # frame rate [Hz]
-            "distort_pram": None,  # simulated images are not distorted
-            "min_vis_z_mm": min_vis_z_mm,  # in the simulation,
-            "sim_info": {
-                "total_sensor_size_x_mm": total_sensor_size_x_mm,
-                "total_sensor_size_y_mm": total_sensor_size_y_mm,
-                "focal_length_mm": float(focal_length_mm),
-            },
-        }
-
-        return metadata
-
-    # --------------------------------------------------------------------------------------------------------------------
-    def get_scene_cam_poses(self, raw_trans: list, raw_rot: list) -> np.ndarray:
-        """
-        save the 6-DOF camera poses in the world coordinates as a numpy array with shape (N, 7) where N is the number of frames.
-        the 7 values are: x, y, z, q_w, q_x, q_y, q_z
-        (x, y, z) is the camera position in the world system (in mm)
-        (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system.
-        Args:
-            raw_trans: a list of 3D translation vectors (x, y, z) in Unity units
-            raw_rot: a list of 4D rotation unit-quaternion in Unity units
-        Returns:
-            cam_poses: the camera-poses in out format, a numpy array with shape (N, 7) where N is the number of frames.
-        See also:
-        - https://gamedev.stackexchange.com/a/201978
-        - https://github.com/zsustc/colon_reconstruction_dataset
-        """
-
-        cam_trans = np.row_stack(raw_trans)
-        cam_rot = np.row_stack(raw_rot)
-
-        # change quaternion to real-first format (q_w, q_x, q_y, q_z)
-        cam_rot = cam_rot[:, [3, 0, 1, 2]]
-
-        # change the units from Unity units to mm
-        cam_trans *= self.UNITY_TO_MM
-
-        # Change the camera transform from left-handed to right-handed coordinate system.
-        # y <-> -y
-        cam_trans[:, 1] *= -1
-
-        # change the rotation accordingly: qy <-> -qy
-        cam_rot[:, 2] *= -1
-        
-        # change the rotation to direction (since the switch y <-> -y took a mirror image of the world)
-        cam_rot[:, 1:] *= -1
-
-        # ensure that the quaternion is unit
-        cam_rot = np_func(normalize_quaternions)(cam_rot)
-
-        cam_poses = np.concatenate((cam_trans, cam_rot), axis=1)
-        return cam_poses
 
     # --------------------------------------------------------------------------------------------------------------------
     def save_rgb_frames(self, rgb_frames_paths: list, scene_path: Path, metadata: dict, save_video: bool = True):
@@ -404,42 +282,5 @@ class SimImporter:
                 fps=metadata["fps"],
             )
 
-    # --------------------------------------------------------------------------------------------------------------------
 
-    def get_ground_truth_depth(
-        self,
-        depth_frames_paths: list,
-        metadata: dict,
-    ):
-        # Get the depth maps
-        n_frames = len(depth_frames_paths)
-        frame_height = metadata["frame_height"]
-        frame_width = metadata["frame_width"]
-        z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float32)
-        for i_frame in range(n_frames):
-            depth_file_path = self.input_data_path / depth_frames_paths[i_frame]
-            print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
-            # All 3 channels are the same (depth), so we only need to read one
-            depth_img = cv2.imread(path_to_str(depth_file_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-            R_channel_idx = 2  # OpenCV reads in BGR order
-            z_depth_mm = self.UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
-            z_depth_frames[i_frame] = z_depth_mm
-
-        # The simulator generates depth maps with the same camera intrinsics as the RGB images.
-        fx = metadata["fx"]
-        fy = metadata["fy"]
-        cx = metadata["cx"]
-        cy = metadata["cy"]
-        K_of_depth_map = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-
-        # save metadata for the depth maps
-        depth_info = {
-            "K_of_depth_map": K_of_depth_map,
-            "n_frames": n_frames,
-            "depth_map_size": {"width": frame_width, "height": frame_height},
-        }
-        return z_depth_frames, depth_info
-
-    # --------------------------------------------------------------------------------------------------------------------
- 
-
+# --------------------------------------------------------------------------------------------------------------------

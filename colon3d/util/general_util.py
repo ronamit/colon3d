@@ -236,7 +236,7 @@ def colors_platte(i_color: int | None = None, color_name: str | None = None):
         ("gray", (128, 128, 128)),
     ]
     if color_name is not None:
-        return [c[1] for c in colors_list if c[0] == color_name][0]
+        return next(c[1] for c in colors_list if c[0] == color_name)
     return colors_list[i_color % len(colors_list)][1]
 
 
@@ -451,7 +451,9 @@ def to_str(a):
 
 # ------------------------------------------------------------
 
+
 def save_rgb_image(img: np.ndarray, save_path: Path):
     cv2.imwrite(path_to_str(save_path), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-    
+
+
 # ------------------------------------------------------------

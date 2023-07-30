@@ -52,6 +52,19 @@ pip install -e .
   pip3 install pycuda --user
   ```
 
+## Importing the datasets
+
+* Download the dataset from [Zhang22](https://github.com/zsustc/colon_reconstruction_dataset).
+  If download fails, try to download each case folder separately.
+* Extract all the Case `<number>`  directories (1 to 15)  to a some path, e.g. `<main project dir>`\data\raw_sim_data\Zhang22
+* Run the import script:
+
+```bash
+python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_path "data/raw_sim_data/Zhang22" --processed_sim_data_path "data/sim_data/Zhang22"
+```
+
+* TODO: add link to our generated \ real dataset.
+
 ## Code use examples
 
 * Here are common examples of how to use the code. See the code for more details on the arguments.
@@ -90,7 +103,6 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
   ```bash
      python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
-
 * Run the algorithm on real data example:
 
 ```bash
@@ -113,13 +125,8 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 ## Background sources
 
 * [OpenCV: Camera Calibration and 3D Reconstruction](https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html)
-
 * [On transformations.](chemnitz.de/informatik/KI/edu/robotik/ws2017/trans.mat.pdf)
-
 * [OpenCV:L ORB features tutorial](https://docs.opencv.org/3.4/d1/d89/tutorial_py_orb.html)
-
 * [OpenCV: Feature matching tutorial](https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html)
-
 * [Scipy: bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html)
-
 * [OpenCV: Feature matching + homography](https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html)
