@@ -60,9 +60,6 @@ else:
     n_cases_per_scene = 5  # num cases to generate from each scene
     n_cases_lim = 0  # 0 means no limit
 
-# in sanity check mode we generate easy cases for sanity check (the target may always be visible)
-min_non_visible_frames = 0 if args.sanity_check_mode else 20
-
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
