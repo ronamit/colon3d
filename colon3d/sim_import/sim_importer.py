@@ -185,8 +185,9 @@ class SimImporter:
             scenes_paths.append(scene_path)
             metadata = metadata_per_scene[i_scene]
             cam_poses = cam_poses_per_scene[i_scene]
+            rgb_frames_paths = rgb_frames_paths_per_scene[i_scene]
+            n_frames = len(rgb_frames_paths)
             print(f"Saving scene #{i_scene} to {scene_path}... ")
-            n_frames = len(rgb_frames_paths_per_scene[i_scene])
             time_length = n_frames / metadata["fps"]
             print(f"Number of frames: {n_frames}, Length {time_length:.2f} seconds")
 
@@ -209,7 +210,7 @@ class SimImporter:
             # Save RGB video
             self.save_rgb_frames(
                 scene_path=scene_path,
-                rgb_frames_paths=rgb_frames_paths_per_scene[i_scene],
+                rgb_frames_paths=rgb_frames_paths,
                 metadata=metadata,
                 save_video=True,
             )
@@ -235,7 +236,7 @@ class SimImporter:
                 print("No ground-truth depth data available.")
 
             # save h5 file of depth frames and camera poses
-            file_path = scene_path / "gt_depth_and_egomotion.h5"
+            file_path = scene_path / "gt_3d_data.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
             with h5py.File(file_path, "w") as hf:
                 hf.create_dataset("cam_poses", data=to_default_type(cam_poses))

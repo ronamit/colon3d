@@ -107,7 +107,7 @@ def main():
 
     # if ground-truth camera pose is available, use it for the point cloud plot
     if args.depth_maps_source == "ground_truth":
-        with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+        with h5py.File(scene_path / "gt_3d_data.h5", "r") as h5f:
             gt_cam_poses = to_default_type(h5f["cam_poses"][:])
             cam_pose = gt_cam_poses[frame_idx]
             print("Using ground-truth camera pose for the point cloud plot")

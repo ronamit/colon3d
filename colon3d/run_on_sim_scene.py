@@ -231,7 +231,7 @@ def run_slam_on_scene(
         print("No targets info file found...")
 
     # load the  ground-truth egomotions per frame (for evaluation)
-    with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as hf:
+    with h5py.File(scene_path / "gt_3d_data.h5", "r") as hf:
         gt_cam_poses = to_default_type(hf["cam_poses"][:])  # load the ground-truth camera poses into memory
 
     # calculate performance metrics

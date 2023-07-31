@@ -21,7 +21,7 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=True,
+    default=False,
 )
 parser.add_argument(
     "--test_dataset_name",

@@ -38,7 +38,9 @@ def load_sim_raw(
         rgb_frames_paths_per_scene.append(rgb_frames_paths)
         cam_poses_per_scene.append(
             get_cam_poses(
-                scene_path=input_data_path / scene_name, limit_n_frames=limit_n_frames, cam_to_load=cam_to_load,
+                scene_path=input_data_path / scene_name,
+                limit_n_frames=limit_n_frames,
+                cam_to_load=cam_to_load,
             ),
         )
 
@@ -61,9 +63,7 @@ def get_scene_metadata(fps_override) -> dict:
     frame_width = 480  # [pixels]
     frame_height = 640  # [pixels]
     min_vis_z_mm = 0  # [mm] not relevant for this simulator
-    frame_time_interval = 1 / 20  # [sec]
-
-    fps = 1 / frame_time_interval  # [Hz]
+    fps = 3 # [Hz]
     if fps_override != 0:
         fps = fps_override
 
@@ -101,9 +101,10 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
     cam_name_letter = cam_to_load.capitalize()[0]
     pos_file_path = next(scene_path.glob(f"*_Camera Position {cam_name_letter} Data.txt"))
     i = 0
-    pos_x = []
-    pos_y = []
-    pos_z = []
+    # The first frame is always at the origin of the world coordinate system
+    pos_x = [0.0]
+    pos_y = [0.0]
+    pos_z = [0.0]
     loaded_translation_to_mm = 10  # multiply the loaded translation values by this factor to get mm units.
     # (based on the readme of https://github.com/zsustc/colon_reconstruction_dataset)
 
@@ -132,10 +133,11 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
                 break
     rot_file_path = next(scene_path.glob("*_Camera Quaternion Rotation Data.txt"))
     i = 0
-    quat_x = []
-    quat_y = []
-    quat_z = []
-    quat_w = []
+    # The first frame is always the identity quaternion
+    quat_x = [0.0]
+    quat_y = [0.0]
+    quat_z = [0.0]
+    quat_w = [1.0]
     with rot_file_path.open() as file:
         lines = file.readlines()
         for line in lines:

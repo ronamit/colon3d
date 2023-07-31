@@ -63,7 +63,7 @@ class DepthAndEgoMotionLoader:
 
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
-            self.init_loaded_egomotions("gt_depth_and_egomotion.h5")
+            self.init_loaded_egomotions("gt_3d_data.h5")
 
         elif egomotions_source == "loaded_estimates":
             print("Using loaded estimated egomotions")
@@ -80,7 +80,7 @@ class DepthAndEgoMotionLoader:
 
         elif depth_maps_source == "ground_truth":
             print("Using loaded ground-truth depth maps")
-            self.init_loaded_depth("gt_depth_and_egomotion.h5", "gt_depth_info.pkl")
+            self.init_loaded_depth("gt_3d_data.h5", "gt_depth_info.pkl")
 
         elif depth_maps_source == "loaded_estimates":
             print("Using loaded estimated depth maps")

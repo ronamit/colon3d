@@ -29,7 +29,7 @@ print(cum_pose)
 
 
 # get the ground truth poses
-with h5py.File(scene_path / "gt_depth_and_egomotion.h5", "r") as h5f:
+with h5py.File(scene_path / "gt_3d_data.h5", "r") as h5f:
     gt_cam_poses = h5f["cam_poses"][:]
     gt_egomotions = to_torch(h5f["egomotions"][:])
 
