@@ -26,17 +26,12 @@ parser.add_argument(
     help="The name of the dataset to run the algorithm on",
     default="Zhang22",
 )
-parser.add_argument(
-    "--sanity_check_mode",
-    type=bool_arg,
-    help="If true, we generate easy cases for sanity check",
-    default=False,  # "False"
-)
+
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
 debug_mode = args.debug_mode
 print(
-    f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}, sanity_check_mode={args.sanity_check_mode}",
+    f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}",
 )
 
 # --------------------------------------------------------------------------------------------------------------------
