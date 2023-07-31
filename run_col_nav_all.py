@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
-from colon3d.sim_import.create_cases import CasesCreator
+from colon3d.sim_import.create_target_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
 

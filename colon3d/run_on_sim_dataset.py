@@ -76,10 +76,10 @@ def main():
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(
-        "--n_cases_lim",
+        "--n_scenes_lim",
         type=int,
         default=1,
-        help="upper limit on the number of cases used, if 0 then all cases are used",
+        help="upper limit on the number of scenes used, if 0 then all scenes are used",
     )
     parser.add_argument(
         "--save_overwrite",
@@ -99,7 +99,7 @@ def main():
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
-        n_cases_lim=args.n_cases_lim,
+        n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
     )
 
@@ -119,7 +119,7 @@ class SlamOnDatasetRunner:
     depth_and_egomotion_model_path: Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
-    n_cases_lim: int = 0
+    n_scenes_lim: int = 0
     use_bundle_adjustment: bool = True
     save_overwrite: bool = True
 
@@ -134,31 +134,31 @@ class SlamOnDatasetRunner:
             print(f"{self.save_path} already exists.. " + "-" * 50)
             return
         print(f"Outputs will be saved to {self.save_path}")
-        cases_paths = list(self.dataset_path.glob("Scene_*"))
-        cases_paths.sort()
-        if self.n_cases_lim:
-            cases_paths = cases_paths[: self.n_cases_lim]
-        n_cases = len(cases_paths)
+        scenes_paths = list(self.dataset_path.glob("Scene_*"))
+        scenes_paths.sort()
+        if self.n_scenes_lim:
+            scenes_paths = scenes_paths[: self.n_scenes_lim]
+        n_scenes = len(scenes_paths)
 
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
-            print(f"Running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
+            print(f"Running SLAM on {n_scenes} scenes from the dataset {self.dataset_path}...")
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            # function to run the SLAM algorithm per case
+            # function to run the SLAM algorithm per scene
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            def run_on_case(i_case: int):
-                case_path = cases_paths[i_case]
-                save_path = self.save_path / case_path.name
+            def run_on_scene(i_scene: int):
+                scene_path = scenes_paths[i_scene]
+                save_path = self.save_path / scene_path.name
                 print(
                     "-" * 100
-                    + f"\nTime: {get_time_now_str()}\nRunning SLAM on case {i_case + 1} out of {n_cases}, results will be saved to {save_path}...\n"
+                    + f"\nTime: {get_time_now_str()}\nRunning SLAM on scene {i_scene + 1} out of {n_scenes}, results will be saved to {save_path}...\n"
                     + "-" * 100,
                 )
-                save_path = Path(self.save_path) / case_path.name
+                save_path = Path(self.save_path) / scene_path.name
                 create_empty_folder(save_path, save_overwrite=True)
-                # run the SLAM algorithm on the current case
+                # run the SLAM algorithm on the current scene
                 _, metrics_stats = run_slam_on_scene(
-                    scene_path=case_path,
+                    scene_path=scene_path,
                     save_path=save_path,
                     save_raw_outputs=self.save_raw_outputs,
                     n_frames_lim=self.n_frames_lim,
@@ -169,37 +169,37 @@ class SlamOnDatasetRunner:
                     use_bundle_adjustment=self.use_bundle_adjustment,
                     plot_names=["aided_nav", "keypoints_and_tracks"],  # plots to create
                 )
-                print("-" * 20 + f"\nFinished running SLAM on case {i_case + 1} out of {n_cases}\n" + "-" * 20)
+                print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
                 return metrics_stats
 
             # ------------------------------------------------------------------------
 
             metrics_stats_all = []
-            for i_case in range(n_cases):
-                metrics_stats_all.append(run_on_case(i_case))
+            for i_scene in range(n_scenes):
+                metrics_stats_all.append(run_on_scene(i_scene))
 
             metrics_table = pd.DataFrame()
-            for i_case in range(n_cases):
-                metrics_stats = metrics_stats_all[i_case]
-                # add current case to the error metrics table
-                if i_case == 0:
+            for i_scene in range(n_scenes):
+                metrics_stats = metrics_stats_all[i_scene]
+                # add current scene to the error metrics table
+                if i_scene == 0:
                     metrics_table = pd.DataFrame(metrics_stats, index=[0])
                 else:
-                    metrics_table.loc[i_case] = metrics_stats
+                    metrics_table.loc[i_scene] = metrics_stats
 
-            print(f"Finished running SLAM on {n_cases} cases from the dataset {self.dataset_path}...")
+            print(f"Finished running SLAM on {n_scenes} scenes from the dataset {self.dataset_path}...")
             # save the error metrics table to a csv file
             metrics_table.to_csv(self.save_path / "err_table.csv", index=[0])
             print(f"Error metrics table saved to {self.save_path / 'err_table.csv'}")
 
-            # compute statistics over all cases
+            # compute statistics over all scenes
             numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
             metrics_summary = {}
             for col in numeric_columns:
                 mean_val = np.nanmean(metrics_table[col])  # ignore nan values
                 std_val = np.nanstd(metrics_table[col])
-                n_cases = np.sum(~np.isnan(metrics_table[col]))
-                confidence_interval = 1.96 * std_val / np.sqrt(max(n_cases, 1))  # 95% confidence interval
+                n_scenes = np.sum(~np.isnan(metrics_table[col]))
+                confidence_interval = 1.96 * std_val / np.sqrt(max(n_scenes, 1))  # 95% confidence interval
                 metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
 
             print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)

@@ -78,7 +78,7 @@ python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_p
 * Generating cases based on the imported scenes, with randomly simulated tracked targets.
 
 ```bash
-  python -m colon3d.sim_import.create_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_cases "data/sim_data/SimData11_cases" --n_cases_per_scene 5
+  python -m colon3d.sim_import.create_target_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_cases "data/sim_data/SimData11_cases" --n_cases_per_scene 5
 ```
 
 * Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.
@@ -103,6 +103,7 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
   ```bash
      python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
   ```
+  
 * Run the algorithm on real data example:
 
 ```bash

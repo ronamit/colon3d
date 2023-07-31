@@ -126,7 +126,6 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
                 s = clean_line_string(line)
                 frame_ind = int(s[:6]) - 1
                 x, y, z = (float(v) for v in s[6:].replace(" ", "").split(","))
-
             assert frame_ind == i, f"frame index mismatch in {pos_file_path}"
             pos_x.append(x)
             pos_y.append(y)
