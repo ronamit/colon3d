@@ -131,8 +131,13 @@ def draw_keypoints_and_tracks(
         kp_id_all: list of int, the track id of each keypoint.
         save_path: str, the path to save the visualization.
     """
-    kp_frame_idx_all = np.array(kp_frame_idx_all)
-    kp_px_all = np.stack(kp_px_all, axis=0)
+    n_kps = len(kp_frame_idx_all)
+    if n_kps > 0:
+        kp_frame_idx_all = np.array(kp_frame_idx_all)
+        kp_px_all = np.stack(kp_px_all, axis=0)
+    else:
+        kp_frame_idx_all = np.array([])
+        kp_px_all = np.zeros((0, 2))
     frames_generator = scene_loader.frames_generator(frame_type="full")
     alg_view_cropper = scene_loader.alg_view_cropper  # RadialImageCropper or None
     fps = scene_loader.fps

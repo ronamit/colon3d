@@ -1,10 +1,7 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
-from colon3d.sim_import.create_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
 
@@ -33,12 +30,14 @@ parser.add_argument(
     "--sanity_check_mode",
     type=bool_arg,
     help="If true, we generate easy cases for sanity check",
-    default=False, # "False"
+    default=False,  # "False"
 )
 args = parser.parse_args()
 save_overwrite = args.save_overwrite
 debug_mode = args.debug_mode
-print(f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}, sanity_check_mode={args.sanity_check_mode}")
+print(
+    f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}, sanity_check_mode={args.sanity_check_mode}",
+)
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility
@@ -49,9 +48,6 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 # path to save the processed scenes dataset:
 scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 
-# path to save the dataset of cases generated from the scenes:
-cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
-
 # base path to save the algorithm runs results:
 base_results_path = Path(f"results/{test_dataset_name}_results")
 
@@ -61,7 +57,6 @@ if debug_mode:
     limit_n_frames = 100  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
     scenes_dataset_path = scenes_dataset_path / "debug"
-    cases_dataset_path = cases_dataset_path / "debug"
     base_results_path = base_results_path / "debug"
     n_cases_lim = 1  # num cases to run the algorithm on
 else:
@@ -84,5 +79,25 @@ SimImporter(
     save_overwrite=save_overwrite,
     sim_name="Zhang22",
 ).run()
+# --------------------------------------------------------------------------------------------------------------------
+# Run the SLAM algorithm on a dataset of simulated examples:
+# --------------------------------------------------------------------------------------------------------------------
 
+common_args = {
+    "save_raw_outputs": False,
+    "alg_fov_ratio": 0,
+    "n_frames_lim": 0,
+    "n_cases_lim": n_cases_lim,
+    "save_overwrite": save_overwrite,
+}
+# --------------------------------------------------------------------------------------------------------------------
+# using the ground truth egomotions - without bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=scenes_dataset_path,
+    save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
+    depth_maps_source="none",
+    egomotions_source="ground_truth",
+    use_bundle_adjustment=False,
+    **common_args,
+).run()
 # --------------------------------------------------------------------------------------------------------------------
