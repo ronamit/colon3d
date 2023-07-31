@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
 
+import pandas as pd
+
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.sim_importer import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
@@ -79,17 +81,62 @@ common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
-    "n_cases_lim": n_cases_lim,
+    "n_scenes_lim": n_cases_lim,
     "save_overwrite": save_overwrite,
+    "plot_aided_nav": False,
 }
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth egomotions - without bundle adjustment
 SlamOnDatasetRunner(
     dataset_path=scenes_dataset_path,
-    save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
+    save_path=base_results_path / "no_BA_with_GT_ego",
     depth_maps_source="none",
     egomotions_source="ground_truth",
     use_bundle_adjustment=False,
     **common_args,
 ).run()
+# --------------------------------------------------------------------------------------------------------------------
+
+# Bundle-adjustment, without monocular depth and egomotion estimation
+SlamOnDatasetRunner(
+    dataset_path=scenes_dataset_path,
+    save_path=base_results_path / "BA_no_depth_no_ego",
+    depth_maps_source="none",
+    egomotions_source="none",
+    **common_args,
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+# Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
+SlamOnDatasetRunner(
+    dataset_path=scenes_dataset_path,
+    save_path=base_results_path / "BA_with_EndoSFM_orig",
+    depth_maps_source="online_estimates",
+    egomotions_source="online_estimates",
+    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
+    use_bundle_adjustment=True,
+    **common_args,
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+# the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=scenes_dataset_path,
+    save_path=base_results_path / "no_BA_with_EndoSFM_orig",
+    depth_maps_source="online_estimates",
+    egomotions_source="online_estimates",
+    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
+    use_bundle_adjustment=False,
+    **common_args,
+).run()
+# --------------------------------------------------------------------------------------------------------------------
+
+# save unified results table for all the runs:
+unified_results_table = pd.DataFrame()
+for results_path in base_results_path.glob("*"):
+    if results_path.is_dir():
+        # load the current run results summary csv file:
+        run_results_summary = pd.read_csv(results_path / "metrics_summary.csv")
+        # add the run name to the results table:
+        unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
+# save the unified results table:
+unified_results_table.to_csv(base_results_path / "unified_results_table.csv", encoding="utf-8", index=False)
 # --------------------------------------------------------------------------------------------------------------------

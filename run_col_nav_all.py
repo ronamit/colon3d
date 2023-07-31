@@ -49,8 +49,8 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 # path to save the processed scenes dataset:
 scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 
-# path to save the dataset of cases generated from the scenes:
-cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
+# path to save the dataset of cases with randomly generated targets added to the original scenes:
+scenes_cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
 
 # base path to save the algorithm runs results:
 base_results_path = Path(f"results/{test_dataset_name}_results")
@@ -61,7 +61,7 @@ if debug_mode:
     limit_n_frames = 100  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
     scenes_dataset_path = scenes_dataset_path / "debug"
-    cases_dataset_path = cases_dataset_path / "debug"
+    scenes_cases_dataset_path = scenes_cases_dataset_path / "debug"
     base_results_path = base_results_path / "debug"
     n_cases_lim = 1  # num cases to run the algorithm on
 else:
@@ -89,7 +89,7 @@ SimImporter(
 # Generate several cases from each scene, each with randomly chosen target location and size.
 CasesCreator(
     sim_data_path=scenes_dataset_path,
-    path_to_save_cases=cases_dataset_path,
+    path_to_save_cases=scenes_cases_dataset_path,
     n_cases_per_scene=n_cases_per_scene,
     min_non_visible_frames=min_non_visible_frames,
     rand_seed=rand_seed,
@@ -104,13 +104,13 @@ common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
-    "n_cases_lim": n_cases_lim,
+    "n_scenes_lim": n_cases_lim,
     "save_overwrite": save_overwrite,
 }
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth depth maps and egomotions - without bundle adjustment
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
@@ -119,18 +119,18 @@ SlamOnDatasetRunner(
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
 
-# without monocular depth and egomotion estimation
+# Bundle-adjustment, without monocular depth and egomotion estimation
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "BA_no_depth_no_ego",
     depth_maps_source="none",
     egomotions_source="none",
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
-# with the original EndoSFM monocular depth and egomotion estimation
+# Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "BA_with_EndoSFM_orig",
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
@@ -139,7 +139,7 @@ SlamOnDatasetRunner(
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
-# # with the tuned EndoSFM monocular depth and egomotion estimation
+# # Bundle-adjustment, with the tuned EndoSFM monocular depth and egomotion estimation
 # SlamOnDatasetRunner(
 #     dataset_path=cases_dataset_path,
 #     save_path=base_results_path / "BA_with_EndoSFM_tuned",
@@ -152,7 +152,7 @@ SlamOnDatasetRunner(
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "no_BA_with_EndoSFM_orig",
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
@@ -172,9 +172,9 @@ SlamOnDatasetRunner(
 #     **common_args,
 # ).run()
 # --------------------------------------------------------------------------------------------------------------------
-# using the ground truth depth maps no egomotions
+# Bundle-adjustment, using the ground truth depth maps no egomotions
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "BA_with_GT_depth_no_ego",
     depth_maps_source="ground_truth",
     egomotions_source="none",
@@ -182,9 +182,9 @@ SlamOnDatasetRunner(
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
-#  using the ground truth depth maps and egomotions - with bundle adjustment
+# Bundle-adjustment, using the ground truth depth maps and egomotions.
 SlamOnDatasetRunner(
-    dataset_path=cases_dataset_path,
+    dataset_path=scenes_cases_dataset_path,
     save_path=base_results_path / "BA_with_GT_depth_and_ego",
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
