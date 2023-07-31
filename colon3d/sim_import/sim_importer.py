@@ -256,7 +256,8 @@ class SimImporter:
 
         # frame loader function
         def load_rgb_frame(i_frame) -> np.ndarray:
-            frame_path = rgb_frames_paths[i_frame]
+            frame_path = self.input_data_path / rgb_frames_paths[i_frame]
+            assert frame_path.exists(), f"File {frame_path} does not exist"
             im = cv2.imread(path_to_str(self.input_data_path / frame_path))
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
             return im

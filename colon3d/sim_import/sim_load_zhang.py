@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +28,8 @@ def load_sim_raw(
 
     for scene_path in cases_paths:
         scenes_names.append(scene_path.name)
-        rgb_frames_paths = list(scene_path / cam_to_load.glob("*.png"))
+        rgb_frames_paths = list((scene_path / cam_to_load).glob("*.png"))
+        rgb_frames_paths = [Path(cam_to_load) / file_path.name for file_path in rgb_frames_paths]
         rgb_frames_paths.sort()
         rgb_frames_paths = rgb_frames_paths[:limit_n_frames]
         assert len(rgb_frames_paths) > 0, f"no RGB frames found in {scene_path}"
@@ -36,7 +38,7 @@ def load_sim_raw(
         cam_poses_per_scene.append(
             get_cam_poses(scene_path=scene_path, limit_n_frames=limit_n_frames, cam_to_load=cam_to_load),
         )
-        
+
     return (
         scenes_names,
         metadata_per_scene,
@@ -93,8 +95,8 @@ def get_scene_metadata(fps_override) -> dict:
 
 # --------------------------------------------------------------------------------------------------------------------
 def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np.ndarray:
-    cam_name_letter = "L" if cam_to_load.name == "Left" else "R"
-    pos_file_path = next(scene_path.glob(scene_path / f"_Camera Position {cam_name_letter} Data.txt"))
+    cam_name_letter = cam_to_load.capitalize()[0]
+    pos_file_path = next(scene_path.glob(f"*_Camera Position {cam_name_letter} Data.txt"))
     i = 0
     pos_x = []
     pos_y = []
@@ -105,15 +107,27 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
     with pos_file_path.open() as file:
         lines = file.readlines()
         for line in lines:
-            frame_ind = int(find_between_str(line, "Frame ", " "))
-            assert i == frame_ind
-            pos_x.append(loaded_translation_to_mm * float(find_between_str(line, "X=", ",")))
-            pos_y.append(loaded_translation_to_mm * float(find_between_str(line, "Y=", ",")))
-            pos_z.append(loaded_translation_to_mm * float(find_between_str(line, "Z=", " ")))
+            # there seems to be two different formats for the position file, the code below handles both
+            if line.startswith("id tx ty tz"):
+                continue  # skip the header line
+            if "Frame" in line:
+                frame_ind = int(find_between_str(line, "Frame ", " "))
+                x = float(find_between_str(line, "X=", ","))
+                y = float(find_between_str(line, "Y=", ","))
+                z = float(find_between_str(line, "Z=", " "))
+            else:
+                s = clean_line_string(line)
+                frame_ind = int(s[:6]) - 1
+                x, y, z = (float(v) for v in s[6:].replace(" ", "").split(","))
+
+            assert frame_ind == i, f"frame index mismatch in {pos_file_path}"
+            pos_x.append(x)
+            pos_y.append(y)
+            pos_z.append(z)
             i += 1
             if i == limit_n_frames:
                 break
-    rot_file_path = next(scene_path.glob(scene_path / f"_Camera Position {cam_name_letter} Data.txt"))
+    rot_file_path = next(scene_path.glob("*_Camera Quaternion Rotation Data.txt"))
     i = 0
     quat_x = []
     quat_y = []
@@ -122,12 +136,24 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
     with rot_file_path.open() as file:
         lines = file.readlines()
         for line in lines:
-            frame_ind = int(find_between_str(line, "Frame ", " "))
+            # there seems to be two different formats for the position file, the code below handles both
+            if line.startswith("id qx qy qz qw"):
+                continue  # skip the header line
+            if "Frame" in line:
+                frame_ind = int(find_between_str(line, "Frame ", " "))
+                qx = float(find_between_str(line, "X=", ","))
+                qy = float(find_between_str(line, "Y=", ","))
+                qz = float(find_between_str(line, "Z=", ","))
+                qw = float(find_between_str(line, "W=", " "))
+            else:
+                s = clean_line_string(line)
+                frame_ind = int(s[:6]) - 1
+                qx, qy, qz, qw = (float(v) for v in s[6:].replace(" ", "").split(","))
             assert i == frame_ind
-            quat_x.append(float(find_between_str(line, "X=", ",")))
-            quat_y.append(float(find_between_str(line, "Y=", ",")))
-            quat_z.append(float(find_between_str(line, "Z=", ",")))
-            quat_w.append(float(find_between_str(line, "W=", " ")))
+            quat_x.append(qx)
+            quat_y.append(qy)
+            quat_z.append(qz)
+            quat_w.append(qw)
             i += 1
             if i == limit_n_frames:
                 break
@@ -135,18 +161,31 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
     # the 7 values are: x, y, z, q_w, q_x, q_y, q_z
     # the world coordinate system is defined by the camera coordinate system at the first frame (the optical axis of the camera is the z-axis)
     # (x, y, z) is the camera position in the world system (in mm)
-    cam_loc = np.column_stack((pos_x, pos_y, pos_z))
+    cam_loc = np.column_stack((pos_x, pos_y, pos_z)) * loaded_translation_to_mm
     # (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system
     cam_rot = np.column_stack((quat_w, quat_x, quat_y, quat_z))
     # transform from the unity left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
-    # [x,-y,z]-->[x,y,z]
+    # y -> -y
     cam_loc[:, 1] *= -1
-    #  [qw, qx, qy, qz]-->[ qw, -qx, qy, -qz]
-    cam_rot[:, 1] *= -1
-    cam_rot[:, 3] *= -1
+    # change the rotation accordingly: qy -> -qy
+    cam_rot[:, 2] *= -1
+    # change the rotation to direction (since the switch y -> -y took a mirror image of the world)
+    cam_rot[:, 1:] *= -1
     cam_rot = np_func(normalize_quaternions)(cam_rot)
     cam_poses = np.column_stack((cam_loc, cam_rot))
     return cam_poses
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def clean_line_string(line: str):
+    s = deepcopy(line)
+    # delete all spaces in the start of the line:
+    while s[0] == " ":
+        s = s[1:]
+    s.replace("\n", "")
+    return s
 
 
 # --------------------------------------------------------------------------------------------------------------------
