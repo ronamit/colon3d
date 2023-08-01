@@ -35,7 +35,7 @@ class SlamAlgRunner:
         self.alg_prm = alg_prm
         # ---- ORB feature detector and descriptor (https://docs.opencv.org/4.x/db/d95/classcv_1_1ORB.html)
         self.kp_detector = cv2.ORB_create(
-            nfeatures=300,  # maximum number of features (keypoints) to retain
+            nfeatures=500,  # maximum number of features (keypoints) to retain
             scaleFactor=1.2,  # Pyramid decimation ratio, greater than 1.
             nlevels=8,  # The number of pyramid levels.
             edgeThreshold=31,  # This is size of the border where the features are not detected.
