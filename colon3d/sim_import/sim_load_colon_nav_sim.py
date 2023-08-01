@@ -84,7 +84,7 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
         rgb_frames_paths_per_scene[-1].append(rgb_file_path)
         depth_frames_paths_per_scene[-1].append(depth_file_path)
     # end for capture in captures
-    n_scenes = scene_idx
+    n_scenes = len(scenes_names)
     print(f"Number of extracted scenes: {n_scenes}")
 
     cam_poses_per_scene = []
