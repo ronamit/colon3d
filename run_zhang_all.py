@@ -5,7 +5,7 @@ import pandas as pd
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -61,6 +61,7 @@ if args.no_penalties_mode:
 base_results_path = Path("results") / results_name
 print(f"base_results_path={base_results_path}")
 
+# --------------------------------------------------------------------------------------------------------------------
 
 if debug_mode:
     limit_n_scenes = 1  # num scenes to import
@@ -74,7 +75,10 @@ else:
     limit_n_frames = 0  # 0 means no limit
     n_cases_per_scene = 5  # num cases to generate from each scene
     n_cases_lim = 0  # 0 means no limit
+# --------------------------------------------------------------------------------------------------------------------
 
+if save_overwrite:
+    create_empty_folder(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:

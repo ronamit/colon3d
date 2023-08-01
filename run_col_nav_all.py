@@ -6,7 +6,7 @@ import pandas as pd
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.create_target_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -27,13 +27,13 @@ parser.add_argument(
     "--test_dataset_name",
     type=str,
     help="The name of the dataset to run the algorithm on",
-    default="TestData21",   # "TestData21" | "SanityCheck23"
+    default="TestData21",  # "TestData21" | "SanityCheck23"
 )
 parser.add_argument(
     "--sanity_check_mode",
     type=bool_arg,
     help="If true, we generate easy cases for sanity check",
-    default=False, # "False"
+    default=False,  # "False"
 )
 args = parser.parse_args()
 print(f"args={args}")
@@ -72,7 +72,10 @@ else:
 
 # in sanity check mode we generate easy cases for sanity check (the target may always be visible)
 min_non_visible_frames = 0 if args.sanity_check_mode else 20
+# --------------------------------------------------------------------------------------------------------------------
 
+if save_overwrite:
+    create_empty_folder(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
