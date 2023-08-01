@@ -82,8 +82,9 @@ def get_run_file_and_args():
 def save_run_info(save_path: Path):
     git_verion_link = get_git_version_link()
     run_file, run_args = get_run_file_and_args()
+    local_time = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     # save the args + git link  as yaml file
-    save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_verion_link}
+    save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_verion_link, "local_time": local_time}
     save_dict_to_yaml(save_path=save_path / "run_info.yaml", dict_to_save=save_dict)
 
 

@@ -33,7 +33,7 @@ parser.add_argument(
     "--no_penalties_mode",
     type=bool_arg,
     help="If true, run the algorithm without penalties",
-    default=True,
+    default=False,
 )
 
 args = parser.parse_args()
@@ -79,6 +79,7 @@ else:
 
 if save_overwrite:
     create_empty_folder(base_results_path)
+    
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
@@ -90,10 +91,10 @@ SimImporter(
     save_overwrite=save_overwrite,
     sim_name="Zhang22",
 ).run()
+
 # --------------------------------------------------------------------------------------------------------------------
 # Run the SLAM algorithm on a dataset of simulated examples:
 # --------------------------------------------------------------------------------------------------------------------
-
 
 common_args = {
     "save_raw_outputs": False,
