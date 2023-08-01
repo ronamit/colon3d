@@ -20,13 +20,20 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=False,
+    default=True,
 )
 parser.add_argument(
     "--test_dataset_name",
     type=str,
     help="The name of the dataset to run the algorithm on",
     default="Zhang22",
+)
+
+parser.add_argument(
+    "--no_penalties_mode",
+    type=bool_arg,
+    help="If true, run the algorithm without penalties",
+    default=False,
 )
 
 args = parser.parse_args()
@@ -45,8 +52,15 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 # path to save the processed scenes dataset:
 scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 
-# base path to save the algorithm runs results:
-base_results_path = Path(f"results/{test_dataset_name}_results")
+alg_settings_override_common = {}
+results_name = test_dataset_name
+
+if args.no_penalties_mode:
+    alg_settings_override_common = {"add_penalties": False}
+    results_name = results_name + "_no_penalties"
+    
+    # base path to save the algorithm runs results:
+base_results_path = Path("results") / results_name
 
 
 if debug_mode:
@@ -77,6 +91,7 @@ SimImporter(
 # Run the SLAM algorithm on a dataset of simulated examples:
 # --------------------------------------------------------------------------------------------------------------------
 
+
 common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
@@ -92,7 +107,7 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "no_BA_with_GT_ego",
     depth_maps_source="none",
     egomotions_source="ground_truth",
-    use_bundle_adjustment=False,
+    alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -103,6 +118,7 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_no_depth_no_ego",
     depth_maps_source="none",
     egomotions_source="none",
+    alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -113,7 +129,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    use_bundle_adjustment=True,
+    alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -124,7 +140,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    use_bundle_adjustment=False,
+    alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------

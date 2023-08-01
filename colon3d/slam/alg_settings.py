@@ -5,6 +5,7 @@ import numpy as np
 
 @dataclass
 class AlgorithmParam:
+    use_bundle_adjustment: bool = True
     n_last_frames_to_opt: int = 1
     optimize_each_n_frames: int = 1
     add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)

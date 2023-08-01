@@ -114,7 +114,7 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
-    use_bundle_adjustment=False,
+    alg_settings_override={"use_bundle_adjustment": False},
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -135,7 +135,6 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    use_bundle_adjustment=True,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -146,7 +145,6 @@ SlamOnDatasetRunner(
 #     depth_maps_source="online_estimates",
 #     egomotions_source="online_estimates",
 #     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
-#     use_bundle_adjustment=True,
 #     **common_args,
 # ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -157,7 +155,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    use_bundle_adjustment=False,
+    alg_settings_override={"use_bundle_adjustment": False},
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -168,7 +166,6 @@ SlamOnDatasetRunner(
 #     depth_maps_source="online_estimates",
 #     egomotions_source="online_estimates",
 #     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
-#     use_bundle_adjustment=False,
 #     **common_args,
 # ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -178,7 +175,6 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_with_GT_depth_no_ego",
     depth_maps_source="ground_truth",
     egomotions_source="none",
-    use_bundle_adjustment=True,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------
@@ -188,7 +184,6 @@ SlamOnDatasetRunner(
     save_path=base_results_path / "BA_with_GT_depth_and_ego",
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
-    use_bundle_adjustment=True,
     **common_args,
 ).run()
 # --------------------------------------------------------------------------------------------------------------------

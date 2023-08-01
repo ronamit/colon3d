@@ -56,6 +56,7 @@ class SlamAlgRunner:
             {"checks": 50},
         )
 
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def init_algorithm(self):
@@ -111,7 +112,6 @@ class SlamAlgRunner:
         scene_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
         depth_estimator: DepthAndEgoMotionLoader,
-        use_bundle_adjustment: bool = True,
         save_path: Path | None = None,
         draw_interval: int = 0,
         verbose_print_interval: int = 0,
@@ -147,7 +147,6 @@ class SlamAlgRunner:
                 alg_view_cropper=alg_view_cropper,
                 depth_estimator=depth_estimator,
                 fps=fps,
-                use_bundle_adjustment=use_bundle_adjustment,
                 draw_interval=draw_interval,
                 verbose_print_interval=verbose_print_interval,
                 save_path=save_path,
@@ -188,7 +187,6 @@ class SlamAlgRunner:
         alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
-        use_bundle_adjustment: bool,
         draw_interval: int,
         verbose_print_interval: int,
         save_path: Path | None = None,
@@ -240,7 +238,7 @@ class SlamAlgRunner:
             # concat the current guess to the cam_poses tensor
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)
 
-        if use_bundle_adjustment:
+        if self.alg_prm.use_bundle_adjustment:
             # in this case - we need to find KPs matches for the bundle adjustment
             # find salient keypoints with ORB
             salient_KPs_B = self.kp_detector.detect(cur_rgb_frame, None)
@@ -387,7 +385,7 @@ class SlamAlgRunner:
         self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:
-        if i_frame > 0 and use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
+        if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             self.cam_poses, self.points_3d = run_bundle_adjust(

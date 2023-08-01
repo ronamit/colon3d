@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         "--use_bundle_adjustment",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the bundle adjustment will be used to refine the trajectory",
     )
     parser.add_argument(
@@ -96,6 +96,8 @@ def main():
     )
     args = parser.parse_args()
 
+    alg_settings_override = {} if args.use_bundle_adjustment else {"use_bundle_adjustment": False}
+
     slam_on_scene_runner = SlamOnSimSceneRunner(
         scene_path=Path(args.scene_path),
         save_path=Path(args.save_path),
@@ -105,7 +107,7 @@ def main():
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
-        use_bundle_adjustment=args.use_bundle_adjustment,
+        alg_settings_override=alg_settings_override,
         draw_interval=args.draw_interval,
         save_overwrite=args.save_overwrite,
     )
@@ -123,8 +125,8 @@ class SlamOnSimSceneRunner:
     depth_and_egomotion_model_path: Path
     alg_fov_ratio: float
     n_frames_lim: int
-    use_bundle_adjustment: bool
-    draw_interval: int
+    alg_settings_override: dict | None = None
+    draw_interval: int = 0
     save_overwrite: bool = True
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -148,7 +150,7 @@ class SlamOnSimSceneRunner:
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
                 depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
-                use_bundle_adjustment=self.use_bundle_adjustment,
+                alg_settings_override=self.alg_settings_override,
                 draw_interval=self.draw_interval,
                 plot_names=None,  # create all plots
             )
@@ -167,7 +169,7 @@ def run_slam_on_scene(
     depth_maps_source: str,
     egomotions_source: str,
     depth_and_egomotion_model_path: str,
-    use_bundle_adjustment: bool = True,
+    alg_settings_override: dict | None = None,
     draw_interval: int = 0,
     plot_names: list | None = None,
 ):
@@ -180,13 +182,15 @@ def run_slam_on_scene(
         alg_fov_ratio: If in range (0,1) then the algorithm will use only a fraction of the frames, if 0 then all of the frame is used.
         depth_maps_source: The source of the depth maps.
         egomotions_source: The source of the egomotion.
-        use_bundle_adjustment: if True then bundle adjustment is used to refine the initially estimated camera egomotion.
         draw_interval: plot and save figures each draw_interval frame, if 0 then no plots are saved.
         plot_names: list of plot names to save, if None then all plots are saved.
 
     """
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
+    if alg_settings_override is not None:
+        for k, v in alg_settings_override.items():
+            setattr(alg_prm, k, v)
 
     scene_loader = SceneLoader(scene_path=scene_path, n_frames_lim=n_frames_lim, alg_fov_ratio=alg_fov_ratio)
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
@@ -206,7 +210,6 @@ def run_slam_on_scene(
         scene_loader=scene_loader,
         detections_tracker=detections_tracker,
         depth_estimator=depth_estimator,
-        use_bundle_adjustment=use_bundle_adjustment,
         save_path=save_path,
         draw_interval=draw_interval,
     )

@@ -120,9 +120,9 @@ class SlamOnDatasetRunner:
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
     n_scenes_lim: int = 0
-    use_bundle_adjustment: bool = True
     save_overwrite: bool = True
     plot_aided_nav: bool = True
+    alg_settings_override: dict | None = None
     
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -172,7 +172,7 @@ class SlamOnDatasetRunner:
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
                     depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
-                    use_bundle_adjustment=self.use_bundle_adjustment,
+                    alg_settings_override=self.alg_settings_override,
                     plot_names=plot_names,  # plots to create
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
