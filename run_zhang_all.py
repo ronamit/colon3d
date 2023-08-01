@@ -33,7 +33,7 @@ parser.add_argument(
     "--no_penalties_mode",
     type=bool_arg,
     help="If true, run the algorithm without penalties",
-    default=False,
+    default=True,
 )
 
 args = parser.parse_args()
@@ -59,6 +59,7 @@ if args.no_penalties_mode:
     
     # base path to save the algorithm runs results:
 base_results_path = Path("results") / results_name
+print(f"base_results_path={base_results_path}")
 
 
 if debug_mode:
@@ -152,5 +153,7 @@ for results_path in base_results_path.glob("*"):
         # add the run name to the results table:
         unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
 # save the unified results table:
-unified_results_table.to_csv(base_results_path / "unified_results_table.csv", encoding="utf-8", index=False)
+file_path = base_results_path / "unified_results_table.csv"
+unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
+print(f"Saved unified results table to {file_path}")
 # --------------------------------------------------------------------------------------------------------------------
