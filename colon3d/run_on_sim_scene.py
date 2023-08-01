@@ -23,13 +23,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/TestData21_cases/Scene_00000_0000",
+        default="data/sim_data/Zhang22/Scene_00000", # "data/sim_data/TestData21_cases/Scene_00000_0000", "data/sim_data/Zhang22/Scene_00000"
         help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/Temp/temp_Scene_00000_0000",
+        default="results/Temp/temp1",
         help="Path to the save outputs",
     )
     parser.add_argument(
@@ -47,7 +47,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="ground_truth",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
@@ -57,7 +57,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="ground_truth",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
@@ -85,7 +85,7 @@ def main():
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=100,
+        default=20,
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(
@@ -234,7 +234,8 @@ def run_slam_on_scene(
         print("No targets info file found...")
 
     # load the  ground-truth egomotions per frame (for evaluation)
-    with h5py.File(scene_path / "gt_3d_data.h5", "r") as hf:
+    gt_data_path = scene_path / "gt_3d_data.h5"
+    with h5py.File(gt_data_path.resolve(), "r") as hf:
         gt_cam_poses = to_default_type(hf["cam_poses"][:])  # load the ground-truth camera poses into memory
 
     # calculate performance metrics

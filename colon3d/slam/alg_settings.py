@@ -28,3 +28,12 @@ class AlgorithmParam:
     opt_x_tol: float = 1e-3  # Optimization termination tolerance on function/parameter changes.
     opt_g_tol: float = 1e-6  # Optimization termination tolerance on the gradient.
     # opt_lr: float = 10.  # initial learning rate for the optimization
+    ransac_reprojection_err_threshold: float = 2.0  # reprojection error threshold for RANSAC (units: pixels)
+    max_initial_keypoints: int = 300  # maximum number of keypoints the KPs detector will return.
+    kp_descriptor_patch_size: int = 51  # patch size for the keypoint descriptor (units: pixels)
+    min_n_matches_to_filter: int = 10  # minimum number of keypoints matches to filter out outliers.
+    # maximum distance from the identity matrix to consider a homography as valid
+    hom_dist_from_identity_threshold: float = 50.0
+    # maximum distance between two keypoints to consider them as a match (units: pixels)
+    max_match_pix_dist: float =  30.0
+    orb_fast_thresh: int = 5  # FAST threshold for ORB keypoints detector

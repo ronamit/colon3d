@@ -89,7 +89,7 @@ def plot_world_sys_per_frame(
                 ),
             )
             # find the distance of the camera from a track point
-            max_dist = max(max_dist, np.linalg.norm(track_p3d_world, axis=1).max())
+            max_dist = max(max_dist, np.linalg.norm(track_p3d_world, axis=-1).max())
     # plot the camera estimated 3D location and FOV cone, in the world system per frame:
     for i_step, i_frame in enumerate(frame_inds):
         # the camera trajectory up to the current frame (including the current frame)

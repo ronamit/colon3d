@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import torch
 
+from colon3d.slam.alg_settings import AlgorithmParam
+from colon3d.util.general_util import to_str
 from colon3d.util.torch_util import get_default_dtype
 from colon3d.util.transforms_util import transform_points_world_to_cam
 
@@ -97,7 +99,7 @@ def get_kp_matchings(
     descriptors_A,
     descriptors_B,
     kp_matcher,
-    min_n_matches_to_filter=10,
+    alg_prm: AlgorithmParam,
 ):
     """
     Parameters:
@@ -106,13 +108,17 @@ def get_kp_matchings(
         descriptors_A: list of descriptors for the KPs in frame A
         descriptors_B: list of descriptors for the KPs in frame B
         kp_matcher: keypoints matcher
-        min_n_matches_to_filter: minimum number of matches to use RANSAC filter
     """
+    min_n_matches_to_filter = alg_prm.min_n_matches_to_filter
+    ransac_reprojection_err_threshold = alg_prm.ransac_reprojection_err_threshold
+    max_match_pix_dist = alg_prm.max_match_pix_dist
+
     if len(keypoints_A) == 0 or len(keypoints_B) == 0:
         print("No keypoints to match...")
         return [], []
+
     matches = kp_matcher.knnMatch(descriptors_A, descriptors_B, k=1)
-    # list of matches from the first image to the second one, which means that kp1[i] has
+    # we get list of matches from the first image to the second one, which means that kp1[i] has
     # a corresponding point in kp2[matches[i]] .
     # we used k=1 (take only the best match)- so each element is a tuple of size 1..
     # Each match element is
@@ -121,16 +127,43 @@ def get_kp_matchings(
     # DMatch.queryIdx - Index of the descriptor in query descriptors (des1)
     matches = [m[0] for m in matches if m]
     n_matches = len(matches)
+    # check minimum number of matches to use RANSAC filter
     if n_matches > min_n_matches_to_filter:
         print(f"Matched {n_matches} salient keypoint pairs...")
         # If enough matches are found, we extract the locations of matched keypoints in both the images.
         # They are passed to find the perspective transformation. Once we get this 3x3 transformation matrix,
         src_pts = np.array([keypoints_A[m.queryIdx].pt for m in matches], dtype=np_dtype).reshape(-1, 1, 2)
         dst_pts = np.array([keypoints_B[m.trainIdx].pt for m in matches], dtype=np_dtype).reshape(-1, 1, 2)
-        M_hom, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
-        matches_mask = mask.ravel().tolist()
-        good_matches = [match for i_match, match in enumerate(matches) if matches_mask[i_match]]
-        print(f"After RANSAC, we kept only {len(good_matches)} good matches ...")
+
+        # Create a mask that indicates KP pairs that are too far from each other as outliers
+        # the mask is used to filter out outliers from the matches pre-RANSAC
+        pre_mask = np.ones((n_matches,1), dtype=np.uint8)
+        for i_match in range(n_matches):
+            pre_mask[i_match] = np.linalg.norm(src_pts[i_match] - dst_pts[i_match]) < max_match_pix_dist
+        pre_mask = pre_mask
+        
+        M_hom, post_mask = cv2.findHomography(
+            srcPoints=src_pts,
+            dstPoints=dst_pts,
+            method=cv2.RANSAC,
+            mask=pre_mask,
+            ransacReprojThreshold=ransac_reprojection_err_threshold,
+        )
+        if M_hom is None or M_hom.shape == ():
+            print("RANSAC failed to find a homography...")
+            good_matches = []
+        else:
+            # find the (Frobenius norm) distance of the estimated homography matrix from the identity matrix
+            hom_dist_from_identity = np.linalg.norm(M_hom - np.eye(3), ord="fro")
+            if hom_dist_from_identity > alg_prm.hom_dist_from_identity_threshold:
+                print(
+                    f"RANSAC failed to find a homography... (distance from identity is {to_str(hom_dist_from_identity)})",
+                )
+                good_matches = []
+            else:
+                matches_mask = post_mask.ravel().tolist()
+                good_matches = [match for i_match, match in enumerate(matches) if matches_mask[i_match]]
+            print(f"After RANSAC, we kept only {len(good_matches)} good matches ...")
     else:
         good_matches = matches
         print(f"Too few matches for RANSAC {len(good_matches)}/{min_n_matches_to_filter}, using all matches...")

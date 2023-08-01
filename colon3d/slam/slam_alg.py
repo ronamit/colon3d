@@ -35,15 +35,15 @@ class SlamAlgRunner:
         self.alg_prm = alg_prm
         # ---- ORB feature detector and descriptor (https://docs.opencv.org/4.x/db/d95/classcv_1_1ORB.html)
         self.kp_detector = cv2.ORB_create(
-            nfeatures=500,  # maximum number of features (keypoints) to retain
+            nfeatures=alg_prm.max_initial_keypoints,  # maximum number of features (keypoints) to retain
             scaleFactor=1.2,  # Pyramid decimation ratio, greater than 1.
             nlevels=8,  # The number of pyramid levels.
-            edgeThreshold=31,  # This is size of the border where the features are not detected.
+            edgeThreshold=alg_prm.kp_descriptor_patch_size,  # This is size of the border where the features are not detected.
             firstLevel=0,  # The level of pyramid to put source image to.
             WTA_K=2,  # The number of points that produce each element of the oriented BRIEF descriptor.
             scoreType=cv2.ORB_HARRIS_SCORE,  # 	The default HARRIS_SCORE means that Harris algorithm is used to rank features
-            patchSize=31,  # size of the patch used by the oriented BRIEF descriptor.
-            fastThreshold=20,  # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
+            patchSize=alg_prm.kp_descriptor_patch_size,  # size of the patch used by the oriented BRIEF descriptor.
+            fastThreshold=alg_prm.orb_fast_thresh, # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
         )
         # Create FLANN Matcher
         self.kp_matcher = cv2.FlannBasedMatcher(
@@ -265,11 +265,12 @@ class SlamAlgRunner:
         # ----Starting from second frame, run matching of keypoints with pervious frame
         if i_frame > 0:
             matched_A_kps, matched_B_kps = get_kp_matchings(
-                self.salient_KPs_A,
-                salient_KPs_B,
-                self.descriptors_A,
-                descriptors_B,
-                self.kp_matcher,
+                keypoints_A=self.salient_KPs_A,
+                keypoints_B=salient_KPs_B,
+                descriptors_A=self.descriptors_A,
+                descriptors_B=descriptors_B,
+                kp_matcher=self.kp_matcher,
+                alg_prm=self.alg_prm,
             )
             # -----Draw the matches
             if draw_interval and i_frame % draw_interval == 0:

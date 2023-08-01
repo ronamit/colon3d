@@ -447,6 +447,8 @@ def to_str(a):
         return "{" + (", ".join([f"{key}:{to_str(val)}" for key, val in a.items()])) + "}"
     if isinstance(a, np.ndarray):
         return np.array2string(a, separator=",", precision=2, suppress_small=True)
+    if isinstance(a, float):
+        return f"{a:.2f}"
     return str(a)
 
 

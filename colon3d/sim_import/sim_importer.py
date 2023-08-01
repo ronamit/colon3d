@@ -238,7 +238,7 @@ class SimImporter:
             # save h5 file of depth frames and camera poses
             file_path = scene_path / "gt_3d_data.h5"
             print(f"Saving depth-maps and camera poses to: {file_path}")
-            with h5py.File(file_path, "w") as hf:
+            with h5py.File(file_path.resolve(), "w") as hf:
                 hf.create_dataset("cam_poses", data=to_default_type(cam_poses))
                 hf.create_dataset("egomotions", data=to_default_type(egomotions))
                 if z_depth_frames is not None:

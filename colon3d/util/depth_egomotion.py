@@ -95,7 +95,7 @@ class DepthAndEgoMotionLoader:
     # --------------------------------------------------------------------------------------------------------------------
 
     def init_loaded_egomotions(self, egomotions_file_name: str):
-        with h5py.File(self.scene_path / egomotions_file_name, "r") as h5f:
+        with h5py.File((self.scene_path / egomotions_file_name).resolve(), "r") as h5f:
             self.egomotions_buffer = to_default_type(h5f["egomotions"][:])  # load all into memory
         n_frames = self.egomotions_buffer.shape[0]
         self.egomotions_buffer_frame_inds = list(range(n_frames))
@@ -110,7 +110,7 @@ class DepthAndEgoMotionLoader:
         with (self.scene_path / depth_info_file_name).open("rb") as file:
             self.depth_info = to_numpy(pickle.load(file))
         # load the depth maps
-        with h5py.File(self.depth_maps_path, "r") as h5f:
+        with h5py.File(self.depth_maps_path.resolve(), "r") as h5f:
             self.depth_maps_buffer = to_default_type(h5f["z_depth_map"][:], num_type="float_m")  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))

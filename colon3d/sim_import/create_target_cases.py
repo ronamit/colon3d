@@ -65,7 +65,7 @@ def generate_cases_from_scene(
     print(f"Generating cases from scene {scene_path}")
 
     # load the ground truth depth maps and camera poses:
-    with h5py.File(scene_path / "gt_3d_data.h5", "r") as h5f:
+    with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
         gt_depth_maps = to_numpy(h5f["z_depth_map"][:], num_type="float_m")
         gt_cam_poses = to_numpy(h5f["cam_poses"][:])
         gt_egomotions = to_numpy(h5f["egomotions"][:])
@@ -121,7 +121,7 @@ def generate_cases_from_scene(
                 rng=rng,
             )
             # save the estimated depth maps and egomotions to a file:
-            with h5py.File(case_path / "est_depth_and_egomotion.h5", "w") as hf:
+            with h5py.File((case_path / "est_depth_and_egomotion.h5").resolve(), "w") as hf:
                 hf.create_dataset(
                     "z_depth_map",
                     data=to_default_type(est_depth_maps, num_type="float_m"),

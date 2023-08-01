@@ -5,6 +5,7 @@ import numpy as np
 import yaml
 
 from colon3d.util.camera_info import CamInfo
+from colon3d.util.general_util import to_str
 from colon3d.util.pix_coord_util import PixelCoordNormalizer
 
 
@@ -52,7 +53,7 @@ class SceneLoader:
             fps = metadata["fps"]
         self.fps = fps
         self.frame_interval = 1 / fps  # in seconds
-        print(f"Frames per second: {fps}")
+        print(f"Frames per second: {to_str(fps)}")
         distort_pram = metadata["distort_pram"]
         distort_pram = np.zeros(4) if distort_pram is None else np.array(distort_pram)
         # get the camera info of the original loaded video:
