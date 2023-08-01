@@ -93,6 +93,7 @@ def main():
     )
 
     args = parser.parse_args()
+    print(f"args={args}")
     slam_runner = SlamRunner(
         scene_path=args.scene_path,
         save_path=args.save_path,

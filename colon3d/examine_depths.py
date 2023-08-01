@@ -56,6 +56,7 @@ def main():
         help="If True then the results will be saved in the save_path folder, otherwise a new folder will be created",
     )
     args = parser.parse_args()
+    print(f"args={args}")
     depth_examiner = DepthExaminer(
         dataset_path=Path(args.dataset_path),
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),

@@ -20,7 +20,7 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=True,
+    default=False,
 )
 parser.add_argument(
     "--test_dataset_name",
@@ -37,11 +37,9 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
+print(f"args={args}")
 save_overwrite = args.save_overwrite
 debug_mode = args.debug_mode
-print(
-    f"test_dataset_name={args.test_dataset_name}, save_overwrite={save_overwrite}, debug_mode={debug_mode}",
-)
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility

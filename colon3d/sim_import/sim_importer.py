@@ -77,7 +77,7 @@ def main():
         help="If True,the output folder will be overwritten if it already exists",
     )
     args = parser.parse_args()
-
+    print(f"args={args}")
     sim_importer = SimImporter(
         raw_sim_data_path=args.raw_sim_data_path,
         processed_sim_data_path=args.processed_sim_data_path,

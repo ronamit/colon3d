@@ -35,6 +35,7 @@ def main():
     )
 
     args = parser.parse_args()
+    print(f"args={args}")
     save_path = Path(args.save_path)
 
     with Tee(save_path / "log_run_slam.txt"):  # save the prints to a file

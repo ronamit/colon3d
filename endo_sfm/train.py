@@ -170,6 +170,7 @@ def main():
     )
 
     args = parser.parse_args()
+    print(f"args={args}")
     train_runner = TrainRunner(
         save_path=Path(args.save_path),
         save_overwrite=args.save_overwrite,

@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--start_frame", type=int, default=0, help="the index of the first frame to plot")
     parser.add_argument("--end_frame", type=int, default=50, help="the index of the last frame to plot")
     args = parser.parse_args()
+    print(f"args={args}")
     start_frame = args.start_frame
     end_frame = args.end_frame
     frames_tp_plot = list(range(start_frame, end_frame))

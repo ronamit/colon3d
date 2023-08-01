@@ -40,6 +40,7 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 @torch.no_grad()
 def main():
     args = parser.parse_args()
+    print(f"args={args}")
     if not (args.output_disp or args.output_depth):
         print("You must at least output one value !")
         return

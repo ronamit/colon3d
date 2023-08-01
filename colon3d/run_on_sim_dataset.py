@@ -89,7 +89,7 @@ def main():
     )
 
     args = parser.parse_args()
-
+    print(f"args={args}")
     slam_on_dataset_runner = SlamOnDatasetRunner(
         dataset_path=Path(args.dataset_path),
         save_path=Path(args.save_path),

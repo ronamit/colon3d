@@ -25,8 +25,8 @@ parser.add_argument(
     help="If True, then use a small dataset and 1 epoch for debugging",
 )
 args = parser.parse_args()
+print(f"args={args}")
 save_overwrite = args.save_overwrite
-print(f"save_overwrite={save_overwrite}")
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility

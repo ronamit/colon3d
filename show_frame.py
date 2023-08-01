@@ -64,6 +64,7 @@ def main():
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
     )
     args = parser.parse_args()
+    print(f"args={args}")
     scene_path = Path(args.scene_path)
 
     scene_loader = SceneLoader(

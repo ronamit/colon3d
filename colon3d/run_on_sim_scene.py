@@ -95,7 +95,7 @@ def main():
         help="if True then the save folder will be overwritten",
     )
     args = parser.parse_args()
-
+    print(f"args={args}")
     alg_settings_override = {} if args.use_bundle_adjustment else {"use_bundle_adjustment": False}
 
     slam_on_scene_runner = SlamOnSimSceneRunner(

@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--rand_seed", type=int, default=0, help="The random seed.")
 
     args = parser.parse_args()
-
+    print(f"args={args}")
     cases_creator = CasesCreator(
         sim_data_path=args.sim_data_path,
         path_to_save_cases=args.path_to_save_cases,
