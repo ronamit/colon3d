@@ -13,8 +13,8 @@ class AlgorithmParam:
     max_angular_vel: float = 1.0 * np.pi  # rad/s
     w_salient_kp: float = 0.3  # default weighting for the bundle adjustment cost function for salient KPs
     w_track_kp: float = 1.0  # default  weighting for the bundle adjustment cost function for track KPs
-    w_cam_trans: float = 1e-5  # default weighting for the penalty term of the l2 norm of the camera translation (from previous frame) in the bundle adjustment cost function
-    w_cam_rot: float = 1e-4  # default weighting for the penalty term of the camera rotation (from previous frame) in the bundle adjustment cost function
+    w_cam_trans: float = 1e-4  # default weighting for the penalty term of the l2 norm of the camera translation (from previous frame) in the bundle adjustment cost function
+    w_cam_rot: float = 1e-3  # default weighting for the penalty term of the camera rotation (from previous frame) in the bundle adjustment cost function
     w_p3d_change: float = 1e-2  # default weighting for the penalty term of the change in the 3D points in the bundle adjustment cost function
     # default weighting for the max-velocity penalty term in the bundle adjustment cost function:
     w_lim_vel: float = 1e-1
