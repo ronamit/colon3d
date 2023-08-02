@@ -14,14 +14,14 @@ parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=True,
+    default=False,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=True,
+    default=False,
 )
 parser.add_argument(
     "--test_dataset_name",

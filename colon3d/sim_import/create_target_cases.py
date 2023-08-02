@@ -311,6 +311,7 @@ class CasesCreator:
         # save the cases parameters to a json file:
         with (self.path_to_save_cases / "cases_prams.json").open("w") as file:
             json.dump(self.cases_params, file, indent=4)
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 if __name__ == "__main__":

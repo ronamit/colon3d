@@ -31,13 +31,12 @@ dependencies:
   - torchaudio
   - imageio
   - pip:
-      - requests==2.20.1
       - opencv-python==4.8.0.74
       - kornia==0.6.12
       - configargparse==1.5.5
       - torch==2.0.1
-      - tensorboard=2.13.0
+      - tensorboard==2.13.0
       - pytorch-lightning==2.0.5
-      - pytorch-minimize-0.0.2
+      - pytorch-minimize==0.0.2
       - scipy==1.11.1
 
