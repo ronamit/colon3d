@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=True,
+    default=False,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -153,12 +153,16 @@ SlamOnDatasetRunner(
 unified_results_table = pd.DataFrame()
 for results_path in base_results_path.glob("*"):
     if results_path.is_dir():
+        cur_result_path = results_path / "metrics_summary.csv"
+        if not cur_result_path.exists():
+            continue
         # load the current run results summary csv file:
-        run_results_summary = pd.read_csv(results_path / "metrics_summary.csv")
+        run_results_summary = pd.read_csv(cur_result_path)
         # add the run name to the results table:
         unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
 # save the unified results table:
 file_path = base_results_path / "unified_results_table.csv"
 unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
 print(f"Saved unified results table to {file_path}")
+
 # --------------------------------------------------------------------------------------------------------------------
