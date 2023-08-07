@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -51,7 +51,7 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 
 alg_settings_override_common = {}
-results_name = test_dataset_name
+results_name = test_dataset_name + "_v2"
 
 if args.no_penalties_mode:
     alg_settings_override_common = {"add_penalties": False}

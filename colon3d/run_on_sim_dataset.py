@@ -210,7 +210,7 @@ class SlamOnDatasetRunner:
 
             print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
             # save to csv file
-            metrics_summary = {"save_path": str(self.save_path)} | metrics_summary
+            metrics_summary = {"save_path": str(self.save_path), "run_name": self.save_path.name} | metrics_summary
             pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
             print("-" * 100)
 
