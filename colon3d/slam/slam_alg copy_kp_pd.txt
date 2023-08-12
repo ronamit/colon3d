@@ -62,11 +62,9 @@ class SlamAlgRunner:
 
     def init_algorithm(self, scene_metadata: dict):
         self.device = get_device()
-
-
-
-        # The keypoints (KPs) data is saved in a dataframe
-        # note that KPs might get discarded later on, if found to be invalid
+        
+        
+        # create an empty dataframe to save the keypoints data:
         self.kp_df = pd.DataFrame(
             columns=[
                 "frame_idx", # frame index
@@ -80,21 +78,21 @@ class SlamAlgRunner:
         )
         
         
-        self.kp_px_all = []  # List of keypoints, each element is the (x,y) pixel coordinates of a keypoint in the image
-        #  the (x,y) normalized coordinates of a keypoint in some image:
-        self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
-        # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
-        self.kp_id_all = []
-        self.SALIENT_KP_ID = -1
-        self.kp_frame_idx_all = []  #  List of the keypoint's frame index
-        self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
         
+        # self.kp_px_all = []  # List of keypoints, each element is the (x,y) pixel coordinates of a keypoint in the image
+        # #  the (x,y) normalized coordinates of a keypoint in some image:
+        # self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
+        # # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
+        # self.kp_id_all = []
+        # self.SALIENT_KP_ID = -1
+        # self.kp_frame_idx_all = []  #  List of the keypoint's frame index
+        # self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
         
         
         
         #  List of the per-step estimates oft the 3D locations of each track's KPs (in the world system):
         self.online_est_track_world_loc = []
-        #  List of the per-step estimates oft the 3D locations of the saliency KPs (in the world system):
+        #  List of the per-step estimates of the 3D locations of the saliency KPs (in the world system):
         self.online_est_salient_kp_world_loc = []
         """
         cam_poses = saves for each frame of the estimated 6DOF *change* of the camera pose from its initial pose (in world system)
@@ -237,11 +235,15 @@ class SlamAlgRunner:
             we call the current frame "frame B" and the previous frame "frame A"
         """
         alg_prm = self.alg_prm
+        
         # Keep track of the keypoints that are associated with a newly discovered 3D point
-        kp_inds_of_new = []
+        # kp_inds_of_new = []
         # Initialize the 3D points associated with the tracks in the current frame
-        self.p3d_inds_in_frame.append(set())
+        # self.p3d_inds_in_frame.append(set())
+        
         self.online_est_track_world_loc.append({})
+        
+        new_p3d_ids = set() # set of the newly discovered 3D points IDs 
 
         #  Guess the cam pose for current frame, based on the last estimate and the egomotion estimation
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
@@ -334,24 +336,35 @@ class SlamAlgRunner:
                 if kp_A_id in self.map_kp_to_p3d_idx:
                     # In this case, KP B will be associated wit the same 3D point (since there is a match)
                     p3d_id = self.map_kp_to_p3d_idx[kp_A_id]
-                    self.kp_px_all.append(kpB_xy)
-                    self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
-                    self.kp_id_all.append(self.SALIENT_KP_ID)
-                    self.kp_p3d_idx_all.append(p3d_id)
-                    self.kp_frame_idx_all.append(kpB_frame_idx)
+                    
+                    
+                    self.kp_df.loc[-1] =  {"frame_idx": kpB_frame_idx, "x_pix": kpB_xy[0], "y_pix": kpB_xy[1], "x_nrm": kpB_nrm[0], "y_nrm": kpB_nrm[1], "kp_id": self.SALIENT_KP_ID, "p3d_idx": p3d_id}
+                    
+                    
+                    # self.kp_px_all.append(kpB_xy)
+                    # self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
+                    # self.kp_id_all.append(self.SALIENT_KP_ID)
+                    # self.kp_p3d_idx_all.append(p3d_id)
+                    # self.kp_frame_idx_all.append(kpB_frame_idx)
                 else:
                     # otherwise, associate both KPs (A and B) with as a newly identified 3d world point
                     # (so that the bundle adjustment can use the two view points of the same 3D point)
                     p3d_id = deepcopy(self.n_world_points)  # index of the new 3d point
                     self.n_world_points += 1
-                    self.kp_px_all += [kpA_xy, kpB_xy]
-                    self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpA_nrm, kpB_nrm), dim=0)
-                    self.idx_kp_A = len(self.kp_px_all) - 2
-                    self.kp_id_all += [self.SALIENT_KP_ID, self.SALIENT_KP_ID]
-                    self.kp_p3d_idx_all += [p3d_id, p3d_id]
-                    self.kp_frame_idx_all += [kpA_frame_idx, kpB_frame_idx]
-                    # the 3d point will be guessed using KP A later on (we use A since its cam pose was optimized already in the previous bundle adjustment):
-                    kp_inds_of_new.append(self.idx_kp_A)
+                    
+                    
+                    # self.kp_px_all += [kpA_xy, kpB_xy]
+                    # self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpA_nrm, kpB_nrm), dim=0)
+                    # self.idx_kp_A = len(self.kp_px_all) - 2
+                    # self.kp_id_all += [self.SALIENT_KP_ID, self.SALIENT_KP_ID]
+                    # self.kp_p3d_idx_all += [p3d_id, p3d_id]
+                    # self.kp_frame_idx_all += [kpA_frame_idx, kpB_frame_idx]
+
+                    self.pd_df.loc[-1] = {"frame_idx": kpA_frame_idx, "x_pix": kpA_xy[0], "y_pix": kpA_xy[1], "x_nrm": kpA_nrm[0], "y_nrm": kpA_nrm[1], "kp_id": self.SALIENT_KP_ID, "p3d_idx": p3d_id}
+                    self.kp_df.loc[-1] = {"frame_idx": kpB_frame_idx, "x_pix": kpB_xy[0], "y_pix": kpB_xy[1], "x_nrm": kpB_nrm[0], "y_nrm": kpB_nrm[1], "kp_id": self.SALIENT_KP_ID, "p3d_idx": p3d_id}
+                    
+                    # # the 3d point will be guessed using KP A later on (we use A since its cam pose was optimized already in the previous bundle adjustment):
+                    # kp_inds_of_new.append(self.idx_kp_A)
                 self.map_kp_to_p3d_idx[kp_A_id] = p3d_id
                 self.map_kp_to_p3d_idx[kp_B_id] = p3d_id
                 self.p3d_inds_in_frame[-1].add(p3d_id)

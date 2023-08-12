@@ -11,7 +11,7 @@ class AlgorithmParam:
     add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
     max_angular_vel: float = 3.0 * np.pi  # rad/s
-    w_salient_kp: float = 0.3  # default weighting for the bundle adjustment cost function for salient KPs
+    w_salient_kp: float = 0.005  # default weighting for the bundle adjustment cost function for salient KPs
     w_track_kp: float = 1.0  # default  weighting for the bundle adjustment cost function for track KPs
     w_cam_trans: float = 1e-5  # default weighting for the penalty term of the l2 norm of the camera translation (from previous frame) in the bundle adjustment cost function
     w_cam_rot: float = 1e-4  # default weighting for the penalty term of the camera rotation (from previous frame) in the bundle adjustment cost function
@@ -37,3 +37,4 @@ class AlgorithmParam:
     # maximum distance between two keypoints to consider them as a match (units: pixels)
     max_match_pix_dist: float =  30.0
     orb_fast_thresh: int = 5  # FAST threshold for ORB keypoints detector
+    kp_reproject_err_threshold: float = 2.0  # reprojection error threshold for marking keypoints as "invalid" (units: pixels)

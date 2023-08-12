@@ -30,6 +30,7 @@ def compute_cost_function(
     n_points_3d_opt: int,
     penalizer: SoftConstraints,
     alg_prm: AlgorithmParam,
+    scene_metadata: dict,
 ):
     """
     Compute the cost function for the given optimization vector x.
@@ -44,11 +45,15 @@ def compute_cost_function(
         cost:  the cost function value for the given optimization vector x.
     """
     assert torch.isfinite(input=x).all(), "x is not finite"
+    fx = scene_metadata["fx"]
+    fy = scene_metadata["fy"]
+    
     frames_opt_inds = np.where(frames_opt_flag)[0].tolist()
     cam_poses_opt = x[: n_cam_poses_opt * 7].reshape(n_cam_poses_opt, 7)
     points_3d_opt = x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3)
     cam_loc_opt = cam_poses_opt[:, 0:3]
     cam_rot_opt = cam_poses_opt[:, 3:7]
+    
 
     # normalize the rotation parameters to get a standard unit-quaternion (the optimization steps may take the parameters out of the domain)
     cam_rot_opt = normalize_quaternions(cam_rot_opt)
@@ -74,7 +79,10 @@ def compute_cost_function(
     )
 
     # re-projection error between the normalized coordinates of the projected 3D points and the normalized coordinates of the keypoints
-    reproject_dists_sqr = torch.sum(torch.square(projected_point_nrm - kp_nrm_u), dim=1)  # [dim: n_kps]
+    reproject_diff = projected_point_nrm - kp_nrm_u  # [dim: n_kps x 2] normalized coordinates.
+    reproject_diff_pix = reproject_diff * torch.tensor([fx, fy], device=get_device())  # [dim: n_kps x 2] pixel coordinates.
+    reproject_dists_sqr = torch.sum(torch.square(reproject_diff_pix), dim=1)  # [dim: n_kps] [pix^2]
+    
     # compute the weighted sum of re-projection errors
     cost_kps = torch.sum(pseudo_huber_loss_on_x_sqr(reproject_dists_sqr, delta=1.0) * kp_weights_u)
     # cost_kps = torch.sum(torch.square(projected_point_nrm - kp_nrm_u) * kp_weights_u.unsqueeze(1))
@@ -143,7 +151,7 @@ def compute_cost_function(
         else:
             raise Warning(f"cost term is not finite: {cost_name}={cost_term}")
 
-    return tot_cost, cost_components
+    return tot_cost, cost_components, reproject_dists_sqr
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -161,6 +169,7 @@ def run_bundle_adjust(
     alg_prm: AlgorithmParam,
     fps: float,
     SALIENT_KP_ID: int,
+    scene_metadata: dict,
     verbose=2,
 ):
     """
@@ -256,10 +265,11 @@ def run_bundle_adjust(
         "n_points_3d_opt": n_points_3d_opt,
         "penalizer": penalizer,
         "alg_prm": alg_prm,
+        "scene_metadata": scene_metadata,
     }
 
     def cost_function(x: torch.Tensor) -> torch.Tensor:
-        cost, cost_components = compute_cost_function(
+        cost, _, _ = compute_cost_function(
             x=x,
             **cost_fun_kwargs,
         )
@@ -282,9 +292,33 @@ def run_bundle_adjust(
         raise ValueError(f"Unknown opt_method: {alg_prm.opt_method}")
     print(f"Optimization took {time.time() - t0:.1f} seconds")
     with torch.no_grad():
-        tot_cost, cost_components = compute_cost_function(result.x, **cost_fun_kwargs)
+        tot_cost, cost_components, reproject_dists_sqr = compute_cost_function(result.x, **cost_fun_kwargs)
+        # mark the keypoints that have a large re-projection error as invalid
+        kp_reproject_err_threshold = alg_prm.kp_reproject_err_threshold
+        invalid_kp_mask = reproject_dists_sqr > kp_reproject_err_threshold**2
         print(f"Total final cost: {get_val(tot_cost):1.6g}")
         print("Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
+        num_invalid_kp = get_val(torch.sum(invalid_kp_mask))
+        print("Number of invalid keypoints: ", num_invalid_kp)
+        
+        
+        # TODO: discard the invalid KPs - by setting their weights to zero - by setting their weights as zero, or removing from the vectors
+        # TODO: remove them from the per-kps vectors (keep the other vectors as is) make sure not to discard the track KPs
+        # (do this outside this function - in the algorithm  function)
+        # # Variables that need updating:
+        #    self.kp_px_all = []  # List of keypoints, each element is the (x,y) pixel coordinates of a keypoint in the image
+        # #  the (x,y) normalized coordinates of a keypoint in some image:
+        # self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
+        # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
+        # self.kp_id_all = []
+        # map_kp_to_p3d_idx # maps a KP (i_frame, i_cord, j_cord) to a an index of a 3D world point
+        # kp_frame_idx_all        self.kp_frame_idx_all = []  #  List of the keypoint's frame index
+        # self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
+        # Note that we do not want to discard the "invalid: KPs from" salient_KPs_B.  descriptors_B, since in the next frames they might get better matches
+        
+        
+        # TODO: run optimization again- until no invalid KPs are found
+        
 
     cam_poses_optimized = result.x[: n_cam_poses_opt * 7].reshape(n_cam_poses_opt, 7).detach()
     points_3d_optimized = result.x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3).detach()
