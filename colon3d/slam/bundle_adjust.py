@@ -281,28 +281,18 @@ def run_bundle_adjust(
     print(f"Optimization took {time.time() - t0:.1f} seconds")
     with torch.no_grad():
         tot_cost, cost_components, reproject_dists_sqr = compute_cost_function(result.x, **cost_fun_kwargs)
-        # mark the keypoints that have a large re-projection error as invalid
+        # mark the salient keypoints (type==-1) that have a large re-projection error as invalid
         kp_reproject_err_threshold = alg_prm.kp_reproject_err_threshold
-        invalid_kp_mask = reproject_dists_sqr > kp_reproject_err_threshold**2
+        is_kp_invalid = (reproject_dists_sqr > kp_reproject_err_threshold**2) & (kp_type_u == -1)
+        is_kp_invalid = is_kp_invalid.cpu().numpy()
         print(f"Total final cost: {get_val(tot_cost):1.6g}")
         print("Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
-        num_invalid_kp = get_val(torch.sum(invalid_kp_mask))
-        print("Number of invalid keypoints: ", num_invalid_kp)
-
-        # TODO: discard the invalid KPs - by setting their weights to zero - by setting their weights as zero, or removing from the vectors
-        # TODO: remove them from the per-kps vectors (keep the other vectors as is) make sure not to discard the track KPs
-        # (do this outside this function - in the algorithm  function)
-        # # Variables that need updating:
-        #    self.kp_px_all = []  # List of keypoints, each element is the (x,y) pixel coordinates of a keypoint in the image
-        # #  the (x,y) normalized coordinates of a keypoint in some image:
-        # self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
-        # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
-        # self.kp_id_all = []
-        # kp_frame_idx_all        self.kp_frame_idx_all = []  #  List of the keypoint's frame index
-        # self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
-        # Note that we do not want to discard the "invalid: KPs from" salient_KPs_B.  descriptors_B, since in the next frames they might get better matches
-
-        # TODO: run optimization again- until no invalid KPs are found
+    
+    # Discard the invalid keypoints
+    n_invalid_kps = is_kp_invalid.sum()
+    print("Number of invalid keypoints to discard: ", n_invalid_kps)
+    kp_ids_to_discard = [kp_id for i_kp, kp_id in enumerate(kp_opt_ids) if is_kp_invalid[i_kp]]
+    kp_log.discard_keypoints(kp_ids_to_discard)
 
     cam_poses_optimized = result.x[: n_cam_poses_opt * 7].reshape(n_cam_poses_opt, 7).detach()
     points_3d_optimized = result.x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3).detach()
@@ -313,7 +303,7 @@ def run_bundle_adjust(
     points_3d[p3d_opt_flag] = points_3d_optimized
     cam_poses[frames_opt_flag] = cam_poses_optimized
 
-    return cam_poses, points_3d
+    return cam_poses, points_3d, kp_log, n_invalid_kps
 
 
 # --------------------------------------------------------------------------------------------------------------------

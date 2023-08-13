@@ -78,7 +78,17 @@ class KeyPointsLog:
             if kp_id[0] in frame_inds_set:
                 kp_ids.append(kp_id)
         return kp_ids
+    # --------------------------------------------------------------------------------------------------------------------
 
+    def discard_keypoints(self, kp_ids_to_discard: list):
+        """ Discard the given keypoints from the log.
+        """
+        for kp_id in kp_ids_to_discard:
+            if kp_id in self.map_kp_to_p3d_idx:
+                del self.map_kp_to_p3d_idx[kp_id]
+            if kp_id in self.map_kp_to_type:
+                del self.map_kp_to_type[kp_id]
+                
 # --------------------------------------------------------------------------------------------------------------------
 
 def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:

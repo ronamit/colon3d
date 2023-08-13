@@ -296,9 +296,7 @@ class SlamAlgRunner:
                 # Get KP A (from previous frame) and KP B (from current frame
                 kpA_xy = matched_A_kps[i_match]
                 kpB_xy = matched_B_kps[i_match]
-                kpB_nrm, is_validB = self.pix_normalizer.get_normalized_coord(kpB_xy)
-                kpA_nrm, is_validA = self.pix_normalizer.get_normalized_coord(kpA_xy)
-                if not is_validB or not is_validA:
+                if not self.kp_log.is_kp_coord_valid(kpB_xy) or not self.kp_log.is_kp_coord_valid(kpA_xy):
                     # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
                     continue
                 kpA_frame_idx = i_frame - 1
@@ -374,18 +372,25 @@ class SlamAlgRunner:
         if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
-            self.cam_poses, self.points_3d = run_bundle_adjust(
-                cam_poses=self.cam_poses,
-                points_3d=self.points_3d,
-                kp_log=self.kp_log,
-                p3d_inds_per_frame=self.p3d_inds_per_frame,
-                frames_inds_to_opt=frames_inds_to_opt,
-                alg_prm=alg_prm,
-                fps=fps,
-                scene_metadata=self.scene_metadata,
-                verbose=verbose,
-            )
-
+            
+            # Loop that runs the bundle adjustment until no more KPs are discarded
+            n_invalid_kps = -1
+            i_repeat = 0
+            while n_invalid_kps != 0:
+                print(f"Running bundle adjustment. Repeat #{i_repeat}")
+                self.cam_poses, self.points_3d, self.kp_log, n_invalid_kps = run_bundle_adjust(
+                    cam_poses=self.cam_poses,
+                    points_3d=self.points_3d,
+                    kp_log=self.kp_log,
+                    p3d_inds_per_frame=self.p3d_inds_per_frame,
+                    frames_inds_to_opt=frames_inds_to_opt,
+                    alg_prm=alg_prm,
+                    fps=fps,
+                    scene_metadata=self.scene_metadata,
+                    verbose=verbose,
+                )
+                i_repeat += 1
+                
         # ----  Save online-estimates for the current frame
         # save the currently estimated 3D KP of the tracks that have been seen until now
         for track_id, track_kps_p3d_ind in self.tracks_p3d_inds.items():
