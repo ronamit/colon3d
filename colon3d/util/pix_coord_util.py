@@ -32,6 +32,10 @@ class PixelCoordNormalizer:
         Notes:
             * Normalized coordinates correspond to the rectilinear camera with focal length is 1 and the optical center is at (0,0)
         """
+        if isinstance(points2d, tuple):
+            points2d = np.array(points2d)
+        if points2d.ndim == 1:
+            points2d = points2d[np.newaxis, :]
         n_points = points2d.shape[0]
         width = self.frame_width
         height = self.frame_height

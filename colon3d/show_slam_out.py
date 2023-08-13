@@ -66,10 +66,8 @@ def save_slam_out_plots(
     scene_loader.example_path = scene_path
     n_frames_orig = scene_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
-    kp_frame_idx_all = slam_out.kp_frame_idx_all
-    kp_px_all = slam_out.kp_px_all
+
     tracks_p3d_inds = slam_out.tracks_p3d_inds
-    kp_id_all = slam_out.kp_id_all
     detections_tracker = slam_out.detections_tracker
     online_logger = slam_out.online_logger
     # Get the online estimated camera poses
@@ -115,9 +113,7 @@ def save_slam_out_plots(
         draw_keypoints_and_tracks(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
-            kp_frame_idx_all=kp_frame_idx_all,
-            kp_px_all=kp_px_all,
-            kp_id_all=kp_id_all,
+            kp_log=slam_out.kp_log,
             save_path=save_path,
         )
 

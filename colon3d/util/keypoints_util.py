@@ -8,32 +8,78 @@ from colon3d.util.torch_util import get_default_dtype
 from colon3d.util.transforms_util import transform_points_world_to_cam
 
 np_dtype = get_default_dtype("numpy")
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def kp_to_p3d(kp_per_frame, map_kp_to_p3d_idx, points_3d):
-    """
-    Transform keypoints to corresponding estimated 3d points
-    Parameters:
-        kp_per_frame: list of list of keypoints
-        map_kp_to_p3d_idx: dict {(frame_idx, kp_x, kp_y): p3d_idx}
-        points_3d: array of 3d points
-    Return:
-        p3d_per_frame: list of array of 3d points
-    """
-    n_frames = len(kp_per_frame)
-    p3d_per_frame = []
-    for i_frame in range(n_frames):
-        p3d_per_frame.append(None)
-        kp_list = kp_per_frame[i_frame]
-        p3d_inds = [map_kp_to_p3d_idx[(i_frame, kp[0], kp[1])] for kp in kp_list]
-        if p3d_inds:
-            p3d_per_frame[i_frame] = points_3d[p3d_inds, :]
-    return p3d_per_frame
-
 
 # --------------------------------------------------------------------------------------------------------------------
 
+class KeyPointsLog:
+    """ Saves the keypoint information.
+    Note: invalid keypoints are discarded.
+    """
+    def __init__(self, pix_normalizer) -> None:
+        self.map_kp_to_p3d_idx = {} # maps a keypoint (frame_idx, x, y,) its 3D point index
+        self.map_kp_to_type = {} # maps a keypoint (frame_idx, x, y,) its type (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
+        self.pix_normalizer = pix_normalizer # pixel normalizer object
+        
+    # --------------------------------------------------------------------------------------------------------------------
+    
+    def is_kp_coord_valid(self, pix_coord):
+        # check if the KP is too close to the image border, and so its undistorted coordinates are invalid
+        nrm_coords, is_valid = self.pix_normalizer.get_normalized_coords(pix_coord)
+        return is_valid
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def add_kp(self, frame_idx, pix_coord, kp_type, p3d_id):
+        """ Add a keypoint to the log.
+        Args:
+            frame_idx: frame index of the keypoint
+            pix_coord: pixel coordinates of the keypoint (units: pixels)
+            kp_type: keypoint type (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
+            p3d_id: 3D point index of the keypoint
+        """
+        if not self.is_kp_coord_valid(pix_coord):
+            return False
+        kp_id = (frame_idx, pix_coord[0], pix_coord[1])
+        self.map_kp_to_p3d_idx[kp_id] = p3d_id
+        self.map_kp_to_type[kp_id] = kp_type
+        return True
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def get_kp_p3d_idx(self, kp_id: tuple):
+        if kp_id in self.map_kp_to_p3d_idx:
+            return self.map_kp_to_p3d_idx[kp_id]
+        return None
+    
+    # --------------------------------------------------------------------------------------------------------------------
+    
+    def get_kp_norm_coord(self, kp_id: tuple):
+        """ Get the normalized coordinates of the given keypoint.
+        """
+        assert isinstance(kp_id, tuple) and len(kp_id) == 3
+        norm_coord, is_valid = self.pix_normalizer.get_normalized_coords(kp_id[1:])
+        return norm_coord[0]
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def get_kp_type(self, kp_id: tuple):
+        if kp_id in self.map_kp_to_type:
+            return self.map_kp_to_type[kp_id]
+        return None
+    
+
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def get_kp_ids_in_frame_inds(self, frame_inds: list) -> list:
+        """ Get all the keypoint ids in the given frames.
+        Args:
+            frame_inds: list of frame indexes
+        """
+        kp_ids = []
+        frame_inds_set = set(frame_inds)
+        for kp_id in self.map_kp_to_p3d_idx:
+            if kp_id[0] in frame_inds_set:
+                kp_ids.append(kp_id)
+        return kp_ids
+
+# --------------------------------------------------------------------------------------------------------------------
 
 def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:
     """

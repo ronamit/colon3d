@@ -68,13 +68,14 @@ class SceneLoader:
             fps=fps,
             min_vis_z_mm=metadata["min_vis_z_mm"],
         )
-        self.orig_cam_undistorter = PixelCoordNormalizer(self.orig_cam_info)
+        # converts pixel coordinates in the a original viewed video to normalized coordinates
+        self.orig_view_pix_normalizer = PixelCoordNormalizer(self.orig_cam_info)
         if alg_fov_ratio == 0:
             # in this case, the algorithm sees the entire image, so no need to crop it
             self.alg_view_cropper = None
             # the camera info of the alg-viewed video is the same as the original video
             self.alg_cam_info = self.orig_cam_info
-            self.alg_cam_undistorter = self.orig_cam_undistorter
+            self.alg_view_pix_normalizer = self.orig_view_pix_normalizer
             # the view radius (for visualization purposes):
             self.alg_view_radius = min(self.orig_cam_info.frame_width, self.orig_cam_info.frame_height) / 2
         else:
@@ -93,7 +94,8 @@ class SceneLoader:
                 fps=fps,
                 min_vis_z_mm=metadata["min_vis_z_mm"],
             )
-            self.alg_cam_undistorter = PixelCoordNormalizer(self.alg_cam_info)
+            # converts pixel coordinates in the alg-viewed video to normalized coordinates
+            self.alg_view_pix_normalizer = PixelCoordNormalizer(self.alg_cam_info)
             self.alg_view_radius = self.alg_view_cropper.view_radius
 
         # the FOV of the algorithm (for visualization purposes):

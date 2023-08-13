@@ -7,6 +7,7 @@ import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  
 
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.util.constraints_util import SoftConstraints
+from colon3d.util.keypoints_util import KeyPointsLog
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.util.torch_util import get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.util.transforms_util import project_world_to_image_normalized_coord
@@ -47,13 +48,12 @@ def compute_cost_function(
     assert torch.isfinite(input=x).all(), "x is not finite"
     fx = scene_metadata["fx"]
     fy = scene_metadata["fy"]
-    
+
     frames_opt_inds = np.where(frames_opt_flag)[0].tolist()
     cam_poses_opt = x[: n_cam_poses_opt * 7].reshape(n_cam_poses_opt, 7)
     points_3d_opt = x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3)
     cam_loc_opt = cam_poses_opt[:, 0:3]
     cam_rot_opt = cam_poses_opt[:, 3:7]
-    
 
     # normalize the rotation parameters to get a standard unit-quaternion (the optimization steps may take the parameters out of the domain)
     cam_rot_opt = normalize_quaternions(cam_rot_opt)
@@ -80,9 +80,10 @@ def compute_cost_function(
 
     # re-projection error between the normalized coordinates of the projected 3D points and the normalized coordinates of the keypoints
     reproject_diff = projected_point_nrm - kp_nrm_u  # [dim: n_kps x 2] normalized coordinates.
-    reproject_diff_pix = reproject_diff * torch.tensor([fx, fy], device=get_device())  # [dim: n_kps x 2] pixel coordinates.
+    # convert the re-projection error to pixel units  [n_kps x 2]
+    reproject_diff_pix = reproject_diff * torch.tensor([fx, fy], device=get_device())
     reproject_dists_sqr = torch.sum(torch.square(reproject_diff_pix), dim=1)  # [dim: n_kps] [pix^2]
-    
+
     # compute the weighted sum of re-projection errors
     cost_kps = torch.sum(pseudo_huber_loss_on_x_sqr(reproject_dists_sqr, delta=1.0) * kp_weights_u)
     # cost_kps = torch.sum(torch.square(projected_point_nrm - kp_nrm_u) * kp_weights_u.unsqueeze(1))
@@ -160,15 +161,11 @@ def compute_cost_function(
 def run_bundle_adjust(
     cam_poses: torch.Tensor,
     points_3d: torch.Tensor,
-    kp_frame_idx_all: list,
-    kp_p3d_idx_all: list,
-    kp_nrm_all: torch.Tensor,
-    kp_id_all: list,
-    p3d_inds_in_frame: list,
+    kp_log: KeyPointsLog,
+    p3d_inds_per_frame: list,
     frames_inds_to_opt: list,
     alg_prm: AlgorithmParam,
     fps: float,
-    SALIENT_KP_ID: int,
     scene_metadata: dict,
     verbose=2,
 ):
@@ -177,13 +174,9 @@ def run_bundle_adjust(
     Args:
         cam_poses: saves per-frame of the 6DOF camera pose arrays of size 7 (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
         points_3d: saves of 3d points in world coordinates  [List of arrays of size 3] (units: mm)
-        kp_frame_idx: list of frame indexes for each keypoint [List of length n_KP]
-        kp_p3d_idx: List of indexes of the 3D points associated with each keypoint [List of length n_KP]
-        kp_nrm_all: List of 2d keypoint normalized coordinates of in a rectilinear (undistorted) image [List of length n_KP of arrays of size 2]]
         p3d_inds_in_frame: list of lists of 3d point indexes for each frame [List of size n_frames of list of lengths n_points_in_frame]
         frames_inds_to_opt: list of frame indexes to optimize
 
-        SALIENT_KP_ID: constant -  the id of the salient keypoint
         verbose: verbosity level
     Returns:
         cam_poses_opt: camera poses after bundle adjustment optimization [saves per-frame of arrays of size 7]
@@ -204,29 +197,24 @@ def run_bundle_adjust(
     for i_frame in frames_inds_to_opt:
         frames_opt_flag[i_frame] = True
         # find what 3d points to optimize - those that are seen from frames in frames_inds_to_opt
-        p3d_opt_flag[list(p3d_inds_in_frame[i_frame])] = True
+        p3d_opt_flag[list(p3d_inds_per_frame[i_frame])] = True
 
-    # Find what KP to use in the optimized loss function
-    kp_inds_for_loss = []
-    for i_kp, p3d_idx in enumerate(kp_p3d_idx_all):
-        frame_idx = kp_frame_idx_all[i_kp]
-        if p3d_opt_flag[p3d_idx] or frame_idx in frames_inds_to_opt:
-            kp_inds_for_loss.append(i_kp)
+    # Find what KP to use in the optimized loss function (those that are seen from frames in frames_inds_to_opt)
+    kp_opt_ids = kp_log.get_kp_ids_in_frame_inds(frames_inds_to_opt)
 
     # take the subsets that are used in the optimization objective:
-    if len(kp_inds_for_loss) == 0:
+    if len(kp_opt_ids) == 0:
         print("No keypoints to be used in the optimization objective... skipping optimization")
         return cam_poses, points_3d
 
-    kp_frame_idx_u = torch.as_tensor(np.stack([kp_frame_idx_all[i_kp] for i_kp in kp_inds_for_loss]), device=device)
-    kp_p3d_idx_u = torch.as_tensor(np.stack([kp_p3d_idx_all[i_kp] for i_kp in kp_inds_for_loss]), device=device)
-    kp_nrm_u = kp_nrm_all[kp_inds_for_loss]
+    kp_frame_idx_u = torch.as_tensor([kp_id[0] for kp_id in kp_opt_ids], device=device)
+    kp_p3d_idx_u = torch.as_tensor([kp_log.get_kp_p3d_idx(kp_id) for kp_id in kp_opt_ids], device=device)
+    kp_nrm_u = torch.as_tensor([kp_log.get_kp_norm_coord(kp_id) for kp_id in kp_opt_ids], device=device)
     n_kp_used = kp_nrm_u.shape[0]
-
-    kp_id_u = np.stack([kp_id_all[i_kp] for i_kp in kp_inds_for_loss])
+    kp_type_u = torch.as_tensor([kp_log.get_kp_type(kp_id) for kp_id in kp_opt_ids], device=device)
     kp_weights_u = torch.ones(n_kp_used, device=device)
-    kp_weights_u[kp_id_u == SALIENT_KP_ID] = alg_prm.w_salient_kp
-    kp_weights_u[kp_id_u != SALIENT_KP_ID] = alg_prm.w_track_kp
+    kp_weights_u[kp_type_u == -1] = alg_prm.w_salient_kp
+    kp_weights_u[kp_type_u != -1] = alg_prm.w_track_kp
 
     # take the subset of the vectors that participate in the optimization objective:
     cam_poses_opt = torch.as_tensor(cam_poses[frames_opt_flag]).requires_grad_()
@@ -300,8 +288,7 @@ def run_bundle_adjust(
         print("Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
         num_invalid_kp = get_val(torch.sum(invalid_kp_mask))
         print("Number of invalid keypoints: ", num_invalid_kp)
-        
-        
+
         # TODO: discard the invalid KPs - by setting their weights to zero - by setting their weights as zero, or removing from the vectors
         # TODO: remove them from the per-kps vectors (keep the other vectors as is) make sure not to discard the track KPs
         # (do this outside this function - in the algorithm  function)
@@ -311,14 +298,11 @@ def run_bundle_adjust(
         # self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
         # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
         # self.kp_id_all = []
-        # map_kp_to_p3d_idx # maps a KP (i_frame, i_cord, j_cord) to a an index of a 3D world point
         # kp_frame_idx_all        self.kp_frame_idx_all = []  #  List of the keypoint's frame index
         # self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
         # Note that we do not want to discard the "invalid: KPs from" salient_KPs_B.  descriptors_B, since in the next frames they might get better matches
-        
-        
+
         # TODO: run optimization again- until no invalid KPs are found
-        
 
     cam_poses_optimized = result.x[: n_cam_poses_opt * 7].reshape(n_cam_poses_opt, 7).detach()
     points_3d_optimized = result.x[n_cam_poses_opt * 7 :].reshape(n_points_3d_opt, 3).detach()

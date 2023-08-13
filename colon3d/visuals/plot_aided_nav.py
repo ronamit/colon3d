@@ -32,7 +32,7 @@ def draw_aided_nav(
     full_frames_generator = scene_loader.frames_generator(frame_type="full")
     orig_cam_info = scene_loader.orig_cam_info
     alg_view_cropper = scene_loader.alg_view_cropper  # RadialImageCropper or None
-    orig_cam_undistorter = scene_loader.orig_cam_undistorter
+    orig_cam_undistorter = scene_loader.orig_view_pix_normalizer
     alg_cam_info = scene_loader.alg_cam_info
     alg_view_radius = scene_loader.alg_view_radius
     alg_fov_deg = scene_loader.alg_fov_deg

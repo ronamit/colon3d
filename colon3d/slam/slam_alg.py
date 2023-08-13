@@ -1,7 +1,6 @@
 import time
 from copy import deepcopy
 from pathlib import Path
-import pandas as pd
 
 import cv2
 import numpy as np
@@ -13,8 +12,7 @@ from colon3d.slam.slam_out_analysis import AnalysisLogger, SlamOutput
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str
-from colon3d.util.keypoints_util import get_kp_matchings, get_tracks_keypoints
-from colon3d.util.pix_coord_util import PixelCoordNormalizer
+from colon3d.util.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
 from colon3d.util.rotations_util import get_identity_quaternion
 from colon3d.util.torch_util import get_default_dtype, get_device
 from colon3d.util.tracks_util import DetectionsTracker
@@ -31,9 +29,22 @@ class SlamAlgRunner:
     def __init__(
         self,
         alg_prm: AlgorithmParam,
+        scene_loader: SceneLoader,
+        detections_tracker: DetectionsTracker,
+        depth_estimator: DepthAndEgoMotionLoader,
+        save_path: Path | None = None,
+        draw_interval: int = 0,
+        verbose_print_interval: int = 0,
     ):
-        #  ---- Algorithm hyperparameters  ----
         self.alg_prm = alg_prm
+        self.scene_loader = scene_loader
+        self.detections_tracker = detections_tracker
+        self.depth_estimator = depth_estimator
+        self.save_path = save_path
+        self.draw_interval = draw_interval
+        self.verbose_print_interval = verbose_print_interval
+
+        #  ---- Algorithm hyperparameters  ----
         # ---- ORB feature detector and descriptor (https://docs.opencv.org/4.x/db/d95/classcv_1_1ORB.html)
         self.kp_detector = cv2.ORB_create(
             nfeatures=alg_prm.max_initial_keypoints,  # maximum number of features (keypoints) to retain
@@ -44,7 +55,7 @@ class SlamAlgRunner:
             WTA_K=2,  # The number of points that produce each element of the oriented BRIEF descriptor.
             scoreType=cv2.ORB_HARRIS_SCORE,  # 	The default HARRIS_SCORE means that Harris algorithm is used to rank features
             patchSize=alg_prm.kp_descriptor_patch_size,  # size of the patch used by the oriented BRIEF descriptor.
-            fastThreshold=alg_prm.orb_fast_thresh, # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
+            fastThreshold=alg_prm.orb_fast_thresh,  # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
         )
         # Create FLANN Matcher
         self.kp_matcher = cv2.FlannBasedMatcher(
@@ -57,41 +68,16 @@ class SlamAlgRunner:
             {"checks": 50},
         )
 
-
     # ---------------------------------------------------------------------------------------------------------------------
 
     def init_algorithm(self, scene_metadata: dict):
         self.device = get_device()
 
-
-
-        # The keypoints (KPs) data is saved in a dataframe
+        # The (matched) keypoints (KPs) data is saved in a dataframe
         # note that KPs might get discarded later on, if found to be invalid
-        self.kp_df = pd.DataFrame(
-            columns=[
-                "frame_idx", # frame index
-                "x_pix", # pixel coordinates of a keypoint in the image
-                "y_pix",
-                "x_nrm", # normalized coordinates of a keypoint in the image
-                "y_nrm",
-                "kp_id", # identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
-                "p3d_idx", #  keypoint's associated 3D point index
-            ],
-        )
-        
-        
-        self.kp_px_all = []  # List of keypoints, each element is the (x,y) pixel coordinates of a keypoint in the image
-        #  the (x,y) normalized coordinates of a keypoint in some image:
-        self.kp_nrm_all = torch.full((0, 2), torch.nan, device=self.device)
-        # List of identifier numbers for each keypoint (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint):
-        self.kp_id_all = []
-        self.SALIENT_KP_ID = -1
-        self.kp_frame_idx_all = []  #  List of the keypoint's frame index
-        self.kp_p3d_idx_all = []  #  List of the keypoint's associated 3D point index
-        
-        
-        
-        
+        self.pix_normalizer = self.scene_loader.alg_view_pix_normalizer
+        self.kp_log = KeyPointsLog(self.pix_normalizer)
+
         #  List of the per-step estimates oft the 3D locations of each track's KPs (in the world system):
         self.online_est_track_world_loc = []
         #  List of the per-step estimates oft the 3D locations of the saliency KPs (in the world system):
@@ -110,11 +96,10 @@ class SlamAlgRunner:
 
         # saves for each frame the most up-to-date estimate of the 6DOF camera pose change from the initial pose:
         self.cam_poses = torch.full((1, 7), torch.nan, device=self.device)
-        self.cam_poses[0, :] = torch.cat((torch.tensor([0, 0, 0]),  get_identity_quaternion()))
+        self.cam_poses[0, :] = torch.cat((torch.tensor([0, 0, 0]), get_identity_quaternion()))
         #  saves the identified world 3D point - the currently optimized coordinates  (units: mm):
         self.points_3d = torch.full((0, 3), torch.nan, device=self.device)
-        self.p3d_inds_in_frame = []  # for each frame - a list of the 3D points indexes seen in that frame
-        self.map_kp_to_p3d_idx = {}  # maps a KP (i_frame, i_cord, j_cord) to a an index of a 3D world point
+        self.p3d_inds_per_frame = []  # for each frame - a list of the 3D points indexes seen in that frame
         self.tracks_p3d_inds = {}  # maps a track_id to its associated 3D world points index
         self.n_world_points = 0  # number of 3D world points identified so far
         self.online_logger = AnalysisLogger(self.alg_prm)
@@ -131,20 +116,13 @@ class SlamAlgRunner:
 
     def run(
         self,
-        scene_loader: SceneLoader,
-        detections_tracker: DetectionsTracker,
-        depth_estimator: DepthAndEgoMotionLoader,
-        save_path: Path | None = None,
-        draw_interval: int = 0,
-        verbose_print_interval: int = 0,
     ) -> SlamOutput:
-        
-        frames_generator = scene_loader.frames_generator(frame_type="alg_input")
-        cam_undistorter = scene_loader.alg_cam_undistorter
-        alg_view_cropper = scene_loader.alg_view_cropper
-        scene_metadata = scene_loader.metadata
-        n_frames = scene_loader.n_frames
-        fps = scene_loader.fps
+        frames_generator = self.scene_loader.frames_generator(frame_type="alg_input")
+        cam_undistorter = self.scene_loader.alg_view_pix_normalizer
+        alg_view_cropper = self.scene_loader.alg_view_cropper
+        scene_metadata = self.scene_loader.metadata
+        n_frames = self.scene_loader.n_frames
+        fps = self.scene_loader.fps
 
         # initialize the algorithm
         self.init_algorithm(scene_metadata)
@@ -159,21 +137,24 @@ class SlamAlgRunner:
             # Get the RGB frame:
             cur_rgb_frame = frames_generator.__next__()
             # Get the targets tracks in the current frame:
-            curr_tracks = detections_tracker.get_tracks_in_frame(i_frame)
+            curr_tracks = self.detections_tracker.get_tracks_in_frame(i_frame)
             # Get the depth and ego-motion estimation for the current frame:
-            depth_estimator.process_new_frame(i_frame, cur_rgb_frame=cur_rgb_frame, prev_rgb_frame=self.prev_rgb_frame)
+            self.depth_estimator.process_new_frame(
+                i_frame,
+                cur_rgb_frame=cur_rgb_frame,
+                prev_rgb_frame=self.prev_rgb_frame,
+            )
 
             self.run_on_new_frame(
                 cur_rgb_frame=cur_rgb_frame,
                 i_frame=i_frame,
                 curr_tracks=curr_tracks,
-                pix_normalizer=cam_undistorter,
                 alg_view_cropper=alg_view_cropper,
-                depth_estimator=depth_estimator,
+                depth_estimator=self.depth_estimator,
                 fps=fps,
-                draw_interval=draw_interval,
-                verbose_print_interval=verbose_print_interval,
-                save_path=save_path,
+                draw_interval=self.draw_interval,
+                verbose_print_interval=self.verbose_print_interval,
+                save_path=self.save_path,
             )
         print("-" * 50, f"\nSLAM algorithm run finished. Time now: {get_time_now_str()}")
         print("Elapsed time: ", convert_sec_to_str(time.time() - runtime_start))
@@ -182,18 +163,13 @@ class SlamAlgRunner:
             alg_prm=self.alg_prm,
             cam_poses=self.cam_poses,
             points_3d=self.points_3d,
-            kp_frame_idx_all=self.kp_frame_idx_all,
-            kp_px_all=self.kp_px_all,
-            kp_nrm_all=self.kp_nrm_all,
-            kp_p3d_idx_all=self.kp_p3d_idx_all,
+            kp_log=self.kp_log,
             tracks_p3d_inds=self.tracks_p3d_inds,
-            kp_id_all=self.kp_id_all,
-            p3d_inds_in_frame=self.p3d_inds_in_frame,
-            map_kp_to_p3d_idx=self.map_kp_to_p3d_idx,
-            scene_loader=scene_loader,
-            detections_tracker=detections_tracker,
+            p3d_inds_per_frame=self.p3d_inds_per_frame,
+            scene_loader=self.scene_loader,
+            detections_tracker=self.detections_tracker,
             pix_normalizer=cam_undistorter,
-            depth_estimator=depth_estimator,
+            depth_estimator=self.depth_estimator,
             online_est_track_world_loc=self.online_est_track_world_loc,
             online_est_salient_kp_world_loc=self.online_est_salient_kp_world_loc,
             online_logger=self.online_logger,
@@ -207,7 +183,6 @@ class SlamAlgRunner:
         cur_rgb_frame: np.array,
         i_frame: int,
         curr_tracks: dict,
-        pix_normalizer: PixelCoordNormalizer,
         alg_view_cropper: RadialImageCropper | None,
         depth_estimator: DepthAndEgoMotionLoader,
         fps: float,
@@ -237,10 +212,12 @@ class SlamAlgRunner:
             we call the current frame "frame B" and the previous frame "frame A"
         """
         alg_prm = self.alg_prm
-        # Keep track of the keypoints that are associated with a newly discovered 3D point
-        kp_inds_of_new = []
-        # Initialize the 3D points associated with the tracks in the current frame
-        self.p3d_inds_in_frame.append(set())
+
+        # Keep  the (frame_idx, x, y) of keypoints that are associated with a newly discovered 3D point (in the current frame)
+        new_world_point_kp_ids = []
+
+        # Initialize the set of 3D points seen  with the tracks in the current frame
+        self.p3d_inds_per_frame.append(set())
         self.online_est_track_world_loc.append({})
 
         #  Guess the cam pose for current frame, based on the last estimate and the egomotion estimation
@@ -319,80 +296,64 @@ class SlamAlgRunner:
                 # Get KP A (from previous frame) and KP B (from current frame
                 kpA_xy = matched_A_kps[i_match]
                 kpB_xy = matched_B_kps[i_match]
-                kpB_nrm, is_validB = pix_normalizer.get_normalized_coord(kpB_xy)
-                kpA_nrm, is_validA = pix_normalizer.get_normalized_coord(kpA_xy)
+                kpB_nrm, is_validB = self.pix_normalizer.get_normalized_coord(kpB_xy)
+                kpA_nrm, is_validA = self.pix_normalizer.get_normalized_coord(kpA_xy)
                 if not is_validB or not is_validA:
                     # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
                     continue
-                kpA_nrm = torch.as_tensor(kpA_nrm, device=self.device).unsqueeze(0)
-                kpB_nrm = torch.as_tensor(kpB_nrm, device=self.device).unsqueeze(0)
                 kpA_frame_idx = i_frame - 1
                 kpB_frame_idx = i_frame
-                kp_A_id = (kpA_frame_idx, kpA_xy[0], kpA_xy[1])
-                kp_B_id = (kpB_frame_idx, kpB_xy[0], kpB_xy[1])
                 # check if KP A (which was detected in the previous frame) already has an associated 3d world point
-                if kp_A_id in self.map_kp_to_p3d_idx:
+                kp_A_id = (kpA_frame_idx, kpA_xy[0], kpA_xy[1])
+                if self.kp_log.get_kp_p3d_idx(kp_A_id) is not None:
                     # In this case, KP B will be associated wit the same 3D point (since there is a match)
-                    p3d_id = self.map_kp_to_p3d_idx[kp_A_id]
-                    self.kp_px_all.append(kpB_xy)
-                    self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
-                    self.kp_id_all.append(self.SALIENT_KP_ID)
-                    self.kp_p3d_idx_all.append(p3d_id)
-                    self.kp_frame_idx_all.append(kpB_frame_idx)
+                    p3d_id = self.kp_log.get_kp_p3d_idx(kp_A_id)
+                    self.kp_log.add_kp(frame_idx=kpB_frame_idx, pix_coord=kpB_xy, kp_type=-1, p3d_id=p3d_id)
                 else:
                     # otherwise, associate both KPs (A and B) with as a newly identified 3d world point
                     # (so that the bundle adjustment can use the two view points of the same 3D point)
                     p3d_id = deepcopy(self.n_world_points)  # index of the new 3d point
                     self.n_world_points += 1
-                    self.kp_px_all += [kpA_xy, kpB_xy]
-                    self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpA_nrm, kpB_nrm), dim=0)
-                    self.idx_kp_A = len(self.kp_px_all) - 2
-                    self.kp_id_all += [self.SALIENT_KP_ID, self.SALIENT_KP_ID]
-                    self.kp_p3d_idx_all += [p3d_id, p3d_id]
-                    self.kp_frame_idx_all += [kpA_frame_idx, kpB_frame_idx]
-                    # the 3d point will be guessed using KP A later on (we use A since its cam pose was optimized already in the previous bundle adjustment):
-                    kp_inds_of_new.append(self.idx_kp_A)
-                self.map_kp_to_p3d_idx[kp_A_id] = p3d_id
-                self.map_kp_to_p3d_idx[kp_B_id] = p3d_id
-                self.p3d_inds_in_frame[-1].add(p3d_id)
+                    self.kp_log.add_kp(frame_idx=kpA_frame_idx, pix_coord=kpA_xy, kp_type=-1, p3d_id=p3d_id)
+                    self.kp_log.add_kp(frame_idx=kpB_frame_idx, pix_coord=kpB_xy, kp_type=-1, p3d_id=p3d_id)
+
+                    # We use kp A to initialize the guess of the coordinates of the new 3D point  since its cam pose was optimized already in the previous bundle adjustment, and thus is more accurate:
+                    new_world_point_kp_ids.append((kpA_frame_idx, kpA_xy[0], kpA_xy[1]))
+                self.p3d_inds_per_frame[-1].add(p3d_id)
 
         # ----- Update the inputs to the bundle-adjustment using the tracks(polyps) KPs
         for track_id, kpB_xy in track_KPs_B.items():
             # in case we have not seen this track before, we need to create a new 3d points for it
             register_new_p3d = track_id not in self.tracks_p3d_inds
-            kpB_nrm, is_validB = pix_normalizer.get_normalized_coord(kpB_xy)
-            if not is_validB:
+            if not self.kp_log.is_kp_coord_valid(kpB_xy):
                 # in case one of the KPs is too close to the image border, and its undistorted coordinates are invalid
                 continue
-            kpB_nrm = torch.as_tensor(kpB_nrm, device=self.device).unsqueeze(0)
             kpB_frame_idx = i_frame
-            self.kp_frame_idx_all.append(kpB_frame_idx)
-            self.kp_px_all.append(kpB_xy)
-            self.kp_nrm_all = torch.cat((self.kp_nrm_all, kpB_nrm), dim=0)
-            idx_kp_B = len(self.kp_px_all) - 1
             if register_new_p3d:
                 # Register a new world 3d point
                 p3d_id = deepcopy(self.n_world_points)  # index of the new 3d point
                 self.n_world_points += 1
                 # KP B will be used to guess the 3d location of the new world point
-                kp_inds_of_new.append(idx_kp_B)
+                new_world_point_kp_ids.append((kpB_frame_idx, kpB_xy[0], kpB_xy[1]))
                 self.tracks_p3d_inds[track_id] = p3d_id
             else:
                 # in this case we already have a 3D point for this track, so we use the same p3d index
                 p3d_id = self.tracks_p3d_inds[track_id]
-            self.kp_id_all.append(track_id)
-            self.kp_p3d_idx_all.append(p3d_id)
-            self.p3d_inds_in_frame[-1].add(p3d_id)
+
+            self.kp_log.add_kp(frame_idx=kpB_frame_idx, pix_coord=kpB_xy, kp_type=track_id, p3d_id=p3d_id)
+            self.p3d_inds_per_frame[-1].add(p3d_id)
 
         # Use the depth estimation to guess the 3d location of the newly found world points
-        n_new_kps = len(kp_inds_of_new)
+        n_new_kps = len(new_world_point_kp_ids)
         if n_new_kps > 0:
             # get the frame indexes of the new KPs
-            frame_inds_of_new = [self.kp_frame_idx_all[i_kp] for i_kp in kp_inds_of_new]
+            frame_inds_of_new = [kp_id[0] for kp_id in new_world_point_kp_ids]
             # get the camera poses corresponding to the new KPs
             cam_poses_of_new = self.cam_poses[frame_inds_of_new]
             # get the normalized pixel coordinates of the new KPs
-            kp_nrm_of_new = torch.stack([self.kp_nrm_all[i_kp] for i_kp in kp_inds_of_new], dim=0)
+            kp_nrm_of_new = [self.kp_log.get_kp_norm_coord(kp_id) for kp_id in new_world_point_kp_ids]
+            # convert to torch
+            kp_nrm_of_new = torch.tensor(kp_nrm_of_new, device=self.device)
             # estimate the 3d points of the new KPs (using the depth estimator)
             # note: the depth estimator already process the frame index until the current frame, and saved the results in a buffer
             z_depths_of_new = depth_estimator.get_z_depth_at_pixels(
@@ -416,15 +377,11 @@ class SlamAlgRunner:
             self.cam_poses, self.points_3d = run_bundle_adjust(
                 cam_poses=self.cam_poses,
                 points_3d=self.points_3d,
-                kp_frame_idx_all=self.kp_frame_idx_all,
-                kp_p3d_idx_all=self.kp_p3d_idx_all,
-                kp_nrm_all=self.kp_nrm_all,
-                kp_id_all=self.kp_id_all,
-                p3d_inds_in_frame=self.p3d_inds_in_frame,
+                kp_log=self.kp_log,
+                p3d_inds_per_frame=self.p3d_inds_per_frame,
                 frames_inds_to_opt=frames_inds_to_opt,
                 alg_prm=alg_prm,
                 fps=fps,
-                SALIENT_KP_ID=self.SALIENT_KP_ID,
                 scene_metadata=self.scene_metadata,
                 verbose=verbose,
             )

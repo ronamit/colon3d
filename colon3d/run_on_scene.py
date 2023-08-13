@@ -162,15 +162,14 @@ class SlamRunner:
             )
 
             # Run the SLAM algorithm
-            alg_runner = SlamAlgRunner(alg_prm)
-            slam_out = alg_runner.run(
-                scene_loader=scene_loader,
+            alg_runner = SlamAlgRunner(alg_prm=alg_prm,                 scene_loader=scene_loader,
                 detections_tracker=detections_tracker,
                 depth_estimator=depth_estimator,
                 save_path=self.save_path,
                 draw_interval=self.draw_interval,
                 verbose_print_interval=self.verbose_print_interval,
             )
+            slam_out = alg_runner.run()
 
             if self.save_path and self.save_raw_outputs:
                 results_file_path = self.save_path / "out_variables.pkl"

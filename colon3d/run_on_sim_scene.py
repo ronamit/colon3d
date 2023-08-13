@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/Zhang22/Scene_00000", # "data/sim_data/TestData21_cases/Scene_00000_0000", "data/sim_data/Zhang22/Scene_00000"
+        default="data/sim_data/TestData21_cases/Scene_00000_0000",  # "data/sim_data/Zhang22/Scene_00000"
         help="Path to the scene folder",
     )
     parser.add_argument(
@@ -205,14 +205,15 @@ def run_slam_on_scene(
     )
 
     # Run the SLAM algorithm
-    slam_runner = SlamAlgRunner(alg_prm)
-    slam_out = slam_runner.run(
+    slam_runner = SlamAlgRunner(
+        alg_prm=alg_prm,
         scene_loader=scene_loader,
         detections_tracker=detections_tracker,
         depth_estimator=depth_estimator,
         save_path=save_path,
         draw_interval=draw_interval,
     )
+    slam_out = slam_runner.run()
 
     if save_path and save_raw_outputs:
         results_file_path = save_path / "out_variables.pkl"

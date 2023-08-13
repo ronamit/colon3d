@@ -17,6 +17,7 @@ from colon3d.util.general_util import (
     save_video_from_frames_list,
     save_video_from_func,
 )
+from colon3d.util.keypoints_util import KeyPointsLog
 from colon3d.util.tracks_util import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
@@ -117,39 +118,26 @@ def save_frames_with_tracks(frames_folder_path: Path, tracks: pd.DataFrame, path
 def draw_keypoints_and_tracks(
     scene_loader: SceneLoader,
     detections_tracker: DetectionsTracker,
-    kp_frame_idx_all,
-    kp_px_all,
-    kp_id_all,
+    kp_log: KeyPointsLog,
     save_path=None,
 ):
     """Draw keypoints and detections on the full frame.
     Args:
         scene_loader: VideoLoader object.
         detections_tracker: DetectionsTracker object.
-        kp_frame_idx_all: list of int, the frame index of each keypoint.
-        kp_px_all: list of np.array, the pixel coordinates of each keypoint.
-        kp_id_all: list of int, the track id of each keypoint.
         save_path: str, the path to save the visualization.
     """
-    n_kps = len(kp_frame_idx_all)
-    if n_kps > 0:
-        kp_frame_idx_all = np.array(kp_frame_idx_all)
-        kp_px_all = np.stack(kp_px_all, axis=0)
-    else:
-        kp_frame_idx_all = np.array([])
-        kp_px_all = np.zeros((0, 2))
     frames_generator = scene_loader.frames_generator(frame_type="full")
     alg_view_cropper = scene_loader.alg_view_cropper  # RadialImageCropper or None
     fps = scene_loader.fps
     vis_frames = []
-    kp_id_all = np.array(kp_id_all)
     ### Draw each frame
     for i_frame, frame in enumerate(frames_generator):
         vis_frame = np.copy(frame)
         # draw the algorithm view circle
         vis_frame = draw_alg_view_in_the_full_frame(vis_frame, scene_loader)
-        keypoints = kp_px_all[kp_frame_idx_all == i_frame]
-        keypoints_ids = kp_id_all[kp_frame_idx_all == i_frame]
+        # get the current frame keypoints
+        kp_ids = kp_log.get_kp_ids_in_frame_inds([i_frame])
         # draw bounding boxes for the original tracks in the full frame
         orig_tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="full_view")
         for track_id in orig_tracks:
@@ -173,14 +161,13 @@ def draw_keypoints_and_tracks(
                 alg_view_cropper=alg_view_cropper,
                 convert_from_alg_view_to_full=True,
             )
-        for i_kp, kp in enumerate(keypoints):
-            kp_x = round(kp[0].item())
-            kp_y = round(kp[1].item())
-            kp_xy = (kp_x, kp_y)
+        for kp_id in kp_ids:
+            _, kp_x, kp_y = kp_id
+            kp_type = kp_log.get_kp_type(kp_id)
+            kp_xy = np.array([kp_x, kp_y])
             if alg_view_cropper is not None:
                 kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=kp_xy)
-            kp_id = keypoints_ids[i_kp]
-            kp_color = colors_platte(kp_id + 1)
+            kp_color = colors_platte(kp_type + 1)
             #  draw keypoint
             vis_frame = cv2.drawMarker(
                 vis_frame,

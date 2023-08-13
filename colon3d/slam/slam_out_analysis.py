@@ -9,6 +9,7 @@ from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import save_plot_and_close
+from colon3d.util.keypoints_util import KeyPointsLog
 from colon3d.util.pix_coord_util import PixelCoordNormalizer
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle
 from colon3d.util.torch_util import np_func, to_numpy
@@ -140,14 +141,9 @@ class SlamOutput:
     alg_prm: AlgorithmParam  # algorithm parameters
     cam_poses: torch.Tensor  # (N, 7) tensor of camera poses (quaternion + translation)
     points_3d: torch.Tensor  # (M, 3) tensor of 3D keypoints
-    kp_frame_idx_all: list[int]  # list of length M, each element is the frame index of the keypoint
-    kp_px_all: torch.Tensor  # (M, 2) tensor of 2D keypoints
-    kp_nrm_all: torch.Tensor  # (M, 2) tensor of 2D keypoints normalized image coordinates
-    kp_p3d_idx_all: torch.Tensor  # (M,) tensor of 3D points corresponding to each keypoint
+    kp_log: KeyPointsLog  # keypoints log object
     tracks_p3d_inds: list[int]  #  maps a track_id to its associated 3D world points index
-    kp_id_all: torch.Tensor  # (M,) tensor of keypoint ids
-    p3d_inds_in_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
-    map_kp_to_p3d_idx: list[int]  # maps a keypoint index to its associated 3D world point index
+    p3d_inds_per_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
     scene_loader: SceneLoader  # frames loader object
     detections_tracker: DetectionsTracker  # detections tracker object
     pix_normalizer: PixelCoordNormalizer  # camera undistorter object
@@ -155,6 +151,5 @@ class SlamOutput:
     online_logger: AnalysisLogger  # analysis logger object
     online_est_salient_kp_world_loc: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)
     online_est_track_world_loc: list  # List of the per-step estimates of the 3D locations of the tracks KPs (in the world system)
-
 
 # ---------------------------------------------------------------------------------------------------------------------

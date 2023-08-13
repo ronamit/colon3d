@@ -111,7 +111,7 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 ```
 
 ```bash
-  python -m colon3d.run_on_scene --example_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
 
 ## References
