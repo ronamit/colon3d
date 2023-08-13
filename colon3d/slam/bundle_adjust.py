@@ -205,7 +205,7 @@ def run_bundle_adjust(
     # take the subsets that are used in the optimization objective:
     if len(kp_opt_ids) == 0:
         print("No keypoints to be used in the optimization objective... skipping optimization")
-        return cam_poses, points_3d
+        return cam_poses, points_3d, kp_log, 0
 
     kp_frame_idx_u = torch.as_tensor([kp_id[0] for kp_id in kp_opt_ids], device=device)
     kp_p3d_idx_u = torch.as_tensor([kp_log.get_kp_p3d_idx(kp_id) for kp_id in kp_opt_ids], device=device)
