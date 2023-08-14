@@ -10,6 +10,21 @@ from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_
 # --------------------------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+
+parser.add_argument(
+    "--test_dataset_name",
+    type=str,
+    help="The name of the dataset to run the algorithm on",
+    default="Zhang22",
+)
+
+parser.add_argument(
+    "--results_name",
+    type=str,
+    help="The name of the results folder",
+    default="Zhang22_kp_discard",
+)
+
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
@@ -20,19 +35,6 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=False,
-)
-parser.add_argument(
-    "--test_dataset_name",
-    type=str,
-    help="The name of the dataset to run the algorithm on",
-    default="Zhang22",
-)
-
-parser.add_argument(
-    "--no_penalties_mode",
-    type=bool_arg,
-    help="If true, run the algorithm without penalties",
     default=False,
 )
 
@@ -51,14 +53,10 @@ raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 
 alg_settings_override_common = {}
-results_name = test_dataset_name + "_v2"
 
-if args.no_penalties_mode:
-    alg_settings_override_common = {"add_penalties": False}
-    results_name = results_name + "_no_penalties"
-    
-    # base path to save the algorithm runs results:
-base_results_path = Path("results") / results_name
+
+# base path to save the algorithm runs results:
+base_results_path = Path("results") / args.results_name
 print(f"base_results_path={base_results_path}")
 
 # --------------------------------------------------------------------------------------------------------------------

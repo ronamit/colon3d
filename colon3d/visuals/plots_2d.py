@@ -167,12 +167,11 @@ def draw_keypoints_and_tracks(
             kp_xy = np.array([kp_x, kp_y])
             if alg_view_cropper is not None:
                 kp_xy = alg_view_cropper.convert_coord_in_crop_to_full(point2d=kp_xy)
-                kp_x, kp_y = kp_xy
             kp_color = colors_platte(kp_type + 1)
             #  draw keypoint
             vis_frame = cv2.drawMarker(
                 vis_frame,
-                (kp_x, kp_y),
+                (int(kp_xy[0]), int(kp_xy[1])),
                 color=kp_color,
                 markerType=cv2.MARKER_DIAMOND,
                 markerSize=6,

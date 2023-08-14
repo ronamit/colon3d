@@ -11,6 +11,21 @@ from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_
 # --------------------------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+
+parser.add_argument(
+    "--test_dataset_name",
+    type=str,
+    help="The name of the dataset to run the algorithm on",
+    default="TestData21",  # "TestData21" | "SanityCheck23"
+)
+
+parser.add_argument(
+    "--results_name",
+    type=str,
+    help="The name of the results folder",
+    default="TestData21_results",
+)
+
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
@@ -23,12 +38,7 @@ parser.add_argument(
     help="If true, only one scene will be processed",
     default=False,
 )
-parser.add_argument(
-    "--test_dataset_name",
-    type=str,
-    help="The name of the dataset to run the algorithm on",
-    default="TestData21",  # "TestData21" | "SanityCheck23"
-)
+
 parser.add_argument(
     "--sanity_check_mode",
     type=bool_arg,
@@ -53,7 +63,7 @@ scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
 scenes_cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
 
 # base path to save the algorithm runs results:
-base_results_path = Path(f"results/{test_dataset_name}_results_v2")
+base_results_path = Path("results") / args.results_name
 
 
 if debug_mode:
@@ -140,16 +150,7 @@ SlamOnDatasetRunner(
     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
     **common_args,
 ).run()
-# --------------------------------------------------------------------------------------------------------------------
-# # Bundle-adjustment, with the tuned EndoSFM monocular depth and egomotion estimation
-# SlamOnDatasetRunner(
-#     dataset_path=cases_dataset_path,
-#     save_path=base_results_path / "BA_with_EndoSFM_tuned",
-#     depth_maps_source="online_estimates",
-#     egomotions_source="online_estimates",
-#     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
-#     **common_args,
-# ).run()
+
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
 SlamOnDatasetRunner(
@@ -161,16 +162,7 @@ SlamOnDatasetRunner(
     alg_settings_override={"use_bundle_adjustment": False},
     **common_args,
 ).run()
-# --------------------------------------------------------------------------------------------------------------------
-# # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
-# SlamOnDatasetRunner(
-#     dataset_path=cases_dataset_path,
-#     save_path=base_results_path / "no_BA_with_EndoSFM_tuned",
-#     depth_maps_source="online_estimates",
-#     egomotions_source="online_estimates",
-#     depth_and_egomotion_model_path="saved_models/EndoSFM_tuned",
-#     **common_args,
-# ).run()
+
 # --------------------------------------------------------------------------------------------------------------------
 # Bundle-adjustment, using the ground truth depth maps no egomotions
 SlamOnDatasetRunner(

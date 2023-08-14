@@ -95,23 +95,35 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 * Run the algorithm on a single simulated scene:
 
 ```bash
-  python -m colon3d.run_on_sim --scene_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "data/sim_data/Scene_00009_short/Examples/0000/Results"
+  python -m colon3d.run_on_sim --scene_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "results/sim_data/Scene_00009_short/Examples/0000/result_new"
 ```
 
 * Run the algorithm on a dataset of simulated examples:
 
   ```bash
-     python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "data/sim_data/SimData8_Examples/Results" --depth_maps_source "none" --egomotions_source "none"
+  python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "results/sim_data/SimData8_Examples/result_new" --depth_maps_source "none" --egomotions_source "none"
   ```
   
 * Run the algorithm on real data example:
 
 ```bash
-  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4" --save_path  "data/my_videos/Example_4/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4" --save_path  "results/my_videos/Example_4/result_new" --alg_fov_ratio 0.8 --n_frames_lim 0
 ```
 
 ```bash
-  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4_rotV2" --save_path  "data/my_videos/Example_4_rotV2/Results" --alg_fov_ratio 0.8 --n_frames_lim 0
+  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4_rotV2" --save_path  "results/my_videos/Example_4_rotV2/result_new" --alg_fov_ratio 0.8 --n_frames_lim 0
+```
+
+* Run all experiments with the Zhang22 dataset:
+
+```bash
+  python -m run_zhang_all --test_dataset_name "Zhang22" --results_name "Zhang22_new" --save_overwrite 1 --debug_mode 0
+```
+
+* Run all experiments on the ColNav dataset:
+
+```bash
+  python -m run_col_nav_all --test_dataset_name "ColNav_Test" --results_name "ColNav_new" --save_overwrite 1 --debug_mode 0
 ```
 
 ## References

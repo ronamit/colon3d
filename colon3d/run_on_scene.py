@@ -20,13 +20,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/my_videos/Example_4_rotV2",
+        default="data/my_videos/Example_4", # "data/my_videos/Example_4_rotV2",
         help="path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/my_videos_results/Example_4_rotV2/Temp_Results",
+        default="results/my_videos_results/Example_4/new",
         help="path to the save outputs",
     )
     parser.add_argument(
