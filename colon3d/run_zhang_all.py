@@ -22,7 +22,7 @@ parser.add_argument(
     "--results_name",
     type=str,
     help="The name of the results folder",
-    default="Zhang22_kp_discard",
+    default="Zhang22_new",
 )
 
 parser.add_argument(
