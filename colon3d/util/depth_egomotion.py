@@ -12,8 +12,8 @@ from colon3d.util.torch_util import get_device, resize_images, to_default_type, 
 from colon3d.util.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
 )
-from endo_sfm.models_def.DispResNet import DispResNet
-from endo_sfm.models_def.PoseResNet import PoseResNet
+from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
+from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -24,6 +24,7 @@ class DepthAndEgoMotionLoader:
         scene_path: Path,
         depth_maps_source: str,
         egomotions_source: str,
+        depth_and_egomotion_method: str | None = None,
         depth_and_egomotion_model_path: str | None = None,
         depth_lower_bound: float | None = None,
         depth_upper_bound: float | None = None,
@@ -59,7 +60,10 @@ class DepthAndEgoMotionLoader:
         # Initialize egomotions
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
-            self.egomotion_estimator = EgomotionModel(depth_and_egomotion_model_path)
+            self.egomotion_estimator = EgomotionModel(
+                method=depth_and_egomotion_method,
+                model_path=depth_and_egomotion_model_path,
+            )
 
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
@@ -73,7 +77,8 @@ class DepthAndEgoMotionLoader:
             self.depth_estimator = DepthModel(
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
-                depth_and_egomotion_model_path=depth_and_egomotion_model_path,
+                method=depth_and_egomotion_method,
+                model_path=depth_and_egomotion_model_path,
             )
             self.depth_info = self.depth_estimator.get_depth_info()
             print("Using online depth estimation")
@@ -90,7 +95,6 @@ class DepthAndEgoMotionLoader:
             assert depth_default is not None
         else:
             raise ValueError(f"Unknown depth maps source: {depth_maps_source}")
-
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -351,17 +355,16 @@ class DepthModel:
     Note that we use a network that estimates the disparity and then convert it to depth by taking 1/disparity.
     """
 
-    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, depth_and_egomotion_model_path: str) -> None:
+    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: str) -> None:
         self.depth_lower_bound = depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
 
-        model_dir_path = Path(depth_and_egomotion_model_path)
+        model_dir_path = Path(model_path)
         self.model_info = get_model_info(model_dir_path)
         # load the Disparity network
         self.disp_net_path = model_dir_path / "DispNet_best.pt"
         assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
         print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
-        self.resnet_layers = self.model_info["DispResNet_layers"]
         # the dimensions of the input images to the network
         self.model_frame_height = self.model_info["frame_height"]
         self.model_frame_width = self.model_info["frame_width"]
@@ -373,15 +376,19 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float64 # the network was trained with float64
+        self.dtype = torch.float64  # the network was trained with float64
         weights = torch.load(self.disp_net_path)
-        self.disp_net = DispResNet(self.resnet_layers, pretrained=True).to(self.device)
+        if method == "EndoSFM":
+            # create the disparity estimation network
+            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["DispResNet_layers"], pretrained=True)
+        else:
+            raise ValueError(f"Unknown depth estimation method: {method}")
         self.disp_net.load_state_dict(weights["state_dict"], strict=False)
         self.disp_net.to(self.device)
         self.disp_net.eval()  # switch to evaluate mode
 
     # --------------------------------------------------------------------------------------------------------------------
-    
+
     def get_depth_info(self) -> dict:
         #  metadata for the depth maps
         depth_info = {
@@ -389,7 +396,7 @@ class DepthModel:
             "depth_map_size": {"width": self.depth_map_width, "height": self.depth_map_height},
         }
         return depth_info
-    
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def estimate_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
@@ -446,22 +453,25 @@ class DepthModel:
 
 
 class EgomotionModel:
-    def __init__(self, depth_and_egomotion_model_path: str) -> None:
-        model_dir_path = Path(depth_and_egomotion_model_path)
+    def __init__(self, method: str, model_path: str) -> None:
+        model_dir_path = Path(model_path)
         self.model_info = get_model_info(model_dir_path)
         self.pose_net_path = model_dir_path / "PoseNet_best.pt"
         assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
         print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
         self.device = get_device()
         self.dtype = torch.float64
-        self.resnet_layers = self.model_info["PoseResNet_layers"]
         self.model_im_height = self.model_info["frame_height"]
         self.model_im_width = self.model_info["frame_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
-        self.pose_net = PoseResNet(self.resnet_layers, pretrained=True).to(self.device)
+        if method == "EndoSFM":
+            # create the egomotion estimation network
+            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["PoseResNet_layers"], pretrained=True)
+        else:
+            raise ValueError(f"Unknown egomotion estimation method: {method}")
         weights = torch.load(self.pose_net_path)
         self.pose_net.load_state_dict(weights["state_dict"], strict=False)
         self.pose_net.to(self.device)
@@ -500,7 +510,7 @@ class EgomotionModel:
 
     def estimate_egomotion(self, prev_frame: np.ndarray, curr_frame: np.ndarray):
         """Estimate the 6DOF egomotion from the previous frame to the current frame.
-            The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
+        The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
         """
         assert prev_frame.ndim == 3
         assert curr_frame.ndim == 3

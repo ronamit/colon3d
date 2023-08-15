@@ -58,10 +58,17 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
+        "--depth_and_egomotion_method",
+        type=str,
+        default="EndoSFM",
+        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
+    )
+    parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
         default="saved_models/EndoSFM_orig",
-        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
         "--alg_fov_ratio",
@@ -116,6 +123,7 @@ class SlamOnDatasetRunner:
     save_raw_outputs: bool = False
     depth_maps_source: str = "none"
     egomotions_source: str = "none"
+    depth_and_egomotion_method: str | None = None
     depth_and_egomotion_model_path: Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
@@ -171,6 +179,7 @@ class SlamOnDatasetRunner:
                     alg_fov_ratio=self.alg_fov_ratio,
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
+                    depth_and_egomotion_method=self.depth_and_egomotion_method,
                     depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
                     alg_settings_override=self.alg_settings_override,
                     plot_names=plot_names,  # plots to create

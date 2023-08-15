@@ -58,10 +58,17 @@ def main():
         help="The source of the egomotions",
     )
     parser.add_argument(
+        "--depth_and_egomotion_method",
+        type=str,
+        default="EndoSFM",
+        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
+    )
+    parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
         default="saved_models/EndoSFM_orig",
-        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for online estimation",
+        help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     args = parser.parse_args()
     print(f"args={args}")
@@ -74,6 +81,7 @@ def main():
         scene_path=scene_path,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
+        depth_and_egomotion_method=args.depth_and_egomotion_method,
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
     )
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)

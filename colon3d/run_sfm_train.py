@@ -40,6 +40,8 @@ train_scenes_dataset_path = Path(f"data/sim_data/{train_dataset_name}")
 # path to save the trained model:
 path_to_save_model = Path("saved_models/EndoSFM_tuned")
 
+depth_and_egomotion_method = "EndoSFM"  # Currently only EndoSFM is supported
+
 # path of the pretrained models:
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
 pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
@@ -109,6 +111,7 @@ save_model_info(
 # Run depth examination to calibrate the depth scale:
 depth_examiner = DepthExaminer(
     dataset_path=train_scenes_dataset_path,
+    depth_and_egomotion_method=depth_and_egomotion_method,
     depth_and_egomotion_model_path=path_to_save_model,
     save_path=path_to_save_depth_exam,
     save_overwrite=save_overwrite,
