@@ -117,13 +117,13 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 * Run all experiments with the Zhang22 dataset:
 
 ```bash
-  python -m colon3d.run_zhang_all --test_dataset_name "Zhang22" --results_name "Zhang22_new" --save_overwrite 1 --debug_mode 0
+  python -m colon3d.run_zhang_all --test_dataset_name "Zhang22" --results_name "Zhang22_new" --overwrite_results 1 --overwrite_data 1 --debug_mode 0
 ```
 
 * Run all experiments on the ColNav dataset:
 
 ```bash
-  python -m colon3d.run_col_nav_all --test_dataset_name "ColNav_Test" --results_name "ColNav_new" --save_overwrite 1 --debug_mode 0
+  python -m colon3d.run_col_nav_all --test_dataset_name "TestData21" --results_name "ColNav_new" --overwrite_results 1 --overwrite_data 1 --debug_mode 0
 ```
 
 ## References

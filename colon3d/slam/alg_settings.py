@@ -35,6 +35,9 @@ class AlgorithmParam:
     # maximum distance from the identity matrix to consider a homography as valid
     hom_dist_from_identity_threshold: float = 50.0
     # maximum distance between two keypoints to consider them as a match (units: pixels)
-    max_match_pix_dist: float =  30.0
+    max_match_pix_dist: float = 30.0
     orb_fast_thresh: int = 5  # FAST threshold for ORB keypoints detector
-    kp_reproject_err_threshold: float = 2.0  # reprojection error threshold for marking keypoints as "invalid" (units: pixels)
+    # reprojection error threshold for marking keypoints as "invalid" (units: pixels)
+    kp_reproject_err_threshold: float = 2.0
+    # if True then use the naive navigation aid - if track goes out of view, use the last navigation angle:
+    use_trivial_nav_aid: bool = False

@@ -8,15 +8,19 @@ import torch
 
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.slam.bundle_adjust import run_bundle_adjust
-from colon3d.slam.slam_out_analysis import AnalysisLogger, SlamOutput
+from colon3d.slam.slam_out_analysis import AnalysisLogger
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.util.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
 from colon3d.util.rotations_util import get_identity_quaternion
-from colon3d.util.torch_util import get_default_dtype, get_device
+from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
 from colon3d.util.tracks_util import DetectionsTracker
-from colon3d.util.transforms_util import compose_poses, unproject_image_normalized_coord_to_world
+from colon3d.util.transforms_util import (
+    compose_poses,
+    transform_points_world_to_cam,
+    unproject_image_normalized_coord_to_world,
+)
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 torch.set_default_dtype(get_default_dtype())
@@ -75,11 +79,15 @@ class SlamAlgRunner:
 
         # The (matched) keypoints (KPs) data is saved in a dataframe
         # note that KPs might get discarded later on, if found to be invalid
-        self.pix_normalizer = self.scene_loader.alg_view_pix_normalizer
-        self.kp_log = KeyPointsLog(self.pix_normalizer)
+        self.alg_view_pix_normalizer = self.scene_loader.alg_view_pix_normalizer
+        self.kp_log = KeyPointsLog(self.alg_view_pix_normalizer)
 
-        #  List of the per-step estimates oft the 3D locations of each track's KPs (in the world system):
+        #  List of the per-step estimates of the 3D locations of each track's KPs in the world system:
         self.online_est_track_world_loc = []
+        #  List of the per-step estimates of the 3D locations of each track's KPs in the camera system:
+        self.online_est_track_cam_loc = []
+        # list of the per-frame estimate of the angle in the camera YZ plane of each track (in radians):
+        self.online_est_track_angle = []
         #  List of the per-step estimates oft the 3D locations of the saliency KPs (in the world system):
         self.online_est_salient_kp_world_loc = []
         """
@@ -116,9 +124,9 @@ class SlamAlgRunner:
 
     def run(
         self,
-    ) -> SlamOutput:
+    ) -> dict:
         frames_generator = self.scene_loader.frames_generator(frame_type="alg_input")
-        cam_undistorter = self.scene_loader.alg_view_pix_normalizer
+        alg_view_pix_normalizer = self.scene_loader.alg_view_pix_normalizer
         alg_view_cropper = self.scene_loader.alg_view_cropper
         scene_metadata = self.scene_loader.metadata
         n_frames = self.scene_loader.n_frames
@@ -159,21 +167,23 @@ class SlamAlgRunner:
         print("-" * 50, f"\nSLAM algorithm run finished. Time now: {get_time_now_str()}")
         print("Elapsed time: ", convert_sec_to_str(time.time() - runtime_start))
         # ---- Save outputs ----
-        slam_out = SlamOutput(
-            alg_prm=self.alg_prm,
-            cam_poses=self.cam_poses,
-            points_3d=self.points_3d,
-            kp_log=self.kp_log,
-            tracks_p3d_inds=self.tracks_p3d_inds,
-            p3d_inds_per_frame=self.p3d_inds_per_frame,
-            scene_loader=self.scene_loader,
-            detections_tracker=self.detections_tracker,
-            pix_normalizer=cam_undistorter,
-            depth_estimator=self.depth_estimator,
-            online_est_track_world_loc=self.online_est_track_world_loc,
-            online_est_salient_kp_world_loc=self.online_est_salient_kp_world_loc,
-            online_logger=self.online_logger,
-        )
+        slam_out = {
+            "alg_prm": self.alg_prm,
+            "cam_poses": self.cam_poses,
+            "points_3d": self.points_3d,
+            "kp_log": self.kp_log,
+            "tracks_p3d_inds": self.tracks_p3d_inds,
+            "p3d_inds_per_frame": self.p3d_inds_per_frame,
+            "scene_loader": self.scene_loader,
+            "detections_tracker": self.detections_tracker,
+            "alg_view_pix_normalizer": alg_view_pix_normalizer,
+            "depth_estimator": self.depth_estimator,
+            "online_est_track_world_loc": self.online_est_track_world_loc,
+            "online_est_track_cam_loc": self.online_est_track_cam_loc,
+            "online_est_salient_kp_world_loc": self.online_est_salient_kp_world_loc,
+            "online_est_track_angle": self.online_est_track_angle,
+            "online_logger": self.online_logger,
+        }
         return slam_out
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -219,6 +229,8 @@ class SlamAlgRunner:
         # Initialize the set of 3D points seen  with the tracks in the current frame
         self.p3d_inds_per_frame.append(set())
         self.online_est_track_world_loc.append({})
+        self.online_est_track_cam_loc.append({})
+        self.online_est_track_angle.append({})
 
         #  Guess the cam pose for current frame, based on the last estimate and the egomotion estimation
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
@@ -319,7 +331,7 @@ class SlamAlgRunner:
                     new_world_point_kp_ids.append((kpA_frame_idx, kpA_xy[0], kpA_xy[1]))
                 self.p3d_inds_per_frame[-1].add(p3d_id)
 
-        # ----- Update the inputs to the bundle-adjustment using the tracks(polyps) KPs
+        # ----- Update the inputs to the bundle-adjustment using the tracks (polyps) KPs
         for track_id, kpB_xy in track_KPs_B.items():
             # in case we have not seen this track before, we need to create a new 3d points for it
             register_new_p3d = track_id not in self.tracks_p3d_inds
@@ -351,7 +363,7 @@ class SlamAlgRunner:
             # get the normalized pixel coordinates of the new KPs
             kp_nrm_of_new = [self.kp_log.get_kp_norm_coord(kp_id) for kp_id in new_world_point_kp_ids]
             # convert to torch
-            kp_nrm_of_new = torch.tensor(kp_nrm_of_new, device=self.device)
+            kp_nrm_of_new = torch.tensor(np.array(kp_nrm_of_new), device=self.device)
             # estimate the 3d points of the new KPs (using the depth estimator)
             # note: the depth estimator already process the frame index until the current frame, and saved the results in a buffer
             z_depths_of_new = depth_estimator.get_z_depth_at_pixels(
@@ -372,7 +384,7 @@ class SlamAlgRunner:
         if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
-            
+
             # Loop that runs the bundle adjustment until no more KPs are discarded
             n_invalid_kps = -1
             i_repeat = 0
@@ -390,11 +402,25 @@ class SlamAlgRunner:
                     verbose=verbose,
                 )
                 i_repeat += 1
-                
+
         # ----  Save online-estimates for the current frame
         # save the currently estimated 3D KP of the tracks that have been seen until now
+
         for track_id, track_kps_p3d_ind in self.tracks_p3d_inds.items():
-            self.online_est_track_world_loc[i_frame][track_id] = self.points_3d[track_kps_p3d_ind]
+            track_world_p3d = self.points_3d[track_kps_p3d_ind]
+            track_cam_p3d = transform_points_world_to_cam(
+                points_3d_world=track_world_p3d,
+                cam_poses=self.cam_poses[i_frame],
+            )
+            # in the world system
+            self.online_est_track_world_loc[i_frame][track_id] = to_numpy(track_world_p3d)
+            self.online_est_track_cam_loc[i_frame][track_id] = to_numpy(track_cam_p3d)
+            # estimate the direction of the track in he camera frame XT plane (for navigation arrow)
+            self.online_est_track_angle[i_frame][track_id] = self.estimate_track_angle_in_frame(
+                track_id=track_id,
+                i_frame=i_frame,
+                cur_track_KPs=track_KPs_B,
+            )
 
         # save the currently estimated 3D world system location of the salient KPs
         self.online_est_salient_kp_world_loc.append(deepcopy(self.points_3d))
@@ -408,6 +434,35 @@ class SlamAlgRunner:
         self.prev_rgb_frame = cur_rgb_frame
         self.track_KPs_A = track_KPs_B
         self.tracks_in_frameA = tracks_in_frameB
+
+    # ---------------------------------------------------------------------------------------------------------------------
+
+    def estimate_track_angle_in_frame(self, track_id: int, i_frame: int, cur_track_KPs: dict):
+        """estimate the direction of the track in he camera frame XY plane (for navigation arrow) [rad]"""
+
+        if track_id in cur_track_KPs:
+            # in this case - we see the track in the current frame, so we use its pixel coordinates
+            track_loc_pix = cur_track_KPs[track_id]
+            # transform to normalized image coordinates:
+            track_loc_nrm, _ = self.alg_view_pix_normalizer.get_normalized_coord(track_loc_pix)
+            # transform from pixel coordinates to camera system coordinates:
+            angle_rad = np.arctan2(track_loc_nrm[1], track_loc_nrm[0])
+
+        elif self.alg_prm.use_trivial_nav_aid:
+            # the track is out-of-view.
+            # use the naive navigation aid - just using the same angle as in previous frame
+            angle_rad = self.online_est_track_angle[i_frame - 1][track_id]
+
+        else:
+            # the track is out-of-view.
+            # use the estimated location of the track in the current frame
+            track_loc_cam = self.online_est_track_cam_loc[i_frame][track_id]
+            # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
+            angle_rad = np.arctan2(track_loc_cam[1], track_loc_cam[0])
+
+        return angle_rad
+
+    #
 
 
 # ---------------------------------------------------------------------------------------------------------------------

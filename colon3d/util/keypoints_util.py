@@ -1,11 +1,9 @@
 import cv2
 import numpy as np
-import torch
 
 from colon3d.slam.alg_settings import AlgorithmParam
 from colon3d.util.general_util import to_str
 from colon3d.util.torch_util import get_default_dtype
-from colon3d.util.transforms_util import transform_points_world_to_cam
 
 np_dtype = get_default_dtype("numpy")
 
@@ -15,16 +13,16 @@ class KeyPointsLog:
     """ Saves the keypoint information.
     Note: invalid keypoints are discarded.
     """
-    def __init__(self, pix_normalizer) -> None:
+    def __init__(self, alg_view_pix_normalizer) -> None:
         self.map_kp_to_p3d_idx = {} # maps a keypoint (frame_idx, x, y,) its 3D point index
         self.map_kp_to_type = {} # maps a keypoint (frame_idx, x, y,) its type (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
-        self.pix_normalizer = pix_normalizer # pixel normalizer object
+        self.alg_view_pix_normalizer = alg_view_pix_normalizer # pixel normalizer object
         
     # --------------------------------------------------------------------------------------------------------------------
     
     def is_kp_coord_valid(self, pix_coord):
         # check if the KP is too close to the image border, and so its undistorted coordinates are invalid
-        nrm_coords, is_valid = self.pix_normalizer.get_normalized_coords(pix_coord)
+        nrm_coords, is_valid = self.alg_view_pix_normalizer.get_normalized_coords(pix_coord)
         return is_valid
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -55,7 +53,7 @@ class KeyPointsLog:
         """ Get the normalized coordinates of the given keypoint.
         """
         assert isinstance(kp_id, tuple) and len(kp_id) == 3
-        norm_coord, is_valid = self.pix_normalizer.get_normalized_coords(kp_id[1:])
+        norm_coord, is_valid = self.alg_view_pix_normalizer.get_normalized_coords(kp_id[1:])
         return norm_coord[0]
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -89,34 +87,6 @@ class KeyPointsLog:
             if kp_id in self.map_kp_to_type:
                 del self.map_kp_to_type[kp_id]
                 
-# --------------------------------------------------------------------------------------------------------------------
-
-def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:
-    """
-    Transform 3D points of from world system to the camera system per frame.
-    Parameters:
-        tracks_world_locs: list per frame of dict with key=track_id, value = 3D coordinates of the track's KP (in world system) (units: mm)
-
-        cam_poses: Tensor[n_frames ,7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
-    Return:
-        cam_p3d_per_frame_per_track: transformed to the per-frame camera system (units: mm)
-    """
-    n_frames = cam_poses.shape[0]
-    if cam_poses.ndim == 1:
-        # if only one camera pose is given, repeat it for all frames
-        cam_poses = cam_poses.expand(n_frames, -1)
-    cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
-    for i_frame in range(n_frames):
-        cam_pose = cam_poses[i_frame]
-        for track_id, track_world_p3d in tracks_world_locs[i_frame].items():
-            # Rotate & translate to camera view (of the current frame camera pose)
-            track_cam_p3d = transform_points_world_to_cam(
-                points_3d_world=track_world_p3d,
-                cam_poses=cam_pose,
-            )
-            cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
-    return cam_p3d_per_frame_per_track
-
 
 # --------------------------------------------------------------------------------------------------------------------
 

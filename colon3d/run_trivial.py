@@ -1,8 +1,6 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.create_target_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
@@ -23,7 +21,7 @@ parser.add_argument(
     "--results_name",
     type=str,
     help="The name of the results folder",
-    default="TestData21_results",
+    default="TestData21_trivial",
 )
 parser.add_argument(
     "--overwrite_data",
@@ -34,7 +32,7 @@ parser.add_argument(
 parser.add_argument(
     "--overwrite_results",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the results folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -53,7 +51,7 @@ parser.add_argument(
 args = parser.parse_args()
 print(f"args={args}")
 overwrite_results = args.overwrite_results
-overwrite_data = args.overwrite_data
+overwrite_data= args.overwrite_data
 debug_mode = args.debug_mode
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -126,83 +124,17 @@ common_args = {
     "n_scenes_lim": n_cases_lim,
     "save_overwrite": overwrite_results,
 }
-# # --------------------------------------------------------------------------------------------------------------------
-# # using the ground truth depth maps and egomotions - without bundle adjustment
-# SlamOnDatasetRunner(
-#     dataset_path=scenes_cases_dataset_path,
-#     save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
-#     depth_maps_source="ground_truth",
-#     egomotions_source="ground_truth",
-#     alg_settings_override={"use_bundle_adjustment": False},
-#     **common_args,
-# ).run()
 # --------------------------------------------------------------------------------------------------------------------
-
-# Bundle-adjustment, without monocular depth and egomotion estimation
-SlamOnDatasetRunner(
-    dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "BA_no_depth_no_ego",
-    depth_maps_source="none",
-    egomotions_source="none",
-    **common_args,
-).run()
-# --------------------------------------------------------------------------------------------------------------------
-# Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
-SlamOnDatasetRunner(
-    dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "BA_with_EndoSFM_orig",
-    depth_maps_source="online_estimates",
-    egomotions_source="online_estimates",
-    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    **common_args,
-).run()
-
+# No bundle-adjustment and no estimations - just use the trivial solution to navigation aid arrow estimation (last seen angle)
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
 SlamOnDatasetRunner(
     dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "no_BA_with_EndoSFM_orig",
-    depth_maps_source="online_estimates",
-    egomotions_source="online_estimates",
-    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    alg_settings_override={"use_bundle_adjustment": False},
+    save_path=base_results_path / "trivial_navigation",
+    depth_maps_source="none",
+    egomotions_source="none",
+    alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
     **common_args,
 ).run()
 
-# --------------------------------------------------------------------------------------------------------------------
-# # Bundle-adjustment, using the ground truth depth maps no egomotions
-# SlamOnDatasetRunner(
-#     dataset_path=scenes_cases_dataset_path,
-#     save_path=base_results_path / "BA_with_GT_depth_no_ego",
-#     depth_maps_source="ground_truth",
-#     egomotions_source="none",
-#     **common_args,
-# ).run()
-# # --------------------------------------------------------------------------------------------------------------------
-# # Bundle-adjustment, using the ground truth depth maps and egomotions.
-# SlamOnDatasetRunner(
-#     dataset_path=scenes_cases_dataset_path,
-#     save_path=base_results_path / "BA_with_GT_depth_and_ego",
-#     depth_maps_source="ground_truth",
-#     egomotions_source="ground_truth",
-#     **common_args,
-# ).run()
-# --------------------------------------------------------------------------------------------------------------------
-
-# save unified results table for all the runs:
-unified_results_table = pd.DataFrame()
-for results_path in base_results_path.glob("*"):
-    if results_path.is_dir():
-        cur_result_path = results_path / "metrics_summary.csv"
-        if not cur_result_path.exists():
-            continue
-        # load the current run results summary csv file:
-        run_results_summary = pd.read_csv(cur_result_path)
-        # add the run name to the results table:
-        unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
-# save the unified results table:
-file_path = base_results_path / "unified_results_table.csv"
-unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
-print(f"Saved unified results table to {file_path}")
-
-# --------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------

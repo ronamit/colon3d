@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 from colon3d.util.camera_info import CamInfo
+from colon3d.util.torch_util import to_numpy
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -93,6 +94,7 @@ class PixelCoordNormalizer:
         # set the translation & rotation to zero
         rot = np.array([[[0.0, 0.0, 0.0]]])
         trans = np.array([[[0.0, 0.0, 0.0]]])
+        points3d = to_numpy(points3d)
         if points3d.ndim == 1:
             points3d = points3d[np.newaxis, :]
         points3d = points3d[:, np.newaxis, :]  # (N_points,1,3) to fit cv2.fisheye.projectPoints input

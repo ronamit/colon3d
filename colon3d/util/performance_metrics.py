@@ -4,13 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.sim_import.simulate_tracks import TargetsInfo
-from colon3d.slam.slam_alg import SlamOutput
 from colon3d.util.general_util import save_plot_and_close
-from colon3d.util.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.util.torch_util import np_func, to_numpy
 from colon3d.util.tracks_util import DetectionsTracker
-from colon3d.util.transforms_util import compose_poses, find_rigid_registration, get_pose_delta
+from colon3d.util.transforms_util import (
+    compose_poses,
+    find_rigid_registration,
+    get_pose_delta,
+    transform_tracks_points_to_cam_frame,
+)
 
 # ---------------------------------------------------------------------------------------------------------------------
 """"
@@ -143,7 +146,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
     delta_rot_rad = np_func(get_rotation_angles)(delta_rot)  # [rad] in the range [-pi, pi]
     # take the absolute value of the angle
     rpe_rot_deg = np.rad2deg(np.abs(delta_rot_rad))  # [deg]
-    # taje into account the fact that the rotation is cyclic
+    # take into account the fact that the rotation is cyclic
     rpe_rot_deg = np.minimum(rpe_rot_deg, 360.0 - rpe_rot_deg)  # [deg]
 
     metrics_per_frame = {
@@ -170,24 +173,20 @@ def calc_nav_aid_metrics(
     gt_cam_poses: np.ndarray,
     est_cam_poses: np.ndarray,
     gt_targets_info: dict,
-    online_est_track_world_loc: list,
+    online_est_track_cam_loc: list,
+    online_est_track_angle: list,
     detections_tracker: DetectionsTracker,
 ) -> dict:
     """Calculates the navigation-aid metrics.
     Args:
         gt_cam_poses [N x 7] ground-truth camera poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
         est_cam_poses [N x 7] estimated camera poses per frame (in world coordinate) where first 3 coordinates are x,y,z [mm] and the rest are unit-quaternions (real part first)
+        online_est_track_cam_loc: [list per frame of dict per track of 3D location] the estimated track location in the camera frame.
     """
     n_frames = est_cam_poses.shape[0]
     n_targets = gt_targets_info.n_targets
 
     deg_err_thresh = 15  # [deg] the threshold for the angular error to consider a target as "detected"
-
-    # Transform estimated target location (in the estimation world coordinates) to the est. camera system per frame.
-    online_est_track_cam_loc = np_func(transform_tracks_points_to_cam_frame)(
-        tracks_world_locs=online_est_track_world_loc,
-        cam_poses=est_cam_poses,
-    )
 
     # The GT target location in the GT world system is static (same for all frames)
     n_frames_gt = gt_cam_poses.shape[0]
@@ -200,7 +199,7 @@ def calc_nav_aid_metrics(
         cam_poses=gt_cam_poses,
     )
 
-    # the navigation-aid metrics per-frame:
+    ### the navigation-aid metrics per-frame:
 
     # True if the target is seen being tracked the current frame (i.e. it was seen in some past frame and is still being tracked in the current frame)
     is_tracked = np.zeros((n_frames, n_targets), dtype=bool)
@@ -242,9 +241,10 @@ def calc_nav_aid_metrics(
                 # in this case, the estimated location of the track is in front of the camera (in z-axis)
                 is_front_est[i, track_id] = True
 
-                # get the angle of the 2D vector which is the projection of the vector from the camera origin to the camera system XY plane
+                # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
                 gt_angle_rad = np.arctan2(gt_p3d_cam[1], gt_p3d_cam[0])  # [rad]
-                est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
+                # est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
+                est_angle_rad = online_est_track_angle[i][track_id]   # [rad]
 
                 gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg] in the range [-180, 180]
                 est_angle_deg = np.rad2deg(est_angle_rad)  # [deg] in the range [-180, 180]
@@ -308,7 +308,7 @@ def calc_nav_aid_metrics(
 def calc_performance_metrics(
     gt_cam_poses: np.ndarray,
     gt_targets_info: TargetsInfo | None,
-    slam_out: SlamOutput,
+    slam_out: dict,
 ) -> dict:
     """Calculate the SLAM performance metrics w.r.t ground truth."""
 
@@ -316,7 +316,7 @@ def calc_performance_metrics(
     # Note: in each frame we take the online estimation (and not the final post-hoc estimation)
 
     # Get the online estimated camera poses per frame (in world coordinate)
-    est_cam_poses = slam_out.online_logger.cam_pose_estimates
+    est_cam_poses = slam_out["online_logger"].cam_pose_estimates
 
     n_frames = est_cam_poses.shape[0]  # number of frames in the estimated trajectory
 
@@ -326,8 +326,9 @@ def calc_performance_metrics(
     # ensure the rotations unit quaternion are normalized
     gt_cam_poses[:, 3:] = np_func(normalize_quaternions)(gt_cam_poses[:, 3:])
 
-    #  List of the estimated 3D locations of each track's KPs (in the world system) per frame
-    online_est_track_world_loc = to_numpy(slam_out.online_est_track_world_loc)
+    #  List of the estimated 3D locations of each track's KPs (in the camera system) per frame
+    online_est_track_cam_loc = to_numpy(slam_out["online_est_track_cam_loc"])
+    online_est_track_angle = to_numpy(slam_out["online_est_track_angle"])
 
     # Compute SLAM metrics
     ate_metrics_per_frame, ate_metrics_stats = compute_ATE(gt_cam_poses=gt_cam_poses, est_cam_poses=est_cam_poses)
@@ -342,8 +343,9 @@ def calc_performance_metrics(
             gt_cam_poses=gt_cam_poses,
             gt_targets_info=gt_targets_info,
             est_cam_poses=est_cam_poses,
-            online_est_track_world_loc=online_est_track_world_loc,
-            detections_tracker=slam_out.detections_tracker,
+            online_est_track_cam_loc=online_est_track_cam_loc,
+            online_est_track_angle=online_est_track_angle,
+            detections_tracker=slam_out["detections_tracker"],
         )
         # add the navigation-aid metrics
         metrics_per_frame = metrics_per_frame | nav_metrics_per_frame

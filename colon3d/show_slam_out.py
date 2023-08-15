@@ -4,9 +4,8 @@ from pathlib import Path
 
 from colon3d.slam.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
-from colon3d.util.keypoints_util import transform_tracks_points_to_cam_frame
 from colon3d.util.torch_util import to_torch
-from colon3d.visuals.plot_aided_nav import draw_aided_nav
+from colon3d.visuals.plot_nav_aid import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
 from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
 
@@ -61,28 +60,29 @@ def save_slam_out_plots(
     save_path = Path(save_path)
     create_folder_if_not_exists(save_path)
     # Extract the relevant variables
-    scene_loader = slam_out.scene_loader
+    scene_loader = slam_out["scene_loader"]
     # ovscene_loaderer-ride the example folder (in case it was moved)
     scene_loader.example_path = scene_path
     n_frames_orig = scene_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
 
-    tracks_p3d_inds = slam_out.tracks_p3d_inds
-    detections_tracker = slam_out.detections_tracker
-    online_logger = slam_out.online_logger
+    tracks_p3d_inds = slam_out["tracks_p3d_inds"]
+    detections_tracker = slam_out["detections_tracker"]
+    online_logger = slam_out["online_logger"]
     # Get the online estimated camera poses
     est_cam_poses = to_torch(online_logger.cam_pose_estimates)
     tracks_ids = tracks_p3d_inds.keys()
     #  List of the estimated 3D locations of each track's KPs (in the world system):
-    online_est_track_world_loc = slam_out.online_est_track_world_loc
-    online_est_salient_kp_world_loc = slam_out.online_est_salient_kp_world_loc
+    online_est_track_cam_loc = slam_out["online_est_track_world_loc"]
+    online_est_track_world_loc = slam_out["online_est_track_world_loc"]
+    online_est_track_angle = slam_out["online_est_track_angle"]
+    alg_prm = slam_out["alg_prm"]
+    
+    online_est_salient_kp_world_loc = slam_out["online_est_salient_kp_world_loc"]
     if stop_frame is None:
         stop_frame = n_frames_orig
     fps = scene_loader.fps  # frames per second
     t_interval_sec = 1 / fps  # sec
-
-    # ---- Get track estimated location of the track KPs w.r.t. camera system in each frame
-    online_est_track_cam_loc = transform_tracks_points_to_cam_frame(online_est_track_world_loc, est_cam_poses)
 
     # ---- Plot the estimated tracks z-coordinate in the camera system per fame
     if plot_names is None or "z_dist_from_cam" in plot_names:
@@ -103,6 +103,8 @@ def save_slam_out_plots(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             online_est_track_cam_loc=online_est_track_cam_loc,
+            online_est_track_angle=online_est_track_angle,
+            alg_prm=alg_prm,
             start_frame=start_frame,
             stop_frame=stop_frame,
             save_path=save_path,
@@ -113,7 +115,7 @@ def save_slam_out_plots(
         draw_keypoints_and_tracks(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
-            kp_log=slam_out.kp_log,
+            kp_log=slam_out["kp_log"],
             save_path=save_path,
         )
 

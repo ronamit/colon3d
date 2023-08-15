@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/my_videos/Example_4", # "data/my_videos/Example_4_rotV2",
+        default="data/my_videos/Example_4",  # "data/my_videos/Example_4_rotV2",
         help="path to the scene folder",
     )
     parser.add_argument(
@@ -112,6 +112,7 @@ def main():
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 @attrs.define
 class SlamRunner:
     scene_path: Path
@@ -162,7 +163,9 @@ class SlamRunner:
             )
 
             # Run the SLAM algorithm
-            alg_runner = SlamAlgRunner(alg_prm=alg_prm,                 scene_loader=scene_loader,
+            alg_runner = SlamAlgRunner(
+                alg_prm=alg_prm,
+                scene_loader=scene_loader,
                 detections_tracker=detections_tracker,
                 depth_estimator=depth_estimator,
                 save_path=self.save_path,

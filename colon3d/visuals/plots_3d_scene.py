@@ -40,7 +40,7 @@ def plot_world_sys_per_frame(
     """
     frame_inds = np.arange(start_frame, stop_frame, dtype=int)
     # the 6DOF pose of the camera from the world origin (per frame):
-    cam_poses = cam_poses.numpy(force=True)
+    cam_poses = to_numpy(cam_poses)
     frame_inds = np.arange(start_frame, stop_frame, dtype=int)
     t_interval = 1 / fps  # time interval between frames [sec]
     step_duration_sec = t_interval / speedup_factor  # [sec] the duration of each frame in the animation
@@ -71,7 +71,7 @@ def plot_world_sys_per_frame(
     # plot the tracks\polyps estimated 3D location in the world system per frame:
     for i_step, i_frame in enumerate(frame_inds):
         for track_id, track_p3d_tensor in online_est_track_world_loc[i_frame].items():
-            track_p3d_world = track_p3d_tensor.numpy(force=True)  # location of the track in the world system
+            track_p3d_world = to_numpy(track_p3d_tensor) # location of the track in the world system
             # check if the track is in the view of the algorithm
             is_track_in_view = detections_tracker.is_track_in_alg_view(track_id, [i_frame])[0]
             color = "green" if is_track_in_view else "red"
@@ -188,28 +188,27 @@ def plot_camera_sys_per_frame(
         tracks_est_loc_wrt_cam = tracks_kps_cam_loc_per_frame[i_frame]
         # Plot 3D position of each tracks in the current frame
         for track_id in tracks_est_loc_wrt_cam:
-            kps_locs = tracks_est_loc_wrt_cam[track_id].numpy(force=True)
+            kp_p3d = to_numpy(tracks_est_loc_wrt_cam[track_id])
             # check if the track is in the view of the algorithm
             is_track_in_view = detections_tracker.is_track_in_alg_view(track_id, [i_frame])[0]
-            for i_kp, kp_p3d in enumerate(kps_locs):
-                # draw only points in the distance limit
-                dist_sqr = np.square(kp_p3d).sum(axis=-1)
-                max_dist = max(max_dist, np.sqrt(dist_sqr))
-                if dist_sqr > dist_lim**2:
-                    continue  # skip this point
-                color = "green" if is_track_in_view else "red"
-                opacity = 0.9 if i_kp == 0 else 0.3  # make the the center KP more opaque
-                per_step_objs_lists[i_step].append(
-                    go.Scatter3d(
-                        x=[kp_p3d[0]],
-                        y=[kp_p3d[1]],
-                        z=[kp_p3d[2]],
-                        text=f"Track {track_id}",
-                        mode="markers",
-                        marker={"size": 3, "color": color, "opacity": opacity},
-                        showlegend=False,
-                    ),
-                )
+            # draw only points in the distance limit
+            dist_sqr = np.square(kp_p3d).sum(axis=-1)
+            max_dist = max(max_dist, np.sqrt(dist_sqr))
+            if dist_sqr > dist_lim**2:
+                continue  # skip this point
+            color = "green" if is_track_in_view else "red"
+            opacity = 0.9
+            per_step_objs_lists[i_step].append(
+                go.Scatter3d(
+                    x=[kp_p3d[0]],
+                    y=[kp_p3d[1]],
+                    z=[kp_p3d[2]],
+                    text=f"Track {track_id}",
+                    mode="markers",
+                    marker={"size": 3, "color": color, "opacity": opacity},
+                    showlegend=False,
+                ),
+            )
 
     ########## create the static plot objects ##########
     #   the camera cone plot objects are static:

@@ -1,19 +1,12 @@
 from copy import deepcopy
-from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 
 from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.util.data_util import SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import save_plot_and_close
-from colon3d.util.keypoints_util import KeyPointsLog
-from colon3d.util.pix_coord_util import PixelCoordNormalizer
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle
 from colon3d.util.torch_util import np_func, to_numpy
-from colon3d.util.tracks_util import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -114,9 +107,8 @@ def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, online_est_track_c
         vis_frames = []  # the frames in which the track was visible
         for i_frame in range(start_frame, stop_frame):
             if track_id in online_est_track_cam_loc[i_frame]:
-                cur_track_kps_locs = online_est_track_cam_loc[i_frame][track_id].numpy(force=True)
-                cur_track_center_kp_loc = cur_track_kps_locs[0]  # the center KP
-                track_est_3d_cam = np.concatenate((track_est_3d_cam, cur_track_center_kp_loc[np.newaxis, :]))
+                cur_track_kp_loc = to_numpy(online_est_track_cam_loc[i_frame][track_id])
+                track_est_3d_cam = np.concatenate((track_est_3d_cam, cur_track_kp_loc[np.newaxis, :]))
                 vis_frames.append(i_frame)
         plt.plot(
             np.array(vis_frames) * t_interval_sec,
@@ -130,26 +122,5 @@ def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, online_est_track_c
     plt.grid(True)
     save_plot_and_close(save_path / "polyps_z.png")
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-# create a dataclass for the SLAM algorithm output
-
-
-@dataclass
-class SlamOutput:
-    alg_prm: AlgorithmParam  # algorithm parameters
-    cam_poses: torch.Tensor  # (N, 7) tensor of camera poses (quaternion + translation)
-    points_3d: torch.Tensor  # (M, 3) tensor of 3D keypoints
-    kp_log: KeyPointsLog  # keypoints log object
-    tracks_p3d_inds: list[int]  #  maps a track_id to its associated 3D world points index
-    p3d_inds_per_frame: list[list[int]]  # maps a frame index to its associated 3D world points indexes
-    scene_loader: SceneLoader  # frames loader object
-    detections_tracker: DetectionsTracker  # detections tracker object
-    pix_normalizer: PixelCoordNormalizer  # camera undistorter object
-    depth_estimator: DepthAndEgoMotionLoader  # depth estimator object
-    online_logger: AnalysisLogger  # analysis logger object
-    online_est_salient_kp_world_loc: list  # List of the per-step estimates of the 3D locations of the saliency KPs (in the world system)
-    online_est_track_world_loc: list  # List of the per-step estimates of the 3D locations of the tracks KPs (in the world system)
 
 # ---------------------------------------------------------------------------------------------------------------------

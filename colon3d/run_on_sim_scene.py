@@ -85,7 +85,7 @@ def main():
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=20,
+        default=50,
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(

@@ -44,7 +44,6 @@ path_to_save_model = Path("saved_models/EndoSFM_tuned")
 pretrained_disp = "saved_models/EndoSFM_orig/DispNet_best.pt"
 pretrained_pose = "saved_models/EndoSFM_orig/PoseNet_best.pt"
 
-
 path_to_save_depth_exam = path_to_save_model / "depth_exam"
 
 if args.debug_mode:
