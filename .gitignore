@@ -8,7 +8,6 @@ colon3d/import_from_sim/__pycache__/*
 build/lib/*
 colon3d.egg-info
 checkpoints/*
-pretrained/*
 colon3d/Undistort_LUTs/*
 .DS_Store
 .vscode/settings.json
