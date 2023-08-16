@@ -3,4 +3,4 @@
 
 from setuptools import find_packages, setup
 
-setup(name=["colon3d", "tsdf_fusion", "endo_sfm"], version="1.0", packages=find_packages())
+setup(name=["colon3d", "tsdf_fusion", "endo_sfm", "monodepth2", "sc_depth"], version="1.0", packages=find_packages())

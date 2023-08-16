@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import yaml
 
+import monodepth2
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon3d.util.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
@@ -359,12 +360,9 @@ class DepthModel:
         self.depth_lower_bound = depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
 
-        model_dir_path = Path(model_path)
-        self.model_info = get_model_info(model_dir_path)
-        # load the Disparity network
-        self.disp_net_path = model_dir_path / "DispNet_best.pt"
-        assert self.disp_net_path.is_file(), f"File not found: {self.disp_net_path}"
-        print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
+        models_base_path = Path(model_path)
+        self.model_info = get_model_info(model_path)
+
         # the dimensions of the input images to the network
         self.model_frame_height = self.model_info["frame_height"]
         self.model_frame_width = self.model_info["frame_width"]
@@ -377,15 +375,43 @@ class DepthModel:
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
         self.dtype = torch.float64  # the network was trained with float64
-        weights = torch.load(self.disp_net_path)
+
         if method == "EndoSFM":
             # create the disparity estimation network
             self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["DispResNet_layers"], pretrained=True)
+            # load the Disparity network
+            self.disp_net_path = model_path / "DispNet_best.pt"
+            print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
+            weights = torch.load(self.disp_net_path)
+            self.disp_net.load_state_dict(weights["state_dict"], strict=False)
+            self.disp_net.to(self.device)
+            self.disp_net.eval()  # switch to evaluate mode
+
+        elif method == "MonoDepth2":
+            # source: https://github.com/nianticlabs/monodepth2
+            print(f"Using MonoDepth2 model from {models_base_path}")
+            monodepth2.utils.download_model_if_doesnt_exist(models_base_path.name, models_dir=models_base_path.parent)
+            encoder_path = models_base_path / "encoder.pth"
+            depth_decoder_path = models_base_path / "depth.pth"
+            # LOADING PRETRAINED MODEL
+            print(f"Loading pretrained models from {encoder_path}")
+            self.encoder = monodepth2.networks.resnet_encoder.ResnetEncoder(18, False)
+            print(f"Loading pretrained models from {depth_decoder_path}")
+            self.depth_decoder = monodepth2.networks.depth_decoder.DepthDecoder(
+                num_ch_enc=self.encoder.num_ch_enc,
+                scales=range(4),
+            )
+            loaded_dict_enc = torch.load(encoder_path, map_location="cpu")
+            filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
+            self.encoder.load_state_dict(filtered_dict_enc)
+            self.feed_height = loaded_dict_enc["height"]
+            self.feed_width = loaded_dict_enc["width"]
+            loaded_dict = torch.load(depth_decoder_path, map_location="cpu")
+            self.depth_decoder.load_state_dict(loaded_dict)
+            self.encoder.eval()
+            self.depth_decoder.eval()
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
-        self.disp_net.load_state_dict(weights["state_dict"], strict=False)
-        self.disp_net.to(self.device)
-        self.disp_net.eval()  # switch to evaluate mode
 
     # --------------------------------------------------------------------------------------------------------------------
 

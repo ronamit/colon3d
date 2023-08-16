@@ -6,15 +6,15 @@
 
 
 import hashlib
-import os
 import sys
 import urllib
 import zipfile
+from pathlib import Path
 
 
 def readlines(filename):
     """Read all the lines in a text file and return as a list"""
-    with open(filename) as f:
+    with filename.open() as f:
         lines = f.read().splitlines()
     return lines
 
@@ -47,7 +47,7 @@ def sec_to_hm_str(t):
     return f"{h:02d}h{m:02d}m{s:02d}s"
 
 
-def download_model_if_doesnt_exist(model_name):
+def download_model_if_doesnt_exist(model_name, models_dir: Path):
     """If pretrained kitti model doesn't exist, download and unzip it"""
     # values are tuples of (<google cloud URL>, <md5 checksum>)
     download_paths = {
@@ -89,20 +89,20 @@ def download_model_if_doesnt_exist(model_name):
         ),
     }
 
-    if not os.path.exists("models"):
-        os.makedirs("models")
+    if not models_dir.exists():
+        models_dir.mkdir(parents=True)
 
-    model_path = os.path.join("models", model_name)
+    model_path = models_dir / model_name
 
     def check_file_matches_md5(checksum, fpath):
-        if not os.path.exists(fpath):
+        if not fpath.exists():
             return False
-        with open(fpath, "rb") as f:
+        with fpath.open("rb") as f:
             current_md5checksum = hashlib.md5(f.read()).hexdigest()
         return current_md5checksum == checksum
 
     # see if we have the model already downloaded...
-    if not os.path.exists(os.path.join(model_path, "encoder.pth")):
+    if not (model_path / "encoder.pth").exists():
         model_url, required_md5checksum = download_paths[model_name]
 
         if not check_file_matches_md5(required_md5checksum, model_path + ".zip"):

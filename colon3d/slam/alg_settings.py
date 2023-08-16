@@ -38,6 +38,6 @@ class AlgorithmParam:
     max_match_pix_dist: float = 30.0
     orb_fast_thresh: int = 5  # FAST threshold for ORB keypoints detector
     # reprojection error threshold for marking keypoints as "invalid" (units: pixels)
-    kp_reproject_err_threshold: float = 2.0
+    kp_reproject_err_threshold: float = 5.0
     # if True then use the trivial solution yo navigation aid - if track goes out of view, use the last navigation angle:
     use_trivial_nav_aid: bool = False

@@ -170,6 +170,20 @@ SlamOnDatasetRunner(
     alg_settings_override={"use_bundle_adjustment": False},
     **common_args,
 ).run()
+# --------------------------------------------------------------------------------------------------------------------
+# Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
+# --------------------------------------------------------------------------------------------------------------------
+# the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=scenes_cases_dataset_path,
+    save_path=base_results_path / "trivial_nav",
+    depth_maps_source="none",
+    egomotions_source="none",
+    alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
+    **common_args,
+).run()
+
+# -------------------------------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------------------------------------------------
 # # Bundle-adjustment, using the ground truth depth maps no egomotions
