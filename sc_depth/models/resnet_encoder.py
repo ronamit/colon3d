@@ -80,10 +80,9 @@ class ResnetEncoder(nn.Module):
 
         if num_input_images > 1:
             self.encoder = resnet_multiimage_input(num_layers, pretrained, num_input_images)
-        elif pretrained:
-            self.encoder = resnets[num_layers](weights="IMAGENET1K_V1")
         else:
-            self.encoder = resnets[num_layers]()
+            self.encoder = resnets[num_layers](weights="IMAGENET1K_V1" if pretrained else None)
+            # note: this line was changed beacuse of the warning:  UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4

@@ -21,7 +21,7 @@ class AlgorithmParam:
     # default weighting for the max-angular-velocity penalty term in the bundle adjustment cost function:
     w_lim_angular_vel: float = 1e-2
     depth_upper_bound: float = 2000  # upper bound to clip the the z-depth estimation (units: mm)
-    depth_lower_bound: float = 0.0  # lower bound to clip the the z-depth estimation (units: mm)
+    depth_lower_bound: float = 1e-2  # lower bound to clip the the z-depth estimation (units: mm)
     depth_default: float = 15  # default z-depth estimation, when no other data is available (units: mm)
     opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"]
     opt_max_iter: int = 100  # maximum number of iterations for the optimization

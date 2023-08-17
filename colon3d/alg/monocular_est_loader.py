@@ -44,8 +44,8 @@ class DepthAndEgoMotionLoader:
         self.scene_path = scene_path
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
-        self.depth_lower_bound = depth_lower_bound
-        self.depth_upper_bound = depth_upper_bound
+        self.depth_lower_bound = depth_lower_bound if depth_lower_bound is not None else 1e-2
+        self.depth_upper_bound = depth_upper_bound if depth_upper_bound is not None else 2e3
         self.depth_default = depth_default
         self.device = get_device()
 

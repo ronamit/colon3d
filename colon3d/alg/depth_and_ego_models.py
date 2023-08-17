@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import yaml
 
+import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
 import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
@@ -24,8 +25,9 @@ class DepthModel:
 
     def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: str) -> None:
         print(f"Loading depth model from {model_path}")
-        self.depth_lower_bound = depth_lower_bound
+        self.depth_lower_bound = 0 if depth_lower_bound is None else depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
+        self.method = method
 
         models_base_path = Path(model_path)
         self.model_info = get_model_info(model_path)
@@ -41,7 +43,6 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float64  # the network was trained with float64
 
         if method == "EndoSFM":
             # create the disparity estimation network
@@ -52,6 +53,7 @@ class DepthModel:
             self.disp_net.load_state_dict(weights["state_dict"], strict=False)
             self.disp_net.to(self.device)
             self.disp_net.eval()  # switch to evaluate mode
+            self.dtype = torch.float32
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
             monodepth2_utils.download_model_if_doesnt_exist(models_base_path.name, models_dir=models_base_path.parent)
@@ -62,15 +64,19 @@ class DepthModel:
                 num_ch_enc=self.encoder.num_ch_enc,
                 scales=range(4),
             )
-            loaded_dict_enc = torch.load(encoder_path, map_location="cpu")
+            loaded_dict_enc = torch.load(encoder_path)
             filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
             self.encoder.load_state_dict(filtered_dict_enc)
             self.feed_height = loaded_dict_enc["height"]
             self.feed_width = loaded_dict_enc["width"]
-            loaded_dict = torch.load(depth_decoder_path, map_location="cpu")
+            loaded_dict = torch.load(depth_decoder_path)
             self.depth_decoder.load_state_dict(loaded_dict)
+            self.encoder.to(self.device)
+            self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
+            self.dtype = torch.float32
+
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
 
@@ -98,13 +104,25 @@ class DepthModel:
         n_imgs, height, width, n_channels = imgs.shape
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
-        with torch.no_grad():
-            disparity_maps = self.disp_net(imgs)
-        # remove the n_channels dimension
-        disparity_maps.squeeze_(dim=1)  # [N x H x W]
-        # convert the disparity to depth
-        depth_maps = 1 / disparity_maps
-        # multiply by the scale factor to get the depth in mm
+
+        if self.method == "EndoSFM":
+            with torch.no_grad():
+                disparity_maps = self.disp_net(imgs)
+                # remove the n_channels dimension
+                disparity_maps.squeeze_(dim=1)  # [N x H x W]
+                # convert the disparity to depth
+                depth_maps = 1 / disparity_maps
+
+        elif self.method == "MonoDepth2":
+            # based on monodepth2/evaluate_depth.py
+            with torch.no_grad():
+                output = self.depth_decoder(self.encoder(imgs))
+                disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
+                depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
+        else:
+            raise ValueError(f"Unknown depth estimation method: {self.method}")
+
+        # multiply by the scale factor to get the depth i<n mm
         depth_maps *= self.net_out_to_mm
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
@@ -127,9 +145,9 @@ class DepthModel:
         imgs = np.expand_dims(img, axis=0)  # add n_imgs dimension
         depth_maps = self.estimate_depth_maps(imgs)
         return depth_maps[0]  # remove the n_imgs dimension
-    
-# --------------------------------------------------------------------------------------------------------------------
 
+
+# --------------------------------------------------------------------------------------------------------------------
 
 
 class EgomotionModel:
@@ -241,10 +259,13 @@ def imgs_to_net_in(
 
     # transform to channels first
     imgs = np.transpose(imgs, (0, 3, 1, 2))
-    imgs = to_torch(imgs, device=device).to(dtype=dtype)
+    imgs = to_torch(imgs, device=device).to(dtype)
     # normalize the images to fit the pre-trained weights (based on https://github.com/CapsuleEndoscope/EndoSLAM/blob/master/EndoSfMLearner/run_inference.py)
     imgs = (imgs / 255 - 0.45) / 0.225
     return imgs
+
+
+# --------------------------------------------------------------------------------------------------------------------
 
 
 def get_model_info(model_dir_path: Path):
