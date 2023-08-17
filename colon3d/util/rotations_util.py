@@ -231,4 +231,22 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
     return rot_quat
 
 
+
+# ----------------------------------------------------------------------
+def axis_angle_to_quaternion(rot_axis_angle: torch.Tensor) -> torch.Tensor:
+    """Convert axis-angle representation to quaternion representation.
+    Args:
+        rot_axis_angle (torch.Tensor): [n_vecs x 3] each row is a rotation vector (axis-angle representation)
+    Returns:
+        rot_quat (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz)
+    """
+    is_single_vec = rot_axis_angle.ndim == 1
+    if is_single_vec:
+        rot_axis_angle = rot_axis_angle.unsqueeze(0)
+    theta = torch.norm(rot_axis_angle, dim=1, keepdim=True)
+    vec = rot_axis_angle / theta
+    rot_quat = torch.cat([torch.cos(theta / 2), torch.sin(theta / 2) * vec], dim=1)
+    if is_single_vec:
+        rot_quat = rot_quat[0]
+    return rot_quat
 # ----------------------------------------------------------------------

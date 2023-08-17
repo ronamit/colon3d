@@ -23,7 +23,7 @@ parser.add_argument(
     "--results_name",
     type=str,
     help="The name of the results folder",
-    default="ColonNav_5thresh",
+    default="ColonNav_5thresh_MonoDepth2_orig",
 )
 parser.add_argument(
     "--overwrite_data",
@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     "--overwrite_results",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the results folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -139,24 +139,24 @@ common_args = {
 # --------------------------------------------------------------------------------------------------------------------
 
 # Bundle-adjustment, without monocular depth and egomotion estimation
-SlamOnDatasetRunner(
-    dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "BA_no_depth_no_ego",
-    depth_maps_source="none",
-    egomotions_source="none",
-    **common_args,
-).run()
-# --------------------------------------------------------------------------------------------------------------------
-# Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
-SlamOnDatasetRunner(
-    dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "BA_with_EndoSFM_orig",
-    depth_maps_source="online_estimates",
-    egomotions_source="online_estimates",
-    depth_and_egomotion_method="EndoSFM",
-    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
-    **common_args,
-).run()
+# SlamOnDatasetRunner(
+#     dataset_path=scenes_cases_dataset_path,
+#     save_path=base_results_path / "BA_no_depth_no_ego",
+#     depth_maps_source="none",
+#     egomotions_source="none",
+#     **common_args,
+# ).run()
+# # --------------------------------------------------------------------------------------------------------------------
+# # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
+# SlamOnDatasetRunner(
+#     dataset_path=scenes_cases_dataset_path,
+#     save_path=base_results_path / "BA_with_EndoSFM_orig",
+#     depth_maps_source="online_estimates",
+#     egomotions_source="online_estimates",
+#     depth_and_egomotion_method="EndoSFM",
+#     depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
+#     **common_args,
+# ).run()
 
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -173,14 +173,14 @@ SlamOnDatasetRunner(
 # --------------------------------------------------------------------------------------------------------------------
 # Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
 # --------------------------------------------------------------------------------------------------------------------
-SlamOnDatasetRunner(
-    dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "trivial_nav",
-    depth_maps_source="none",
-    egomotions_source="none",
-    alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
-    **common_args,
-).run()
+# SlamOnDatasetRunner(
+#     dataset_path=scenes_cases_dataset_path,
+#     save_path=base_results_path / "trivial_nav",
+#     depth_maps_source="none",
+#     egomotions_source="none",
+#     alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
+#     **common_args,
+# ).run()
 
 
 # --------------------------------------------------------------------------------------------------------------------
