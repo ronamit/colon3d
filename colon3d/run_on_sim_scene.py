@@ -6,14 +6,14 @@ import attrs
 import h5py
 
 from colon3d.show_slam_out import save_slam_out_plots
-from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.slam.slam_alg import SlamAlgRunner
+from colon3d.alg.alg_settings import AlgorithmParam
+from colon3d.alg.slam_alg import SlamAlgRunner
 from colon3d.util.data_util import SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.util.torch_util import to_default_type
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm (using a pre-trained DepthNet)"
@@ -57,7 +57,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="none",
+        default="online_estimates",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm (using a pre-trained PoseNet)"
@@ -67,14 +67,14 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_method",
         type=str,
-        default="EndoSFM",
+        default="SC-DepthV3",
         choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_orig",
+        default="saved_models/sc_depth_models/kitti_scv3.ckpt",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth_models/kitti_scv3.ckpt"
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -179,7 +179,7 @@ def run_slam_on_scene(
     depth_maps_source: str,
     egomotions_source: str,
     depth_and_egomotion_method: str,
-    depth_and_egomotion_model_path: str,
+    depth_and_egomotion_model_path: Path,
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
     plot_names: list | None = None,
@@ -210,7 +210,7 @@ def run_slam_on_scene(
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
         depth_and_egomotion_method=depth_and_egomotion_method,
-        depth_and_egomotion_model_path=depth_and_egomotion_model_path,
+        depth_and_egomotion_model_path=Path(depth_and_egomotion_model_path),
         depth_lower_bound=alg_prm.depth_lower_bound,
         depth_upper_bound=alg_prm.depth_upper_bound,
         depth_default=alg_prm.depth_default,

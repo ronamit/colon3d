@@ -180,7 +180,7 @@ class SlamOnDatasetRunner:
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
                     depth_and_egomotion_method=self.depth_and_egomotion_method,
-                    depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                    depth_and_egomotion_model_path=Path(self.depth_and_egomotion_model_path),
                     alg_settings_override=self.alg_settings_override,
                     plot_names=plot_names,  # plots to create
                 )

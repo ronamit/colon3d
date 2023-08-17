@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from colon3d.util.constraints_util import SoftConstraints
+from colon3d.alg.constraints_terms import SoftConstraints
 
 # --------------------------------------------------------------------------------------------------------------------
 

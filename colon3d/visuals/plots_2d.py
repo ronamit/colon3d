@@ -17,8 +17,8 @@ from colon3d.util.general_util import (
     save_video_from_frames_list,
     save_video_from_func,
 )
-from colon3d.util.keypoints_util import KeyPointsLog
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.keypoints_util import KeyPointsLog
+from colon3d.alg.tracks_loader import DetectionsTracker
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 

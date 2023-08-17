@@ -3,9 +3,9 @@ from pathlib import Path
 import h5py
 
 from colon3d.util.data_util import SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.torch_util import np_func, to_torch
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import compose_poses, get_identity_pose, get_pose_delta
 
 scene_path = Path("data/sim_data/TestData21_cases/Scene_00000_0000")

@@ -6,16 +6,16 @@ import cv2
 import numpy as np
 import torch
 
-from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.slam.bundle_adjust import run_bundle_adjust
-from colon3d.slam.slam_out_analysis import AnalysisLogger
+from colon3d.alg.alg_settings import AlgorithmParam
+from colon3d.alg.bundle_adjust import run_bundle_adjust
+from colon3d.alg.slam_out_analysis import AnalysisLogger
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str
-from colon3d.util.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
+from colon3d.alg.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
 from colon3d.util.rotations_util import get_identity_quaternion
 from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import (
     compose_poses,
     transform_points_world_to_cam,
@@ -61,16 +61,22 @@ class SlamAlgRunner:
             patchSize=alg_prm.kp_descriptor_patch_size,  # size of the patch used by the oriented BRIEF descriptor.
             fastThreshold=alg_prm.orb_fast_thresh,  # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
         )
-        # Create FLANN Matcher
-        self.kp_matcher = cv2.FlannBasedMatcher(
-            {
-                "algorithm": 6,  # FLANN_INDEX_LSH, suited for ORB
-                "table_number": 12,  # 12
-                "key_size": 20,  # 20
-                "multi_probe_level": 2,
-            },
-            {"checks": 50},
-        )
+
+        # Select keypoints matching algorithm
+        #  Brute-force  nearest neighbor search object with distance measurement cv.NORM_HAMMING (since we are using ORB) and crossCheck is switched on for better results.
+        # https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
+        self.kp_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+        # Create FLANN Matcher (approximate nearest neighbor search)
+        # self.kp_matcher = cv2.FlannBasedMatcher(
+        #     {
+        #         "algorithm": 6,  # FLANN_INDEX_LSH, suited for ORB
+        #         "table_number": 12,  # 12
+        #         "key_size": 20,  # 20
+        #         "multi_probe_level": 2,
+        #     },
+        #     {"checks": 50},
+        # )
 
     # ---------------------------------------------------------------------------------------------------------------------
 

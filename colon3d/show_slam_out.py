@@ -2,7 +2,7 @@ import argparse
 import pickle
 from pathlib import Path
 
-from colon3d.slam.slam_out_analysis import plot_z_dist_from_cam
+from colon3d.alg.slam_out_analysis import plot_z_dist_from_cam
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
 from colon3d.util.torch_util import to_torch
 from colon3d.visuals.plot_nav_aid import draw_aided_nav

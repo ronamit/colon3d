@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon3d.slam.alg_settings import AlgorithmParam
+from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.util.general_util import to_str
 from colon3d.util.torch_util import get_default_dtype
 
@@ -9,25 +9,30 @@ np_dtype = get_default_dtype("numpy")
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 class KeyPointsLog:
-    """ Saves the keypoint information.
+    """Saves the keypoint information.
     Note: invalid keypoints are discarded.
     """
+
     def __init__(self, alg_view_pix_normalizer) -> None:
-        self.map_kp_to_p3d_idx = {} # maps a keypoint (frame_idx, x, y,) its 3D point index
-        self.map_kp_to_type = {} # maps a keypoint (frame_idx, x, y,) its type (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
-        self.alg_view_pix_normalizer = alg_view_pix_normalizer # pixel normalizer object
-        
+        self.map_kp_to_p3d_idx = {}  # maps a keypoint (frame_idx, x, y,) its 3D point index
+        self.map_kp_to_type = (
+            {}
+        )  # maps a keypoint (frame_idx, x, y,) its type (-1 indicates a salient keypoint, >=0 indicates the track id of the keypoint)
+        self.alg_view_pix_normalizer = alg_view_pix_normalizer  # pixel normalizer object
+
     # --------------------------------------------------------------------------------------------------------------------
-    
+
     def is_kp_coord_valid(self, pix_coord):
         # check if the KP is too close to the image border, and so its undistorted coordinates are invalid
         nrm_coords, is_valid = self.alg_view_pix_normalizer.get_normalized_coords(pix_coord)
         return is_valid
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def add_kp(self, frame_idx, pix_coord, kp_type, p3d_id):
-        """ Add a keypoint to the log.
+        """Add a keypoint to the log.
         Args:
             frame_idx: frame index of the keypoint
             pix_coord: pixel coordinates of the keypoint (units: pixels)
@@ -40,33 +45,33 @@ class KeyPointsLog:
         self.map_kp_to_p3d_idx[kp_id] = p3d_id
         self.map_kp_to_type[kp_id] = kp_type
         return True
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_kp_p3d_idx(self, kp_id: tuple):
         if kp_id in self.map_kp_to_p3d_idx:
             return self.map_kp_to_p3d_idx[kp_id]
         return None
-    
+
     # --------------------------------------------------------------------------------------------------------------------
-    
+
     def get_kp_norm_coord(self, kp_id: tuple):
-        """ Get the normalized coordinates of the given keypoint.
-        """
+        """Get the normalized coordinates of the given keypoint."""
         assert isinstance(kp_id, tuple) and len(kp_id) == 3
         norm_coord, is_valid = self.alg_view_pix_normalizer.get_normalized_coords(kp_id[1:])
         return norm_coord[0]
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_kp_type(self, kp_id: tuple):
         if kp_id in self.map_kp_to_type:
             return self.map_kp_to_type[kp_id]
         return None
-    
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def get_kp_ids_in_frame_inds(self, frame_inds: list) -> list:
-        """ Get all the keypoint ids in the given frames.
+        """Get all the keypoint ids in the given frames.
         Args:
             frame_inds: list of frame indexes
         """
@@ -76,17 +81,17 @@ class KeyPointsLog:
             if kp_id[0] in frame_inds_set:
                 kp_ids.append(kp_id)
         return kp_ids
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def discard_keypoints(self, kp_ids_to_discard: list):
-        """ Discard the given keypoints from the log.
-        """
+        """Discard the given keypoints from the log."""
         for kp_id in kp_ids_to_discard:
             if kp_id in self.map_kp_to_p3d_idx:
                 del self.map_kp_to_p3d_idx[kp_id]
             if kp_id in self.map_kp_to_type:
                 del self.map_kp_to_type[kp_id]
-                
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -143,7 +148,7 @@ def get_kp_matchings(
         print("No keypoints to match...")
         return [], []
 
-    matches = kp_matcher.knnMatch(descriptors_A, descriptors_B, k=1)
+    matches = kp_matcher.match(descriptors_A, descriptors_B)
     # we get list of matches from the first image to the second one, which means that kp1[i] has
     # a corresponding point in kp2[matches[i]] .
     # we used k=1 (take only the best match)- so each element is a tuple of size 1..
@@ -163,11 +168,10 @@ def get_kp_matchings(
 
         # Create a mask that indicates KP pairs that are too far from each other as outliers
         # the mask is used to filter out outliers from the matches pre-RANSAC
-        pre_mask = np.ones((n_matches,1), dtype=np.uint8)
+        pre_mask = np.ones((n_matches, 1), dtype=np.uint8)
         for i_match in range(n_matches):
             pre_mask[i_match] = np.linalg.norm(src_pts[i_match] - dst_pts[i_match]) < max_match_pix_dist
-        pre_mask = pre_mask
-        
+
         M_hom, post_mask = cv2.findHomography(
             srcPoints=src_pts,
             dstPoints=dst_pts,

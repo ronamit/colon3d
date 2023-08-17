@@ -23,7 +23,7 @@ parser.add_argument(
     "--results_name",
     type=str,
     help="The name of the results folder",
-    default="TestData21_results",
+    default="ColonNav_5thresh",
 )
 parser.add_argument(
     "--overwrite_data",
@@ -48,7 +48,7 @@ parser.add_argument(
     "--sanity_check_mode",
     type=bool_arg,
     help="If true, we generate easy cases for sanity check",
-    default=False,  # "False"
+    default=False,
 )
 args = parser.parse_args()
 print(f"args={args}")

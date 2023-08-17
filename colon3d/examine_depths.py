@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
+from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.data_util import SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
@@ -34,21 +34,21 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/EndoSFM_orig/examination_result",
-        # default="saved_models/monodepth2_models/mono+stereo_640x192",
+        default="saved_models/monodepth2/mono+stereo_640x192/examination_result",
+        # default="saved_models/monodepth2/mono+stereo_640x192",
         help="Path to save the results.",
     )
     parser.add_argument(
         "--depth_and_egomotion_method",
         type=str,
-        default="EndoSFM",
+        default="MonoDepth2",
         choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_orig",
+        default="saved_models/monodepth2/mono+stereo_640x192",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth/kitti_scv3"
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

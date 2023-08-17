@@ -4,17 +4,14 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
-import yaml
 
-import monodepth2
+from colon3d.alg.depth_and_ego_models import DepthModel, EgomotionModel
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.util.torch_util import get_device, resize_images, to_default_type, to_numpy, to_torch
+from colon3d.util.torch_util import get_device, to_default_type, to_numpy, to_torch
 from colon3d.util.transforms_util import (
     transform_rectilinear_image_norm_coords_to_pixel,
 )
-from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
-from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -63,7 +60,7 @@ class DepthAndEgoMotionLoader:
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(
                 method=depth_and_egomotion_method,
-                model_path=depth_and_egomotion_model_path,
+                model_path=Path(depth_and_egomotion_model_path),
             )
 
         elif egomotions_source == "ground_truth":
@@ -79,7 +76,7 @@ class DepthAndEgoMotionLoader:
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
                 method=depth_and_egomotion_method,
-                model_path=depth_and_egomotion_model_path,
+                model_path=Path(depth_and_egomotion_model_path),
             )
             self.depth_info = self.depth_estimator.get_depth_info()
             print("Using online depth estimation")
@@ -287,264 +284,6 @@ class DepthAndEgoMotionLoader:
                 prev_rgb_frame=prev_rgb_frame,
             )
             prev_rgb_frame = cur_rgb_frame
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def imgs_to_net_in(
-    imgs: np.ndarray,
-    device: torch.device,
-    dtype: torch.dtype,
-    depth_map_height: int,
-    depth_map_width: int,
-) -> torch.Tensor:
-    """Transform the input images to the network input format.
-    Args:
-        imgs: the input images [n_imgs x height x width x n_channels]
-    Returns:
-        imgs: the input images in the network format [n_imgs x n_channels x depth_map_height x depth_map_width]
-    """
-    if imgs.ndim == 3:
-        imgs = np.expand_dims(imgs, axis=-1)  # add channel dimension
-    n_imgs, height, width, n_channels = imgs.shape
-    assert n_channels in [1, 3]
-    if (height, width) != (depth_map_height, depth_map_width):
-        # resize the images
-        imgs = resize_images(imgs, new_height=depth_map_height, new_width=depth_map_width)
-
-    # transform to channels first
-    imgs = np.transpose(imgs, (0, 3, 1, 2))
-    imgs = to_torch(imgs, device=device).to(dtype=dtype)
-    # normalize the images to fit the pre-trained weights (based on https://github.com/CapsuleEndoscope/EndoSLAM/blob/master/EndoSfMLearner/run_inference.py)
-    imgs = (imgs / 255 - 0.45) / 0.225
-    return imgs
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def get_model_info(model_dir_path: Path):
-    model_info_path = model_dir_path / "model_info.yaml"
-    assert model_info_path.is_file(), f"Model info file not found at {model_info_path}"
-    with model_info_path.open("r") as f:
-        model_info = yaml.load(f, Loader=yaml.FullLoader)
-    if "net_out_to_mm" not in model_info:
-        print("net_out_to_mm not found in model info, using default value of 1.0")
-        model_info["net_out_to_mm"] = 1.0
-
-    return model_info
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def get_camera_matrix(model_info: dict) -> np.ndarray:
-    fx = model_info["fx"]
-    fy = model_info["fy"]
-    cx = model_info["cx"]
-    cy = model_info["cy"]
-    distort_pram = model_info["distort_pram"]
-    assert distort_pram is None, "we assume no distortion"
-    return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
-
-
-# --------------------------------------------------------------------------------------------------------------------
-class DepthModel:
-    """
-    The depth estimation network.
-    Note that we use a network that estimates the disparity and then convert it to depth by taking 1/disparity.
-    """
-
-    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: str) -> None:
-        self.depth_lower_bound = depth_lower_bound
-        self.depth_upper_bound = depth_upper_bound
-
-        models_base_path = Path(model_path)
-        self.model_info = get_model_info(model_path)
-
-        # the dimensions of the input images to the network
-        self.model_frame_height = self.model_info["frame_height"]
-        self.model_frame_width = self.model_info["frame_width"]
-        # the dimensions of the output depth maps are the same as the input images
-        self.depth_map_width = self.model_frame_width
-        self.depth_map_height = self.model_frame_height
-        # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        # the camera matrix corresponding to the depth maps.
-        self.depth_map_K = get_camera_matrix(self.model_info)
-        self.device = get_device()
-        self.dtype = torch.float64  # the network was trained with float64
-
-        if method == "EndoSFM":
-            # create the disparity estimation network
-            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["DispResNet_layers"], pretrained=True)
-            # load the Disparity network
-            self.disp_net_path = model_path / "DispNet_best.pt"
-            print(f"Using pre-trained weights for DispResNet from {self.disp_net_path}")
-            weights = torch.load(self.disp_net_path)
-            self.disp_net.load_state_dict(weights["state_dict"], strict=False)
-            self.disp_net.to(self.device)
-            self.disp_net.eval()  # switch to evaluate mode
-
-        elif method == "MonoDepth2":
-            # source: https://github.com/nianticlabs/monodepth2
-            print(f"Using MonoDepth2 model from {models_base_path}")
-            monodepth2.utils.download_model_if_doesnt_exist(models_base_path.name, models_dir=models_base_path.parent)
-            encoder_path = models_base_path / "encoder.pth"
-            depth_decoder_path = models_base_path / "depth.pth"
-            # LOADING PRETRAINED MODEL
-            print(f"Loading pretrained models from {encoder_path}")
-            self.encoder = monodepth2.networks.resnet_encoder.ResnetEncoder(18, False)
-            print(f"Loading pretrained models from {depth_decoder_path}")
-            self.depth_decoder = monodepth2.networks.depth_decoder.DepthDecoder(
-                num_ch_enc=self.encoder.num_ch_enc,
-                scales=range(4),
-            )
-            loaded_dict_enc = torch.load(encoder_path, map_location="cpu")
-            filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
-            self.encoder.load_state_dict(filtered_dict_enc)
-            self.feed_height = loaded_dict_enc["height"]
-            self.feed_width = loaded_dict_enc["width"]
-            loaded_dict = torch.load(depth_decoder_path, map_location="cpu")
-            self.depth_decoder.load_state_dict(loaded_dict)
-            self.encoder.eval()
-            self.depth_decoder.eval()
-        else:
-            raise ValueError(f"Unknown depth estimation method: {method}")
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def get_depth_info(self) -> dict:
-        #  metadata for the depth maps
-        depth_info = {
-            "K_of_depth_map": self.depth_map_K,
-            "depth_map_size": {"width": self.depth_map_width, "height": self.depth_map_height},
-        }
-        return depth_info
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def estimate_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
-        """Estimate the depth map from the image.
-
-        Args:
-            img (torch.Tensor): the input images [N x H x W x 3]
-        Returns:
-            depth_map (torch.Tensor): the estimated depth maps [N X H x W] (units: mm)
-        """
-        # get the original shape of the images:
-        n_imgs, height, width, n_channels = imgs.shape
-
-        # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
-        imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
-        with torch.no_grad():
-            disparity_maps = self.disp_net(imgs)
-
-        # remove the n_channels dimension
-        disparity_maps.squeeze_(dim=1)  # [N x H x W]
-
-        # convert the disparity to depth
-        depth_maps = 1 / disparity_maps
-
-        # multiply by the scale factor to get the depth in mm
-        depth_maps *= self.net_out_to_mm
-
-        # clip the depth if needed
-        if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
-            depth_maps = torch.clamp(depth_maps, self.depth_lower_bound, self.depth_upper_bound)
-
-        # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
-        depth_maps = resize_images(depth_maps, new_height=height, new_width=width)
-
-        return depth_maps
-
-    # --------------------------------------------------------------------------------------------------------------------
-    def estimate_depth_map(self, img: torch.Tensor) -> torch.Tensor:
-        """Estimate the depth map using a single RGB image.
-
-        Args:
-            img (torch.Tensor): the input images [H x W x 3]
-        Returns:
-            depth_map (torch.Tensor): the estimated depth maps [H x W] (units: mm)
-        """
-        assert img.ndim == 3
-        assert img.shape[2] == 3  # RGB
-        imgs = np.expand_dims(img, axis=0)  # add n_imgs dimension
-        depth_maps = self.estimate_depth_maps(imgs)
-        return depth_maps[0]  # remove the n_imgs dimension
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-class EgomotionModel:
-    def __init__(self, method: str, model_path: str) -> None:
-        model_dir_path = Path(model_path)
-        self.model_info = get_model_info(model_dir_path)
-        self.pose_net_path = model_dir_path / "PoseNet_best.pt"
-        assert self.pose_net_path.is_file(), f"File not found: {self.pose_net_path}"
-        print(f"Using pre-trained weights for PoseNet from {self.pose_net_path}")
-        self.device = get_device()
-        self.dtype = torch.float64
-        self.model_im_height = self.model_info["frame_height"]
-        self.model_im_width = self.model_info["frame_width"]
-        # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        # the camera matrix corresponding to the depth maps.
-        self.depth_map_K = get_camera_matrix(self.model_info)
-        if method == "EndoSFM":
-            # create the egomotion estimation network
-            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["PoseResNet_layers"], pretrained=True)
-        else:
-            raise ValueError(f"Unknown egomotion estimation method: {method}")
-        weights = torch.load(self.pose_net_path)
-        self.pose_net.load_state_dict(weights["state_dict"], strict=False)
-        self.pose_net.to(self.device)
-        self.pose_net.eval()  # switch to evaluate mode
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def estimate_egomotions(self, from_imgs: np.ndarray, to_imgs: np.ndarray) -> torch.Tensor:
-        """Estimate the 6DOF egomotion from the from image to to image.
-            The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
-        Args:
-            from_imgs: the 'from' images (target) [N x 3 x H x W] where N is the number of image pairs
-            to_imgs: the corresponding 'to' images  (reference) [N X 3 x H x W]
-        Returns:
-            egomotions: the estimated egomotions [N x 7] 6DoF pose parameters from from_imgs to to_imgs, in the format:
-                (x,y,z,qw,qx,qy,qz) where (x, y, z) is the translation [mm] and (qw, qx, qy , qz) is the unit-quaternion of the rotation.
-        """
-        n_imgs = len(from_imgs)
-        assert len(to_imgs) == n_imgs
-        from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
-        to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
-        with torch.no_grad():
-            pose_out = self.pose_net(from_imgs, to_imgs)
-        # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
-        trans = pose_out[:, :3]
-        # to get the a unit-quaternion of the rotation, concatenate a 1 at the beginning of the vector and normalize
-        rot_quat = torch.ones((n_imgs, 4), device=self.device, dtype=self.dtype)
-        rot_quat[:, 1:] = pose_out[:, 3:]
-        rot_quat = rot_quat / torch.norm(rot_quat, dim=1, keepdim=True)
-        # multiply the translation by the conversion factor to get mm units
-        trans *= self.net_out_to_mm
-        egomotions = torch.cat((trans, rot_quat), dim=1)
-        return egomotions
-
-    # --------------------------------------------------------------------------------------------------------------------
-
-    def estimate_egomotion(self, prev_frame: np.ndarray, curr_frame: np.ndarray):
-        """Estimate the 6DOF egomotion from the previous frame to the current frame.
-        The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
-        """
-        assert prev_frame.ndim == 3
-        assert curr_frame.ndim == 3
-        egomotion = self.estimate_egomotions(
-            from_imgs=np.expand_dims(prev_frame, axis=0),
-            to_imgs=np.expand_dims(curr_frame, axis=0),
-        )[0]
-        return egomotion
 
 
 # --------------------------------------------------------------------------------------------------------------------

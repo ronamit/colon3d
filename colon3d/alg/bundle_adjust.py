@@ -5,9 +5,9 @@ import numpy as np
 import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
-from colon3d.slam.alg_settings import AlgorithmParam
-from colon3d.util.constraints_util import SoftConstraints
-from colon3d.util.keypoints_util import KeyPointsLog
+from colon3d.alg.alg_settings import AlgorithmParam
+from colon3d.alg.constraints_terms import SoftConstraints
+from colon3d.alg.keypoints_util import KeyPointsLog
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.util.torch_util import get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.util.transforms_util import project_world_to_image_normalized_coord

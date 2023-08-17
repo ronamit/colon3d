@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.util.data_util import SceneLoader
-from colon3d.util.depth_egomotion import DepthAndEgoMotionLoader
+from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close, save_rgb_image
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 from colon3d.visuals.plots_2d import draw_track_box_on_frame

@@ -7,7 +7,7 @@ from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.util.general_util import save_plot_and_close
 from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.util.torch_util import np_func, to_numpy
-from colon3d.util.tracks_util import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import (
     compose_poses,
     find_rigid_registration,
