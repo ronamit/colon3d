@@ -34,7 +34,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_640x192_orig/examination_result",
+        default="saved_models/monodepth2/mono_stereo_1024_320/examination_result",
         # default="saved_models/monodepth2/mono+stereo_640x192",
         help="Path to save the results.",
     )
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_640x192_orig",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth/kitti_scv3"
+        default="saved_models/monodepth2/mono_stereo_1024_320",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth/kitti_scv3"
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -85,15 +85,15 @@ class DepthExaminer:
         self,
         dataset_path: Path,
         depth_and_egomotion_method: str,
-        depth_and_egomotion_model_path: Path | None,
+        depth_and_egomotion_model_path: Path,
         save_path: Path,
         n_scenes_lim: int = 0,
         save_overwrite: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
         self.depth_and_egomotion_method = depth_and_egomotion_method
-        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
-        self.save_path =save_path
+        self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
+        self.save_path = Path(save_path)
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
 

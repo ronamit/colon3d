@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import yaml
 
-import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
 import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
@@ -29,7 +28,8 @@ class DepthModel:
         print(f"Loading depth model from {model_path}")
         self.depth_lower_bound = 0 if depth_lower_bound is None else depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
-        self.method = method
+
+        models_base_path = Path(model_path)
         self.model_info = get_model_info(model_path)
 
         # the dimensions of the input images to the network
@@ -53,7 +53,6 @@ class DepthModel:
             self.disp_net.load_state_dict(weights["state_dict"], strict=False)
             self.disp_net.to(self.device)
             self.disp_net.eval()  # switch to evaluate mode
-            self.dtype = torch.float64
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
             monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
@@ -75,8 +74,6 @@ class DepthModel:
             self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
-            self.dtype = torch.float64
-
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
 
@@ -104,29 +101,13 @@ class DepthModel:
         n_imgs, height, width, n_channels = imgs.shape
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
-
-        if self.method == "EndoSFM":
-            with torch.no_grad():
-                disparity_maps = self.disp_net(imgs)
-                # remove the n_channels dimension
-                disparity_maps.squeeze_(dim=1)  # [N x H x W]
-                # convert the disparity to depth
-                depth_maps = 1 / disparity_maps
-
-        elif self.method == "MonoDepth2":
-            # based on monodepth2/evaluate_depth.py
-            with torch.no_grad():
-                output = self.depth_decoder(self.encoder(imgs))
-                disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
-                depth_maps = monodepth2_layers.disp_to_depth(
-                    disparity_maps,
-                    min_depth=self.depth_lower_bound,
-                    max_depth=self.depth_upper_bound,
-                )
-        else:
-            raise ValueError(f"Unknown depth estimation method: {self.method}")
-
-        # multiply by the scale factor to get the depth i<n mm
+        with torch.no_grad():
+            disparity_maps = self.disp_net(imgs)
+        # remove the n_channels dimension
+        disparity_maps.squeeze_(dim=1)  # [N x H x W]
+        # convert the disparity to depth
+        depth_maps = 1 / disparity_maps
+        # multiply by the scale factor to get the depth in mm
         depth_maps *= self.net_out_to_mm
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
