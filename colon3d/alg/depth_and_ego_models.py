@@ -10,8 +10,8 @@ import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
 import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
 import monodepth2.utils as monodepth2_utils
-from colon3d.util.torch_util import get_device, resize_images, to_torch
 from colon3d.util.rotations_util import axis_angle_to_quaternion
+from colon3d.util.torch_util import get_device, resize_images, to_torch
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
@@ -24,13 +24,12 @@ class DepthModel:
     Note that we use a network that estimates the disparity and then convert it to depth by taking 1/disparity.
     """
 
-    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: str) -> None:
+    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: Path) -> None:
+        assert model_path is not None, "model_path is None"
         print(f"Loading depth model from {model_path}")
         self.depth_lower_bound = 0 if depth_lower_bound is None else depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
         self.method = method
-
-        models_base_path = Path(model_path)
         self.model_info = get_model_info(model_path)
 
         # the dimensions of the input images to the network
@@ -57,9 +56,9 @@ class DepthModel:
             self.dtype = torch.float64
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
-            monodepth2_utils.download_model_if_doesnt_exist(models_base_path.name, models_dir=models_base_path.parent)
-            encoder_path = models_base_path / "encoder.pth"
-            depth_decoder_path = models_base_path / "depth.pth"
+            monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
+            encoder_path = model_path / "encoder.pth"
+            depth_decoder_path = model_path / "depth.pth"
             self.encoder = monodepth2_networks.resnet_encoder.ResnetEncoder(18, False)
             self.depth_decoder = monodepth2_depth_decoder.DepthDecoder(
                 num_ch_enc=self.encoder.num_ch_enc,
@@ -119,7 +118,11 @@ class DepthModel:
             with torch.no_grad():
                 output = self.depth_decoder(self.encoder(imgs))
                 disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
-                depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
+                depth_maps = monodepth2_layers.disp_to_depth(
+                    disparity_maps,
+                    min_depth=self.depth_lower_bound,
+                    max_depth=self.depth_upper_bound,
+                )
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
 
@@ -152,11 +155,11 @@ class DepthModel:
 
 
 class EgomotionModel:
-    def __init__(self, method: str, model_path: str) -> None:
+    def __init__(self, method: str, model_path: Path) -> None:
         print(f"Loading egomotion model from {model_path}")
+        assert model_path is not None, "model_path is None"
         self.method = method
-        model_dir_path = Path(model_path)
-        self.model_info = get_model_info(model_dir_path)
+        self.model_info = get_model_info(model_path)
         self.device = get_device()
         self.dtype = torch.float64
         self.model_im_height = self.model_info["frame_height"]
@@ -168,7 +171,7 @@ class EgomotionModel:
         # create the egomotion estimation network
 
         if method == "EndoSFM":
-            pose_net_path = model_dir_path / "PoseNet_best.pt"
+            pose_net_path = model_path / "PoseNet_best.pt"
             self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["PoseResNet_layers"], pretrained=True)
             weights = torch.load(pose_net_path)
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
@@ -177,8 +180,8 @@ class EgomotionModel:
 
         elif method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
-            pose_encoder_path = model_dir_path / "pose_encoder.pth"
-            pose_decoder_path = model_dir_path / "pose.pth"
+            pose_encoder_path = model_path / "pose_encoder.pth"
+            pose_decoder_path = model_path / "pose.pth"
             self.pose_encoder = monodepth2_resnet_encoder.ResnetEncoder(18, False, 2)
             self.pose_encoder.load_state_dict(torch.load(pose_encoder_path))
             self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(self.pose_encoder.num_ch_enc, 1, 2)
@@ -207,7 +210,7 @@ class EgomotionModel:
         assert len(to_imgs) == n_imgs
         from_imgs = imgs_to_net_in(from_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
         to_imgs = imgs_to_net_in(to_imgs, self.device, self.dtype, self.model_im_height, self.model_im_width)
-        
+
         if self.method == "EndoSFM":
             with torch.no_grad():
                 pose_out = self.pose_net(from_imgs, to_imgs)
@@ -224,7 +227,7 @@ class EgomotionModel:
             raise ValueError(f"Unknown egomotion estimation method: {self.method}")
         # convert the axis-angle to quaternion
         rot_quat = axis_angle_to_quaternion(axisangle)
-        
+
         # multiply the translation by the conversion factor to get mm units
         translation *= self.net_out_to_mm
         egomotions = torch.cat((translation, rot_quat), dim=1)

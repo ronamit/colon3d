@@ -8,6 +8,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pandas as pd
 import torch
 import yaml
 from matplotlib import font_manager
@@ -32,7 +33,7 @@ def bool_arg(v):
 # --------------------------------------------------------------------------------------------------------------------
 def val_to_yaml_format(v):
     if isinstance(v, Path):
-        return str(v)
+        return path_to_str(v)
     if isinstance(v, np.float64 | np.float32):
         return float(v)
     return v
@@ -460,3 +461,30 @@ def save_rgb_image(img: np.ndarray, save_path: Path):
 
 
 # ------------------------------------------------------------
+
+def save_unified_results_table(base_results_path: Path):
+    """ save unified results table for all the results subfolders of base_results_path
+    """
+    unified_results_table = pd.DataFrame()
+    for results_path in base_results_path.glob("*"):
+        if results_path.is_dir():
+            cur_result_path = results_path / "metrics_summary.csv"
+            if not cur_result_path.exists():
+                continue
+            # load the current run results summary csv file:
+            run_results_summary = pd.read_csv(cur_result_path)
+            # add the run name to the results table:
+            unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
+    # save the unified results table:
+    file_path = base_results_path / "unified_results_table.csv"
+    unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
+    print(f"Saved unified results table to {file_path}")
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def to_path(path):
+    return Path(path) if path is not None else None
+
+    
+# --------------------------------------------------------------------------------------------------------------------

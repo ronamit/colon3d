@@ -4,13 +4,13 @@ from pathlib import Path
 
 import attrs
 
-from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.alg.alg_settings import AlgorithmParam
-from colon3d.alg.slam_alg import SlamAlgRunner
-from colon3d.util.data_util import SceneLoader
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
+from colon3d.alg.slam_alg import SlamAlgRunner
 from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.show_slam_out import save_slam_out_plots
+from colon3d.util.data_util import SceneLoader
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, to_path
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -166,7 +166,7 @@ class SlamRunner:
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
                 depth_and_egomotion_method=self.depth_and_egomotion_method,
-                depth_and_egomotion_model_path=Path(self.depth_and_egomotion_model_path),
+                depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
                 depth_lower_bound=alg_prm.depth_lower_bound,
                 depth_upper_bound=alg_prm.depth_upper_bound,
                 depth_default=alg_prm.depth_default,

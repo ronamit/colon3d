@@ -85,15 +85,15 @@ class DepthExaminer:
         self,
         dataset_path: Path,
         depth_and_egomotion_method: str,
-        depth_and_egomotion_model_path: Path,
+        depth_and_egomotion_model_path: Path | None,
         save_path: Path,
         n_scenes_lim: int = 0,
         save_overwrite: bool = True,
     ):
         self.dataset_path = Path(dataset_path)
         self.depth_and_egomotion_method = depth_and_egomotion_method
-        self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
-        self.save_path = Path(save_path)
+        self.depth_and_egomotion_model_path = depth_and_egomotion_model_path
+        self.save_path =save_path
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
 

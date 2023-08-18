@@ -60,7 +60,7 @@ class DepthAndEgoMotionLoader:
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(
                 method=depth_and_egomotion_method,
-                model_path=Path(depth_and_egomotion_model_path),
+                model_path=depth_and_egomotion_model_path,
             )
 
         elif egomotions_source == "ground_truth":
@@ -76,7 +76,7 @@ class DepthAndEgoMotionLoader:
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
                 method=depth_and_egomotion_method,
-                model_path=Path(depth_and_egomotion_model_path),
+                model_path=depth_and_egomotion_model_path,
             )
             self.depth_info = self.depth_estimator.get_depth_info()
             print("Using online depth estimation")

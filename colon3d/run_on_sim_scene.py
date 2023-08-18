@@ -5,15 +5,15 @@ from pathlib import Path
 import attrs
 import h5py
 
-from colon3d.show_slam_out import save_slam_out_plots
 from colon3d.alg.alg_settings import AlgorithmParam
-from colon3d.alg.slam_alg import SlamAlgRunner
-from colon3d.util.data_util import SceneLoader
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
+from colon3d.alg.slam_alg import SlamAlgRunner
+from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.show_slam_out import save_slam_out_plots
+from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.util.torch_util import to_default_type
-from colon3d.alg.tracks_loader import DetectionsTracker
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -179,7 +179,7 @@ def run_slam_on_scene(
     depth_maps_source: str,
     egomotions_source: str,
     depth_and_egomotion_method: str,
-    depth_and_egomotion_model_path: Path,
+    depth_and_egomotion_model_path: Path | None = None,
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
     plot_names: list | None = None,
@@ -210,7 +210,7 @@ def run_slam_on_scene(
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
         depth_and_egomotion_method=depth_and_egomotion_method,
-        depth_and_egomotion_model_path=Path(depth_and_egomotion_model_path),
+        depth_and_egomotion_model_path=depth_and_egomotion_model_path,
         depth_lower_bound=alg_prm.depth_lower_bound,
         depth_upper_bound=alg_prm.depth_upper_bound,
         depth_default=alg_prm.depth_default,

@@ -6,13 +6,7 @@ import numpy as np
 import pandas as pd
 
 from colon3d.run_on_sim_scene import run_slam_on_scene
-from colon3d.util.general_util import (
-    ArgsHelpFormatter,
-    Tee,
-    bool_arg,
-    create_empty_folder,
-    get_time_now_str,
-)
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str, to_path
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -131,7 +125,6 @@ class SlamOnDatasetRunner:
     save_overwrite: bool = True
     plot_aided_nav: bool = True
     alg_settings_override: dict | None = None
-    
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -166,10 +159,10 @@ class SlamOnDatasetRunner:
                 )
                 save_path = Path(self.save_path) / scene_path.name
                 create_empty_folder(save_path, save_overwrite=True)
-                
+
                 # result plots to save
                 plot_names = ["aided_nav", "keypoints_and_tracks"] if self.plot_aided_nav else ["keypoints_and_tracks"]
-                
+
                 # run the SLAM algorithm on the current scene
                 _, metrics_stats = run_slam_on_scene(
                     scene_path=scene_path,
@@ -180,7 +173,7 @@ class SlamOnDatasetRunner:
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
                     depth_and_egomotion_method=self.depth_and_egomotion_method,
-                    depth_and_egomotion_model_path=Path(self.depth_and_egomotion_model_path),
+                    depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
                     alg_settings_override=self.alg_settings_override,
                     plot_names=plot_names,  # plots to create
                 )
