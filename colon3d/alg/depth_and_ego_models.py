@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import yaml
 
+import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
 import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
@@ -24,12 +25,12 @@ class DepthModel:
     """
 
     def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: Path) -> None:
+        self.method = method
         assert model_path is not None, "model_path is None"
         print(f"Loading depth model from {model_path}")
         self.depth_lower_bound = 0 if depth_lower_bound is None else depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
 
-        models_base_path = Path(model_path)
         self.model_info = get_model_info(model_path)
 
         # the dimensions of the input images to the network
@@ -43,6 +44,7 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
+        self.dtype = torch.float64 # the network weights are in double precision in general
 
         if method == "EndoSFM":
             # create the disparity estimation network
@@ -74,6 +76,7 @@ class DepthModel:
             self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
+            
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
 
@@ -101,12 +104,24 @@ class DepthModel:
         n_imgs, height, width, n_channels = imgs.shape
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
-        with torch.no_grad():
-            disparity_maps = self.disp_net(imgs)
-        # remove the n_channels dimension
-        disparity_maps.squeeze_(dim=1)  # [N x H x W]
-        # convert the disparity to depth
-        depth_maps = 1 / disparity_maps
+        if self.method == "EndoSFM":
+            with torch.no_grad():
+                disparity_maps = self.disp_net(imgs)
+            # remove the n_channels dimension
+            disparity_maps.squeeze_(dim=1)  # [N x H x W]
+            # convert the disparity to depth
+            depth_maps = 1 / disparity_maps
+            
+            
+        elif self.method == "MonoDepth2":
+            # based on monodepth2/evaluate_depth.py
+            with torch.no_grad():
+                output = self.depth_decoder(self.encoder(imgs))
+                disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
+                depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
+                
+        else:
+            raise ValueError(f"Unknown depth estimation method: {self.method}")
         # multiply by the scale factor to get the depth in mm
         depth_maps *= self.net_out_to_mm
         # clip the depth if needed
@@ -142,7 +157,7 @@ class EgomotionModel:
         self.method = method
         self.model_info = get_model_info(model_path)
         self.device = get_device()
-        self.dtype = torch.float64
+        self.dtype = torch.float64 # the network weights are in double precision in general
         self.model_im_height = self.model_info["frame_height"]
         self.model_im_width = self.model_info["frame_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
@@ -204,6 +219,9 @@ class EgomotionModel:
             all_color_aug = torch.cat((from_imgs, to_imgs), dim=1)
             features = [self.pose_encoder(all_color_aug)]
             axisangle, translation = self.pose_decoder(features)
+            # take the first item - motion from the first image to the second image
+            axisangle = axisangle[:, 0]
+            translation = translation[:, 0]
         else:
             raise ValueError(f"Unknown egomotion estimation method: {self.method}")
         # convert the axis-angle to quaternion

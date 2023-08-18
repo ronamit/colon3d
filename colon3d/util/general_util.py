@@ -479,7 +479,15 @@ def save_unified_results_table(base_results_path: Path):
     file_path = base_results_path / "unified_results_table.csv"
     unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
     print(f"Saved unified results table to {file_path}")
+# --------------------------------------------------------------------------------------------------------------------
 
+def delete_unfinished_runs(base_results_path: Path):
+    for results_path in base_results_path.glob("*"):
+        if results_path.is_dir():
+            cur_result_path = results_path / "metrics_summary.csv"
+            if not cur_result_path.exists():
+                print(f"Deleting {results_path}")
+                shutil.rmtree(results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 

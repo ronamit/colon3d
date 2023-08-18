@@ -4,7 +4,7 @@ from pathlib import Path
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.create_target_cases import CasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder, save_unified_results_table
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, delete_unfinished_runs, save_unified_results_table
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -86,10 +86,11 @@ else:
 
 # in sanity check mode we generate easy cases for sanity check (the target may always be visible)
 min_non_visible_frames = 0 if args.sanity_check_mode else 20
+
 # --------------------------------------------------------------------------------------------------------------------
 
-if overwrite_results:
-    create_empty_folder(base_results_path)
+
+delete_unfinished_runs(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
@@ -198,7 +199,7 @@ save_unified_results_table(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 SlamOnDatasetRunner(
     dataset_path=scenes_cases_dataset_path,
-    save_path=base_results_path / "no_BA_with_EndoSFM_orig",
+    save_path=base_results_path / "no_BA_with_MonoDepth2_orig",
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_method="MonoDepth2",

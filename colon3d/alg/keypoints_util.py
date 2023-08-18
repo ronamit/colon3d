@@ -156,7 +156,6 @@ def get_kp_matchings(
     # DMatch.distance - Distance between descriptors. The lower, the better it is.
     # DMatch.trainIdx - Index of the descriptor in train descriptors (des2)
     # DMatch.queryIdx - Index of the descriptor in query descriptors (des1)
-    matches = [m[0] for m in matches if m]
     n_matches = len(matches)
     # check minimum number of matches to use RANSAC filter
     if n_matches > min_n_matches_to_filter:
