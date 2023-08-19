@@ -76,17 +76,22 @@ def get_run_file_and_args():
     run_args = sys.argv[1:]
     return run_file, run_args
 
-
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def save_run_info(save_path: Path):
     git_version_link = get_git_version_link()
     run_file, run_args = get_run_file_and_args()
-    time_now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     # save the args + git link  as yaml file
-    save_dict = {"run_file": run_file, "run_args": run_args, "git_version": git_version_link, "time_now": time_now}
-    save_dict_to_yaml(save_path=save_path / "run_info.yaml", dict_to_save=save_dict)
+    info_dict = {
+        "run_file": to_str(run_file),
+        "run_args": to_str(run_args),
+        "git_version": git_version_link,
+        "time_now": get_time_now_str(),
+    }
+    run_info_path = save_path / "run_info.csv"
+    # save the info_dict as a new line in the csv file, or create the file if it does not exist
+    pd.DataFrame(info_dict, index=[0]).to_csv(run_info_path, mode="a", header=not run_info_path.exists(), index=False)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -462,9 +467,9 @@ def save_rgb_image(img: np.ndarray, save_path: Path):
 
 # ------------------------------------------------------------
 
+
 def save_unified_results_table(base_results_path: Path):
-    """ save unified results table for all the results subfolders of base_results_path
-    """
+    """save unified results table for all the results subfolders of base_results_path"""
     unified_results_table = pd.DataFrame()
     for results_path in base_results_path.glob("*"):
         if results_path.is_dir():
@@ -479,14 +484,18 @@ def save_unified_results_table(base_results_path: Path):
     file_path = base_results_path / "unified_results_table.csv"
     unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
     print(f"Saved unified results table to {file_path}")
+
+
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
-def delete_unfinished_runs(base_results_path: Path):
+def delete_empty_results_dirs(base_results_path: Path):
     for results_path in base_results_path.glob("*"):
         if results_path.is_dir():
             cur_result_path = results_path / "metrics_summary.csv"
             if not cur_result_path.exists():
-                print(f"Deleting {results_path}")
+                print(f"Results dir {results_path} does not contain metrics_summary.csv, deleting it ..")
                 shutil.rmtree(results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -494,5 +503,5 @@ def delete_unfinished_runs(base_results_path: Path):
 def to_path(path):
     return Path(path) if path is not None else None
 
-    
+
 # --------------------------------------------------------------------------------------------------------------------

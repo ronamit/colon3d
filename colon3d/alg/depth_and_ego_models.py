@@ -104,6 +104,7 @@ class DepthModel:
         n_imgs, height, width, n_channels = imgs.shape
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
+        
         if self.method == "EndoSFM":
             with torch.no_grad():
                 disparity_maps = self.disp_net(imgs)
@@ -117,8 +118,8 @@ class DepthModel:
             # based on monodepth2/evaluate_depth.py
             with torch.no_grad():
                 output = self.depth_decoder(self.encoder(imgs))
-                disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
-                depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
+            disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
+            depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
                 
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
@@ -212,24 +213,25 @@ class EgomotionModel:
                 pose_out = self.pose_net(from_imgs, to_imgs)
             # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
             translation = pose_out[:, :3]
-            axisangle = pose_out[:, 3:]
+            rotation_axis_angle = pose_out[:, 3:]
         elif self.method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
             # concat the input images in axis 1 (channel dimension)
-            all_color_aug = torch.cat((from_imgs, to_imgs), dim=1)
-            features = [self.pose_encoder(all_color_aug)]
-            axisangle, translation = self.pose_decoder(features)
+            with torch.no_grad():
+                all_color_aug = torch.cat((from_imgs, to_imgs), dim=1)
+                features = [self.pose_encoder(all_color_aug)]
+                rotation_axis_angle, translation = self.pose_decoder(features)
             # take the first item - motion from the first image to the second image
-            axisangle = axisangle[:, 0]
-            translation = translation[:, 0]
+            rotation_axis_angle = rotation_axis_angle.squeeze(2)[:, 0, :]  # [N, 3]
+            translation = translation.squeeze(2)[:, 0, :]  # [N, 3]
         else:
             raise ValueError(f"Unknown egomotion estimation method: {self.method}")
         # convert the axis-angle to quaternion
-        rot_quat = axis_angle_to_quaternion(axisangle)
+        rotation_quaternion = axis_angle_to_quaternion(rotation_axis_angle)
 
         # multiply the translation by the conversion factor to get mm units
         translation *= self.net_out_to_mm
-        egomotions = torch.cat((translation, rot_quat), dim=1)
+        egomotions = torch.cat((translation, rotation_quaternion), dim=1)
         return egomotions
 
     # --------------------------------------------------------------------------------------------------------------------

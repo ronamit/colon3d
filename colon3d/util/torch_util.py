@@ -35,7 +35,7 @@ def get_default_dtype(package="torch", num_type=None):
         # the precision for depth maps
             return np.float32
         if num_type == "int":
-            return np.int32
+            return np.int64
         raise ValueError(f"Unknown num_type: {num_type}")
     raise ValueError(f"Unknown package: {package}")
 
@@ -74,7 +74,7 @@ def to_torch(x, num_type=None, device=None):
     dtype = get_default_dtype("torch", num_type)
     device = device or get_device()
     if isinstance(x, torch.Tensor):
-        return x.to(dtype)
+        return x.to(dtype).to(device)
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).to(dtype).to(device)
     if isinstance(x, dict):

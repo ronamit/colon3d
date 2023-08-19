@@ -199,8 +199,11 @@ def run_bundle_adjust(
         # find what 3d points to optimize - those that are seen from frames in frames_inds_to_opt
         p3d_opt_flag[list(p3d_inds_per_frame[i_frame])] = True
 
-    # Find what KP to use in the optimized loss function (those that are seen from frames in frames_inds_to_opt)
-    kp_opt_ids = kp_log.get_kp_ids_in_frame_inds(frames_inds_to_opt)
+    # Find what KP to use in the optimized loss function: all KPs that are associated with the optimized frames or the optimized world-3D points
+    kp_opt_ids = kp_log.get_kp_ids_in_frame_inds(
+        frame_inds=frames_inds_to_opt,
+        p3d_flag_vec=p3d_opt_flag,
+    )  # TODOL add all the KPs with world point ID in p3d_opt_flag
 
     # take the subsets that are used in the optimization objective:
     if len(kp_opt_ids) == 0:
@@ -287,7 +290,7 @@ def run_bundle_adjust(
         is_kp_invalid = is_kp_invalid.cpu().numpy()
         print(f"Total final cost: {get_val(tot_cost):1.6g}")
         print("Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
-    
+
     # Discard the invalid keypoints
     n_invalid_kps = is_kp_invalid.sum()
     print("Number of invalid keypoints to discard: ", n_invalid_kps)

@@ -70,15 +70,16 @@ class KeyPointsLog:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def get_kp_ids_in_frame_inds(self, frame_inds: list) -> list:
-        """Get all the keypoint ids in the given frames.
+    def get_kp_ids_in_frame_inds(self, frame_inds: list, p3d_flag_vec: np.ndarray) -> list:
+        """Get all the keypoint ids in the given frames if its asscoiated 3D point is in the given set of 3D points.
         Args:
             frame_inds: list of frame indexes
         """
         kp_ids = []
         frame_inds_set = set(frame_inds)
         for kp_id in self.map_kp_to_p3d_idx:
-            if kp_id[0] in frame_inds_set:
+            p3d_id = self.map_kp_to_p3d_idx[kp_id]
+            if (kp_id[0] in frame_inds_set) or p3d_flag_vec[p3d_id]:
                 kp_ids.append(kp_id)
         return kp_ids
 

@@ -129,19 +129,16 @@ class DepthAndEgoMotionLoader:
             pass  # no need to estimate
 
         elif self.depth_maps_source == "online_estimates":
-            self.depth_maps_buffer.append(self.depth_estimator.estimate_depth_map(cur_rgb_frame))
+            depth_map = self.depth_estimator.estimate_depth_map(cur_rgb_frame)
+            self.depth_maps_buffer.append(depth_map)
             self.depth_maps_buffer_frame_inds.append(i_frame)
 
         if self.egomotions_source == "none" or i_frame in self.egomotions_buffer_frame_inds or i_frame == 0:
             pass  # no need to estimate
 
         elif self.egomotions_source == "online_estimates" and prev_rgb_frame is not None:
-            self.egomotions_buffer.append(
-                self.egomotion_estimator.estimate_egomotion(
-                    prev_frame=prev_rgb_frame,
-                    curr_frame=cur_rgb_frame,
-                ),
-            )
+            egomotion = self.egomotion_estimator.estimate_egomotion(prev_frame=prev_rgb_frame, curr_frame=cur_rgb_frame)
+            self.egomotions_buffer.append(egomotion)
             self.egomotions_buffer_frame_inds.append(i_frame)
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -192,10 +189,11 @@ class DepthAndEgoMotionLoader:
             egomotion = torch.zeros((7), dtype=torch.float32, device=self.device)
             egomotion[3:] = get_identity_quaternion()
             return egomotion
-        # if the egomotion is already in the buffer, return it, otherwise estimate it first
+        # if the egomotion not already in the buffer - estimate it and add it to the buffer
         if curr_frame_idx not in self.egomotions_buffer_frame_inds:
             assert cur_rgb_frame is not None and prev_rgb_frame is not None
             self.process_new_frame(i_frame=curr_frame_idx, cur_rgb_frame=cur_rgb_frame, prev_rgb_frame=prev_rgb_frame)
+        # get the egomotion from the buffer
         buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
         egomotion = self.egomotions_buffer[buffer_idx]
         egomotion = to_torch(egomotion)
@@ -250,6 +248,7 @@ class DepthAndEgoMotionLoader:
             im_height=depth_map_height,
             im_width=depth_map_width,
         )
+        
         x = pixels_cord[:, 0]
         y = pixels_cord[:, 1]
 
@@ -258,13 +257,12 @@ class DepthAndEgoMotionLoader:
 
         for frame_idx in np.unique(frame_indexes):
             buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
-
+            depths_maps = self.depth_maps_buffer[buffer_idx]
+            x_cur = x[frame_indexes == frame_idx]
+            y_cur = y[frame_indexes == frame_idx]
             # notice that the depth image coordinates are (y,x) not (x,y).
-            depth_out = self.depth_maps_buffer[buffer_idx][
-                y[frame_indexes == frame_idx],
-                x[frame_indexes == frame_idx],
-            ]
-            depth_out = torch.as_tensor(depth_out, device=device, dtype=dtype)
+            depth_out = depths_maps[y_cur, x_cur]
+            depth_out = to_torch(depth_out)
             z_depths[frame_indexes == frame_idx] = depth_out
 
         # clip the depth
