@@ -9,7 +9,7 @@ from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.alg.constraints_terms import SoftConstraints
 from colon3d.alg.keypoints_util import KeyPointsLog
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
-from colon3d.util.torch_util import get_device, get_val, is_finite, list_to_torch, pseudo_huber_loss_on_x_sqr
+from colon3d.util.torch_util import concat_list_to_torch, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.util.transforms_util import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -200,21 +200,21 @@ def run_bundle_adjust(
         p3d_opt_flag[list(p3d_inds_per_frame[i_frame])] = True
 
     # Find what KP to use in the optimized loss function: all KPs that are associated with the optimized frames or the optimized world-3D points
-    kp_opt_ids = kp_log.get_kp_ids_in_frame_inds(
+    kp_opt_ids = kp_log.get_kp_ids_in_frames_or_p3d_ids(
         frame_inds=frames_inds_to_opt,
         p3d_flag_vec=p3d_opt_flag,
-    )  # TODOL add all the KPs with world point ID in p3d_opt_flag
+    )
 
     # take the subsets that are used in the optimization objective:
     if len(kp_opt_ids) == 0:
         print("No keypoints to be used in the optimization objective... skipping optimization")
         return cam_poses, points_3d, kp_log, 0
 
-    kp_frame_idx_u = list_to_torch([kp_id[0] for kp_id in kp_opt_ids], num_type="int")
-    kp_p3d_idx_u = list_to_torch([kp_log.get_kp_p3d_idx(kp_id) for kp_id in kp_opt_ids], num_type="int")
-    kp_nrm_u = list_to_torch([kp_log.get_kp_norm_coord(kp_id) for kp_id in kp_opt_ids])
+    kp_frame_idx_u = concat_list_to_torch([kp_id[0] for kp_id in kp_opt_ids], num_type="int")
+    kp_p3d_idx_u = concat_list_to_torch([kp_log.get_kp_p3d_idx(kp_id) for kp_id in kp_opt_ids], num_type="int")
+    kp_nrm_u = concat_list_to_torch([kp_log.get_kp_norm_coord(kp_id) for kp_id in kp_opt_ids])
     n_kp_used = kp_nrm_u.shape[0]
-    kp_type_u = list_to_torch([kp_log.get_kp_type(kp_id) for kp_id in kp_opt_ids], num_type="int")
+    kp_type_u = concat_list_to_torch([kp_log.get_kp_type(kp_id) for kp_id in kp_opt_ids], num_type="int")
     kp_weights_u = torch.ones(n_kp_used, device=device)
     kp_weights_u[kp_type_u == -1] = alg_prm.w_salient_kp
     kp_weights_u[kp_type_u != -1] = alg_prm.w_track_kp

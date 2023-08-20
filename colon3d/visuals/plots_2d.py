@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import cv2
@@ -7,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from colon3d.alg.keypoints_util import KeyPointsLog
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.general_util import (
     colors_platte,
@@ -17,10 +18,6 @@ from colon3d.util.general_util import (
     save_video_from_frames_list,
     save_video_from_func,
 )
-from colon3d.alg.keypoints_util import KeyPointsLog
-from colon3d.alg.tracks_loader import DetectionsTracker
-
-os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 
 # --------------------------------------------------------------------------------------------------------------------
 

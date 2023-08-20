@@ -86,7 +86,7 @@ def to_torch(x, num_type=None, device=None):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def list_to_torch(x, num_type=None, device=None):
+def concat_list_to_torch(x, num_type=None, device=None):
     # to prevent warning from torch - first convert to numpy array
     return to_torch(np.array(x), num_type, device)
 
