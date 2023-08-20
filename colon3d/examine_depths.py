@@ -34,8 +34,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_1024_320/examination_result",
-        # default="saved_models/monodepth2/mono+stereo_640x192",
+        default="saved_models/monodepth2/mono_stereo_640x192_orig/examination_result",
         help="Path to save the results.",
     )
     parser.add_argument(
@@ -48,7 +47,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_1024_320",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth/kitti_scv3"
+        default="saved_models/monodepth2/mono_stereo_640x192_orig",  # "saved_models/EndoSFM_orig","saved_models/monodepth2/mono_stereo_640x192_orig"
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

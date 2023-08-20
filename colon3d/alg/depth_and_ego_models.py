@@ -42,7 +42,6 @@ class DepthModel:
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         self.device = get_device()
-        self.dtype = torch.float64 # the network weights are in double precision in general
 
         if method == "EndoSFM":
             # create the disparity estimation network
@@ -53,6 +52,7 @@ class DepthModel:
             self.disp_net.load_state_dict(weights["state_dict"], strict=False)
             self.disp_net.to(self.device)
             self.disp_net.eval()  # switch to evaluate mode
+            self.dtype = torch.float32 # the network weights type
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
             monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
@@ -74,6 +74,7 @@ class DepthModel:
             self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
+            self.dtype = torch.float32 # the network weights type
             
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
@@ -156,7 +157,6 @@ class EgomotionModel:
         self.method = method
         self.model_info = get_model_info(model_path)
         self.device = get_device()
-        self.dtype = torch.float64 # the network weights are in double precision in general
         self.model_im_height = self.model_info["frame_height"]
         self.model_im_width = self.model_info["frame_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
@@ -172,6 +172,7 @@ class EgomotionModel:
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
             self.pose_net.eval()  # switch to evaluate mode
+            self.dtype = torch.float32 # the network weights type
 
         elif method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
@@ -185,6 +186,7 @@ class EgomotionModel:
             self.pose_decoder.to(self.device)
             self.pose_encoder.eval()
             self.pose_decoder.eval()
+            self.dtype = torch.float32 # the network weights type
 
         else:
             raise ValueError(f"Unknown egomotion estimation method: {method}")

@@ -1,5 +1,4 @@
 import argparse
-import os
 from pathlib import Path
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
@@ -65,7 +64,7 @@ def main():
     test_dataset_name = args.test_dataset_name
     process_dataset_name = test_dataset_name
     results_name = args.results_name
-    
+
     # --------------------------------------------------------------------------------------------------------------------
 
     limit_n_scenes = 0  # no limit
@@ -80,11 +79,10 @@ def main():
         n_cases_lim = 1  # num cases to run the algorithm on
         results_name = "_debug_" + results_name
         process_dataset_name = "_debug_" + process_dataset_name
-        
 
     # --------------------------------------------------------------------------------------------------------------------
     rand_seed = 0  # random seed for reproducibility
-    
+
     # path to the raw data generate by the unity simulator:
     raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
 
