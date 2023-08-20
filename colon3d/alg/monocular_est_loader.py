@@ -136,7 +136,7 @@ class DepthAndEgoMotionLoader:
             depth_map = self.depth_maps_buffer[buffer_idx]
             return depth_map
         if self.depth_maps_source == "online_estimates":
-            depth_map = self.depth_estimator.estimate_depth_map(rgb_frame)
+            depth_map = self.depth_estimator.estimate_depth_maps(rgb_frame, is_singleton=True)
 
         raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
 

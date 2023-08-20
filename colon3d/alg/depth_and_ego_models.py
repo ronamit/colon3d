@@ -94,7 +94,7 @@ class DepthModel:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def estimate_depth_maps(self, imgs: torch.Tensor) -> torch.Tensor:
+    def estimate_depth_maps(self, imgs: torch.Tensor, is_singleton) -> torch.Tensor:
         """Estimate the depth map from the image.
 
         Args:
@@ -102,7 +102,9 @@ class DepthModel:
         Returns:
             depth_map (torch.Tensor): the estimated depth maps [N X H x W] (units: mm)
         """
-        # get the original shape of the images:
+        if is_singleton:
+            # add a batch dimension
+            imgs = torch.unsqueeze(imgs, dim=0)
 
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
@@ -135,6 +137,10 @@ class DepthModel:
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_maps = torch.clamp(depth_maps, self.depth_lower_bound, self.depth_upper_bound)
+            
+        if is_singleton:
+            # remove the batch dimension
+            depth_maps = depth_maps[0]
         return depth_maps
     
 # --------------------------------------------------------------------------------------------------------------------
