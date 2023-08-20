@@ -32,7 +32,7 @@ def get_default_dtype(package="torch", num_type=None):
         if num_type == "float":
             return np.float64
         if num_type == "float_m":
-        # the precision for depth maps
+            # the precision for depth maps
             return np.float32
         if num_type == "int":
             return np.int64
@@ -83,12 +83,14 @@ def to_torch(x, num_type=None, device=None):
         return [to_torch(v) for v in x]
     return None
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def concat_list_to_torch(x, num_type=None, device=None):
+def concat_list_to_tensor(x, num_type=None, device=None):
     # to prevent warning from torch - first convert to numpy array
     return to_torch(np.array(x), num_type, device)
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -119,28 +121,31 @@ def get_val(x):
 
 def assert_2d_tensor(t: torch.Tensor, dim2: int):
     if t.ndim == 1:
-        t = t.unsqueeze(0) # add the "number of samples" dimension
+        t = t.unsqueeze(0)  # add the "number of samples" dimension
     assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
     assert is_finite(t), "Tensor should be finite."
     return t
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def assert_1d_tensor(t: torch.Tensor):
     if t.ndim == 0:
-        t = t.unsqueeze(0) # add the "number of samples" dimension
+        t = t.unsqueeze(0)  # add the "number of samples" dimension
     assert t.ndim == 1, "Tensor should be 1D."
     assert is_finite(t), "Tensor should be finite."
     return t
-    
+
+
 # --------------------------------------------------------------------------------------------------------------------
 def assert_same_sample_num(tensor_list: tuple):
     n = tensor_list[0].shape[0]
     for t in tensor_list:
         assert t.shape[0] == n, "Different number of samples."
     return n
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -164,7 +169,6 @@ def pseudo_huber_loss_on_x_sqr(x_sqr, delta=1.0):
     """
     losses = delta**2 * (torch.sqrt(1 + x_sqr / delta**2) - 1)
     return losses
-
 
 
 # --------------------------------------------------------------------------------------------------------------------

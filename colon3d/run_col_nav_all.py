@@ -14,7 +14,6 @@ from colon3d.util.general_util import (
     save_unified_results_table,
 )
 
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -50,7 +49,7 @@ def main():
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed",
-        default=False,
+        default=True,
     )
 
     parser.add_argument(
@@ -63,38 +62,45 @@ def main():
     overwrite_results = args.overwrite_results
     overwrite_data = args.overwrite_data
     debug_mode = args.debug_mode
-
-    # --------------------------------------------------------------------------------------------------------------------
-    rand_seed = 0  # random seed for reproducibility
     test_dataset_name = args.test_dataset_name
-    # path to the raw data generate by the unity simulator:
-    raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
+    process_dataset_name = test_dataset_name
+    results_name = args.results_name
+    
+    # --------------------------------------------------------------------------------------------------------------------
 
-    # path to save the processed scenes dataset:
-    scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
-
-    # path to save the dataset of cases with randomly generated targets added to the original scenes:
-    scenes_cases_dataset_path = Path(f"data/sim_data/{test_dataset_name}_cases")
-
-    # base path to save the algorithm runs results:
-    base_results_path = Path("results") / args.results_name
+    limit_n_scenes = 0  # no limit
+    limit_n_frames = 0  #  no limit
+    n_cases_per_scene = 5  # num cases to generate from each scene
+    n_cases_lim = 0  # 0 no limit
 
     if debug_mode:
         limit_n_scenes = 1  # num scenes to import
         limit_n_frames = 100  # num frames to import from each scene
         n_cases_per_scene = 1  # num cases to generate from each scene
-        scenes_dataset_path = scenes_dataset_path / "debug"
-        scenes_cases_dataset_path = scenes_cases_dataset_path / "debug"
-        base_results_path = base_results_path / "debug"
         n_cases_lim = 1  # num cases to run the algorithm on
-    else:
-        limit_n_scenes = 0  # 0 means no limit
-        limit_n_frames = 0  # 0 means no limit
-        n_cases_per_scene = 5  # num cases to generate from each scene
-        n_cases_lim = 0  # 0 means no limit
+        results_name = "_debug_" + results_name
+        process_dataset_name = "_debug_" + process_dataset_name
+        
+
+    # --------------------------------------------------------------------------------------------------------------------
+    rand_seed = 0  # random seed for reproducibility
+    
+    # path to the raw data generate by the unity simulator:
+    raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
+
+    # path to save the processed scenes dataset:
+    scenes_dataset_path = Path(f"data/sim_data/{process_dataset_name}")
+
+    # path to save the dataset of cases with randomly generated targets added to the original scenes:
+    scenes_cases_dataset_path = Path(f"data/sim_data/{process_dataset_name}_cases")
+
+    # base path to save the algorithm runs results:
+    base_results_path = Path("results") / results_name
 
     # in sanity check mode we generate easy cases for sanity check (the target may always be visible)
     min_non_visible_frames = 0 if args.sanity_check_mode else 20
+
+    # --------------------------------------------------------------------------------------------------------------------
 
     with Tee(base_results_path / "log.txt"):  # save the prints to a file
         save_run_info(base_results_path)

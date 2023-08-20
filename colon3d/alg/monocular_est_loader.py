@@ -257,11 +257,11 @@ class DepthAndEgoMotionLoader:
 
         for frame_idx in np.unique(frame_indexes):
             buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
-            depths_maps = self.depth_maps_buffer[buffer_idx]
+            depths_map = self.depth_maps_buffer[buffer_idx]
             x_cur = x[frame_indexes == frame_idx]
             y_cur = y[frame_indexes == frame_idx]
             # notice that the depth image coordinates are (y,x) not (x,y).
-            depth_out = depths_maps[y_cur, x_cur]
+            depth_out = depths_map[y_cur, x_cur]
             depth_out = to_torch(depth_out)
             z_depths[frame_indexes == frame_idx] = depth_out
 

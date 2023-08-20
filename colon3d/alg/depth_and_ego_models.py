@@ -33,12 +33,10 @@ class DepthModel:
 
         self.model_info = get_model_info(model_path)
 
-        # the dimensions of the input images to the network
-        self.model_frame_height = self.model_info["frame_height"]
-        self.model_frame_width = self.model_info["frame_width"]
-        # the dimensions of the output depth maps are the same as the input images
-        self.depth_map_width = self.model_frame_width
-        self.depth_map_height = self.model_frame_height
+        # the dimensions of the output depth maps
+        self.depth_map_width =  self.model_info["frame_width"]
+        self.depth_map_height = self.model_info["frame_height"]
+        
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps.
@@ -108,18 +106,20 @@ class DepthModel:
         if self.method == "EndoSFM":
             with torch.no_grad():
                 disparity_maps = self.disp_net(imgs)
-            # remove the n_channels dimension
-            disparity_maps.squeeze_(dim=1)  # [N x H x W]
-            # convert the disparity to depth
-            depth_maps = 1 / disparity_maps
+                # remove the n_channels dimension
+                disparity_maps.squeeze_(dim=1)  # [N x H x W]
+                # convert the disparity to depth
+                depth_maps = 1 / disparity_maps
             
             
         elif self.method == "MonoDepth2":
             # based on monodepth2/evaluate_depth.py
             with torch.no_grad():
-                output = self.depth_decoder(self.encoder(imgs))
-            disparity_maps = output[("disp", 0)].squeeze(1)  # [N x H x W]
-            depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
+                encoded = self.encoder(imgs)
+                output = self.depth_decoder(encoded)
+                disparity_maps = output[("disp", 0)]  # [N x C X H x W]
+                disparity_maps = disparity_maps.squeeze(1)  # [N x H x W]
+                depth_maps = monodepth2_layers.disp_to_depth(disparity_maps, min_depth=self.depth_lower_bound, max_depth=self.depth_upper_bound)
                 
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
@@ -128,8 +128,6 @@ class DepthModel:
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_maps = torch.clamp(depth_maps, self.depth_lower_bound, self.depth_upper_bound)
-        # resize the output to the original size (since the network works with a fixed size as input that might be different from the original size of the images)
-        depth_maps = resize_images(depth_maps, new_height=height, new_width=width)
         return depth_maps
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -214,6 +212,7 @@ class EgomotionModel:
             # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz
             translation = pose_out[:, :3]
             rotation_axis_angle = pose_out[:, 3:]
+            
         elif self.method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
             # concat the input images in axis 1 (channel dimension)
