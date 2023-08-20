@@ -15,7 +15,7 @@ from colon3d.util.general_util import (
     save_dict_to_yaml,
     save_plot_and_close,
 )
-from colon3d.util.torch_util import resize_grayscale_image, to_numpy
+from colon3d.util.torch_util import resize_grayscale_images, to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps
@@ -190,10 +190,11 @@ def compute_depths(
     rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx)
     depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame)
     # resize to the original image size
-    depth_map = resize_grayscale_image(
+    depth_map = resize_grayscale_images(
         img=depth_map,
         new_height=rgb_frame.shape[0],
         new_width=rgb_frame.shape[1],
+        is_singleton=True,
     )
     depth_map = to_numpy(depth_map)
     plt.figure()
@@ -217,10 +218,11 @@ def compute_depths(
         rgb_frame = scene_loader.get_frame_at_index(frame_idx=i)
         depth_map = depth_loader.get_depth_map_at_frame(frame_idx=i, rgb_frame=rgb_frame)
         # resize to the original image size
-        depth_map = resize_grayscale_image(
+        depth_map = resize_grayscale_images(
             img=depth_map,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
+            is_singleton=True,
         )
         depth_map = to_numpy(depth_map, num_type="float_m")
         all_frames_avg_depth[i] = np.mean(depth_map)

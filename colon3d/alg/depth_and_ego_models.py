@@ -12,7 +12,7 @@ import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
 import monodepth2.utils as monodepth2_utils
 from colon3d.util.general_util import resize_color_images
 from colon3d.util.rotations_util import axis_angle_to_quaternion
-from colon3d.util.torch_util import get_device, to_torch
+from colon3d.util.torch_util import get_device, resize_grayscale_images, to_torch
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
@@ -77,7 +77,7 @@ class DepthModel:
             self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
-            self.dtype = torch.float32  # the network weights type
+            self.dtype = torch.float64  # the network weights type
 
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
@@ -105,7 +105,7 @@ class DepthModel:
         if is_singleton:
             # add a batch dimension
             imgs = np.expand_dims(imgs, axis=0)
-            
+
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
 
@@ -124,6 +124,11 @@ class DepthModel:
                 output = self.depth_decoder(encoded)
                 disparity_maps = output[("disp", 0)]  # [N x C X H x W]
                 disparity_maps = disparity_maps.squeeze(1)  # [N x H x W]
+                # resize the disparity maps to the net input size
+                disparity_maps = resize_grayscale_images(
+                    disparity_maps, new_height=self.feed_height, new_width=self.feed_width,
+                )
+                # convert the disparity to depth
                 depth_maps = monodepth2_layers.disp_to_depth(
                     disparity_maps,
                     min_depth=self.depth_lower_bound,
@@ -137,12 +142,13 @@ class DepthModel:
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_maps = torch.clamp(depth_maps, self.depth_lower_bound, self.depth_upper_bound)
-            
+
         if is_singleton:
             # remove the batch dimension
             depth_maps = depth_maps[0]
         return depth_maps
-    
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -182,7 +188,7 @@ class EgomotionModel:
             self.pose_decoder.to(self.device)
             self.pose_encoder.eval()
             self.pose_decoder.eval()
-            self.dtype = torch.float32  # the network weights type
+            self.dtype = torch.float64  # the network weights type
 
         else:
             raise ValueError(f"Unknown egomotion estimation method: {method}")
@@ -242,7 +248,6 @@ class EgomotionModel:
         return egomotions
 
     # --------------------------------------------------------------------------------------------------------------------
-
 
 
 # --------------------------------------------------------------------------------------------------------------------

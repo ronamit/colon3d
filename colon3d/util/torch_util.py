@@ -174,14 +174,18 @@ def pseudo_huber_loss_on_x_sqr(x_sqr, delta=1.0):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def resize_grayscale_image(img: torch.Tensor, new_height: int, new_width: int) -> torch.Tensor:
+def resize_grayscale_images(img: torch.Tensor, new_height: int, new_width: int, is_singleton: bool = False) -> torch.Tensor:
     """Resize grayscale image.
         imgs: the input images [height x width]
         new_height: the new height
         new_width: the new width
     """
+    if is_singleton:
+        img = img.unsqueeze(0)
     resizer = torchvision.transforms.Resize((new_height, new_width), antialias=True)
-    resized_img = resizer(img.unsqueeze(0)).squeeze(0)
+    resized_img = resizer(img)
+    if is_singleton:
+        resized_img = resized_img.squeeze(0)
     return resized_img
 
 # --------------------------------------------------------------------------------------------------------------------

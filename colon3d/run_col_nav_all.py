@@ -73,7 +73,7 @@ def main():
 
     if debug_mode:
         limit_n_scenes = 1  # num scenes to import
-        limit_n_frames = 100  # num frames to import from each scene
+        limit_n_frames = 100  # num frames to import from each scene (note - use at least 100 so it will be possible to get a track that goes out of view)
         n_cases_per_scene = 1  # num cases to generate from each scene
         n_cases_lim = 1  # num cases to run the algorithm on
         results_name = "_debug_" + results_name
