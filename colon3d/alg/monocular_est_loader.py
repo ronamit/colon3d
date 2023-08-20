@@ -85,8 +85,8 @@ class DepthAndEgoMotionLoader:
 
         elif depth_maps_source == "none":
             assert depth_default is not None
-            self.depth_map_size = (5, 5)  # dummy size
-            self.depth_map_K = np.eye(3)
+            self.depth_map_size = None
+            self.depth_map_K = None
         else:
             raise ValueError(f"Unknown depth maps source: {depth_maps_source}")
 
@@ -130,15 +130,18 @@ class DepthAndEgoMotionLoader:
         """
         if self.depth_maps_source == "none":
             # return the default depth map
-            return torch.ones(*rgb_frame.shape[:2], device=get_device()) * self.depth_default
-        if self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
+            depth_map = torch.ones(*rgb_frame.shape[:2], device=get_device()) * self.depth_default
+            
+        elif self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
             depth_map = self.depth_maps_buffer[buffer_idx]
-            return depth_map
-        if self.depth_maps_source == "online_estimates":
+            
+        elif self.depth_maps_source == "online_estimates":
             depth_map = self.depth_estimator.estimate_depth_maps(rgb_frame, is_singleton=True)
-
-        raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
+            
+        else:
+            raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
+        return depth_map
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -165,28 +168,27 @@ class DepthAndEgoMotionLoader:
             # default value = identity egomotion (no motion)
             egomotion = torch.zeros((7), dtype=torch.float32, device=self.device)
             egomotion[3:] = get_identity_quaternion()
-            return egomotion
 
-        if self.egomotions_source in ["ground_truth", "loaded_estimates"]:
+        elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
             egomotion = self.egomotions_buffer[buffer_idx]
             egomotion = to_torch(egomotion)
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
-            return egomotion
 
-        if self.egomotions_source == "online_estimates":
+        elif self.egomotions_source == "online_estimates":
             assert cur_rgb_frame is not None and prev_rgb_frame is not None
-            egomotion = self.egomotion_estimator.estimate_egomotion(
-                prev_frame=prev_rgb_frame,
-                curr_frame=cur_rgb_frame,
+            egomotion = self.egomotion_estimator.estimate_egomotions(
+                from_imgs=prev_rgb_frame,
+                to_imgs=cur_rgb_frame,
                 is_singleton=True,
             )
             egomotion = to_torch(egomotion)
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
-            return egomotion
-
+        
+        else:
+            raise ValueError(f"Unknown egomotions source: {self.egomotions_source}")
         return egomotion
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -216,13 +218,16 @@ class DepthAndEgoMotionLoader:
         device = kp_norm_coords.device
         dtype = kp_norm_coords.dtype
 
+        if self.depth_maps_source == "none":
+            return torch.ones((n_points), device=device, dtype=dtype) * self.depth_default
+            
         # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
         # that the depth estimation map was created with
         pixels_cord = transform_rectilinear_image_norm_coords_to_pixel(
             points_nrm=kp_norm_coords,
             cam_K=self.depth_map_K,
-            im_height=self.depth_map_size[0],
-            im_width=self.depth_map_size[0],
+            im_height=self.depth_map_size["height"],
+            im_width=self.depth_map_size["width"],
         )
 
         x = pixels_cord[:, 0]
@@ -256,6 +261,5 @@ class DepthAndEgoMotionLoader:
                 prev_rgb_frame=prev_rgb_frame,
             )
             prev_rgb_frame = cur_rgb_frame
-
 
 # --------------------------------------------------------------------------------------------------------------------

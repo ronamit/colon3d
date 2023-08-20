@@ -55,7 +55,7 @@ class DepthModel:
             self.disp_net.load_state_dict(weights["state_dict"], strict=False)
             self.disp_net.to(self.device)
             self.disp_net.eval()  # switch to evaluate mode
-            self.dtype = torch.float32  # the network weights type
+            self.dtype = torch.float64  # the network weights type
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
             monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
@@ -94,18 +94,18 @@ class DepthModel:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def estimate_depth_maps(self, imgs: torch.Tensor, is_singleton) -> torch.Tensor:
+    def estimate_depth_maps(self, imgs: np.ndarray, is_singleton) -> torch.Tensor:
         """Estimate the depth map from the image.
 
         Args:
-            img (torch.Tensor): the input images [N x H x W x 3]
+            imgs: the input images [N x H x W x 3]
         Returns:
             depth_map (torch.Tensor): the estimated depth maps [N X H x W] (units: mm)
         """
         if is_singleton:
             # add a batch dimension
-            imgs = torch.unsqueeze(imgs, dim=0)
-
+            imgs = np.expand_dims(imgs, axis=0)
+            
         # resize and change dimension order of the images to fit the network input format  # [N x 3 x H x W]
         imgs = imgs_to_net_in(imgs, self.device, self.dtype, self.depth_map_height, self.depth_map_width)
 
@@ -168,7 +168,7 @@ class EgomotionModel:
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
             self.pose_net.eval()  # switch to evaluate mode
-            self.dtype = torch.float32  # the network weights type
+            self.dtype = torch.float64  # the network weights type
 
         elif method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
