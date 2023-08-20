@@ -44,12 +44,17 @@ def main():
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(
+        "--delete_empty_results_dirs",
+        type=bool_arg,
+        default=False,
+        help="If True then empty results folders will be deleted",
+    )
+    parser.add_argument(
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed",
         default=True,
     )
-
     parser.add_argument(
         "--sanity_check_mode",
         type=bool_arg,

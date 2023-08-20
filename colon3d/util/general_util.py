@@ -89,6 +89,7 @@ def save_run_info(save_path: Path):
         "run_args": to_str(run_args),
         "git_version": git_version_link,
         "time_now": get_time_now_str(),
+        "original_save_path": to_str(save_path),
     }
     run_info_path = save_path / "run_info.csv"
     # save the info_dict as a new line in the csv file, or create the file if it does not exist
