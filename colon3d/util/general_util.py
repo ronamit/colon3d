@@ -76,6 +76,7 @@ def get_run_file_and_args():
     run_args = sys.argv[1:]
     return run_file, run_args
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -486,9 +487,8 @@ def save_unified_results_table(base_results_path: Path):
     print(f"Saved unified results table to {file_path}")
 
 
-
-
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def delete_empty_results_dirs(base_results_path: Path):
     for results_path in base_results_path.glob("*"):
@@ -497,11 +497,25 @@ def delete_empty_results_dirs(base_results_path: Path):
             if not cur_result_path.exists():
                 print(f"Results dir {results_path} does not contain metrics_summary.csv, deleting it ..")
                 shutil.rmtree(results_path)
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
 def to_path(path):
     return Path(path) if path is not None else None
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def resize_color_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
+    """Resize an array of multi-channel image [N X H X W X C] to the given size with interpolation."""
+    assert imgs.ndim == 4, "Input should be 4D array."
+    resized_imgs = np.zeros((imgs.shape[0], new_height, new_width, imgs.shape[-1]), dtype=imgs.dtype)
+    for i in range(imgs.shape[0]):
+        resized_imgs[i] = cv2.resize(imgs[i], (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    return resized_imgs
 
 
 # --------------------------------------------------------------------------------------------------------------------

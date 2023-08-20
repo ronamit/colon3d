@@ -35,7 +35,7 @@ class SlamAlgRunner:
         alg_prm: AlgorithmParam,
         scene_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
-        depth_estimator: DepthAndEgoMotionLoader,
+        depth_and_ego_estimator: DepthAndEgoMotionLoader,
         save_path: Path | None = None,
         draw_interval: int = 0,
         verbose_print_interval: int = 0,
@@ -43,7 +43,7 @@ class SlamAlgRunner:
         self.alg_prm = alg_prm
         self.scene_loader = scene_loader
         self.detections_tracker = detections_tracker
-        self.depth_estimator = depth_estimator
+        self.depth_and_ego_estimator = depth_and_ego_estimator
         self.save_path = save_path
         self.draw_interval = draw_interval
         self.verbose_print_interval = verbose_print_interval
@@ -119,6 +119,7 @@ class SlamAlgRunner:
         self.online_logger = AnalysisLogger(self.alg_prm)
         # saves data about the previous frame:
         self.prev_rgb_frame = None
+        self.prev_depth_frame = None
         self.descriptors_A = None
         self.salient_KPs_A = None
         self.track_KPs_A = None
@@ -152,19 +153,13 @@ class SlamAlgRunner:
             cur_rgb_frame = frames_generator.__next__()
             # Get the targets tracks in the current frame:
             curr_tracks = self.detections_tracker.get_tracks_in_frame(i_frame)
-            # Get the depth and ego-motion estimation for the current frame:
-            self.depth_estimator.process_new_frame(
-                i_frame,
-                cur_rgb_frame=cur_rgb_frame,
-                prev_rgb_frame=self.prev_rgb_frame,
-            )
 
             self.run_on_new_frame(
                 cur_rgb_frame=cur_rgb_frame,
                 i_frame=i_frame,
                 curr_tracks=curr_tracks,
                 alg_view_cropper=alg_view_cropper,
-                depth_estimator=self.depth_estimator,
+                depth_and_ego_estimator=self.depth_and_ego_estimator,
                 fps=fps,
                 draw_interval=self.draw_interval,
                 verbose_print_interval=self.verbose_print_interval,
@@ -183,7 +178,7 @@ class SlamAlgRunner:
             "scene_loader": self.scene_loader,
             "detections_tracker": self.detections_tracker,
             "alg_view_pix_normalizer": alg_view_pix_normalizer,
-            "depth_estimator": self.depth_estimator,
+            "depth_estimator": self.depth_and_ego_estimator,
             "online_est_track_world_loc": self.online_est_track_world_loc,
             "online_est_track_cam_loc": self.online_est_track_cam_loc,
             "online_est_salient_kp_world_loc": self.online_est_salient_kp_world_loc,
@@ -200,7 +195,7 @@ class SlamAlgRunner:
         i_frame: int,
         curr_tracks: dict,
         alg_view_cropper: RadialImageCropper | None,
-        depth_estimator: DepthAndEgoMotionLoader,
+        depth_and_ego_estimator: DepthAndEgoMotionLoader,
         fps: float,
         draw_interval: int,
         verbose_print_interval: int,
@@ -215,10 +210,7 @@ class SlamAlgRunner:
             curr_frame: the current RGB frame
             i_frame: the index of the current frame
             curr_tracks: the tracks in the current frame (bounding boxes)
-            curr_egomotion_est: the initially estimated egomotion of the camera between the current frame and the previous frame
-            cam_undistorter: the camera undistorter
             alg_view_cropper: the view cropper
-            depth_estimator: the depth estimator
             fps: the FPS of the video [Hz]
             draw_interval: the interval (in frames) in which to draw the results (0 for no drawing)
             verbose_print_interval: the interval (in frames) in which to print the results (0 for no printing)
@@ -238,6 +230,9 @@ class SlamAlgRunner:
         self.online_est_track_cam_loc.append({})
         self.online_est_track_angle.append({})
 
+        # get the current depth frame
+        depth_frame = depth_and_ego_estimator.get_depth_map_at_frame(frame_idx=i_frame, rgb_frame=cur_rgb_frame)
+
         #  Guess the cam pose for current frame, based on the last estimate and the egomotion estimation
         # note: for i_frame=0, the cam pose is not optimized, since it set as the frame of reference
         if i_frame > 0:
@@ -245,8 +240,10 @@ class SlamAlgRunner:
             prev_cam_pose = self.cam_poses[i_frame - 1, :]
             # Get the estimated cam pose change from the previous frame to the current frame (egomotion) w.r.t. the previous frame
             #  i.e., Egomotion_{i} = inv(Pose_{i-1}^{world}) @ Pose_i^{world}
-            curr_egomotion_est = depth_estimator.get_egomotions_at_frame(
+            curr_egomotion_est = depth_and_ego_estimator.get_egomotions_at_frame(
                 curr_frame_idx=i_frame,
+                cur_rgb_frame=cur_rgb_frame,
+                prev_rgb_frame=self.prev_rgb_frame,
             )
             # Get the estimated cam pose for the current frame (w.r.t. the world system)
             #  Pose_i^{world} = Pose_{i-1}^{world} @ Egomotion_{i}
@@ -372,9 +369,12 @@ class SlamAlgRunner:
             kp_nrm_of_new = torch.tensor(np.array(kp_nrm_of_new), device=self.device)
             # estimate the 3d points of the new KPs (using the depth estimator)
             # note: the depth estimator already process the frame index until the current frame, and saved the results in a buffer
-            z_depths_of_new = depth_estimator.get_z_depth_at_pixels(
-                queried_pix_nrm=kp_nrm_of_new,
-                frame_indexes=frame_inds_of_new,
+            z_depths_of_new = depth_and_ego_estimator.get_z_depth_at_pixels(
+                kp_norm_coords=kp_nrm_of_new,
+                kp_frame_inds=frame_inds_of_new,
+                cur_frame_idx=i_frame,
+                cur_depth_frame=depth_frame,
+                prev_depth_frame=self.prev_depth_frame,
             )
             new_p3d_est = unproject_image_normalized_coord_to_world(
                 points_nrm=kp_nrm_of_new,
@@ -438,6 +438,7 @@ class SlamAlgRunner:
         self.salient_KPs_A = salient_KPs_B
         self.descriptors_A = descriptors_B
         self.prev_rgb_frame = cur_rgb_frame
+        self.prev_depth_frame = depth_frame
         self.track_KPs_A = track_KPs_B
         self.tracks_in_frameA = tracks_in_frameB
 

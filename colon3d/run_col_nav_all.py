@@ -25,12 +25,11 @@ def main():
         help="The name of the dataset to run the algorithm on",
         default="TestData21",  # "TestData21" | "SanityCheck23"
     )
-
     parser.add_argument(
         "--results_name",
         type=str,
         help="The name of the results folder",
-        default="ColonNav_5thresh",
+        default="ColonNav",
     )
     parser.add_argument(
         "--overwrite_data",
@@ -41,7 +40,7 @@ def main():
     parser.add_argument(
         "--overwrite_results",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(

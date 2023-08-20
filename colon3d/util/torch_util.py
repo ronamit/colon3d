@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from skimage.transform import resize
+import torchvision
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -174,24 +174,14 @@ def pseudo_huber_loss_on_x_sqr(x_sqr, delta=1.0):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def resize_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
-    """Resizes a batch of images to a new size.
-        imgs: the input images [n_imgs x height x width x n_channels]
+def resize_grayscale_image(img: torch.Tensor, new_height: int, new_width: int) -> torch.Tensor:
+    """Resize grayscale image.
+        imgs: the input images [height x width]
         new_height: the new height
         new_width: the new width
-    Returns:
-        imgs: the resized images [n_imgs x new_height x new_width x n_channels]
     """
-    n_imgs = imgs.shape[0]
-    is_torch = isinstance(imgs, torch.Tensor)
-    if is_torch:
-        device = imgs.device
-        dtype = imgs.dtype
-    imgs = to_numpy(imgs)
-    imgs = np.array([resize(imgs[i], (new_height, new_width), anti_aliasing=True) for i in range(n_imgs)])
-    if is_torch:
-        imgs = torch.from_numpy(imgs).to(device=device, dtype=dtype)
-    return imgs
-
+    resizer = torchvision.transforms.Resize((new_height, new_width), antialias=True)
+    resized_img = resizer(img.unsqueeze(0)).squeeze(0)
+    return resized_img
 
 # --------------------------------------------------------------------------------------------------------------------

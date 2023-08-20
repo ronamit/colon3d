@@ -221,7 +221,7 @@ def run_slam_on_scene(
         alg_prm=alg_prm,
         scene_loader=scene_loader,
         detections_tracker=detections_tracker,
-        depth_estimator=depth_estimator,
+        depth_and_ego_estimator=depth_estimator,
         save_path=save_path,
         draw_interval=draw_interval,
     )
