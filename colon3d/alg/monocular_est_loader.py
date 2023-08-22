@@ -8,7 +8,7 @@ import torch
 from colon3d.alg.depth_and_ego_models import DepthModel, EgomotionModel
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.util.torch_util import get_device, to_default_type, to_numpy, to_torch
+from colon3d.util.torch_util import get_default_dtype, get_device, to_default_type, to_numpy, to_torch
 from colon3d.util.transforms_util import transform_rectilinear_image_norm_coords_to_pixel
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -131,14 +131,14 @@ class DepthAndEgoMotionLoader:
         if self.depth_maps_source == "none":
             # return the default depth map
             depth_map = torch.ones(*rgb_frame.shape[:2], device=get_device()) * self.depth_default
-            
+
         elif self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
             depth_map = self.depth_maps_buffer[buffer_idx]
-            
+
         elif self.depth_maps_source == "online_estimates":
             depth_map = self.depth_estimator.estimate_depth_maps(rgb_frame, is_singleton=True)
-            
+
         else:
             raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
         return depth_map
@@ -164,9 +164,10 @@ class DepthAndEgoMotionLoader:
             egomotion: the egomotion (units: mm, mm, mm, -, -, -, -)
         Notes: we assume process_new_frame was called before this function on this frame index.
         """
+        dtype = get_default_dtype()
         if self.egomotions_source == "none" or curr_frame_idx == 0:
             # default value = identity egomotion (no motion)
-            egomotion = torch.zeros((7), dtype=torch.float32, device=self.device)
+            egomotion = torch.zeros((7), dtype=dtype, device=self.device)
             egomotion[3:] = get_identity_quaternion()
 
         elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
@@ -186,7 +187,7 @@ class DepthAndEgoMotionLoader:
             egomotion = to_torch(egomotion)
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
-        
+
         else:
             raise ValueError(f"Unknown egomotions source: {self.egomotions_source}")
         return egomotion
@@ -220,7 +221,7 @@ class DepthAndEgoMotionLoader:
 
         if self.depth_maps_source == "none":
             return torch.ones((n_points), device=device, dtype=dtype) * self.depth_default
-            
+
         # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
         # that the depth estimation map was created with
         pixels_cord = transform_rectilinear_image_norm_coords_to_pixel(
@@ -240,9 +241,9 @@ class DepthAndEgoMotionLoader:
         kps_in_prev = kp_frame_inds == cur_frame_idx - 1
         assert kps_in_cur.sum() + kps_in_prev.sum() == n_points, "sanity check XOR should be true for all points"
         if np.any(kps_in_cur):
-            z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]]
+            z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]].to(dtype)
         if np.any(kps_in_prev):
-            z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]]
+            z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]].to(dtype)
 
         # clip the depth
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
@@ -261,5 +262,6 @@ class DepthAndEgoMotionLoader:
                 prev_rgb_frame=prev_rgb_frame,
             )
             prev_rgb_frame = cur_rgb_frame
+
 
 # --------------------------------------------------------------------------------------------------------------------

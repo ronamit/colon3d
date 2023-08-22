@@ -73,7 +73,6 @@ def main():
     )
     args = parser.parse_args()
     overwrite_results = args.overwrite_results
-    debug_mode = args.debug_mode
     test_dataset_name = args.test_dataset_name
     process_dataset_name = test_dataset_name
     results_name = args.results_name
@@ -83,7 +82,7 @@ def main():
 
     n_cases_lim = 0  # 0 no limit   # num cases to run the algorithm on
 
-    if debug_mode:
+    if args.debug_mode:
         n_cases_lim = 1  # num cases to run the algorithm on
         results_name = "_debug_" + results_name
         process_dataset_name = "_debug_" + process_dataset_name

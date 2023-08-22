@@ -1,11 +1,9 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_unified_results_table
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -45,41 +43,36 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed, results will be saved to a debug folder",
-    default=True,
+    default=False,
 )
 
 args = parser.parse_args()
 print(f"args={args}")
-debug_mode = args.debug_mode
-scenes_dataset_path_str = args.processed_dataset_path
-base_results_path_str = args.results_base_path
 
-if debug_mode:
+rand_seed = 0  # random seed for reproducibility
+# path to the raw data generate by the unity simulator:
+raw_sim_data_path = Path(args.raw_dataset_path)
+# path to save the processed scenes dataset:
+scenes_dataset_path = Path( args.processed_dataset_path)
+
+alg_settings_override_common = {}
+
+# base path to save the algorithm runs results:
+base_results_path = Path(args.results_base_path)
+# --------------------------------------------------------------------------------------------------------------------
+
+if args.debug_mode:
     limit_n_scenes = 1  # num scenes to import
     limit_n_frames = 100  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
-    scenes_dataset_path_str = "_debug_" + scenes_dataset_path_str
-    base_results_path_str = "_debug_" + base_results_path_str
+    scenes_dataset_path = scenes_dataset_path.parent / ("_debug_" + scenes_dataset_path.name)
+    base_results_path = base_results_path.parent / ("_debug_" + base_results_path.name)
     n_cases_lim = 1  # num cases to run the algorithm on
 else:
     limit_n_scenes = 0  # 0 means no limit
     limit_n_frames = 0  # 0 means no limit
     n_cases_per_scene = 5  # num cases to generate from each scene
     n_cases_lim = 0  # 0 means no limit
-
-# --------------------------------------------------------------------------------------------------------------------
-rand_seed = 0  # random seed for reproducibility
-# path to the raw data generate by the unity simulator:
-raw_sim_data_path = Path(args.raw_dataset_path)
-# path to save the processed scenes dataset:
-scenes_dataset_path = Path(base_results_path_str)
-
-alg_settings_override_common = {}
-
-# base path to save the algorithm runs results:
-base_results_path = Path(base_results_path_str)
-# --------------------------------------------------------------------------------------------------------------------
-
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -115,6 +108,7 @@ SlamOnDatasetRunner(
     alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()
+save_unified_results_table(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 # Bundle-adjustment, without monocular depth and egomotion estimation
@@ -126,6 +120,7 @@ SlamOnDatasetRunner(
     alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
+save_unified_results_table(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
 SlamOnDatasetRunner(
@@ -138,6 +133,7 @@ SlamOnDatasetRunner(
     alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
+save_unified_results_table(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
 SlamOnDatasetRunner(
@@ -150,22 +146,6 @@ SlamOnDatasetRunner(
     alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()
-# --------------------------------------------------------------------------------------------------------------------
-
-# save unified results table for all the runs:
-unified_results_table = pd.DataFrame()
-for results_path in base_results_path.glob("*"):
-    if results_path.is_dir():
-        cur_result_path = results_path / "metrics_summary.csv"
-        if not cur_result_path.exists():
-            continue
-        # load the current run results summary csv file:
-        run_results_summary = pd.read_csv(cur_result_path)
-        # add the run name to the results table:
-        unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
-# save the unified results table:
-file_path = base_results_path / "unified_results_table.csv"
-unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
-print(f"Saved unified results table to {file_path}")
+save_unified_results_table(base_results_path)
 
 # --------------------------------------------------------------------------------------------------------------------
