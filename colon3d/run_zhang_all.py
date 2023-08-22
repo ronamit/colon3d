@@ -22,7 +22,7 @@ parser.add_argument(
     "--results_name",
     type=str,
     help="The name of the results folder",
-    default="Zhang22_new",
+    default="Zhang22_v2",
 )
 
 parser.add_argument(
@@ -35,7 +35,7 @@ parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     help="If true, only one scene will be processed",
-    default=False,
+    default=True,
 )
 
 args = parser.parse_args()

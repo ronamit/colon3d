@@ -118,7 +118,7 @@ class SlamOnDatasetRunner:
     depth_maps_source: str = "none"
     egomotions_source: str = "none"
     depth_and_egomotion_method: str | None = None
-    depth_and_egomotion_model_path: Path | None = None
+    depth_and_egomotion_model_path: str | Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
     n_scenes_lim: int = 0
