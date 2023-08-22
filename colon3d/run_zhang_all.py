@@ -5,28 +5,38 @@ import pandas as pd
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, create_empty_folder
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg
 
 # --------------------------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 
 parser.add_argument(
-    "--test_dataset_name",
+    "--raw_dataset_path",
     type=str,
-    help="The name of the dataset to run the algorithm on",
-    default="Zhang22",
+    help="The path to the dataset to run the algorithm on",
+    default="/mnt/disk1/data/raw_sim_data/Zhang22",
 )
-
 parser.add_argument(
-    "--results_name",
+    "--processed_dataset_path",
     type=str,
-    help="The name of the results folder",
-    default="Zhang22_v2",
+    help="The path to save the processed dataset",
+    default="/mnt/disk1/data/sim_data/Zhang22",
 )
-
 parser.add_argument(
-    "--save_overwrite",
+    "--results_base_path",
+    type=str,
+    default="/mnt/disk1/results/Zhang22_v2",
+    help="Base path for the results",
+)
+parser.add_argument(
+    "--overwrite_data",
+    type=bool_arg,
+    default=True,
+    help="If True then the pre-processed data folders will be overwritten if they already exists",
+)
+parser.add_argument(
+    "--overwrite_results",
     type=bool_arg,
     default=True,
     help="If True then the save folders will be overwritten if they already exists",
@@ -34,50 +44,43 @@ parser.add_argument(
 parser.add_argument(
     "--debug_mode",
     type=bool_arg,
-    help="If true, only one scene will be processed",
+    help="If true, only one scene will be processed, results will be saved to a debug folder",
     default=True,
 )
 
 args = parser.parse_args()
 print(f"args={args}")
-save_overwrite = args.save_overwrite
 debug_mode = args.debug_mode
-
-# --------------------------------------------------------------------------------------------------------------------
-rand_seed = 0  # random seed for reproducibility
-test_dataset_name = args.test_dataset_name
-# path to the raw data generate by the unity simulator:
-raw_sim_data_path = Path(f"data/raw_sim_data/{test_dataset_name}")
-
-# path to save the processed scenes dataset:
-scenes_dataset_path = Path(f"data/sim_data/{test_dataset_name}")
-
-alg_settings_override_common = {}
-
-
-# base path to save the algorithm runs results:
-base_results_path = Path("results") / args.results_name
-print(f"base_results_path={base_results_path}")
-
-# --------------------------------------------------------------------------------------------------------------------
+scenes_dataset_path_str = args.processed_dataset_path
+base_results_path_str = args.results_base_path
 
 if debug_mode:
     limit_n_scenes = 1  # num scenes to import
     limit_n_frames = 100  # num frames to import from each scene
     n_cases_per_scene = 1  # num cases to generate from each scene
-    scenes_dataset_path = scenes_dataset_path / "debug"
-    base_results_path = base_results_path / "debug"
+    scenes_dataset_path_str = "_debug_" + scenes_dataset_path_str
+    base_results_path_str = "_debug_" + base_results_path_str
     n_cases_lim = 1  # num cases to run the algorithm on
 else:
     limit_n_scenes = 0  # 0 means no limit
     limit_n_frames = 0  # 0 means no limit
     n_cases_per_scene = 5  # num cases to generate from each scene
     n_cases_lim = 0  # 0 means no limit
+
+# --------------------------------------------------------------------------------------------------------------------
+rand_seed = 0  # random seed for reproducibility
+# path to the raw data generate by the unity simulator:
+raw_sim_data_path = Path(args.raw_dataset_path)
+# path to save the processed scenes dataset:
+scenes_dataset_path = Path(base_results_path_str)
+
+alg_settings_override_common = {}
+
+# base path to save the algorithm runs results:
+base_results_path = Path(base_results_path_str)
 # --------------------------------------------------------------------------------------------------------------------
 
-if save_overwrite:
-    create_empty_folder(base_results_path)
-    
+
 # --------------------------------------------------------------------------------------------------------------------
 
 # Importing a raw dataset of scenes from the unity simulator:
@@ -86,7 +89,7 @@ SimImporter(
     processed_sim_data_path=scenes_dataset_path,
     limit_n_scenes=limit_n_scenes,
     limit_n_frames=limit_n_frames,
-    save_overwrite=save_overwrite,
+    save_overwrite=args.overwrite_data,
     sim_name="Zhang22",
 ).run()
 
@@ -99,7 +102,7 @@ common_args = {
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
     "n_scenes_lim": n_cases_lim,
-    "save_overwrite": save_overwrite,
+    "save_overwrite": args.overwrite_results,
     "plot_aided_nav": False,
 }
 # --------------------------------------------------------------------------------------------------------------------
