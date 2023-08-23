@@ -28,7 +28,7 @@ def main():
         "--dataset_path",
         type=str,
         default="/mnt/disk1/data/sim_data/TestData21",
-        help="Path to the dataset of scenes.",
+        help="Path to the dataset of scenes (not raw data, i.e., output of run_data_prep.py ).",
     )
     parser.add_argument(
         "--results_base_path",

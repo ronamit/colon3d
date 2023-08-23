@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from colon3d.examine_depths import DepthExaminer
-from colon3d.sim_import.sim_importer import SimImporter
+from colon3d.sim_import.import_sim_dataset import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml
 from endo_sfm.train import TrainRunner
 from endo_sfm.utils import save_model_info
@@ -12,6 +12,12 @@ from endo_sfm.utils import save_model_info
 # --------------------------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+parser.add_argument(
+    "--train_dataset_path",
+    type=str,
+    default="/mnt/disk1/data/sim_data/TestData21",
+    help="Path to the dataset of scenes (not raw data, i.e., output of import_sim_dataset.py.py ).",
+)
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
