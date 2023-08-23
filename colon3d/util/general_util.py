@@ -507,7 +507,7 @@ def save_unified_results_table(base_results_path: Path):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def delete_empty_results_dirs(base_results_path: Path):
+def delete_incomplete_run_dirs(base_results_path: Path):
     for results_path in base_results_path.glob("*"):
         if results_path.is_dir():
             cur_result_path = results_path / "metrics_summary.csv"

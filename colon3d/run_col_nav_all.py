@@ -6,7 +6,7 @@ from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
     bool_arg,
-    delete_empty_results_dirs,
+    delete_incomplete_run_dirs,
     save_run_info,
     save_unified_results_table,
 )
@@ -14,7 +14,7 @@ from colon3d.util.general_util import (
 # --------------------------------------------------------------------------------------------------------------------
 """ Notes:
 * Run run_data_prep.py first to generate the dataset of cases with randomly generated targets added to the original scenes.
-* You can run several instances of this script in parallel, if setting  delete_empty_results_dirs == False, overwrite_results == False.
+* You can run several instances of this script in parallel, if setting  delete_incomplete_run_dirs == False, overwrite_results == False.
 # *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
@@ -48,7 +48,7 @@ def main():
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(
-        "--delete_empty_results_dirs",
+        "--delete_incomplete_run_dirs",
         type=bool_arg,
         default=False,
         help="If True then empty results folders will be deleted",
@@ -81,8 +81,8 @@ def main():
         save_run_info(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
 
-        if args.delete_empty_results_dirs:
-            delete_empty_results_dirs(base_results_path)
+        if args.delete_incomplete_run_dirs:
+            delete_incomplete_run_dirs(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # save summary of existing results:
         save_unified_results_table(base_results_path)
