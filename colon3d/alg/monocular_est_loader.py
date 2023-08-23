@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from colon3d.alg.depth_and_ego_models import DepthModel, EgomotionModel
-from colon3d.util.data_util import SceneLoader
+from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon3d.util.torch_util import get_default_dtype, get_device, to_default_type, to_numpy, to_torch
 from colon3d.util.transforms_util import transform_rectilinear_image_norm_coords_to_pixel
@@ -39,7 +39,7 @@ class DepthAndEgoMotionLoader:
                 if 'loaded_estimates' then the egomotion estimations will be loaded,
                 if 'none' then no egomotion will not be used,
         """
-        self.scene_path = scene_path
+        self.orig_scene_path = get_origin_scene_path(scene_path)
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
         self.depth_lower_bound = depth_lower_bound if depth_lower_bound is not None else 1e-2
@@ -94,7 +94,7 @@ class DepthAndEgoMotionLoader:
 
     def init_loaded_egomotions(self, egomotions_file_name: str):
         # load the pre-computed egomotions into buffer
-        with h5py.File((self.scene_path / egomotions_file_name).resolve(), "r") as h5f:
+        with h5py.File((self.orig_scene_path / egomotions_file_name).resolve(), "r") as h5f:
             self.egomotions_buffer = to_default_type(h5f["egomotions"][:])  # load all into memory
         n_frames = self.egomotions_buffer.shape[0]
         self.egomotions_buffer_frame_inds = list(range(n_frames))
@@ -102,9 +102,9 @@ class DepthAndEgoMotionLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def init_loaded_depth(self, depth_maps_file_name: str, depth_info_file_name: str):
         """Load the pre-computed depth maps into buffer."""
-        self.depth_maps_path = self.scene_path / depth_maps_file_name
+        self.depth_maps_path = self.orig_scene_path / depth_maps_file_name
         # load the depth estimation info\metadata
-        with (self.scene_path / depth_info_file_name).open("rb") as file:
+        with (self.orig_scene_path / depth_info_file_name).open("rb") as file:
             self.depth_info = to_numpy(pickle.load(file))
         # load the depth maps
         with h5py.File(self.depth_maps_path.resolve(), "r") as h5f:
