@@ -17,19 +17,19 @@ def main():
     parser.add_argument(
         "--example_path",
         type=str,
-        default="data/my_videos/Example_4",
+        default="/mnt/disk1/data/my_videos/Example_4",
         help="path to the video",
     )
     parser.add_argument(
         "--results_path",
         type=str,
-        default="data/my_videos/Example_4/Results",
+        default="/mnt/disk1/data/my_videos/Example_4/Results",
         help="path to the SLAM algorithm outputs",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/my_videos/Example_4/Results/Show",
+        default="/mnt/data/my_videos/Example_4/Results/Show",
         help="path to the save outputs",
     )
 

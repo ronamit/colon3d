@@ -8,7 +8,7 @@ from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.torch_util import np_func, to_torch
 from colon3d.util.transforms_util import compose_poses, get_identity_pose, get_pose_delta
 
-scene_path = Path("data/sim_data/TestData21_cases/Scene_00000_0000")
+scene_path = Path("/mnt/disk1/data/sim_data/TestData21_cases/Scene_00000_0000")
 
 scene_loader = SceneLoader(scene_path=scene_path, n_frames_lim=0, alg_fov_ratio=0)
 detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)

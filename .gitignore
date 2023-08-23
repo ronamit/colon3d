@@ -1,19 +1,9 @@
 
 
-data/*
-colon3d/__pycache__/*
-Undistort_LUTs/*
-colon3d/visuals/__pycache__/*
-colon3d/import_from_sim/__pycache__/*
+
 build/lib/*
-colon3d.egg-info
 checkpoints/*
-colon3d/Undistort_LUTs/*
 .DS_Store
-.vscode/settings.json
-saved_models/*
-results/*
-/results
 
 
 #  Byte-compiled / optimized / DLL files

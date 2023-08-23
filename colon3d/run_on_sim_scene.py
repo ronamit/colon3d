@@ -23,13 +23,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data/sim_data/TestData21_cases/Scene_00000_0000",  # "data/sim_data/Zhang22/Scene_00000"
+        default="/mnt/disk1/data/sim_data/TestData21_cases/Scene_00000_0000",  # "data/sim_data/Zhang22/Scene_00000"
         help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/Temp/temp1",
+        default="/mnt/disk1/results/Temp/temp1",
         help="Path to the save outputs",
     )
     parser.add_argument(

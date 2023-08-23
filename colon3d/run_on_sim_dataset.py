@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="results/Temp/temp_on_sim_dataset",
+        default="/mnt/disk1/results/Temp/temp_on_sim_dataset",
         help="path to the save outputs",
     )
     parser.add_argument(
