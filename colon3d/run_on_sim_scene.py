@@ -10,7 +10,7 @@ from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.slam_alg import SlamAlgRunner
 from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.show_slam_out import save_slam_out_plots
-from colon3d.util.data_util import SceneLoader
+from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.util.torch_util import to_default_type
@@ -171,6 +171,7 @@ class SlamOnSimSceneRunner:
 
 
 def run_slam_on_scene(
+    scene_name: str,
     scene_path: Path,
     save_path: Path,
     save_raw_outputs: bool,
@@ -247,7 +248,8 @@ def run_slam_on_scene(
         print("No targets info file found...")
 
     # load the  ground-truth egomotions per frame (for evaluation)
-    gt_data_path = scene_path / "gt_3d_data.h5"
+    origin_scene_path = get_origin_scene_path(scene_path)
+    gt_data_path = origin_scene_path / "gt_3d_data.h5"
     with h5py.File(gt_data_path.resolve(), "r") as hf:
         gt_cam_poses = to_default_type(hf["cam_poses"][:])  # load the ground-truth camera poses into memory
 
@@ -257,7 +259,7 @@ def run_slam_on_scene(
         gt_targets_info=gt_targets_info,
         slam_out=slam_out,
     )
-    metrics_stats["Example Name"] = scene_path.name
+    metrics_stats["Example Name"] = scene_name
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
 
     print(f"Error metrics stats: {metrics_stats}")

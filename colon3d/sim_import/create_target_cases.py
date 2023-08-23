@@ -1,5 +1,4 @@
 import argparse
-import json
 import pickle
 from pathlib import Path
 
@@ -9,6 +8,7 @@ import yaml
 from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
+from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, to_str
 from colon3d.util.rotations_util import get_random_rot_quat
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
@@ -27,12 +27,6 @@ def main():
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
-        "--path_to_save_cases",
-        type=str,
-        default="data/sim_data/SimData18_cases",
-        help="The path to the folder where the generated scenes with targets will be saved",
-    )
-    parser.add_argument(
         "--n_cases_per_scene",
         type=int,
         default=5,
@@ -42,9 +36,8 @@ def main():
 
     args = parser.parse_args()
     print(f"args={args}")
-    cases_creator = CasesCreator(
+    cases_creator = TargetCasesCreator(
         sim_data_path=args.sim_data_path,
-        path_to_save_cases=args.path_to_save_cases,
         n_cases_per_scene=args.n_cases_per_scene,
         rand_seed=args.rand_seed,
     )
@@ -54,15 +47,112 @@ def main():
 # --------------------------------------------------------------------------------------------------------------------
 
 
+class TargetCasesCreator:
+    def __init__(
+        self,
+        sim_data_path: str,
+        n_cases_per_scene: int = 5,
+        rand_seed: int = 0,
+        min_pixels_in_bb: int = 20,
+        min_target_radius_mm: float = 1.0,
+        max_target_radius_mm: float = 3.0,
+        max_dist_from_center_ratio: float = 1.0,
+        min_dist_from_center_ratio: float = 0.0,
+        min_visible_frames: int = 5,
+        min_non_visible_frames: int = 20,
+        min_initial_pixels_in_bb: int = 20,
+        simulate_depth_and_egomotion_estimation: bool = False,
+        depth_noise_std_mm: float = 0.0,
+        cam_motion_loc_std_mm: float = 0.0,
+        cam_motion_rot_std_deg: float = 0.0,
+        save_overwrite: bool = True,
+    ):
+        """Create cases with random targets (polyps) for each scene in the dataset.
+            The target cases of each scene are saved in a subfolder of the scene folder.
+        Args:
+            sim_data_path: The path to the folder with processed simulated scenes to load.
+            n_cases_per_scene: The number of cases with random targets to generate from each scene (with random polyp locations, estimation noise etc.).
+            rand_seed: The random seed.
+            min_pixels_in_bb: The minimum number of pixels in the bounding box of a target detection.
+            min_target_radius_mm: The minimum radius of the simulated targets (polyps).
+            max_target_radius_mm: The maximum radius of the simulated targets (polyps).
+            max_dist_from_center_ratio: The maximum distance of the polyp from the center of the image (in ratio to the image size).
+            min_dist_from_center_ratio: The minimum distance of the polyp from the center of the image (in ratio to the image size).
+            min_visible_frames: The minimum number of frames that the polyp is visible in the scene.
+            min_non_visible_frames: The minimum number of frames that the polyp is not visible in the scene.
+            min_initial_pixels_in_bb: The minimum number of pixels in the bounding box of the first detection of the polyp.
+            simulate_depth_and_egomotion_estimation: If True, the depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.
+            depth_noise_std_mm: The standard deviation of the noise to add to the depth maps (in mm).
+            cam_motion_loc_std_mm: The standard deviation of the noise to add to the camera location (in mm).
+            cam_motion_rot_std_deg: The standard deviation of the noise to add to the camera rotation (in degrees).
+            save_overwrite: If True, the existing folder with the generated cases will be overwritten.
+        Returns:
+            None
+        """
+
+        self.sim_data_path = Path(sim_data_path)
+        self.save_overwrite = save_overwrite
+        self.rand_seed = rand_seed
+        self.n_cases_per_scene = n_cases_per_scene
+        self.cases_params = {
+            "simulate_depth_and_egomotion_estimation": simulate_depth_and_egomotion_estimation,
+            "rand_seed": self.rand_seed,
+            "n_cases_per_scene": n_cases_per_scene,
+            "min_target_radius_mm": min_target_radius_mm,
+            "max_target_radius_mm": max_target_radius_mm,
+            "max_dist_from_center_ratio": max_dist_from_center_ratio,
+            "min_dist_from_center_ratio": min_dist_from_center_ratio,
+            "min_visible_frames": min_visible_frames,
+            "min_non_visible_frames": min_non_visible_frames,
+            "min_initial_pixels_in_bb": min_initial_pixels_in_bb,
+            "min_pixels_in_bb": min_pixels_in_bb,
+        }
+        if simulate_depth_and_egomotion_estimation:
+            print(
+                "The depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.",
+            )
+            self.cases_params = self.cases_params | {
+                "depth_noise_std_mm": depth_noise_std_mm,
+                "cam_motion_loc_std_mm": cam_motion_loc_std_mm,
+                "cam_motion_rot_std_deg": cam_motion_rot_std_deg,
+            }
+
+    # ----------------------------------------------------------------------------------------------------------------
+
+    def run(self):
+        rng = default_rng(self.rand_seed)
+
+        print("The simulated scenes will be be loaded from: ", self.sim_data_path)
+        scenes_paths_list = get_all_scenes_paths_in_dir(self.sim_data_path, with_targets=False)
+        print(f"Found {len(scenes_paths_list)} scenes.")
+        for scene_path in scenes_paths_list:
+            generate_cases_from_scene(
+                scene_path=scene_path,
+                n_cases_per_scene=self.n_cases_per_scene,
+                cases_params=self.cases_params,
+                save_overwrite=self.save_overwrite,
+                rng=rng,
+            )
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 def generate_cases_from_scene(
     scene_path: Path,
     n_cases_per_scene: int,
     cases_params: dict,
-    path_to_save_cases: Path,
+    save_overwrite: bool,
     rng,
     save_images_of_tracks: bool = False,
 ):
     print(f"Generating cases from scene {scene_path}")
+    assert scene_path.is_dir() and scene_path.name.startswith("Scene_"), "Invalid scene path"
+    path_to_save_cases = scene_path / "Target_Cases"
+    is_created = create_empty_folder(path_to_save_cases, save_overwrite=save_overwrite)
+    if not is_created:
+        print(f"{path_to_save_cases} already exists, skipping...\n" + "-" * 50)
+        return
 
     # load the ground truth depth maps and camera poses:
     with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
@@ -77,7 +167,7 @@ def generate_cases_from_scene(
 
     for i_case in range(n_cases_per_scene):
         scene_name = scene_path.name
-        case_name = f"{scene_name}_{i_case:04d}"
+        case_name = f"Case_{i_case:04d}"
         print(f"Generating case {i_case+1}/{n_cases_per_scene} for scene {scene_name}")
         # Attempt to generate valid targets (static 3D balls in the world, with random radius and position on the surface of the colon wall)
         n_targets = 1  # we currently want only one tracked object
@@ -97,20 +187,7 @@ def generate_cases_from_scene(
         # create subfolder for the case:
         case_path = path_to_save_cases / case_name
         create_empty_folder(case_path)
-        print(
-            f"Generating cases {i_case+1}/{n_cases_per_scene} for scene {scene_name} to save in {case_path}",
-            flush=True,
-        )
-        # create symbolic links in the case folder:
-        for file_name in [
-            "meta_data.yaml",
-            "Video.mp4",
-            "gt_depth_info.pkl",
-            "gt_3d_data.h5",
-            "RGB_Frames",
-            "gt_depth_video.mp4",
-        ]:
-            (case_path / file_name).symlink_to((scene_path / file_name).resolve())
+        print(f"Generating cases {i_case+1}/{n_cases_per_scene} for scene {scene_name} to save in {case_path}")
 
         if cases_params["simulate_depth_and_egomotion_estimation"]:
             print("Generating egomotion and depth estimations")
@@ -156,7 +233,7 @@ def generate_cases_from_scene(
 
         # save video with the tracks bounding boxes (for visualization)
         save_video_with_tracks(
-            frames_folder_path=case_path / "RGB_Frames",
+            frames_folder_path=scene_path / "RGB_Frames",
             tracks=tracks,
             path_to_save=case_path / "Video_with_tracks",
             fps=fps,
@@ -164,7 +241,7 @@ def generate_cases_from_scene(
         # save frames with the tracks bounding boxes (for visualization)
         if save_images_of_tracks:
             save_frames_with_tracks(
-                frames_folder_path=case_path / "RGB_Frames",
+                frames_folder_path=scene_path / "RGB_Frames",
                 tracks=tracks,
                 path_to_save=case_path / "Frames_with_tracks",
             )
@@ -207,110 +284,6 @@ def get_egomotion_and_depth_estimations(
 
 # --------------------------------------------------------------------------------------------------------------------
 
-# --------------------------------------------------------------------------------------------------------------------
-
-
-class CasesCreator:
-    def __init__(
-        self,
-        sim_data_path: str,
-        path_to_save_cases: str,
-        n_cases_per_scene: int = 5,
-        rand_seed: int = 0,
-        min_pixels_in_bb: int = 20,
-        min_target_radius_mm: float = 1.0,
-        max_target_radius_mm: float = 3.0,
-        max_dist_from_center_ratio: float = 1.0,
-        min_dist_from_center_ratio: float = 0.0,
-        min_visible_frames: int = 5,
-        min_non_visible_frames: int = 20,
-        min_initial_pixels_in_bb: int = 20,
-        simulate_depth_and_egomotion_estimation: bool = False,
-        depth_noise_std_mm: float = 0.0,
-        cam_motion_loc_std_mm: float = 0.0,
-        cam_motion_rot_std_deg: float = 0.0,
-        save_overwrite: bool = True,
-    ):
-        """Create cases with random targets (polyps) for each scene in the dataset.
-        Args:
-            sim_data_path: The path to the folder with processed simulated scenes to load.
-            path_to_save_cases: The path to the folder where the generated scenes with targets will be saved.
-            n_cases_per_scene: The number of cases with random targets to generate from each scene (with random polyp locations, estimation noise etc.).
-            rand_seed: The random seed.
-            min_pixels_in_bb: The minimum number of pixels in the bounding box of a target detection.
-            min_target_radius_mm: The minimum radius of the simulated targets (polyps).
-            max_target_radius_mm: The maximum radius of the simulated targets (polyps).
-            max_dist_from_center_ratio: The maximum distance of the polyp from the center of the image (in ratio to the image size).
-            min_dist_from_center_ratio: The minimum distance of the polyp from the center of the image (in ratio to the image size).
-            min_visible_frames: The minimum number of frames that the polyp is visible in the scene.
-            min_non_visible_frames: The minimum number of frames that the polyp is not visible in the scene.
-            min_initial_pixels_in_bb: The minimum number of pixels in the bounding box of the first detection of the polyp.
-            simulate_depth_and_egomotion_estimation: If True, the depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.
-            depth_noise_std_mm: The standard deviation of the noise to add to the depth maps (in mm).
-            cam_motion_loc_std_mm: The standard deviation of the noise to add to the camera location (in mm).
-            cam_motion_rot_std_deg: The standard deviation of the noise to add to the camera rotation (in degrees).
-            save_overwrite: If True, the existing folder with the generated cases will be overwritten.
-        Returns:
-            None
-        """
-
-        self.sim_data_path = Path(sim_data_path)
-        self.path_to_save_cases = Path(path_to_save_cases)
-        self.save_overwrite = save_overwrite
-        self.rand_seed = rand_seed
-        self.n_cases_per_scene = n_cases_per_scene
-        self.cases_params = {
-            "simulate_depth_and_egomotion_estimation": simulate_depth_and_egomotion_estimation,
-            "rand_seed": self.rand_seed,
-            "n_cases_per_scene": n_cases_per_scene,
-            "min_target_radius_mm": min_target_radius_mm,
-            "max_target_radius_mm": max_target_radius_mm,
-            "max_dist_from_center_ratio": max_dist_from_center_ratio,
-            "min_dist_from_center_ratio": min_dist_from_center_ratio,
-            "min_visible_frames": min_visible_frames,
-            "min_non_visible_frames": min_non_visible_frames,
-            "min_initial_pixels_in_bb": min_initial_pixels_in_bb,
-            "min_pixels_in_bb": min_pixels_in_bb,
-        }
-        if simulate_depth_and_egomotion_estimation:
-            print(
-                "The depth maps and camera egomotion estimations will be simulated by adding noise to the ground-truth.",
-            )
-            self.cases_params = self.cases_params | {
-                "depth_noise_std_mm": depth_noise_std_mm,
-                "cam_motion_loc_std_mm": cam_motion_loc_std_mm,
-                "cam_motion_rot_std_deg": cam_motion_rot_std_deg,
-            }
-
-    # ----------------------------------------------------------------------------------------------------------------
-
-    def run(self):
-        is_created = create_empty_folder(self.path_to_save_cases, save_overwrite=self.save_overwrite)
-        if not is_created:
-            print(f"{self.path_to_save_cases} already exists...\n" + "-" * 50)
-            return
-        print(f"The generated cases will be saved to {self.path_to_save_cases}")
-        rng = default_rng(self.rand_seed)
-
-        print("The simulated scenes will be be loaded from: ", self.sim_data_path)
-        scenes_paths_list = [
-            scene_path
-            for scene_path in self.sim_data_path.iterdir()
-            if scene_path.is_dir() and scene_path.name.startswith("Scene_")
-        ]
-        scenes_paths_list.sort()
-        print(f"Found {len(scenes_paths_list)} scenes.")
-        for scene_path in scenes_paths_list:
-            generate_cases_from_scene(
-                scene_path=scene_path,
-                n_cases_per_scene=self.n_cases_per_scene,
-                cases_params=self.cases_params,
-                path_to_save_cases=self.path_to_save_cases,
-                rng=rng,
-            )
-        # save the cases parameters to a json file:
-        with (self.path_to_save_cases / "cases_prams.json").open("w") as file:
-            json.dump(self.cases_params, file, indent=4)
 # ---------------------------------------------------------------------------------------------------------------------
 
 

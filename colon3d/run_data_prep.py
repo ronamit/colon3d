@@ -1,22 +1,15 @@
 import argparse
 from pathlib import Path
 
-from colon3d.sim_import.create_target_cases import CasesCreator
+from colon3d.sim_import.create_target_cases import TargetCasesCreator
 from colon3d.sim_import.sim_importer import SimImporter
-from colon3d.util.general_util import (
-    ArgsHelpFormatter,
-    Tee,
-    bool_arg,
-    delete_empty_results_dirs,
-    save_run_info,
-)
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg
 
 # -------------------------------------------------------------------------------------
 
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
-
     parser.add_argument(
         "--test_dataset_name",
         type=str,
@@ -29,14 +22,12 @@ def main():
         default="/mnt/disk1/data",
         help="Base path for the data",
     )
-
     parser.add_argument(
         "--overwrite_data",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the pre-processed data folders will be overwritten if they already exists",
     )
-
     parser.add_argument(
         "--debug_mode",
         type=bool_arg,
@@ -53,8 +44,7 @@ def main():
     overwrite_data = args.overwrite_data
     debug_mode = args.debug_mode
     test_dataset_name = args.test_dataset_name
-    process_dataset_name = test_dataset_name
-    results_name = args.results_name
+    processed_dataset_name = test_dataset_name
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -66,8 +56,7 @@ def main():
         limit_n_scenes = 1  # num scenes to import
         limit_n_frames = 100  # num frames to import from each scene (note - use at least 100 so it will be possible to get a track that goes out of view)
         n_cases_per_scene = 1  # num cases to generate from each scene
-        results_name = "_debug_" + results_name
-        process_dataset_name = "_debug_" + process_dataset_name
+        processed_dataset_name = "_debug_" + processed_dataset_name
 
     # --------------------------------------------------------------------------------------------------------------------
     rand_seed = 0  # random seed for reproducibility
@@ -78,27 +67,14 @@ def main():
     raw_sim_data_path = data_base_path / "raw_sim_data" / test_dataset_name
 
     # path to save the processed scenes dataset:
-    scenes_dataset_path = data_base_path / "sim_data" / process_dataset_name
-
-    # path to save the dataset of cases with randomly generated targets added to the original scenes:
-    scenes_cases_dataset_path = data_base_path / "sim_data" / f"{process_dataset_name}_cases"
-
-    # base path to save the algorithm runs results:
-    base_results_path = Path(args.results_base_path) / results_name
+    scenes_dataset_path = data_base_path / "sim_data" / processed_dataset_name
 
     # in sanity check mode we generate easy cases for sanity check (the target may always be visible)
     min_non_visible_frames = 0 if args.easy_cases_mode else 20
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    with Tee(base_results_path / "log.txt"):  # save the prints to a file
-        save_run_info(base_results_path)
-        # --------------------------------------------------------------------------------------------------------------------
-
-        if args.delete_empty_results_dirs:
-            delete_empty_results_dirs(base_results_path)
-        # --------------------------------------------------------------------------------------------------------------------
-
+    with Tee(scenes_dataset_path / "log.txt"):  # save the prints to a file
         # Importing a raw dataset of scenes from the unity simulator:
         SimImporter(
             raw_sim_data_path=raw_sim_data_path,
@@ -111,9 +87,8 @@ def main():
         # --------------------------------------------------------------------------------------------------------------------
 
         # Generate several cases from each scene, each with randomly chosen target location and size.
-        CasesCreator(
+        TargetCasesCreator(
             sim_data_path=scenes_dataset_path,
-            path_to_save_cases=scenes_cases_dataset_path,
             n_cases_per_scene=n_cases_per_scene,
             min_non_visible_frames=min_non_visible_frames,
             rand_seed=rand_seed,

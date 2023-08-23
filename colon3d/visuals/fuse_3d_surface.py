@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation as spat_rot
 
-from colon3d.util.data_util import SceneLoader
+from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter
 from colon3d.util.torch_util import to_default_type
 from tsdf_fusion import fusion
@@ -54,7 +54,7 @@ def main():
     end_frame = args.end_frame
     frames_tp_plot = list(range(start_frame, end_frame))
     n_frames = len(frames_tp_plot)
-    example_path = Path(args.example_path)
+    example_path = get_origin_scene_path(Path(args.example_path))
 
     scene_loader = SceneLoader(
         scene_path=example_path,

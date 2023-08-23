@@ -3,11 +3,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.util.general_util import save_plot_and_close
 from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.util.torch_util import np_func, to_numpy
-from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import (
     compose_poses,
     find_rigid_registration,
@@ -244,7 +244,7 @@ def calc_nav_aid_metrics(
                 # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
                 gt_angle_rad = np.arctan2(gt_p3d_cam[1], gt_p3d_cam[0])  # [rad]
                 # est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
-                est_angle_rad = online_est_track_angle[i][track_id]   # [rad]
+                est_angle_rad = online_est_track_angle[i][track_id]  # [rad]
 
                 gt_angle_deg = np.rad2deg(gt_angle_rad)  # [deg] in the range [-180, 180]
                 est_angle_deg = np.rad2deg(est_angle_rad)  # [deg] in the range [-180, 180]

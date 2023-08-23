@@ -2,11 +2,19 @@ import argparse
 from pathlib import Path
 
 import attrs
-import numpy as np
 import pandas as pd
 
 from colon3d.run_on_sim_scene import run_slam_on_scene
-from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, get_time_now_str, to_path
+from colon3d.util.data_util import get_all_scenes_paths_in_dir, get_full_scene_name
+from colon3d.util.general_util import (
+    ArgsHelpFormatter,
+    Tee,
+    bool_arg,
+    compute_metrics_statistics,
+    create_empty_folder,
+    get_time_now_str,
+    to_path,
+)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -16,7 +24,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/TestData21_cases",
+        default="/mnt/disk1/data/sim_data/TestData21_cases",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
@@ -132,13 +140,15 @@ class SlamOnDatasetRunner:
         self.dataset_path = Path(self.dataset_path)
         self.save_path = Path(self.save_path)
         assert self.dataset_path.exists(), f"dataset_path={self.dataset_path} does not exist"
-        is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
-        if not is_created:
-            print(f"{self.save_path} already exists.. " + "-" * 50)
-            return
+        if self.save_path.exists():
+            print(f"save_path={self.save_path} already exists...")
+            if self.save_overwrite:
+                print("Removing the existing results...")
+                create_empty_folder(self.save_path, save_overwrite=True)
+
         print(f"Outputs will be saved to {self.save_path}")
-        scenes_paths = list(self.dataset_path.glob("Scene_*"))
-        scenes_paths.sort()
+        scenes_paths = get_all_scenes_paths_in_dir(dataset_path=self.dataset_path, with_targets=True)
+
         if self.n_scenes_lim:
             scenes_paths = scenes_paths[: self.n_scenes_lim]
         n_scenes = len(scenes_paths)
@@ -149,15 +159,27 @@ class SlamOnDatasetRunner:
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # function to run the SLAM algorithm per scene
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            def run_on_scene(i_scene: int):
+            def run_on_scene(i_scene: int) -> dict:
                 scene_path = scenes_paths[i_scene]
-                save_path = self.save_path / scene_path.name
+                scene_name = get_full_scene_name(scene_path)
+                save_path = self.save_path / scene_name
+
+                # if the scene was already completed then skip it (if save_overwrite=True it was already removed)
+                if save_path.exists():
+                    print(f"save_path={save_path} already exists...")
+                    is_completed = (save_path / "metrics_summary.csv").exists()
+                    if is_completed:
+                        metrics_stats = pd.read_csv(save_path / "metrics_summary.csv").to_dict(orient="records")[0]
+                        print(f"Scene {i_scene + 1} out of {n_scenes} already completed, skipping...")
+                        return metrics_stats
+                    print("The scene was not completed, removing the existing results...")
                 print(
                     "-" * 100
                     + f"\nTime: {get_time_now_str()}\nRunning SLAM on scene {i_scene + 1} out of {n_scenes}, results will be saved to {save_path}...\n"
                     + "-" * 100,
                 )
-                save_path = Path(self.save_path) / scene_path.name
+                
+                # create the save folder
                 create_empty_folder(save_path, save_overwrite=True)
 
                 # result plots to save
@@ -165,6 +187,7 @@ class SlamOnDatasetRunner:
 
                 # run the SLAM algorithm on the current scene
                 _, metrics_stats = run_slam_on_scene(
+                    scene_name=scene_name,
                     scene_path=scene_path,
                     save_path=save_path,
                     save_raw_outputs=self.save_raw_outputs,
@@ -201,15 +224,7 @@ class SlamOnDatasetRunner:
             print(f"Error metrics table saved to {self.save_path / 'err_table.csv'}")
 
             # compute statistics over all scenes
-            numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
-            metrics_summary = {}
-            for col in numeric_columns:
-                mean_val = np.nanmean(metrics_table[col])  # ignore nan values
-                std_val = np.nanstd(metrics_table[col])
-                n_scenes = np.sum(~np.isnan(metrics_table[col]))
-                confidence_interval = 1.96 * std_val / np.sqrt(max(n_scenes, 1))  # 95% confidence interval
-                metrics_summary[col] = f"{mean_val:.4f} +- {confidence_interval:.4f}"
-
+            metrics_summary = compute_metrics_statistics(metrics_table)
             print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
             # save to csv file
             metrics_summary = {"save_path": str(self.save_path), "run_name": self.save_path.name} | metrics_summary

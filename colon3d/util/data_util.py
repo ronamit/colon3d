@@ -30,24 +30,26 @@ class SceneLoader:
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
         self.scene_path = Path(scene_path)
+        # get the path to the original scene
+        self.origin_scene_path = get_origin_scene_path(self.scene_path)
 
-        if (self.scene_path / "RGB_Frames").is_dir():
-            self.rgb_frames_path = self.scene_path / "RGB_Frames"
+        if (self.origin_scene_path / "RGB_Frames").is_dir():
+            self.rgb_frames_path = self.origin_scene_path / "RGB_Frames"
             self.image_files_paths = sorted(
-                Path(self.scene_path / "RGB_Frames").glob("*.png"),
+                Path(self.origin_scene_path / "RGB_Frames").glob("*.png"),
                 key=lambda path: int(path.stem),
             )
             self.rgb_source = "Images"
         else:
-            self.video_path = self.scene_path / "Video.mp4"
+            self.video_path = self.origin_scene_path / "Video.mp4"
             assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
             self.rgb_source = "Video"
 
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
-        metadata_path = self.scene_path / "meta_data.yaml"
+        metadata_path = self.origin_scene_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
-        with (self.scene_path / "meta_data.yaml").open() as file:
+        with (self.origin_scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         if fps is None:
             fps = metadata["fps"]
@@ -116,7 +118,7 @@ class SceneLoader:
 
     def frames_generator(self, color_type="RGB", frame_type="alg_input"):
         if self.rgb_source == "Video":
-            video_path = Path(self.scene_path) / "Video.mp4"
+            video_path = Path(self.origin_scene_path) / "Video.mp4"
             try:
                 vidcap = cv2.VideoCapture(str(video_path))
                 i_frame = 0
@@ -227,3 +229,51 @@ class RadialImageCropper:
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
+
+def get_all_scenes_paths_in_dir(dataset_path: Path, with_targets: bool):
+    """Get a list of all the scenes paths in the dataset.
+    Args:
+        dataset_path: path to the dataset folder
+        with_targets: if True, then return a list of all the target cases in the subfolder of each scene in the dataset.
+            Otherwise, return a list of all the scenes in the dataset.
+    Note: if no case targets are available for some scene, then the scene itself is returned.
+    """
+    out_paths = []
+    origin_scenes_paths = list(dataset_path.glob("Scene_*"))
+    origin_scenes_paths.sort()
+    for scene_path in origin_scenes_paths:
+        if with_targets and (scene_path / "Target_Cases").is_dir():
+            cases_paths = list((scene_path / "Target_Cases").glob("Case_*"))
+            out_paths += cases_paths
+        else:
+            out_paths.append(scene_path)
+    return out_paths
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def is_target_case(scene_path: Path):
+    return scene_path.name.startswith("Case_")
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_origin_scene_path(scene_path: Path):
+    """get the path to the original scene folder"""
+    return scene_path.parent.parent if is_target_case(scene_path) else scene_path
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_full_scene_name(scene_path: Path):
+    """get the full name of the scene (if it is a Case_* dir, then include the name of the origin scene)"""
+    if is_target_case(scene_path):
+        return get_origin_scene_path(scene_path).name + "_" + scene_path.name
+    return scene_path.name
+
+
+# -------------------------------------------------------------------------------------------------------------------

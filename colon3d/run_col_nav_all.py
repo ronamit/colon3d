@@ -15,7 +15,7 @@ from colon3d.util.general_util import (
 """ Notes:
 * Run run_data_prep.py first to generate the dataset of cases with randomly generated targets added to the original scenes.
 * You can run several instances of this script in parallel, if setting  delete_empty_results_dirs == False, overwrite_results == False.
-*  To run an instance of the script using specfic CUDA device (e.g. 0), use the following command:
+# *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
 # --------------------------------------------------------------------------------------------------------------------
@@ -25,33 +25,21 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 
     parser.add_argument(
-        "--test_dataset_name",
+        "--dataset_path",
         type=str,
-        help="The name of the dataset to run the algorithm on",
-        default="TestData21",  # "TestData21" | "SanityCheck23"
-    )
-    parser.add_argument(
-        "--data_base_path",
-        type=str,
-        default="/mnt/disk1/data",
-        help="Base path for the data",
+        default="/mnt/disk1/data/sim_data/TestData21",
+        help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--results_base_path",
         type=str,
-        default="/mnt/disk1/results",
+        default="/mnt/disk1/results/ColonNav",
         help="Base path for the results",
     )
     parser.add_argument(
         "--models_base_path",
         type=str,
         default="/mnt/disk1/saved_models",
-    )
-    parser.add_argument(
-        "--results_name",
-        type=str,
-        help="The name of the results folder",
-        default="ColonNav",
     )
     parser.add_argument(
         "--overwrite_results",
@@ -73,31 +61,21 @@ def main():
     )
     args = parser.parse_args()
     overwrite_results = args.overwrite_results
-    test_dataset_name = args.test_dataset_name
-    process_dataset_name = test_dataset_name
-    results_name = args.results_name
     models_base_path = Path(args.models_base_path)
-
+    dataset_path = Path(args.dataset_path)
+    # base path to save the algorithm runs results:
+    base_results_path = Path(args.results_base_path)
     # --------------------------------------------------------------------------------------------------------------------
-
-    n_cases_lim = 0  # 0 no limit   # num cases to run the algorithm on
 
     if args.debug_mode:
         n_cases_lim = 1  # num cases to run the algorithm on
-        results_name = "_debug_" + results_name
-        process_dataset_name = "_debug_" + process_dataset_name
+        n_frames_lim = 25  # num frames to run the algorithm on from each scene.
+        base_results_path = base_results_path / "debug"
+    else:
+        n_cases_lim = 0 # no limit
+        n_frames_lim = 0 # no limit
 
-    # --------------------------------------------------------------------------------------------------------------------
-
-    data_base_path = Path(args.data_base_path)
-
-    # path to save the dataset of cases with randomly generated targets added to the original scenes:
-    scenes_cases_dataset_path = data_base_path / "sim_data" / f"{process_dataset_name}_cases"
-
-    # base path to save the algorithm runs results:
-    base_results_path = Path(args.results_base_path) / results_name
-
-    # --------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------
 
     with Tee(base_results_path / "log.txt"):  # save the prints to a file
         save_run_info(base_results_path)
@@ -106,14 +84,15 @@ def main():
         if args.delete_empty_results_dirs:
             delete_empty_results_dirs(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
-
+        # save summary of existing results:
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Run the algorithm on a dataset of simulated examples:
         # --------------------------------------------------------------------------------------------------------------------
         common_args = {
             "save_raw_outputs": False,
             "alg_fov_ratio": 0,
-            "n_frames_lim": 0,
+            "n_frames_lim": n_frames_lim,
             "n_scenes_lim": n_cases_lim,
             "save_overwrite": overwrite_results,
         }
@@ -122,7 +101,7 @@ def main():
         # # Sanity check: using the ground truth depth maps and egomotions - without bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         # SlamOnDatasetRunner(
-        #     dataset_path=scenes_cases_dataset_path,
+        #     dataset_path=dataset_path,
         #     save_path=base_results_path / "no_BA_with_GT_depth_and_ego",
         #     depth_maps_source="ground_truth",
         #     egomotions_source="ground_truth",
@@ -130,12 +109,25 @@ def main():
         #     **common_args,
         # ).run()
         # save_unified_results_table(base_results_path)
-
+        
+        # --------------------------------------------------------------------------------------------------------------------
+        #  Bundle-adjustment, using the ground truth depth maps no egomotions
+        # --------------------------------------------------------------------------------------------------------------------
+        SlamOnDatasetRunner(
+            dataset_path=dataset_path,
+            save_path=base_results_path / "BA_with_GT_depth_no_ego",
+            depth_maps_source="ground_truth",
+            egomotions_source="none",
+            **common_args,
+        ).run()
+        save_unified_results_table(base_results_path)
+        
+        
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, without monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "BA_no_depth_no_ego",
             depth_maps_source="none",
             egomotions_source="none",
@@ -147,7 +139,7 @@ def main():
         # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "BA_with_EndoSFM_orig",
             depth_maps_source="online_estimates",
             egomotions_source="online_estimates",
@@ -161,7 +153,7 @@ def main():
         # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "no_BA_with_EndoSFM_orig",
             depth_maps_source="online_estimates",
             egomotions_source="online_estimates",
@@ -176,7 +168,7 @@ def main():
         # Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
         # --------------------------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "trivial_nav",
             depth_maps_source="none",
             egomotions_source="none",
@@ -189,7 +181,7 @@ def main():
         # Bundle-adjustment, with the original MonoDepth2 monocular depth and egomotion estimation
         # -------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "BA_with_MonoDepth2_orig",
             depth_maps_source="online_estimates",
             egomotions_source="online_estimates",
@@ -203,25 +195,13 @@ def main():
         # the original MonoDepth2 monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
+            dataset_path=dataset_path,
             save_path=base_results_path / "no_BA_with_MonoDepth2_orig",
             depth_maps_source="online_estimates",
             egomotions_source="online_estimates",
             depth_and_egomotion_method="MonoDepth2",
             depth_and_egomotion_model_path=models_base_path / "monodepth2/mono_stereo_640x192_orig",
             alg_settings_override={"use_bundle_adjustment": False},
-            **common_args,
-        ).run()
-        save_unified_results_table(base_results_path)
-
-        # --------------------------------------------------------------------------------------------------------------------
-        # # Bundle-adjustment, using the ground truth depth maps no egomotions
-        # --------------------------------------------------------------------------------------------------------------------
-        SlamOnDatasetRunner(
-            dataset_path=scenes_cases_dataset_path,
-            save_path=base_results_path / "BA_with_GT_depth_no_ego",
-            depth_maps_source="ground_truth",
-            egomotions_source="none",
             **common_args,
         ).run()
         save_unified_results_table(base_results_path)

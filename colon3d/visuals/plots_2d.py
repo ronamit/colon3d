@@ -70,7 +70,6 @@ def draw_track_box_on_frame(
 def save_video_with_tracks(frames_folder_path: Path, path_to_save: Path, tracks: pd.DataFrame, fps: float):
     frames_paths = sorted(frames_folder_path.glob("*.png"))
     n_frames = len(frames_paths)
-
     def get_frame_with_tracks(i_frame):
         frame = cv2.imread(str(frames_paths[i_frame]))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

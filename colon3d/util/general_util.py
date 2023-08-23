@@ -469,24 +469,40 @@ def save_rgb_image(img: np.ndarray, save_path: Path):
 
 # ------------------------------------------------------------
 
+def compute_metrics_statistics(metrics_table: pd.DataFrame):
+    numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
+    metrics_summary = {}
+    for col in numeric_columns:
+        mean_val = np.nanmean(metrics_table[col])  # ignore nan values
+        std_val = np.nanstd(metrics_table[col])
+        n_scenes = np.sum(~np.isnan(metrics_table[col]))
+        confidence_interval = 1.96 * std_val / np.sqrt(max(n_scenes, 1))  # 95% confidence interval
+        metrics_summary[col] = f"{mean_val:.2f} +- {confidence_interval:.2f}"
+    return metrics_summary
+# ------------------------------------------------------------
+
 
 def save_unified_results_table(base_results_path: Path):
     """save unified results table for all the results subfolders of base_results_path"""
     unified_results_table = pd.DataFrame()
     for results_path in base_results_path.glob("*"):
-        if results_path.is_dir():
-            cur_result_path = results_path / "metrics_summary.csv"
-            if not cur_result_path.exists():
-                continue
-            # load the current run results summary csv file:
-            run_results_summary = pd.read_csv(cur_result_path)
-            # add the run name to the results table:
-            unified_results_table = pd.concat([unified_results_table, run_results_summary], axis=0)
+        if not results_path.is_dir():
+            continue
+        metrics_table_path = results_path / "err_table.csv"
+        if not metrics_table_path.exists():
+            continue
+        metrics_table = pd.read_csv(metrics_table_path)
+        # compute statistics over all scenes
+        metrics_summary = compute_metrics_statistics(metrics_table)
+        # add the run-name column
+        metrics_summary = {"run_name": results_path.name} | metrics_summary
+        metrics_summary_df = pd.DataFrame(metrics_summary, index=[0])
+        # add the run name to the results table:
+        unified_results_table = pd.concat([unified_results_table, metrics_summary_df], axis=0)
     # save the unified results table:
     file_path = base_results_path / "unified_results_table.csv"
     unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
     print(f"Saved unified results table to {file_path}")
-
 
 # --------------------------------------------------------------------------------------------------------------------
 

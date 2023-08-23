@@ -10,6 +10,9 @@ import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
+from colon3d.net_train import custom_transforms
+from colon3d.net_train.scenes_dataset import ScenesDataset
+from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
@@ -18,8 +21,6 @@ from colon3d.util.general_util import (
     set_rand_seed,
 )
 from colon3d.util.torch_util import get_device
-from endo_sfm import custom_transforms
-from endo_sfm.dataset_loading import ScenesDataset
 from endo_sfm.logger import AverageMeter
 from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
 from endo_sfm.models_def.DispResNet import DispResNet
@@ -262,11 +263,7 @@ class TrainRunner:
             # dataset split
             dataset_path = Path(self.dataset_path)
             print(f"Loading dataset from {dataset_path}")
-            all_scenes_paths = [
-                scene_path
-                for scene_path in dataset_path.iterdir()
-                if scene_path.is_dir() and scene_path.name.startswith("Scene")
-            ]
+            all_scenes_paths = get_all_scenes_paths_in_dir(self.sim_data_path, with_targets=False)
             random.shuffle(all_scenes_paths)
             n_all_scenes = len(all_scenes_paths)
             n_train_scenes = int(n_all_scenes * (1 - self.validation_ratio))

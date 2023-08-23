@@ -6,7 +6,7 @@ import numpy as np
 import yaml
 
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon3d.util.data_util import SceneLoader
+from colon3d.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
     Tee,
@@ -109,7 +109,7 @@ class DepthExaminer:
         create_empty_folder(self.save_path, save_overwrite=True)
 
         with Tee(self.save_path / "examine_depths.log"):
-            scenes_paths = list(self.dataset_path.glob("Scene_*"))
+            scenes_paths = get_all_scenes_paths_in_dir(dataset_path=self.dataset_path, with_targets=False)
             n_scenes = len(scenes_paths)
             n_scenes = min(n_scenes, self.n_scenes_lim) if self.n_scenes_lim > 0 else n_scenes
             print(f"n_scenes = {n_scenes}")

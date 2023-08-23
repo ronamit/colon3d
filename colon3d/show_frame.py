@@ -6,11 +6,11 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.util.data_util import SceneLoader
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
+from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close, save_rgb_image
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
-from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 from colon3d.visuals.plots_2d import draw_track_box_on_frame
@@ -85,7 +85,7 @@ def main():
         depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
     )
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
-
+    origin_scene_path = get_origin_scene_path(scene_path)
     save_path = Path(args.save_path)
     create_empty_folder(save_path, save_overwrite=True)
     fps = scene_loader.fps
@@ -116,7 +116,7 @@ def main():
 
     # if ground-truth camera pose is available, use it for the point cloud plot
     if args.depth_maps_source == "ground_truth":
-        with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
+        with h5py.File((origin_scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
             gt_cam_poses = to_default_type(h5f["cam_poses"][:])
             cam_pose = gt_cam_poses[frame_idx]
             print("Using ground-truth camera pose for the point cloud plot")
