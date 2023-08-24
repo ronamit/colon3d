@@ -45,7 +45,6 @@ class TrainRunner:
     model_name: str = "mdp"  # the name of the folder to save the model in
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     dataset: str = "ColNav"  # dataset to train on
-    png: bool = False  # if set, trains from raw KITTI png files (instead of jpgs)
     height: int = 192  # input image height
     width: int = 640  # input image width
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
@@ -69,8 +68,6 @@ class TrainRunner:
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
     log_frequency: int = 250  # number of batches between each tensorboard log
     save_frequency: int = 1  # number of epochs between each save
-    eval_stereo: bool = False  # if set evaluates in stereo mode
-    eval_mono: bool = False  # if set evaluates in mono mode
     disable_median_scaling: bool = False  # if set disables median scaling in evaluation
     pred_depth_scale_factor: float = 1  # if set multiplies predictions by this number
     no_eval: bool = False  # if set disables evaluation
