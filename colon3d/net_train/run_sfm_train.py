@@ -4,15 +4,16 @@ from pathlib import Path
 
 import yaml
 
+import monodepth2.trainer as monodepth2_trainer
 from colon3d.examine_depths import DepthExaminer
+from colon3d.net_train.endo_sfm_train import TrainRunner as endo_sfm_trainer
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
-from endo_sfm.train import TrainRunner as EndoSFMTrainRunner
 from endo_sfm.utils import save_model_info
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
-# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------„------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
 parser.add_argument(
@@ -77,12 +78,12 @@ subsample_param = {"type": "uniform", "min": 1, "max": 20}
 path_to_save_depth_exam = path_to_save_model / "depth_exam"
 
 n_epochs = args.n_epochs
-epoch_size = 0 # if 0 then use all the samples in the dataset
-n_scenes_lim = 0 # if 0 then use all the scenes in the dataset for depth examination
+epoch_size = 0  # if 0 then use all the samples in the dataset
+n_scenes_lim = 0  # if 0 then use all the scenes in the dataset for depth examination
 
 if args.debug_mode:
-    epoch_size = 5 # limit the number of samples per epoch
-    n_epochs = 1 # limit the number of epochs
+    epoch_size = 5  # limit the number of samples per epoch
+    n_epochs = 1  # limit the number of epochs
     path_to_save_model = path_to_save_model / "debug"
     n_scenes_lim = 1
 
@@ -98,11 +99,21 @@ if depth_and_egomotion_method == "EndoSFM":
         "initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint),"
         f"Trained for {n_epochs} epochs on  {train_dataset_path}"
     )
-    train_runner = EndoSFMTrainRunner(
+    train_runner = endo_sfm_trainer(
         save_path=path_to_save_model,
         dataset_path=train_dataset_path,
         pretrained_disp=pretrained_model_path / "DispNet_best.pt",
         pretrained_pose=pretrained_model_path / "PoseNet_best.pt",
+        subsample_param=subsample_param,
+        save_overwrite=save_overwrite,
+        n_epochs=n_epochs,
+        epoch_size=epoch_size,
+    )
+elif depth_and_egomotion_method == "MonoDepth2":
+    model_description = "1111111"
+    train_runner = monodepth2_trainer(
+        save_path=path_to_save_model,
+        dataset_path=train_dataset_path,
         subsample_param=subsample_param,
         save_overwrite=save_overwrite,
         n_epochs=n_epochs,

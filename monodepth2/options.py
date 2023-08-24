@@ -8,7 +8,7 @@
 import argparse
 import os
 
-from common_util.general_util import bool_arg
+from colon3d.util.general_util import bool_arg
 
 file_dir = os.path.dirname(__file__)  # the directory that options.py resides in
 

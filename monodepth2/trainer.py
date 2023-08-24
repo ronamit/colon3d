@@ -15,6 +15,7 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
+from colon3d.net_train.md2_dataset import ColoNavDataset
 from colon3d.util.torch_util import get_device
 from monodepth2.datasets import kitti_dataset
 from monodepth2.layers import (
@@ -122,6 +123,7 @@ class Trainer:
         datasets_dict = {
             "kitti": kitti_dataset.KITTIRAWDataset,
             "kitti_odom": kitti_dataset.KITTIOdomDataset,
+            "ColNav": ColoNavDataset,
         }
         self.dataset = datasets_dict[self.opt.dataset]
 
