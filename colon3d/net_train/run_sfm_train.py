@@ -4,9 +4,9 @@ from pathlib import Path
 
 import yaml
 
-import monodepth2.trainer as monodepth2_trainer
+import colon3d.net_train.md2_trainer as monodepth2_trainer
 from colon3d.examine_depths import DepthExaminer
-from colon3d.net_train.endo_sfm_train import TrainRunner as endo_sfm_trainer
+from colon3d.net_train.endo_sfm_trainer import TrainRunner as endo_sfm_trainer
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
 from endo_sfm.utils import save_model_info
@@ -25,7 +25,7 @@ parser.add_argument(
 parser.add_argument(
     "--depth_and_egomotion_method",
     type=str,
-    choices=["EndoSFM"],
+    choices=["EndoSFM", "MonoDepth2"],
     default="EndoSFM",
     help="Method to use for depth and egomotion estimation.",
 )
@@ -94,11 +94,6 @@ if args.debug_mode:
 # Run training:
 
 if depth_and_egomotion_method == "EndoSFM":
-    model_description = (
-        "Models are defined in https://github.com/CapsuleEndoscope/EndoSLAM."
-        "initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint),"
-        f"Trained for {n_epochs} epochs on  {train_dataset_path}"
-    )
     train_runner = endo_sfm_trainer(
         save_path=path_to_save_model,
         dataset_path=train_dataset_path,
@@ -110,7 +105,6 @@ if depth_and_egomotion_method == "EndoSFM":
         epoch_size=epoch_size,
     )
 elif depth_and_egomotion_method == "MonoDepth2":
-    model_description = "1111111"
     train_runner = monodepth2_trainer(
         save_path=path_to_save_model,
         dataset_path=train_dataset_path,
@@ -125,7 +119,6 @@ train_runner.run()
 
 # --------------------------------------------------------------------------------------------------------------------
 # Save model info:
-
 # get scene metata for some example scene in the train dataset (should be the same for all scenes):
 scenes_paths = get_all_scenes_paths_in_dir(train_dataset_path, with_targets=False)
 scene_path = scenes_paths[0]
@@ -135,6 +128,7 @@ with (scene_path / "meta_data.yaml").open("r") as f:
 # set this value initially to 1.0, and then run the depth examination to calibrate the depth scale:
 net_out_to_mm = 1.0
 
+model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_param: {subsample_param}, dataset_path: {train_dataset_path}"
 save_model_info(
     save_dir_path=path_to_save_model,
     scene_metadata=scene_metadata,
