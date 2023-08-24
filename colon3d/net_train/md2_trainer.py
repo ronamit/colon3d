@@ -152,12 +152,7 @@ class TrainRunner:
         print("Training is using:\n  ", self.device)
 
         # data
-        datasets_dict = {
-            "kitti": kitti_dataset.KITTIRAWDataset,
-            "kitti_odom": kitti_dataset.KITTIOdomDataset,
-            "ColNav": ColoNavDataset,
-        }
-        self.dataset = datasets_dict[self.opt.dataset]
+        self.dataset = ColoNavDataset()
 
 
         num_train_samples = len(train_filenames)

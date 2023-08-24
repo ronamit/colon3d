@@ -11,7 +11,7 @@ import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.net_train import custom_transforms
-from colon3d.net_train.scenes_dataset import ScenesDataset
+from colon3d.net_train.endo_sfm_dataset import ScenesDataset
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device

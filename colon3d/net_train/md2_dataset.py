@@ -4,17 +4,19 @@
 """
 
 import random
+from pathlib import Path
 
+import attrs
 import numpy as np
 import torch
+from torch.utils import data
 from torchvision import transforms
-
-from monodepth2.datasets.mono_dataset import MonoDataset
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class ColoNavDataset(MonoDataset):
+@attrs.define
+class ColoNavDataset(data.Dataset):
     """Superclass for monocular dataloaders
 
     Args:
@@ -26,10 +28,11 @@ class ColoNavDataset(MonoDataset):
         num_scales
         is_train
         img_ext
-        
-        
-        # (opt.data_path, filenames, opt.height, opt.width, [0, 1], 4, is_train=False)
+
     """
+
+    data_path: Path | None = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -38,15 +41,9 @@ class ColoNavDataset(MonoDataset):
         # by 1 / image_height. Monodepth2 assumes a principal point to be exactly centered.
         # If your principal point is far from the center you might need to disable the horizontal
         # flip augmentation.
-        self.K = np.array([[0.58, 0, 0.5, 0],
-                           [0, 1.92, 0.5, 0],
-                           [0, 0, 1, 0],
-                           [0, 0, 0, 1]], dtype=np.float32)
-        
-        
-        
-        # TODO: Load from dataset path v!@!!!!!!!!!!!!!!!!!!!
+        self.K = np.array([[0.58, 0, 0.5, 0], [0, 1.92, 0.5, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
 
+        # TODO: Load from dataset path v!@!!!!!!!!!!!!!!!!!!!
 
         self.full_res_shape = (1242, 375)
         self.side_map = {"2": 2, "3": 3, "l": 2, "r": 3}
@@ -154,5 +151,3 @@ class ColoNavDataset(MonoDataset):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-
