@@ -15,7 +15,7 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from common_util.torch_util import get_device
+from colon3d.util.torch_util import get_device
 from monodepth2.datasets import kitti_dataset
 from monodepth2.layers import (
     SSIM,
@@ -350,6 +350,7 @@ class Trainer:
                     outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(axisangle[:, i], translation[:, i])
 
         return outputs
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def val(self):
@@ -569,6 +570,7 @@ class Trainer:
                 sec_to_hm_str(training_time_left),
             ),
         )
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def log(self, mode, inputs, outputs, losses):

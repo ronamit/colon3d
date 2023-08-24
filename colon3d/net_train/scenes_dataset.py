@@ -20,9 +20,10 @@ class ScenesDataset(data.Dataset):
         sequence_length: int,
         load_tgt_depth: bool,
         transform: Compose | None,
+        subsample_param: dict | None = None,
         skip_frames: int = 1,
     ):
-        """Initialize the DatasetLoader class
+        r"""Initialize the DatasetLoader class
         Args:
             scenes_paths (list): List of paths to the scenes
             sequence_length (int): Number of consecutive frames in each sample (the reference frame is in the middle)
@@ -30,12 +31,12 @@ class ScenesDataset(data.Dataset):
             transform (Compose | None): transform to apply to each sample (default: None)
             skip_frames (int): Number of frames to skip between samples.
                 e.g., if sample_frames_len==3 and skip_frames==1, then the samples will be: [0,1,2], [1,2,3], [2,3,4], ...
+            subsample_param (dict | None): Dictionary containing the parameters for generating the training samples.
+                for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
         """
         self.scenes_paths = scenes_paths
         self.load_tgt_depth = load_tgt_depth
         self.sequence_length = sequence_length
-        # each sample is a list of n consecutive frames, where the reference frame is in the middle:
-        target_ind_in_sample = (self.sequence_length - 1) // 2
         self.transform = transform
         self.samples = []
         self.frame_paths_per_scene = []
@@ -50,10 +51,23 @@ class ScenesDataset(data.Dataset):
             frames_paths.sort()
             n_frames = len(frames_paths)
             for seq_start_idx in range(0, n_frames - self.sequence_length + 1, skip_frames):
-                seq_inds = list(range(seq_start_idx, seq_start_idx + self.sequence_length))
-                target_ind = seq_inds[target_ind_in_sample]
-                ref_inds = seq_inds[:target_ind_in_sample] + seq_inds[target_ind_in_sample + 1 :]
-                sample = {"scene_index": scene_index, "target_frame_index": target_ind, "ref_frames_inds": ref_inds}
+                if subsample_param and subsample_param["type"] == "uniform":
+                    subsample_factor = random.randint(subsample_param["min"], subsample_param["max"])
+                else:
+                    subsample_factor = 1
+                seq_stop_idx = seq_start_idx + self.sequence_length * subsample_factor
+                if seq_stop_idx > n_frames:
+                    continue # skip this sample
+                seq_inds = list(range(seq_start_idx, seq_stop_idx, subsample_factor))
+                # The target frame is the middle frame in the sequence:
+                target_ind_in_sample = len(seq_inds) // 2
+                target_frame_idx = seq_inds[target_ind_in_sample]
+                ref_frame_idxs = seq_inds[:target_ind_in_sample] + seq_inds[target_ind_in_sample + 1 :]
+                sample = {
+                    "scene_index": scene_index,
+                    "target_frame_index": target_frame_idx,
+                    "ref_frames_inds": ref_frame_idxs,
+                }
                 self.samples.append(sample)
         random.shuffle(self.samples)
 

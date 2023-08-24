@@ -13,13 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from colon3d.net_train import custom_transforms
 from colon3d.net_train.scenes_dataset import ScenesDataset
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
-from colon3d.util.general_util import (
-    ArgsHelpFormatter,
-    Tee,
-    bool_arg,
-    create_empty_folder,
-    set_rand_seed,
-)
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
 from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
@@ -215,6 +209,7 @@ class TrainRunner:
     validation_ratio: float = 0.1
     pretrained_disp: str = ""
     pretrained_pose: str = ""
+    subsample_param: dict | None = None
     with_pretrain: bool = True
     sequence_length: int = 3
     n_workers: int = 4
@@ -263,7 +258,7 @@ class TrainRunner:
             # dataset split
             dataset_path = Path(self.dataset_path)
             print(f"Loading dataset from {dataset_path}")
-            all_scenes_paths = get_all_scenes_paths_in_dir(self.sim_data_path, with_targets=False)
+            all_scenes_paths = get_all_scenes_paths_in_dir(dataset_path, with_targets=False)
             random.shuffle(all_scenes_paths)
             n_all_scenes = len(all_scenes_paths)
             n_train_scenes = int(n_all_scenes * (1 - self.validation_ratio))
@@ -299,6 +294,7 @@ class TrainRunner:
                 sequence_length=self.sequence_length,
                 load_tgt_depth=False,
                 transform=train_transform,
+                subsample_param=self.subsample_param,
             )
 
             # validation set
@@ -307,6 +303,7 @@ class TrainRunner:
                 sequence_length=1,
                 load_tgt_depth=True,
                 transform=validation_transform,
+                subsample_param=self.subsample_param,
             )
 
             # data loaders
@@ -346,7 +343,6 @@ class TrainRunner:
             pose_net = PoseResNet(self.pose_resnet_layers, pretrained=self.with_pretrain).to(device)
 
             # load parameters
-            # TODO: save both nets in the same file
             # TODO: mechanism to continue run from the last epoch - if save path not empty
             if self.pretrained_disp:
                 loaded_pretrained = torch.load(self.pretrained_disp)

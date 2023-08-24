@@ -9,7 +9,7 @@ from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
-from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, to_str
+from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, set_rand_seed, to_str
 from colon3d.util.rotations_util import get_random_rot_quat
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
 from colon3d.util.transforms_util import compose_poses
@@ -93,6 +93,7 @@ class TargetCasesCreator:
         self.sim_data_path = Path(sim_data_path)
         self.save_overwrite = save_overwrite
         self.rand_seed = rand_seed
+        set_rand_seed(self.rand_seed)
         self.n_cases_per_scene = n_cases_per_scene
         self.cases_params = {
             "simulate_depth_and_egomotion_estimation": simulate_depth_and_egomotion_estimation,
