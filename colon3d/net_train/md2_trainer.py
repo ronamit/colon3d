@@ -34,7 +34,7 @@ from monodepth2.networks.depth_decoder import DepthDecoder
 from monodepth2.networks.pose_cnn import PoseCNN
 from monodepth2.networks.pose_decoder import PoseDecoder
 from monodepth2.networks.resnet_encoder import ResnetEncoder
-from monodepth2.utils import normalize_image, readlines, sec_to_hm_str
+from monodepth2.utils import normalize_image, sec_to_hm_str
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -43,9 +43,8 @@ class TrainRunner:
     data_path: str | None = None  # path to the training data
     log_dir: str | None = None  # log directory
     model_name: str = "mdp"  # the name of the folder to save the model in
-    split: str = "eigen_zhou"  # which training split to use # choices=["eigen_zhou", "eigen_full", "odom", "benchmark"]
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
-    dataset: str = "kitti"  # dataset to train on # choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test"]
+    dataset: str = "ColNav"  # dataset to train on
     png: bool = False  # if set, trains from raw KITTI png files (instead of jpgs)
     height: int = 192  # input image height
     width: int = 640  # input image width
@@ -53,21 +52,18 @@ class TrainRunner:
     scales: list = (0, 1, 2, 3)  # scales used in the loss
     min_depth: float = 0.1  # minimum depth
     max_depth: float = 100.0  # maximum depth
-    use_stereo: bool = False  # if set, uses stereo pair for training
     frame_ids: tuple = (0, -1, 1)  # frames to load
     batch_size: int = 12  # batch size
     learning_rate: float = 1e-4  # learning rate
     num_epochs: int = 20  # number of epochs
     scheduler_step_size: int = 15  # step size of the scheduler
-    v1_multiscale: bool = False  # if set, uses monodepth v1 multiscale
     avg_reprojection: bool = False  # if set, uses average reprojection loss
     disable_automasking: bool = False  # if set, doesn't do auto-masking
     predictive_mask: bool = False  # if set, uses a predictive masking scheme as in Zhou et al
     no_ssim: bool = False  # if set, disables ssim in the loss
     weights_init: str = "pretrained"  # pretrained or scratch # choices=["pretrained", "scratch"]
     pose_model_input: str = "pairs"  # how many images the pose network gets # choices=["pairs", "all"]
-    pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet", "shared"]
-    no_cuda: bool = False  # if set disables CUDA
+    pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet"]
     num_workers: int = 0  # number of dataloader workers
     load_weights_folder: str = None  # name of model to load
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
@@ -77,16 +73,7 @@ class TrainRunner:
     eval_mono: bool = False  # if set evaluates in mono mode
     disable_median_scaling: bool = False  # if set disables median scaling in evaluation
     pred_depth_scale_factor: float = 1  # if set multiplies predictions by this number
-    ext_disp_to_eval: str = None  # optional path to a .npy disparities file to evaluate
-    eval_split: str = (
-        "eigen"  # which split to run eval on # choices=["eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"]
-    )
-    save_pred_disps: bool = False  # if set saves predicted disparities
     no_eval: bool = False  # if set disables evaluation
-    eval_eigen_to_benchmark: bool = (
-        False  # if set assume we are loading eigen results from npy but we want to evaluate using the new benchmark.
-    )
-    eval_out_dir: str = None  # if set will output the disparities to this folder
     post_process: bool = False  # if set will perform the flipping post processing from the original monodepth paper
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -109,10 +96,6 @@ class TrainRunner:
 
         assert self.opt.frame_ids[0] == 0, "frame_ids must start with 0"
 
-        self.use_pose_net = not (self.opt.use_stereo and self.opt.frame_ids == [0])
-
-        if self.opt.use_stereo:
-            self.opt.frame_ids.append("s")
 
         self.models["encoder"] = ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
@@ -122,30 +105,29 @@ class TrainRunner:
         self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
 
-        if self.use_pose_net:
-            if self.opt.pose_model_type == "separate_resnet":
-                self.models["pose_encoder"] = ResnetEncoder(
-                    self.opt.num_layers,
-                    self.opt.weights_init == "pretrained",
-                    num_input_images=self.num_pose_frames,
-                )
-                self.models["pose_encoder"].to(self.device)
-                self.parameters_to_train += list(self.models["pose_encoder"].parameters())
+        if self.opt.pose_model_type == "separate_resnet":
+            self.models["pose_encoder"] = ResnetEncoder(
+                self.opt.num_layers,
+                self.opt.weights_init == "pretrained",
+                num_input_images=self.num_pose_frames,
+            )
+            self.models["pose_encoder"].to(self.device)
+            self.parameters_to_train += list(self.models["pose_encoder"].parameters())
 
-                self.models["pose"] = PoseDecoder(
-                    self.models["pose_encoder"].num_ch_enc,
-                    num_input_features=1,
-                    num_frames_to_predict_for=2,
-                )
+            self.models["pose"] = PoseDecoder(
+                self.models["pose_encoder"].num_ch_enc,
+                num_input_features=1,
+                num_frames_to_predict_for=2,
+            )
 
-            elif self.opt.pose_model_type == "shared":
-                self.models["pose"] = PoseDecoder(self.models["encoder"].num_ch_enc, self.num_pose_frames)
+        elif self.opt.pose_model_type == "shared":
+            self.models["pose"] = PoseDecoder(self.models["encoder"].num_ch_enc, self.num_pose_frames)
 
-            elif self.opt.pose_model_type == "posecnn":
-                self.models["pose"] = PoseCNN(self.num_input_frames if self.opt.pose_model_input == "all" else 2)
+        elif self.opt.pose_model_type == "posecnn":
+            self.models["pose"] = PoseCNN(self.num_input_frames if self.opt.pose_model_input == "all" else 2)
 
-            self.models["pose"].to(self.device)
-            self.parameters_to_train += list(self.models["pose"].parameters())
+        self.models["pose"].to(self.device)
+        self.parameters_to_train += list(self.models["pose"].parameters())
 
         if self.opt.predictive_mask:
             assert (
@@ -180,11 +162,6 @@ class TrainRunner:
         }
         self.dataset = datasets_dict[self.opt.dataset]
 
-        fpath = os.path.join(os.path.dirname(__file__), "splits", self.opt.split, "{}_files.txt")
-
-        train_filenames = readlines(fpath.format("train"))
-        val_filenames = readlines(fpath.format("val"))
-        img_ext = ".png" if self.opt.png else ".jpg"
 
         num_train_samples = len(train_filenames)
         self.num_total_steps = num_train_samples // self.opt.batch_size * self.opt.num_epochs
@@ -229,7 +206,7 @@ class TrainRunner:
 
         self.writers = {}
         for mode in ["train", "val"]:
-            self.writers[mode] = SummaryWriter(os.path.join(self.log_path, mode))
+            self.writers[mode] = SummaryWriter(self.log_path / mode)
 
         if not self.opt.no_ssim:
             self.ssim = SSIM()
@@ -249,7 +226,6 @@ class TrainRunner:
 
         self.depth_metric_names = ["de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        print("Using split:\n  ", self.opt.split)
         print(f"There are {len(train_dataset):d} training items and {len(val_dataset):d} validation items\n")
 
         self.save_opts()
@@ -321,28 +297,14 @@ class TrainRunner:
         for key, ipt in inputs.items():
             inputs[key] = ipt.to(self.device)
 
-        if self.opt.pose_model_type == "shared":
-            # If we are using a shared encoder for both depth and pose (as advocated
-            # in monodepthv1), then all images are fed separately through the depth encoder.
-            all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in self.opt.frame_ids])
-            all_features = self.models["encoder"](all_color_aug)
-            all_features = [torch.split(f, self.opt.batch_size) for f in all_features]
-
-            features = {}
-            for i, k in enumerate(self.opt.frame_ids):
-                features[k] = [f[i] for f in all_features]
-
-            outputs = self.models["depth"](features[0])
-        else:
-            # Otherwise, we only feed the image with frame_id 0 through the depth encoder
-            features = self.models["encoder"](inputs["color_aug", 0, 0])
-            outputs = self.models["depth"](features)
+        # In MonoDepth v2 we only feed the image with frame_id 0 through the depth encoder
+        features = self.models["encoder"](inputs["color_aug", 0, 0])
+        outputs = self.models["depth"](features)
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
 
-        if self.use_pose_net:
-            outputs.update(self.predict_poses(inputs, features))
+        outputs.update(self.predict_poses(inputs, features))
 
         self.generate_images_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs)
@@ -359,10 +321,7 @@ class TrainRunner:
             # separate forward pass through the pose network.
 
             # select what features the pose network takes as input
-            if self.opt.pose_model_type == "shared":
-                pose_feats = {f_i: features[f_i] for f_i in self.opt.frame_ids}
-            else:
-                pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.opt.frame_ids}
+            pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.opt.frame_ids}
 
             for f_i in self.opt.frame_ids[1:]:
                 if f_i != "s":
@@ -392,9 +351,6 @@ class TrainRunner:
 
                 if self.opt.pose_model_type == "separate_resnet":
                     pose_inputs = [self.models["pose_encoder"](pose_inputs)]
-
-            elif self.opt.pose_model_type == "shared":
-                pose_inputs = [features[i] for i in self.opt.frame_ids if i != "s"]
 
             axisangle, translation = self.models["pose"](pose_inputs)
 
@@ -436,11 +392,8 @@ class TrainRunner:
         """
         for scale in self.opt.scales:
             disp = outputs[("disp", scale)]
-            if self.opt.v1_multiscale:
-                source_scale = scale
-            else:
-                disp = F.interpolate(disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
-                source_scale = 0
+            disp = F.interpolate(disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
+            source_scale = 0
 
             _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
 
@@ -500,13 +453,11 @@ class TrainRunner:
         for scale in self.opt.scales:
             loss = 0
             reprojection_losses = []
-
-            source_scale = scale if self.opt.v1_multiscale else 0
-
+            source_scale = 0
             disp = outputs[("disp", scale)]
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
-
+            
             for frame_id in self.opt.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
@@ -530,9 +481,7 @@ class TrainRunner:
             elif self.opt.predictive_mask:
                 # use the predicted mask
                 mask = outputs["predictive_mask"]["disp", scale]
-                if not self.opt.v1_multiscale:
-                    mask = F.interpolate(mask, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
-
+                mask = F.interpolate(mask, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
                 reprojection_losses *= mask
 
                 # add a loss pushing mask to 1 (using nn.BCELoss for stability)
@@ -691,7 +640,6 @@ class TrainRunner:
                 # save the sizes - these are needed at prediction time
                 to_save["height"] = self.opt.height
                 to_save["width"] = self.opt.width
-                to_save["use_stereo"] = self.opt.use_stereo
             torch.save(to_save, save_path)
 
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))

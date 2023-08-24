@@ -1,6 +1,5 @@
 import argparse
 import csv
-import random
 import time
 from pathlib import Path
 
@@ -11,8 +10,7 @@ import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.net_train import custom_transforms
-from colon3d.net_train.scenes_dataset import ScenesDataset
-from colon3d.util.data_util import get_all_scenes_paths_in_dir
+from colon3d.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
@@ -258,14 +256,10 @@ class TrainRunner:
             # dataset split
             dataset_path = Path(self.dataset_path)
             print(f"Loading dataset from {dataset_path}")
-            all_scenes_paths = get_all_scenes_paths_in_dir(dataset_path, with_targets=False)
-            random.shuffle(all_scenes_paths)
-            n_all_scenes = len(all_scenes_paths)
-            n_train_scenes = int(n_all_scenes * (1 - self.validation_ratio))
-            n_val_scenes = n_all_scenes - n_train_scenes
-            train_scenes_paths = all_scenes_paths[:n_train_scenes]
-            val_scenes_paths = all_scenes_paths[n_train_scenes:]
-            print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
+
+            train_scenes_paths, val_scenes_paths = get_scenes_dataset_random_split(
+                dataset_path=dataset_path, validation_ratio=self.validation_ratio,
+            )
 
             # loggers
             training_writer = SummaryWriter(self.save_path)
