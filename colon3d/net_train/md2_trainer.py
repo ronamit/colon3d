@@ -3,14 +3,17 @@
 # This software is licensed under the terms of the Monodepth2 licence
 # which allows for non-commercial use only, the full terms of which are made
 # available in the LICENSE file.
-
 import json
 import os
 import time
+from pathlib import Path
 
+import attrs
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch.optim
+import torch.utils.data
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -33,13 +36,63 @@ from monodepth2.networks.pose_decoder import PoseDecoder
 from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, readlines, sec_to_hm_str
 
+
 # ---------------------------------------------------------------------------------------------------------------------
+@attrs.define
+class TrainRunner:
+    data_path: str | None = None  # path to the training data
+    log_dir: str | None = None  # log directory
+    model_name: str = "mdp"  # the name of the folder to save the model in
+    split: str = "eigen_zhou"  # which training split to use # choices=["eigen_zhou", "eigen_full", "odom", "benchmark"]
+    num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
+    dataset: str = "kitti"  # dataset to train on # choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test"]
+    png: bool = False  # if set, trains from raw KITTI png files (instead of jpgs)
+    height: int = 192  # input image height
+    width: int = 640  # input image width
+    disparity_smoothness: float = 1e-3  # disparity smoothness weight
+    scales: list = (0, 1, 2, 3)  # scales used in the loss
+    min_depth: float = 0.1  # minimum depth
+    max_depth: float = 100.0  # maximum depth
+    use_stereo: bool = False  # if set, uses stereo pair for training
+    frame_ids: tuple = (0, -1, 1)  # frames to load
+    batch_size: int = 12  # batch size
+    learning_rate: float = 1e-4  # learning rate
+    num_epochs: int = 20  # number of epochs
+    scheduler_step_size: int = 15  # step size of the scheduler
+    v1_multiscale: bool = False  # if set, uses monodepth v1 multiscale
+    avg_reprojection: bool = False  # if set, uses average reprojection loss
+    disable_automasking: bool = False  # if set, doesn't do auto-masking
+    predictive_mask: bool = False  # if set, uses a predictive masking scheme as in Zhou et al
+    no_ssim: bool = False  # if set, disables ssim in the loss
+    weights_init: str = "pretrained"  # pretrained or scratch # choices=["pretrained", "scratch"]
+    pose_model_input: str = "pairs"  # how many images the pose network gets # choices=["pairs", "all"]
+    pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet", "shared"]
+    no_cuda: bool = False  # if set disables CUDA
+    num_workers: int = 0  # number of dataloader workers
+    load_weights_folder: str = None  # name of model to load
+    models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
+    log_frequency: int = 250  # number of batches between each tensorboard log
+    save_frequency: int = 1  # number of epochs between each save
+    eval_stereo: bool = False  # if set evaluates in stereo mode
+    eval_mono: bool = False  # if set evaluates in mono mode
+    disable_median_scaling: bool = False  # if set disables median scaling in evaluation
+    pred_depth_scale_factor: float = 1  # if set multiplies predictions by this number
+    ext_disp_to_eval: str = None  # optional path to a .npy disparities file to evaluate
+    eval_split: str = (
+        "eigen"  # which split to run eval on # choices=["eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"]
+    )
+    save_pred_disps: bool = False  # if set saves predicted disparities
+    no_eval: bool = False  # if set disables evaluation
+    eval_eigen_to_benchmark: bool = (
+        False  # if set assume we are loading eigen results from npy but we want to evaluate using the new benchmark.
+    )
+    eval_out_dir: str = None  # if set will output the disparities to this folder
+    post_process: bool = False  # if set will perform the flipping post processing from the original monodepth paper
 
+    # ---------------------------------------------------------------------------------------------------------------------
 
-class Trainer:
-    def __init__(self, options):
-        self.opt = options
-        self.log_path = os.path.join(self.opt.log_dir, self.opt.model_name)
+    def __attrs_post_init__(self):
+        self.log_path = Path(self.log_dir) / self.model_name
 
         # checking height and width are multiples of 32
         assert self.opt.height % 32 == 0, "'height' must be a multiple of 32"
