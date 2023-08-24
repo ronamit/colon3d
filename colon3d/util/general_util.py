@@ -469,6 +469,7 @@ def save_rgb_image(img: np.ndarray, save_path: Path):
 
 # ------------------------------------------------------------
 
+
 def compute_metrics_statistics(metrics_table: pd.DataFrame):
     numeric_columns = metrics_table.select_dtypes(include=[np.number]).columns
     metrics_summary = {}
@@ -479,6 +480,8 @@ def compute_metrics_statistics(metrics_table: pd.DataFrame):
         confidence_interval = 1.96 * std_val / np.sqrt(max(n_scenes, 1))  # 95% confidence interval
         metrics_summary[col] = f"{mean_val:.2f} +- {confidence_interval:.2f}"
     return metrics_summary
+
+
 # ------------------------------------------------------------
 
 
@@ -503,6 +506,7 @@ def save_unified_results_table(base_results_path: Path):
     file_path = base_results_path / "unified_results_table.csv"
     unified_results_table.to_csv(file_path, encoding="utf-8", index=False)
     print(f"Saved unified results table to {file_path}")
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

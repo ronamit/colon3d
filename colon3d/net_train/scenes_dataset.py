@@ -57,7 +57,7 @@ class ScenesDataset(data.Dataset):
                     subsample_factor = 1
                 seq_stop_idx = seq_start_idx + self.sequence_length * subsample_factor
                 if seq_stop_idx > n_frames:
-                    continue # skip this sample
+                    continue  # skip this sample
                 seq_inds = list(range(seq_start_idx, seq_stop_idx, subsample_factor))
                 # The target frame is the middle frame in the sequence:
                 target_ind_in_sample = len(seq_inds) // 2
@@ -149,9 +149,6 @@ def get_camera_matrix(metadata: dict) -> np.ndarray:
     cam_K[1, 2] = metadata["cy"]
     cam_K[2, 2] = 1
     return cam_K
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------------------------------------------------

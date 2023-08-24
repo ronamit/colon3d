@@ -7,7 +7,7 @@ import yaml
 from colon3d.examine_depths import DepthExaminer
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
-from endo_sfm.train import TrainRunner
+from endo_sfm.train import TrainRunner as EndoSFMTrainRunner
 from endo_sfm.utils import save_model_info
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -98,7 +98,7 @@ if depth_and_egomotion_method == "EndoSFM":
         "initial weights were downloaded from  https://github.com/CapsuleEndoscope/VirtualCapsuleEndoscopy (best checkpoint),"
         f"Trained for {n_epochs} epochs on  {train_dataset_path}"
     )
-    train_runner = TrainRunner(
+    train_runner = EndoSFMTrainRunner(
         save_path=path_to_save_model,
         dataset_path=train_dataset_path,
         pretrained_disp=pretrained_model_path / "DispNet_best.pt",
