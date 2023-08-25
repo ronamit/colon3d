@@ -20,7 +20,6 @@ from torch.utils.data import DataLoader
 
 from colon3d.net_train.md2_dataset import ColoNavDataset
 from colon3d.util.torch_util import get_device
-from monodepth2.datasets import kitti_dataset
 from monodepth2.layers import (
     SSIM,
     BackprojectDepth,
@@ -93,7 +92,6 @@ class TrainRunner:
 
         assert self.opt.frame_ids[0] == 0, "frame_ids must start with 0"
 
-
         self.models["encoder"] = ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
@@ -153,7 +151,6 @@ class TrainRunner:
 
         # data
         self.dataset = ColoNavDataset()
-
 
         num_train_samples = len(train_filenames)
         self.num_total_steps = num_train_samples // self.opt.batch_size * self.opt.num_epochs
@@ -449,7 +446,7 @@ class TrainRunner:
             disp = outputs[("disp", scale)]
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
-            
+
             for frame_id in self.opt.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))

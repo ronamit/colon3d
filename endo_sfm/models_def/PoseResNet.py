@@ -32,6 +32,8 @@ class PoseDecoder(nn.Module):
 
         self.relu = nn.ReLU(inplace=False)
 
+    # ---------------------------------------------------------------------------------------------------------------------
+
     def forward(self, input_features):
         last_features = [f[-1] for f in input_features]
 
@@ -50,6 +52,8 @@ class PoseDecoder(nn.Module):
 
         return pose
 
+    # ---------------------------------------------------------------------------------------------------------------------
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -60,14 +64,22 @@ class PoseResNet(nn.Module):
         self.encoder = ResnetEncoder(num_layers=num_layers, pretrained=pretrained, num_input_images=2)
         self.decoder = PoseDecoder(self.encoder.num_ch_enc)
 
+    # ---------------------------------------------------------------------------------------------------------------------
+
     def init_weights(self):
         pass
+
+    # ---------------------------------------------------------------------------------------------------------------------
 
     def forward(self, img1, img2):
         x = torch.cat([img1, img2], 1)
         features = self.encoder(x)
         pose = self.decoder([features])
         return pose
+
+    # ---------------------------------------------------------------------------------------------------------------------
+    def get_weight_dtype(self):
+        return self.encoder.get_weight_dtype()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

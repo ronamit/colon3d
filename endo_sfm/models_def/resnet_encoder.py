@@ -12,6 +12,7 @@ from torchvision import models
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
@@ -58,7 +59,9 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
         model.load_state_dict(loaded)
     return model
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=1):
@@ -90,7 +93,9 @@ class SpatialAttention(nn.Module):
 
         return output
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder"""
@@ -117,11 +122,12 @@ class ResnetEncoder(nn.Module):
             self.encoder = resnets[num_layers](weights="IMAGENET1K_V1" if pretrained else None)
             # note: this line was changed beacuse of the warning:  UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
 
-
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
 
         self.SAB = SpatialAttention()
+
+    # --------------------------------------------------------------------------------------------------------------------
 
     def forward(self, input_image):
         self.features = []
@@ -140,4 +146,11 @@ class ResnetEncoder(nn.Module):
         self.features.append(self.encoder.layer4(self.features[-1]))
 
         return self.features
+
+    # --------------------------------------------------------------------------------------------------------------------
+
+    def get_weight_dtype(self):
+        return self.encoder.conv1.weight.dtype
+
+
 # --------------------------------------------------------------------------------------------------------------------

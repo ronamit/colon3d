@@ -41,13 +41,13 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         default="MonoDepth2",
-        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        choices=["EndoSFM", "MonoDepth2"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_640x192_orig",  # "saved_models/EndoSFM_orig","saved_models/monodepth2/mono_stereo_640x192_orig"
+        default="/mnt/disk1/saved_models/EndoSFM_tuned_v2",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -88,6 +88,7 @@ class DepthExaminer:
         save_path: Path,
         n_scenes_lim: int = 0,
         save_overwrite: bool = True,
+        frame_idx_to_show: int = 0,
     ):
         self.dataset_path = Path(dataset_path)
         self.depth_and_egomotion_method = depth_and_egomotion_method
@@ -95,6 +96,7 @@ class DepthExaminer:
         self.save_path = Path(save_path)
         self.n_scenes_lim = n_scenes_lim
         self.save_overwrite = save_overwrite
+        self.frame_idx_to_show = frame_idx_to_show
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -114,16 +116,21 @@ class DepthExaminer:
             n_scenes = min(n_scenes, self.n_scenes_lim) if self.n_scenes_lim > 0 else n_scenes
             print(f"n_scenes = {n_scenes}")
             scenes_paths.sort()
-            scene_avg_gt_depth = np.zeros(n_scenes)
-            scene_avg_est_depth = np.zeros(n_scenes)
+
+            # initialize the variables for the depth statistics (over all pixels in all frames in all scenes)
+            n_pix_averaged = 0
+            avg_gt_depth = 0
+            avg_est_depth = 0
+            avg_gt_to_est_depth_ratio = 0
+
             for i_scene in range(n_scenes):
                 scene_path = scenes_paths[i_scene]
                 scene_name = scene_path.name
-                # get RGB frames loader
+                # get frames loader for current scene
                 scene_loader = SceneLoader(
                     scene_path=scene_path,
                 )
-                # examine the ground-truth depth maps
+                # get the ground truth depth loader
                 gt_depth_loader = DepthAndEgoMotionLoader(
                     scene_path=scene_path,
                     depth_maps_source="ground_truth",
@@ -131,15 +138,7 @@ class DepthExaminer:
                     depth_and_egomotion_method=None,
                     depth_and_egomotion_model_path=None,
                 )
-                scene_avg_gt_depth[i_scene] = compute_depths(
-                    depth_loader=gt_depth_loader,
-                    scene_loader=scene_loader,
-                    save_path=self.save_path,
-                    scene_name=scene_name,
-                    fig_label="gt",
-                )
-
-                # examine the estimated depth maps
+                # get the estimated depth loader
                 est_depth_loader = DepthAndEgoMotionLoader(
                     scene_path=scene_path,
                     depth_maps_source="online_estimates",
@@ -147,30 +146,56 @@ class DepthExaminer:
                     depth_and_egomotion_method=self.depth_and_egomotion_method,
                     depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
                 )
-                scene_avg_est_depth[i_scene] = compute_depths(
-                    depth_loader=est_depth_loader,
-                    scene_loader=scene_loader,
-                    save_path=self.save_path,
-                    scene_name=scene_name,
-                    fig_label="est",
-                )
+                # calculate the depth statistics over all the frames in the scene
+                n_frames = scene_loader.n_frames
+                for i_frame in range(n_frames):
+                    # Compute GT and estimated depth maps
+                    gt_depths = compute_depths(
+                        depth_loader=gt_depth_loader,
+                        scene_loader=scene_loader,
+                        frame_idx=i_frame,
+                        save_path=self.save_path,
+                        scene_name=scene_name,
+                        fig_label="gt",
+                        make_plots=(i_frame == self.frame_idx_to_show),
+                    )
+                    est_depths = compute_depths(
+                        depth_loader=est_depth_loader,
+                        scene_loader=scene_loader,
+                        frame_idx=i_frame,
+                        save_path=self.save_path,
+                        scene_name=scene_name,
+                        fig_label="est",
+                        make_plots=(i_frame == self.frame_idx_to_show),
+                    )
+                    # flatten the depth maps
+                    gt_depths = gt_depths.flatten()
+                    est_depths = est_depths.flatten()
+                    n_pix_new = len(gt_depths)
+                    # ensure the estimated depth is not zero to avoid division by zero
+                    est_depths[est_depths < 1e-6] = 1e-6
+                    # update the depth statistics
+                    avg_gt_depth = (n_pix_averaged * avg_gt_depth + n_pix_new * np.mean(gt_depths)) / (
+                        n_pix_averaged + n_pix_new
+                    )
+                    avg_est_depth = (n_pix_averaged * avg_est_depth + n_pix_new * np.mean(est_depths)) / (
+                        n_pix_averaged + n_pix_new
+                    )
+                    avg_gt_to_est_depth_ratio = (
+                        n_pix_averaged * avg_gt_to_est_depth_ratio + n_pix_new * np.mean(gt_depths / est_depths)
+                    ) / (n_pix_averaged + n_pix_new)
+                    n_pix_averaged += n_pix_new
 
-            avg_gt_depth = np.mean(scene_avg_gt_depth)
-            std_gt_depth = np.std(scene_avg_gt_depth)
-            avg_est_depth = np.mean(scene_avg_est_depth)
-            std_est_depth = np.std(scene_avg_est_depth)
             # save the results as yaml file
             depth_exam = {
                 "dataset_path": self.dataset_path,
                 "avg_gt_depth": avg_gt_depth,
                 "avg_est_depth": avg_est_depth,
-                "std_gt_depth": std_gt_depth,
-                "std_est_depth": std_est_depth,
-                "avg_gt_depth / avg_est_depth": avg_gt_depth / avg_est_depth,
-                "std_gt_depth / std_est_depth": std_gt_depth / std_est_depth,
+                "avg_gt_depth divided_by_avg_est_depth": avg_gt_depth / avg_est_depth,
+                "avg_gt_to_est_depth_ratio": avg_gt_to_est_depth_ratio,
             }
             save_dict_to_yaml(save_path=self.save_path / "depth_exam.yaml", dict_to_save=depth_exam)
-            print(depth_exam)
+            print("Depth examination results:\n" + "-" * 50)
             return depth_exam
 
 
@@ -180,43 +205,23 @@ class DepthExaminer:
 def compute_depths(
     depth_loader: DepthAndEgoMotionLoader,
     scene_loader: SceneLoader,
+    frame_idx: int,
     save_path: Path,
     scene_name: str,
     fig_label: str,
+    make_plots: bool = False,
 ):
-    # save a heatmap of the first frame depth map
-    # and RGB image of the first frame
-    frame_idx = 0
     rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx)
     depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame)
-    # resize to the original image size
-    depth_map = resize_grayscale_images(
-        img=depth_map,
-        new_height=rgb_frame.shape[0],
-        new_width=rgb_frame.shape[1],
-        is_singleton=True,
-    )
-    depth_map = to_numpy(depth_map)
-    plt.figure()
-    plt.imshow(depth_map)
-    plt.colorbar()
-    fig_name = f"{scene_name}_depth_{fig_label}_{frame_idx}"
-    plt.title(fig_name)
-    plt.tight_layout()
-    save_plot_and_close(save_path / fig_name)
 
-    plt.figure()
-    plt.imshow(rgb_frame)
-    fig_name = f"{scene_name}_rgb_{frame_idx}"
-    plt.title(fig_name)
-    save_plot_and_close(save_path / fig_name)
-
-    # calculate the mean depth of all frames
-    n_frames = scene_loader.n_frames
-    all_frames_avg_depth = np.zeros(n_frames)
-    for i in range(n_frames):
-        rgb_frame = scene_loader.get_frame_at_index(frame_idx=i)
-        depth_map = depth_loader.get_depth_map_at_frame(frame_idx=i, rgb_frame=rgb_frame)
+    if make_plots:
+        # resize to the original image size
+        depth_map_resized = resize_grayscale_images(
+            img=depth_map,
+            new_height=rgb_frame.shape[0],
+            new_width=rgb_frame.shape[1],
+            is_singleton=True,
+        )
         # resize to the original image size
         depth_map = resize_grayscale_images(
             img=depth_map,
@@ -224,10 +229,23 @@ def compute_depths(
             new_width=rgb_frame.shape[1],
             is_singleton=True,
         )
-        depth_map = to_numpy(depth_map, num_type="float_m")
-        all_frames_avg_depth[i] = np.mean(depth_map)
-    scene_avg_depth = np.mean(all_frames_avg_depth)
-    return scene_avg_depth
+        depth_map_resized = to_numpy(depth_map_resized, num_type="float_m")
+        plt.figure()
+        plt.imshow(depth_map_resized)
+        plt.colorbar()
+        fig_name = f"{scene_name}_depth_{fig_label}_{frame_idx}"
+        plt.title(fig_name)
+        plt.tight_layout()
+        save_plot_and_close(save_path / fig_name)
+
+        plt.figure()
+        plt.imshow(rgb_frame)
+        fig_name = f"{scene_name}_rgb_{frame_idx}"
+        plt.title(fig_name)
+        save_plot_and_close(save_path / fig_name)
+
+    depth_map = to_numpy(depth_map, num_type="float_m")
+    return depth_map
 
 
 # ---------------------------------------------------------------------------------------------------------------------

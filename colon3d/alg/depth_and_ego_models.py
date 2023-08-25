@@ -55,7 +55,7 @@ class DepthModel:
             self.disp_net.load_state_dict(weights["state_dict"], strict=False)
             self.disp_net.to(self.device)
             self.disp_net.eval()  # switch to evaluate mode
-            self.dtype = torch.float64  # the network weights type
+            self.dtype = self.disp_net.get_weight_dtype()
 
         elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
             monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
@@ -77,7 +77,7 @@ class DepthModel:
             self.depth_decoder.to(self.device)
             self.encoder.eval()
             self.depth_decoder.eval()
-            self.dtype = torch.float64  # the network weights type
+            self.dtype = self.encoder.get_weight_dtype()
 
         else:
             raise ValueError(f"Unknown depth estimation method: {method}")
@@ -174,7 +174,7 @@ class EgomotionModel:
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
             self.pose_net.eval()  # switch to evaluate mode
-            self.dtype = torch.float64  # the network weights type
+            self.dtype = self.pose_net.get_weight_dtype()
 
         elif method == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
@@ -188,7 +188,7 @@ class EgomotionModel:
             self.pose_decoder.to(self.device)
             self.pose_encoder.eval()
             self.pose_decoder.eval()
-            self.dtype = torch.float64  # the network weights type
+            self.dtype = self.pose_encoder.get_weight_dtype()
 
         else:
             raise ValueError(f"Unknown egomotion estimation method: {method}")

@@ -48,20 +48,25 @@ parser.add_argument(
     help="Number of epochs to train.",
 )
 parser.add_argument(
-    "--save_overwrite",
+    "--overwrite_model",
+    type=bool_arg,
+    default=False,
+    help="If True then overwrite the save model if it already exists in the save patb.",
+)
+parser.add_argument(
+    "--overwrite_depth_exam",
     type=bool_arg,
     default=True,
-    help="If True then the save folders will be overwritten if they already exists",
+    help="If True then overwrite the depth examination if it already exists in the save path.",
 )
 parser.add_argument(
     "--debug_mode",
     type=bool_arg,
-    default=True,
+    default=False,
     help="If True, then use a small dataset and 1 epoch for debugging",
 )
 args = parser.parse_args()
 print(f"args={args}")
-save_overwrite = args.save_overwrite
 
 # --------------------------------------------------------------------------------------------------------------------
 rand_seed = 0  # random seed for reproducibility
@@ -100,7 +105,7 @@ if depth_and_egomotion_method == "EndoSFM":
         pretrained_disp=pretrained_model_path / "DispNet_best.pt",
         pretrained_pose=pretrained_model_path / "PoseNet_best.pt",
         subsample_param=subsample_param,
-        save_overwrite=save_overwrite,
+        save_overwrite=args.overwrite_model,
         n_epochs=n_epochs,
         epoch_size=epoch_size,
     )
@@ -109,7 +114,7 @@ elif depth_and_egomotion_method == "MonoDepth2":
         save_path=path_to_save_model,
         dataset_path=train_dataset_path,
         subsample_param=subsample_param,
-        save_overwrite=save_overwrite,
+        save_overwrite=args.overwrite_model,
         n_epochs=n_epochs,
         epoch_size=epoch_size,
     )
@@ -146,12 +151,12 @@ depth_examiner = DepthExaminer(
     depth_and_egomotion_model_path=path_to_save_model,
     save_path=path_to_save_depth_exam,
     n_scenes_lim=n_scenes_lim,
-    save_overwrite=save_overwrite,
+    save_overwrite=args.overwrite_depth_exam,
 )
 depth_exam = depth_examiner.run()
 
 # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-net_out_to_mm = depth_exam["avg_gt_depth / avg_est_depth"]
+net_out_to_mm = depth_exam["avg_gt_to_est_depth_ratio"]
 info_model_path = path_to_save_model / "model_info.yaml"
 # update the model info file with the new net_out_to_mm value:
 with info_model_path.open("r") as f:

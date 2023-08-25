@@ -100,6 +100,8 @@ class DepthDecoder(nn.Module):
         self.outputs = self.outputs[::-1]
         return self.outputs
 
+# --------------------------------------------------------------------------------------------------------------------
+
 
 class DispResNet(nn.Module):
     def __init__(self, num_layers=18, pretrained=True):
@@ -107,8 +109,12 @@ class DispResNet(nn.Module):
         self.encoder = ResnetEncoder(num_layers=num_layers, pretrained=pretrained, num_input_images=1)
         self.decoder = DepthDecoder(self.encoder.num_ch_enc)
 
+    # --------------------------------------------------------------------------------------------------------------------
+
     def init_weights(self):
         pass
+
+    # --------------------------------------------------------------------------------------------------------------------
 
     def forward(self, x):
         features = self.encoder(x)
@@ -119,6 +125,10 @@ class DispResNet(nn.Module):
             return outputs
 
         return outputs[0]  # in inference mode, we only predict the disparity of the full resolution output
+
+    # --------------------------------------------------------------------------------------------------------------------
+    def get_weight_dtype(self):
+        return self.encoder.get_weight_dtype()
 
 # --------------------------------------------------------------------------------------------------------------------
 
