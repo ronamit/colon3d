@@ -60,6 +60,12 @@ parser.add_argument(
     help="If True then overwrite the depth examination if it already exists in the save path.",
 )
 parser.add_argument(
+    "--update_depth_scale",
+    type=bool_arg,
+    default=True,
+    help="If True then update the depth scale in the model info file based on the depth examination.",
+)
+parser.add_argument(
     "--debug_mode",
     type=bool_arg,
     default=False,
@@ -155,14 +161,15 @@ depth_examiner = DepthExaminer(
 )
 depth_exam = depth_examiner.run()
 
-# the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-net_out_to_mm = depth_exam["avg_gt_to_est_depth_ratio"]
-info_model_path = path_to_save_model / "model_info.yaml"
-# update the model info file with the new net_out_to_mm value:
-with info_model_path.open("r") as f:
-    model_info = yaml.load(f, Loader=yaml.FullLoader)
-    model_info["net_out_to_mm"] = net_out_to_mm
-save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
-print(f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]")
+if args.update_depth_scale:
+    # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
+    net_out_to_mm = depth_exam["avg_gt_to_est_depth_ratio"]
+    info_model_path = path_to_save_model / "model_info.yaml"
+    # update the model info file with the new net_out_to_mm value:
+    with info_model_path.open("r") as f:
+        model_info = yaml.load(f, Loader=yaml.FullLoader)
+        model_info["net_out_to_mm"] = net_out_to_mm
+    save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
+    print(f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]")
 
 # --------------------------------------------------------------------------------------------------------------------
