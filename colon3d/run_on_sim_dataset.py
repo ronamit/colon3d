@@ -142,9 +142,14 @@ class SlamOnDatasetRunner:
         assert self.dataset_path.exists(), f"dataset_path={self.dataset_path} does not exist"
         if self.save_path.exists():
             print(f"save_path={self.save_path} already exists...")
-            if self.save_overwrite:
-                print("Removing the existing results...")
-                create_empty_folder(self.save_path, save_overwrite=True)
+        if self.save_overwrite:
+            print("Removing the existing results...")
+            create_empty_folder(self.save_path, save_overwrite=True)
+        # if the run was already completed then skip it
+        if (self.save_path / "metrics_summary.csv").exists():
+            print("Run was already completed, skipping it...")
+            metrics_stats = pd.read_csv(self.save_path / "metrics_summary.csv").to_dict(orient="records")[0]
+            return metrics_stats
 
         print(f"Outputs will be saved to {self.save_path}")
         scenes_paths = get_all_scenes_paths_in_dir(dataset_path=self.dataset_path, with_targets=True)
@@ -162,25 +167,15 @@ class SlamOnDatasetRunner:
             def run_on_scene(i_scene: int) -> dict:
                 scene_path = scenes_paths[i_scene]
                 scene_name = get_full_scene_name(scene_path)
-                save_path = self.save_path / scene_name
-
-                # if the scene was already completed then skip it (if save_overwrite=True it was already removed)
-                if save_path.exists():
-                    print(f"save_path={save_path} already exists...")
-                    is_completed = (save_path / "metrics_summary.csv").exists()
-                    if is_completed:
-                        metrics_stats = pd.read_csv(save_path / "metrics_summary.csv").to_dict(orient="records")[0]
-                        print(f"Scene {i_scene + 1} out of {n_scenes} already completed, skipping...")
-                        return metrics_stats
-                    print("The scene was not completed, removing the existing results...")
+                scene_save_path = self.save_path / scene_name
                 print(
                     "-" * 100
-                    + f"\nTime: {get_time_now_str()}\nRunning SLAM on scene {i_scene + 1} out of {n_scenes}, results will be saved to {save_path}...\n"
+                    + f"\nTime: {get_time_now_str()}\nRunning SLAM on scene {i_scene + 1} out of {n_scenes}, results will be saved to {scene_save_path}...\n"
                     + "-" * 100,
                 )
-                
+
                 # create the save folder
-                create_empty_folder(save_path, save_overwrite=True)
+                create_empty_folder(scene_save_path, save_overwrite=True)
 
                 # result plots to save
                 plot_names = ["aided_nav", "keypoints_and_tracks"] if self.plot_aided_nav else ["keypoints_and_tracks"]
@@ -189,7 +184,7 @@ class SlamOnDatasetRunner:
                 _, metrics_stats = run_slam_on_scene(
                     scene_name=scene_name,
                     scene_path=scene_path,
-                    save_path=save_path,
+                    save_path=scene_save_path,
                     save_raw_outputs=self.save_raw_outputs,
                     n_frames_lim=self.n_frames_lim,
                     alg_fov_ratio=self.alg_fov_ratio,
@@ -230,6 +225,7 @@ class SlamOnDatasetRunner:
             metrics_summary = {"save_path": str(self.save_path), "run_name": self.save_path.name} | metrics_summary
             pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
             print("-" * 100)
+            return None
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -18,23 +18,9 @@ from colon3d.util.general_util import (
 # *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
-# --------------------------------------------------------------------------------------------------------------------
-
-def  run_exp(exp_list: list, exp_name: str, dataset_path: str, base_results_path: str, models_base_path: str, depth_maps_source: str, egomotions_source: str, depth_and_egomotion_method: str, model_name: str, alg_settings_override: dict, common_args: dict):
-    if not exp_list or exp_name in exp_list:
-        SlamOnDatasetRunner(
-            dataset_path=dataset_path,
-            save_path=base_results_path / exp_name,
-            depth_maps_source=depth_maps_source,
-            egomotions_source=egomotions_source,
-            depth_and_egomotion_method=depth_and_egomotion_method,
-            depth_and_egomotion_model_path=models_base_path / model_name,
-            alg_settings_override=alg_settings_override,
-            **common_args,
-        ).run()
-    save_unified_results_table(base_results_path)
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
@@ -95,8 +81,8 @@ def main():
         n_frames_lim = 25  # num frames to run the algorithm on from each scene.
         base_results_path = base_results_path / "debug"
     else:
-        n_cases_lim = 0 # no limit
-        n_frames_lim = 0 # no limit
+        n_cases_lim = 0  # no limit
+        n_frames_lim = 0  # no limit
     # ------------------------------------------------------------------------------------------------------------
 
     with Tee(base_results_path / "log.txt"):  # save the prints to a file
@@ -118,152 +104,144 @@ def main():
             "n_scenes_lim": n_cases_lim,
             "save_overwrite": overwrite_results,
         }
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "no_BA_with_EndoSFM_tuned"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="EndoSFM",
-            model_name="EndoSFM_tuned_v2",
-            alg_settings_override={"use_bundle_adjustment": False},
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_tuned_v2",
+                alg_settings_override={"use_bundle_adjustment": False},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the tuned EndoSFM monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "BA_with_EndoSFM_tuned"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="EndoSFM",
-            model_name="EndoSFM_tuned_v2",
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_tuned_v2",
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         #  Bundle-adjustment, using the ground truth depth maps no egomotions
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "BA_with_GT_depth_no_ego"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="ground_truth",
-            egomotions_source="none",
-            depth_and_egomotion_method="none",
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="ground_truth",
+                egomotions_source="none",
+                **common_args,
+            ).run()
+
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, without monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "BA_no_depth_no_ego"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="none",
-            egomotions_source="none",
-            depth_and_egomotion_method="none",
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="none",
+                egomotions_source="none",
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "BA_with_EndoSFM_orig"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="EndoSFM",
-            model_name="EndoSFM_orig",
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # the original EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "no_BA_with_EndoSFM_orig"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="EndoSFM",
-            model_name="EndoSFM_orig",
-            alg_settings_override={"use_bundle_adjustment": False},
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
+                alg_settings_override={"use_bundle_adjustment": False},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "trivial_nav"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="none",
-            egomotions_source="none",
-            depth_and_egomotion_method="none",
-            alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="none",
+                egomotions_source="none",
+                depth_and_egomotion_method="none",
+                alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # -------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the original MonoDepth2 monocular depth and egomotion estimation
         # -------------------------------------------------------------------------------------------------
         exp_name = "BA_with_MonoDepth2_orig"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="MonoDepth2",
-            model_name="monodepth2/mono_stereo_640x192_orig",
-            common_args=common_args,
-        )
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="MonoDepth2",
+                depth_and_egomotion_model_path=models_base_path / "monodepth2/mono_stereo_640x192_orig",
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # the original MonoDepth2 monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
         exp_name = "no_BA_with_MonoDepth2_orig"
-        run_exp(
-            exp_list=exp_list,
-            exp_name=exp_name,
-            dataset_path=dataset_path,
-            base_results_path=base_results_path,
-            models_base_path=models_base_path,
-            depth_maps_source="online_estimates",
-            egomotions_source="online_estimates",
-            depth_and_egomotion_method="MonoDepth2",
-            model_name="monodepth2/mono_stereo_640x192_orig",
-            alg_settings_override={"use_bundle_adjustment": False},
-            common_args=common_args,
-        )
-        
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="MonoDepth2",
+                depth_and_egomotion_model_path=models_base_path / "monodepth2/mono_stereo_640x192_orig",
+                alg_settings_override={"use_bundle_adjustment": False},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
+        # --------------------------------------------------------------------------------------------------------------------
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
