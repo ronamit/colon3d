@@ -17,24 +17,14 @@ from torchvision import transforms
 
 @attrs.define
 class ColoNavDataset(data.Dataset):
-    """Superclass for monocular dataloaders
-
-    Args:
-        data_path
-        filenames
-        height
-        width
-        frame_idxs
-        num_scales
-        is_train
-        img_ext
-
+    """ Dataset for Colon3D navigation for Monodepth2 training/prediction
     """
 
     data_path: Path | None = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, dataset_path: Path, scenes_paths: list, img_height: int, img_width: int, frame_ids: list,
+                 num_scales: int, is_train: bool, img_ext: str = ".png"):
+        super().__init__()
 
         # NOTE: Make sure your intrinsics matrix is *normalized* by the original image size.
         # To normalize you need to scale the first row by 1 / image_width and the second row

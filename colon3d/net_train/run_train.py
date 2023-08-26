@@ -117,8 +117,9 @@ if depth_and_egomotion_method == "EndoSFM":
     )
 elif depth_and_egomotion_method == "MonoDepth2":
     train_runner = monodepth2_trainer(
-        save_path=path_to_save_model,
         dataset_path=train_dataset_path,
+        save_path=path_to_save_model,
+        load_weights_folder=pretrained_model_path,
         subsample_param=subsample_param,
         save_overwrite=args.overwrite_model,
         n_epochs=n_epochs,

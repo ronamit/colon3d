@@ -20,32 +20,26 @@ from torch.utils.data import DataLoader
 
 from colon3d.net_train.md2_dataset import ColoNavDataset
 from colon3d.util.torch_util import get_device
-from monodepth2.layers import (
-    SSIM,
-    BackprojectDepth,
-    Project3D,
-    compute_depth_errors,
-    disp_to_depth,
-    get_smooth_loss,
-    transformation_from_parameters,
-)
+from monodepth2.layers import (SSIM, BackprojectDepth, Project3D,
+                               compute_depth_errors, disp_to_depth,
+                               get_smooth_loss, transformation_from_parameters)
 from monodepth2.networks.depth_decoder import DepthDecoder
 from monodepth2.networks.pose_cnn import PoseCNN
 from monodepth2.networks.pose_decoder import PoseDecoder
 from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
+from colon3d.net_train.scene_dataset_util import get_scenes_dataset_random_split
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
 class TrainRunner:
-    data_path: str | None = None  # path to the training data
-    log_dir: str | None = None  # log directory
-    model_name: str = "mdp"  # the name of the folder to save the model in
+    dataset_path: Path # path to the training data
+    validation_ratio: float = 0.1 # ratio of validation scenes
+    save_path: Path # path to save the trained model
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
-    dataset: str = "ColNav"  # dataset to train on
-    height: int = 192  # input image height
-    width: int = 640  # input image width
+    img_height: int = 192  # input image height
+    img_width: int = 640  # input image width
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
     scales: list = (0, 1, 2, 3)  # scales used in the loss
     min_depth: float = 0.1  # minimum depth
@@ -75,35 +69,35 @@ class TrainRunner:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
-        self.log_path = Path(self.log_dir) / self.model_name
+        self.save_path = Path(self.save_path)
 
         # checking height and width are multiples of 32
-        assert self.opt.height % 32 == 0, "'height' must be a multiple of 32"
-        assert self.opt.width % 32 == 0, "'width' must be a multiple of 32"
+        assert self.img_height % 32 == 0, "'height' must be a multiple of 32"
+        assert self.img_width % 32 == 0, "'width' must be a multiple of 32"
 
         self.models = {}
         self.parameters_to_train = []
 
         self.device = get_device()
 
-        self.num_scales = len(self.opt.scales)
-        self.num_input_frames = len(self.opt.frame_ids)
-        self.num_pose_frames = 2 if self.opt.pose_model_input == "pairs" else self.num_input_frames
+        self.num_scales = len(self.scales)
+        self.num_input_frames = len(self.frame_ids)
+        self.num_pose_frames = 2 if self.pose_model_input == "pairs" else self.num_input_frames
 
-        assert self.opt.frame_ids[0] == 0, "frame_ids must start with 0"
+        assert self.frame_ids[0] == 0, "frame_ids must start with 0"
 
-        self.models["encoder"] = ResnetEncoder(self.opt.num_layers, self.opt.weights_init == "pretrained")
+        self.models["encoder"] = ResnetEncoder(self.num_layers, self.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
 
-        self.models["depth"] = DepthDecoder(self.models["encoder"].num_ch_enc, self.opt.scales)
+        self.models["depth"] = DepthDecoder(self.models["encoder"].num_ch_enc, self.scales)
         self.models["depth"].to(self.device)
         self.parameters_to_train += list(self.models["depth"].parameters())
 
-        if self.opt.pose_model_type == "separate_resnet":
+        if self.pose_model_type == "separate_resnet":
             self.models["pose_encoder"] = ResnetEncoder(
-                self.opt.num_layers,
-                self.opt.weights_init == "pretrained",
+                self.num_layers,
+                self.weights_init == "pretrained",
                 num_input_images=self.num_pose_frames,
             )
             self.models["pose_encoder"].to(self.device)
@@ -115,77 +109,92 @@ class TrainRunner:
                 num_frames_to_predict_for=2,
             )
 
-        elif self.opt.pose_model_type == "shared":
+        elif self.pose_model_type == "shared":
             self.models["pose"] = PoseDecoder(self.models["encoder"].num_ch_enc, self.num_pose_frames)
 
-        elif self.opt.pose_model_type == "posecnn":
-            self.models["pose"] = PoseCNN(self.num_input_frames if self.opt.pose_model_input == "all" else 2)
+        elif self.pose_model_type == "posecnn":
+            self.models["pose"] = PoseCNN(self.num_input_frames if self.pose_model_input == "all" else 2)
 
         self.models["pose"].to(self.device)
         self.parameters_to_train += list(self.models["pose"].parameters())
 
-        if self.opt.predictive_mask:
+        if self.predictive_mask:
             assert (
-                self.opt.disable_automasking
+                self.disable_automasking
             ), "When using predictive_mask, please disable automasking with --disable_automasking"
 
             # Our implementation of the predictive masking baseline has the the same architecture
             # as our depth decoder. We predict a separate mask for each source frame.
             self.models["predictive_mask"] = DepthDecoder(
                 self.models["encoder"].num_ch_enc,
-                self.opt.scales,
-                num_output_channels=(len(self.opt.frame_ids) - 1),
+                self.scales,
+                num_output_channels=(len(self.frame_ids) - 1),
             )
             self.models["predictive_mask"].to(self.device)
             self.parameters_to_train += list(self.models["predictive_mask"].parameters())
 
-        self.model_optimizer = optim.Adam(self.parameters_to_train, self.opt.learning_rate)
-        self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.model_optimizer, self.opt.scheduler_step_size, 0.1)
+        self.model_optimizer = optim.Adam(self.parameters_to_train, self.learning_rate)
+        self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.model_optimizer, self.scheduler_step_size, 0.1)
 
-        if self.opt.load_weights_folder is not None:
+        if self.load_weights_folder is not None:
             self.load_model()
 
-        print("Training model named:\n  ", self.opt.model_name)
         print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
         print("Training is using:\n  ", self.device)
 
-        # data
-        self.dataset = ColoNavDataset()
+        # dataset split
+        dataset_path = Path(self.dataset_path)
+        print(f"Loading dataset from {dataset_path}")
 
-        num_train_samples = len(train_filenames)
-        self.num_total_steps = num_train_samples // self.opt.batch_size * self.opt.num_epochs
+        train_scenes_paths, val_scenes_paths = get_scenes_dataset_random_split(
+            dataset_path=dataset_path, validation_ratio=self.validation_ratio,
+        )
+
+        num_train_samples = len(train_scenes_paths)
+        self.num_total_steps = num_train_samples // self.batch_size * self.opt.num_epochs
+
+        train_dataset = ColoNavDataset(
+            dataset_path=dataset_path,
+            scenes_paths=train_scenes_paths,
+            img_height=self.img_height,
+            img_width=self.img_width,
+            frame_ids=self.frame_ids,
+            num_scales=self.num_scales,
+            is_train=True,
+        )
+
 
         train_dataset = self.dataset(
-            self.opt.data_path,
+            self.dataset_path,
             train_filenames,
-            self.opt.height,
-            self.opt.width,
-            self.opt.frame_ids,
+            self.img_height,
+            self.img_width,
+            self.frame_ids,
             4,
             is_train=True,
             img_ext=img_ext,
         )
         self.train_loader = DataLoader(
             train_dataset,
-            self.opt.batch_size,
+            self.batch_size,
             True,
             num_workers=self.opt.num_workers,
             pin_memory=True,
             drop_last=True,
         )
         val_dataset = self.dataset(
-            self.opt.data_path,
+            self.dataset_path,
             val_filenames,
-            self.opt.height,
-            self.opt.width,
-            self.opt.frame_ids,
+            self.img_height,
+            self.img_width,
+            self.frame_ids,
             4,
             is_train=False,
             img_ext=img_ext,
         )
         self.val_loader = DataLoader(
             val_dataset,
-            self.opt.batch_size,
+            self.batch_size,
             True,
             num_workers=self.opt.num_workers,
             pin_memory=True,
@@ -203,14 +212,14 @@ class TrainRunner:
 
         self.backproject_depth = {}
         self.project_3d = {}
-        for scale in self.opt.scales:
-            h = self.opt.height // (2**scale)
-            w = self.opt.width // (2**scale)
+        for scale in self.scales:
+            h = self.img_height // (2**scale)
+            w = self.img_width // (2**scale)
 
-            self.backproject_depth[scale] = BackprojectDepth(self.opt.batch_size, h, w)
+            self.backproject_depth[scale] = BackprojectDepth(self.batch_size, h, w)
             self.backproject_depth[scale].to(self.device)
 
-            self.project_3d[scale] = Project3D(self.opt.batch_size, h, w)
+            self.project_3d[scale] = Project3D(self.batch_size, h, w)
             self.project_3d[scale].to(self.device)
 
         self.depth_metric_names = ["de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
@@ -290,7 +299,7 @@ class TrainRunner:
         features = self.models["encoder"](inputs["color_aug", 0, 0])
         outputs = self.models["depth"](features)
 
-        if self.opt.predictive_mask:
+        if self.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
 
         outputs.update(self.predict_poses(inputs, features))
@@ -310,16 +319,16 @@ class TrainRunner:
             # separate forward pass through the pose network.
 
             # select what features the pose network takes as input
-            pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.opt.frame_ids}
+            pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.frame_ids}
 
-            for f_i in self.opt.frame_ids[1:]:
+            for f_i in self.frame_ids[1:]:
                 if f_i != "s":
                     # To maintain ordering we always pass frames in temporal order
                     pose_inputs = [pose_feats[f_i], pose_feats[0]] if f_i < 0 else [pose_feats[0], pose_feats[f_i]]
 
-                    if self.opt.pose_model_type == "separate_resnet":
+                    if self.pose_model_type == "separate_resnet":
                         pose_inputs = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
-                    elif self.opt.pose_model_type == "posecnn":
+                    elif self.pose_model_type == "posecnn":
                         pose_inputs = torch.cat(pose_inputs, 1)
 
                     axisangle, translation = self.models["pose"](pose_inputs)
@@ -335,15 +344,15 @@ class TrainRunner:
 
         else:
             # Here we input all frames to the pose net (and predict all poses) together
-            if self.opt.pose_model_type in ["separate_resnet", "posecnn"]:
-                pose_inputs = torch.cat([inputs[("color_aug", i, 0)] for i in self.opt.frame_ids if i != "s"], 1)
+            if self.pose_model_type in ["separate_resnet", "posecnn"]:
+                pose_inputs = torch.cat([inputs[("color_aug", i, 0)] for i in self.frame_ids if i != "s"], 1)
 
-                if self.opt.pose_model_type == "separate_resnet":
+                if self.pose_model_type == "separate_resnet":
                     pose_inputs = [self.models["pose_encoder"](pose_inputs)]
 
             axisangle, translation = self.models["pose"](pose_inputs)
 
-            for i, f_i in enumerate(self.opt.frame_ids[1:]):
+            for i, f_i in enumerate(self.frame_ids[1:]):
                 if f_i != "s":
                     outputs[("axisangle", 0, f_i)] = axisangle
                     outputs[("translation", 0, f_i)] = translation
@@ -379,20 +388,20 @@ class TrainRunner:
         """Generate the warped (reprojected) color images for a minibatch.
         Generated images are saved into the `outputs` dictionary.
         """
-        for scale in self.opt.scales:
+        for scale in self.scales:
             disp = outputs[("disp", scale)]
-            disp = F.interpolate(disp, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
+            disp = F.interpolate(disp, [self.img_height, self.img_width], mode="bilinear", align_corners=False)
             source_scale = 0
 
-            _, depth = disp_to_depth(disp, self.opt.min_depth, self.opt.max_depth)
+            _, depth = disp_to_depth(disp, self.min_depth , self.max_depth)
 
             outputs[("depth", 0, scale)] = depth
 
-            for _i, frame_id in enumerate(self.opt.frame_ids[1:]):
+            for _i, frame_id in enumerate(self.frame_ids[1:]):
                 T = inputs["stereo_T"] if frame_id == "s" else outputs["cam_T_cam", 0, frame_id]
 
                 # from the authors of https://arxiv.org/abs/1712.00175
-                if self.opt.pose_model_type == "posecnn":
+                if self.pose_model_type == "posecnn":
                     axisangle = outputs[("axisangle", 0, frame_id)]
                     translation = outputs[("translation", 0, frame_id)]
 
@@ -416,7 +425,7 @@ class TrainRunner:
                     padding_mode="border",
                 )
 
-                if not self.opt.disable_automasking:
+                if not self.disable_automasking:
                     outputs[("color_identity", frame_id, scale)] = inputs[("color", frame_id, source_scale)]
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -439,7 +448,7 @@ class TrainRunner:
         losses = {}
         total_loss = 0
 
-        for scale in self.opt.scales:
+        for scale in self.scales:
             loss = 0
             reprojection_losses = []
             source_scale = 0
@@ -447,42 +456,42 @@ class TrainRunner:
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
-            for frame_id in self.opt.frame_ids[1:]:
+            for frame_id in self.frame_ids[1:]:
                 pred = outputs[("color", frame_id, scale)]
                 reprojection_losses.append(self.compute_reprojection_loss(pred, target))
 
             reprojection_losses = torch.cat(reprojection_losses, 1)
 
-            if not self.opt.disable_automasking:
+            if not self.disable_automasking:
                 identity_reprojection_losses = []
-                for frame_id in self.opt.frame_ids[1:]:
+                for frame_id in self.frame_ids[1:]:
                     pred = inputs[("color", frame_id, source_scale)]
                     identity_reprojection_losses.append(self.compute_reprojection_loss(pred, target))
 
                 identity_reprojection_losses = torch.cat(identity_reprojection_losses, 1)
 
-                if self.opt.avg_reprojection:
+                if self.avg_reprojection:
                     identity_reprojection_loss = identity_reprojection_losses.mean(1, keepdim=True)
                 else:
                     # save both images, and do min all at once below
                     identity_reprojection_loss = identity_reprojection_losses
 
-            elif self.opt.predictive_mask:
+            elif self.predictive_mask:
                 # use the predicted mask
                 mask = outputs["predictive_mask"]["disp", scale]
-                mask = F.interpolate(mask, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False)
+                mask = F.interpolate(mask, [self.img_height, self.img_width], mode="bilinear", align_corners=False)
                 reprojection_losses *= mask
 
                 # add a loss pushing mask to 1 (using nn.BCELoss for stability)
                 weighting_loss = 0.2 * nn.BCELoss()(mask, torch.ones(mask.shape).cuda())
                 loss += weighting_loss.mean()
 
-            if self.opt.avg_reprojection:
+            if self.avg_reprojection:
                 reprojection_loss = reprojection_losses.mean(1, keepdim=True)
             else:
                 reprojection_loss = reprojection_losses
 
-            if not self.opt.disable_automasking:
+            if not self.disable_automasking:
                 # add random numbers to break ties
                 identity_reprojection_loss += (
                     torch.randn(identity_reprojection_loss.shape, device=self.device) * 0.00001
@@ -497,7 +506,7 @@ class TrainRunner:
             else:
                 to_optimise, idxs = torch.min(combined, dim=1)
 
-            if not self.opt.disable_automasking:
+            if not self.disable_automasking:
                 outputs[f"identity_selection/{scale}"] = (idxs > identity_reprojection_loss.shape[1] - 1).float()
 
             loss += to_optimise.mean()
@@ -506,7 +515,7 @@ class TrainRunner:
             norm_disp = disp / (mean_disp + 1e-7)
             smooth_loss = get_smooth_loss(norm_disp, color)
 
-            loss += self.opt.disparity_smoothness * smooth_loss / (2**scale)
+            loss += self.avg_reprojection * smooth_loss / (2**scale)
             total_loss += loss
             losses[f"loss/{scale}"] = loss
 
@@ -547,7 +556,7 @@ class TrainRunner:
 
     def log_time(self, batch_idx, duration, loss):
         """Print a logging statement to the terminal"""
-        samples_per_sec = self.opt.batch_size / duration
+        samples_per_sec = self.batch_size / duration
         time_sofar = time.time() - self.start_time
         training_time_left = (self.num_total_steps / self.step - 1.0) * time_sofar if self.step > 0 else 0
         print_string = (
@@ -572,9 +581,9 @@ class TrainRunner:
         for l, v in losses.items():
             writer.add_scalar(f"{l}", v, self.step)
 
-        for j in range(min(4, self.opt.batch_size)):  # write a maxmimum of four images
-            for s in self.opt.scales:
-                for frame_id in self.opt.frame_ids:
+        for j in range(min(4, self.batch_size)):  # write a maxmimum of four images
+            for s in self.scales:
+                for frame_id in self.frame_ids:
                     writer.add_image(
                         f"color_{frame_id}_{s}/{j}",
                         inputs[("color", frame_id, s)][j].data,
@@ -589,15 +598,15 @@ class TrainRunner:
 
                 writer.add_image(f"disp_{s}/{j}", normalize_image(outputs[("disp", s)][j]), self.step)
 
-                if self.opt.predictive_mask:
-                    for f_idx, frame_id in enumerate(self.opt.frame_ids[1:]):
+                if self.predictive_mask:
+                    for f_idx, frame_id in enumerate(self.frame_ids[1:]):
                         writer.add_image(
                             f"predictive_mask_{frame_id}_{s}/{j}",
                             outputs["predictive_mask"][("disp", s)][j, f_idx][None, ...],
                             self.step,
                         )
 
-                elif not self.opt.disable_automasking:
+                elif not self.disable_automasking:
                     writer.add_image(
                         f"automask_{s}/{j}",
                         outputs[f"identity_selection/{s}"][j][None, ...],
@@ -627,8 +636,8 @@ class TrainRunner:
             to_save = model.state_dict()
             if model_name == "encoder":
                 # save the sizes - these are needed at prediction time
-                to_save["height"] = self.opt.height
-                to_save["width"] = self.opt.width
+                to_save["height"] = self.img_height
+                to_save["width"] = self.img_width
             torch.save(to_save, save_path)
 
         save_path = os.path.join(save_folder, "{}.pth".format("adam"))
@@ -638,14 +647,14 @@ class TrainRunner:
 
     def load_model(self):
         """Load model(s) from disk"""
-        self.opt.load_weights_folder = os.path.expanduser(self.opt.load_weights_folder)
+        self.load_weights_folder = os.path.expanduser(self.load_weights_folder)
 
-        assert os.path.isdir(self.opt.load_weights_folder), f"Cannot find folder {self.opt.load_weights_folder}"
-        print(f"loading model from folder {self.opt.load_weights_folder}")
+        assert os.path.isdir(self.load_weights_folder), f"Cannot find folder {self.load_weights_folder}"
+        print(f"loading model from folder {self.load_weights_folder}")
 
         for n in self.opt.models_to_load:
             print(f"Loading {n} weights...")
-            path = os.path.join(self.opt.load_weights_folder, f"{n}.pth")
+            path = os.path.join(self.load_weights_folder, f"{n}.pth")
             model_dict = self.models[n].state_dict()
             pretrained_dict = torch.load(path)
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -653,7 +662,7 @@ class TrainRunner:
             self.models[n].load_state_dict(model_dict)
 
         # loading adam state
-        optimizer_load_path = os.path.join(self.opt.load_weights_folder, "adam.pth")
+        optimizer_load_path = os.path.join(self.load_weights_folder, "adam.pth")
         if os.path.isfile(optimizer_load_path):
             print("Loading Adam weights")
             optimizer_dict = torch.load(optimizer_load_path)
