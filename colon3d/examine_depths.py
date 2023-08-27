@@ -15,7 +15,7 @@ from colon3d.util.general_util import (
     save_dict_to_yaml,
     save_plot_and_close,
 )
-from colon3d.util.torch_util import resize_grayscale_images, to_numpy
+from colon3d.util.torch_util import resize_grayscale_image, to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps
@@ -34,7 +34,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/monodepth2/mono_stereo_640x192_orig/examination_result",
+        default="saved_models/monodepth2/MonoDepth2_orig/examination_result",
         help="Path to save the results.",
     )
     parser.add_argument(
@@ -216,18 +216,16 @@ def compute_depths(
 
     if make_plots:
         # resize to the original image size
-        depth_map_resized = resize_grayscale_images(
+        depth_map_resized = resize_grayscale_image(
             img=depth_map,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
-            is_singleton=True,
         )
         # resize to the original image size
-        depth_map = resize_grayscale_images(
+        depth_map = resize_grayscale_image(
             img=depth_map,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
-            is_singleton=True,
         )
         depth_map_resized = to_numpy(depth_map_resized, num_type="float_m")
         plt.figure()

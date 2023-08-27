@@ -61,7 +61,7 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(

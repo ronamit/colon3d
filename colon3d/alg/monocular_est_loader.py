@@ -137,7 +137,7 @@ class DepthAndEgoMotionLoader:
             depth_map = self.depth_maps_buffer[buffer_idx]
 
         elif self.depth_maps_source == "online_estimates":
-            depth_map = self.depth_estimator.estimate_depth_maps(rgb_frame, is_singleton=True)
+            depth_map = self.depth_estimator.estimate_depth_map(rgb_frame)
 
         else:
             raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
@@ -179,10 +179,9 @@ class DepthAndEgoMotionLoader:
 
         elif self.egomotions_source == "online_estimates":
             assert cur_rgb_frame is not None and prev_rgb_frame is not None
-            egomotion = self.egomotion_estimator.estimate_egomotions(
-                from_imgs=prev_rgb_frame,
-                to_imgs=cur_rgb_frame,
-                is_singleton=True,
+            egomotion = self.egomotion_estimator.estimate_egomotion(
+                from_img=prev_rgb_frame,
+                to_img=cur_rgb_frame,
             )
             egomotion = to_torch(egomotion)
             # normalize the quaternion (in case it is not normalized)
@@ -218,6 +217,7 @@ class DepthAndEgoMotionLoader:
         n_points = kp_norm_coords.shape[0]
         device = kp_norm_coords.device
         dtype = kp_norm_coords.dtype
+        assert cur_depth_frame.ndim == 2 and (prev_depth_frame is None or prev_depth_frame.ndim == 2)
 
         if self.depth_maps_source == "none":
             return torch.ones((n_points), device=device, dtype=dtype) * self.depth_default

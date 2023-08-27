@@ -9,7 +9,7 @@ from monodepth2.options import MonoDepth2Options, StereoDepthOptions
 from monodepth2.trainer import Trainer
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--method", type=str, default="MonoDepth2", choices=["MonoDepth2", "StereoDepth"])
+parser.add_argument("--method", type=str, default="StereoDepth", choices=["MonoDepth2", "StereoDepth"])
 
 # --------------------------------------------------------------------------------------------------------------------
 

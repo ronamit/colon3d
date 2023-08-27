@@ -220,7 +220,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="MonoDepth2",
-                depth_and_egomotion_model_path=models_base_path / "monodepth2/mono_stereo_640x192_orig",
+                depth_and_egomotion_model_path=models_base_path / "MonoDepth2_orig",
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
@@ -235,7 +235,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="MonoDepth2",
-                depth_and_egomotion_model_path=models_base_path / "monodepth2/mono_stereo_640x192_orig",
+                depth_and_egomotion_model_path=models_base_path / "monodepth2/MonoDepth2_orig",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()

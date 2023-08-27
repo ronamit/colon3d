@@ -530,13 +530,3 @@ def to_path(path):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def resize_color_images(imgs: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
-    """Resize an array of multi-channel image [N X H X W X C] to the given size with interpolation."""
-    assert imgs.ndim == 4, "Input should be 4D array."
-    resized_imgs = np.zeros((imgs.shape[0], new_height, new_width, imgs.shape[-1]), dtype=imgs.dtype)
-    for i in range(imgs.shape[0]):
-        resized_imgs[i] = cv2.resize(imgs[i], (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-    return resized_imgs
-
-
-# --------------------------------------------------------------------------------------------------------------------

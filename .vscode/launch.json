@@ -31,14 +31,12 @@
             ]
         },
         {
-            "name": "run_slam_on_sim_example",
+            "name": "run_on_sim_scene",
             "type": "python",
             "request": "launch",
-            "program": "colon3d/run_slam_on_sim_example.py",
+            "program": "colon3d/run_on_sim_scene.py",
             "console": "integratedTerminal",
             "args": [
-                "--n_frames_lim",
-                "0"
             ]
         },
         {

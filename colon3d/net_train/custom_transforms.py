@@ -1,104 +1,245 @@
 import random
 
+import cv2
 import numpy as np
 import torch
-from PIL import Image
+import torchvision
 
-"""Set of tranform random routines that takes list of inputs as arguments,
-in order to have random but coherent transformations."""
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-class Compose:
-    def __init__(self, transforms):
-        self.transforms = transforms
-
-    def __call__(self, images, intrinsics):
-        for t in self.transforms:
-            images, intrinsics = t(images, intrinsics)
-        return images, intrinsics
-
+from colon3d.util.torch_util import get_device, to_torch
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class Normalize:
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+def get_image_names():
+    # the names of the images in the sample of the dataset defined in colon3d/net_train/scenes_dataset.py
+    return ["target_img", "ref_img", "target_depth"]
 
-    def __call__(self, images, intrinsics):
-        for tensor in images:
-            for t, m, s in zip(tensor, self.mean, self.std, strict=True):
-                t.sub_(m).div_(s)
-        return images, intrinsics
+
+# --------------------------------------------------------------------------------------------------------------------
+def resize_image(img: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
+    """Resize an image of shape [height x width] or [height x width x n_channels]"""
+    if img.ndim == 1:  # depth
+        return cv2.resize(img, dsize=(new_width, new_height), fx=1.0, fy=1.0, interpolation=cv2.INTER_NEAREST)
+    if img.ndim == 3:  # color
+        return cv2.resize(img, dsize=(new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    raise ValueError("Invalid image dimension.")
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class ArrayToTensor:
-    """Converts a list of numpy.ndarray (H x W x C) along with a intrinsics matrix to a list of torch.FloatTensor of shape (C x H x W) with a intrinsics tensor."""
+def img_to_net_in_format(
+    img: np.ndarray,
+    device: torch.device,
+    dtype: torch.dtype,
+    normalize_values: bool = True,
+    new_height: int | None = None,
+    new_width: int | None = None,
+) -> torch.Tensor:
+    """Transform an single input image to the network input format.
+    Args:
+        imgs: the input images [height x width x n_channels] or [height x width]
+    Returns:
+        imgs: the input images in the network format [1 x n_channels x new_width x new_width] or [1 x new_width x new_width]
+    """
+    height, width = img.shape[:2]
 
-    def __call__(self, images, intrinsics):
-        tensors = []
-        for im in images:
-            # put it from HWC to CHW format
-            im_chw = np.transpose(im, (2, 0, 1))
-            # handle numpy array
-            tensors.append(torch.from_numpy(im_chw).float() / 255)
-        return tensors, intrinsics
+    if new_height and new_width and (height, width) != (new_height, new_width):
+        # resize the images
+        img = resize_image(img, new_height=new_height, new_width=new_width)
+
+    # transform to channels first (HWC to CHW format)
+    if img.ndim == 3:  # color
+        img = np.transpose(img, (2, 0, 1))
+    elif img.ndim == 1:  # depth
+        img = np.expand_dims(img, axis=0)
+    else:
+        raise ValueError("Invalid image dimension.")
+
+    # transform to torch tensor and normalize the values to [0, 1]
+    img = to_torch(img, device=device).to(dtype)
+
+    if normalize_values:
+        # normalize the values from [0,255] to [-1, 1]
+        img = (img / 255 - 0.45) / 0.225
+
+    # add the batch dimension
+    img = img.unsqueeze(0)
+
+    return img
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class RandomHorizontalFlip:
-    """Randomly horizontally flips the given numpy array with a probability of 0.5"""
+# Random horizontal flip transform
+class RandomFlip:
+    def __init__(self, flip_x_p=0.5, flip_y_p=0.5):
+        self.flip_x_p = flip_x_p
+        self.flip_y_p = flip_y_p
+        self.image_names = get_image_names()
 
-    def __call__(self, images, intrinsics):
-        assert intrinsics is not None
-        if random.random() < 0.5:
-            output_intrinsics = np.copy(intrinsics)
-            output_images = [np.copy(np.fliplr(im)) for im in images]
-            w = output_images[0].shape[1]
-            output_intrinsics[0, 2] = w - output_intrinsics[0, 2]
-        else:
-            output_images = images
-            output_intrinsics = intrinsics
-        return output_images, output_intrinsics
+    def __call__(self, sample):
+        flip_x = random.random() < self.flip_x_p
+        flip_y = random.random() < self.flip_y_p
+
+        if flip_x:
+            for img_name in self.image_names:
+                img = sample[img_name]
+                sample[img_name] = np.flip(img, axis=1)
+            sample["intrinsics_K"][0, 2] = sample["target_img"].shape[2] - sample["intrinsics_K"][0, 2]
+
+            if flip_y:
+                for img_name in self.image_names:
+                    img = sample[img_name]
+                    sample[img_name] = np.flip(img, axis=0)
+                sample["intrinsics_K"][1, 2] = sample["target_img"].shape[1] - sample["intrinsics_K"][1, 2]
+        return sample
 
 
-# --------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 class RandomScaleCrop:
     """Randomly zooms images up to 15% and crop them to keep same size as before."""
 
-    def __call__(self, images, intrinsics):
-        assert intrinsics is not None
-        output_intrinsics = np.copy(intrinsics)
+    def __init__(self, max_scale=1.15):
+        self.max_scale = max_scale
+        self.image_names = get_image_names()
 
-        in_h, in_w, _ = images[0].shape
-        x_scaling, y_scaling = np.random.uniform(1, 1.15, 2)
-        scaled_h, scaled_w = int(in_h * y_scaling), int(in_w * x_scaling)
+    def __call__(self, sample):
+        # draw the scaling factor
+        x_scaling, y_scaling = np.random.uniform(1, self.max_scale, 2)
 
-        output_intrinsics[0] *= x_scaling
-        output_intrinsics[1] *= y_scaling
-        scaled_images = [
-            np.array(Image.fromarray(im.astype(np.uint8)).resize((scaled_w, scaled_h))).astype(np.float32)
-            for im in images
-        ]
+        # draw the offset ratio
+        x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
 
-        offset_y = np.random.randint(scaled_h - in_h + 1)
-        offset_x = np.random.randint(scaled_w - in_w + 1)
-        cropped_images = [im[offset_y : offset_y + in_h, offset_x : offset_x + in_w] for im in scaled_images]
+        new_K = np.copy(sample["intrinsics_K"])
 
-        output_intrinsics[0, 2] -= offset_x
-        output_intrinsics[1, 2] -= offset_y
+        for im_name in self.image_names:
+            img = sample[im_name]
+            in_h, in_w = img.shape[:2]
 
-        return cropped_images, output_intrinsics
+            scaled_h, scaled_w = int(in_h * y_scaling), int(in_w * x_scaling)
+            offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
+            offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
+
+            scaled_image = resize_image(img=img, new_height=scaled_h, new_width=scaled_w)
+            cropped_image = scaled_image[offset_y : offset_y + in_h, offset_x : offset_x + in_w]
+            sample[im_name] = cropped_image
+
+        new_K[0, :] *= x_scaling
+        new_K[1, :] *= y_scaling
+        new_K[0, 2] -= offset_x
+        new_K[1, 2] -= offset_y
+        sample["intrinsics_K"] = new_K
+        
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+# Color jittering transform
+class ColorJitter:
+    def __init__(self, p=0.5, brightness=(0.8, 1.2), contrast=(0.8, 1.2), saturation=(0.8, 1.2), hue=(-0.1, 0.1)):
+        # based on monodepth2/datasets/mono_dataset.py
+        self.p = p
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.hue = hue
+        self.color_jitter = torchvision.transforms.ColorJitter(
+            brightness=self.brightness,
+            contrast=self.contrast,
+            saturation=self.saturation,
+            hue=self.hue,
+        )
+
+    def color_jitter(self, sample):
+        if torch.random.rand < self.p:
+            sample["target_img"] = self.color_jitter(sample["target_img"])
+            sample["ref_img"] = self.color_jitter(sample["ref_img"])
+        return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+# create scales array transform
+class CreateScalesArray:
+    """ " Extends the sample with scaled variants of the images
+    <scale> is an integer representing the scale of the image relative to the fullsize image:
+        -1      images at native resolution as loaded from disk
+        0       images resized to (self.width,      self.height     )
+        1       images resized to (self.width // 2, self.height // 2)
+        2       images resized to (self.width // 4, self.height // 4)
+        3       images resized to (self.width // 8, self.height // 8)
+    """
+
+    def __init__(self, scales: tuple):
+        self.scales = scales
+
+    def __call__(self, sample):
+        for scale in self.scales:
+            if scale == -1:
+                # scale == -1 means the original image
+                for k, v in sample.items():
+                    sample[(k, scale)] = v
+            else:
+                for im_name in ["target_img", "ref_img"]:
+                    sample[(im_name, scale)] = torch.nn.functional.interpolate(
+                        sample[im_name].unsqueeze(0),
+                        scale_factor=2**scale,
+                        mode="bilinear",
+                        align_corners=True,
+                    ).squeeze(0)
+                    sample[("intrinsics_K", scale)] = v.clone()
+                    sample[("intrinsics_K", scale)][0, :] /= 2**scale
+                    sample[("intrinsics_K", scale)][1, :] /= 2**scale
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+class AddInvIntrinsics:
+    """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
+
+    def __init__(self, scales):
+        self.scales = scales
+
+    def __call__(self, sample):
+        sample["intrinsics_inv_K"] = torch.linalg.inv(sample["intrinsics_K"])
+        for scale in self.scales:
+            sample[("intrinsics_inv_K", scale)] = torch.linalg.inv(sample["intrinsics_K", scale])
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+class ToTensors:
+    # Use to make sure all values are tensors
+    def __init__(self):
+        self.image_names = get_image_names()
+        self.device = get_device()
+        self.dtype = torch.float32
+
+    def __call__(self, sample):
+        for k, v in sample.items():
+            if k in self.image_names or (k is tuple and k[0] in self.image_names):
+                sample[k] = img_to_net_in_format(
+                    img=v,
+                    device=self.device,
+                    dtype=self.dtype,
+                    normalize_values=True,
+                    new_height=None,  # no reshape
+                    new_width=None,
+                )
+            else:
+                sample[k] = to_torch(v)
+
+        return sample
 
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -139,6 +139,8 @@ def compute_photo_and_geometry_loss(
             # intrinsic_scaled = torch.cat((intrinsics[:, 0:2]/downscale, intrinsics[:, 2:]), dim=1)
             # tgt_depth_scaled = tgt_depth[s]
             # ref_depth_scaled = ref_depth[s]
+            
+            # TODO: Ron - why they didn't use the code above?
 
             # upsample depth
             b, _, h, w = tgt_img.size()

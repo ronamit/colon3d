@@ -42,13 +42,13 @@ def main():
         with (Path(args.results_path) / "out_variables.pkl").open("rb") as fid:
             slam_out = pickle.load(fid)
         # Show the results
-        save_slam_out_plots(slam_out, args.save_path, args.example_path)
+        save_slam_plots(slam_out, args.save_path, args.example_path)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def save_slam_out_plots(
+def save_slam_plots(
     slam_out,
     save_path,
     scene_path,
@@ -61,7 +61,6 @@ def save_slam_out_plots(
     create_folder_if_not_exists(save_path)
     # Extract the relevant variables
     scene_loader = slam_out["scene_loader"]
-    # ovscene_loaderer-ride the example folder (in case it was moved)
     scene_loader.example_path = scene_path
     n_frames_orig = scene_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
@@ -77,7 +76,7 @@ def save_slam_out_plots(
     online_est_track_world_loc = slam_out["online_est_track_world_loc"]
     online_est_track_angle = slam_out["online_est_track_angle"]
     alg_prm = slam_out["alg_prm"]
-    
+
     online_est_salient_kp_world_loc = slam_out["online_est_salient_kp_world_loc"]
     if stop_frame is None:
         stop_frame = n_frames_orig

@@ -63,7 +63,7 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
@@ -168,6 +168,11 @@ class SlamOnDatasetRunner:
                 scene_path = scenes_paths[i_scene]
                 scene_name = get_full_scene_name(scene_path)
                 scene_save_path = self.save_path / scene_name
+                # check if the scene was already completed
+                if (scene_save_path / "metrics_stats.csv").exists():
+                    print(f"Scene {i_scene + 1} out of {n_scenes} was already completed, skipping it...")
+                    metrics_stats = pd.read_csv(scene_save_path / "metrics_stats.csv").to_dict(orient="records")[0]
+                    return metrics_stats
                 print(
                     "-" * 100
                     + f"\nTime: {get_time_now_str()}\nRunning SLAM on scene {i_scene + 1} out of {n_scenes}, results will be saved to {scene_save_path}...\n"
@@ -181,11 +186,10 @@ class SlamOnDatasetRunner:
                 plot_names = ["aided_nav", "keypoints_and_tracks"] if self.plot_aided_nav else ["keypoints_and_tracks"]
 
                 # run the SLAM algorithm on the current scene
-                _, metrics_stats = run_slam_on_scene(
-                    scene_name=scene_name,
+                _, scene_metrics_stats = run_slam_on_scene(
                     scene_path=scene_path,
                     save_path=scene_save_path,
-                    save_raw_outputs=self.save_raw_outputs,
+                    save_raw_outputs_path=self.save_raw_outputs,
                     n_frames_lim=self.n_frames_lim,
                     alg_fov_ratio=self.alg_fov_ratio,
                     depth_maps_source=self.depth_maps_source,
@@ -194,19 +198,20 @@ class SlamOnDatasetRunner:
                     depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
                     alg_settings_override=self.alg_settings_override,
                     plot_names=plot_names,  # plots to create
+                    example_name=scene_name,
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
-                return metrics_stats
+                return scene_metrics_stats
 
             # ------------------------------------------------------------------------
 
-            metrics_stats_all = []
+            all_scene_metrics_stats = []
             for i_scene in range(n_scenes):
-                metrics_stats_all.append(run_on_scene(i_scene))
+                all_scene_metrics_stats.append(run_on_scene(i_scene))
 
             metrics_table = pd.DataFrame()
             for i_scene in range(n_scenes):
-                metrics_stats = metrics_stats_all[i_scene]
+                metrics_stats = all_scene_metrics_stats[i_scene]
                 # add current scene to the error metrics table
                 if i_scene == 0:
                     metrics_table = pd.DataFrame(metrics_stats, index=[0])

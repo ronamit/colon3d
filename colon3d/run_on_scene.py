@@ -8,7 +8,7 @@ from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.slam_alg import SlamAlgRunner
 from colon3d.alg.tracks_loader import DetectionsTracker
-from colon3d.show_slam_out import save_slam_out_plots
+from colon3d.show_slam_out import save_slam_plots
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, to_path
 
@@ -65,7 +65,7 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
@@ -190,7 +190,7 @@ class SlamRunner:
                     pickle.dump(slam_out, file)
                     print(f"Saved the results to {results_file_path}")
             # Show results
-            save_slam_out_plots(slam_out=slam_out, save_path=self.save_path, scene_path=self.scene_path)
+            save_slam_plots(slam_out=slam_out, save_path=self.save_path, scene_path=self.scene_path)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

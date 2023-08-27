@@ -22,9 +22,14 @@ class ColoNavDataset(data.Dataset):
 
     data_path: Path | None = None
 
-    def __init__(self, dataset_path: Path, scenes_paths: list, img_height: int, img_width: int, frame_ids: list,
-                 num_scales: int, is_train: bool, img_ext: str = ".png"):
+    def __init__(self, dataset_path: Path,
+                 scenes_paths: list,
+                 img_height: int,
+                 img_width: int,
+                 frame_ids: list,
+                 num_scales: int):
         super().__init__()
+        
 
         # NOTE: Make sure your intrinsics matrix is *normalized* by the original image size.
         # To normalize you need to scale the first row by 1 / image_width and the second row

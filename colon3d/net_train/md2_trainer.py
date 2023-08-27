@@ -18,25 +18,31 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from colon3d.net_train.md2_dataset import ColoNavDataset
+from colon3d.net_train.OLD.md2_dataset import ColoNavDataset
+from colon3d.net_train.scenes_dataset import get_scenes_dataset_random_split
 from colon3d.util.torch_util import get_device
-from monodepth2.layers import (SSIM, BackprojectDepth, Project3D,
-                               compute_depth_errors, disp_to_depth,
-                               get_smooth_loss, transformation_from_parameters)
+from monodepth2.layers import (
+    SSIM,
+    BackprojectDepth,
+    Project3D,
+    compute_depth_errors,
+    disp_to_depth,
+    get_smooth_loss,
+    transformation_from_parameters,
+)
 from monodepth2.networks.depth_decoder import DepthDecoder
 from monodepth2.networks.pose_cnn import PoseCNN
 from monodepth2.networks.pose_decoder import PoseDecoder
 from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
-from colon3d.net_train.scene_dataset_util import get_scenes_dataset_random_split
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
 class TrainRunner:
-    dataset_path: Path # path to the training data
-    validation_ratio: float = 0.1 # ratio of validation scenes
-    save_path: Path # path to save the trained model
+    dataset_path: Path  # path to the training data
+    validation_ratio: float = 0.1  # ratio of validation scenes
+    save_path: Path  # path to save the trained model
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     img_height: int = 192  # input image height
     img_width: int = 640  # input image width
@@ -147,12 +153,14 @@ class TrainRunner:
         print(f"Loading dataset from {dataset_path}")
 
         train_scenes_paths, val_scenes_paths = get_scenes_dataset_random_split(
-            dataset_path=dataset_path, validation_ratio=self.validation_ratio,
+            dataset_path=dataset_path,
+            validation_ratio=self.validation_ratio,
         )
 
         num_train_samples = len(train_scenes_paths)
         self.num_total_steps = num_train_samples // self.batch_size * self.opt.num_epochs
 
+        # Create datasets and dataloaders
         train_dataset = ColoNavDataset(
             dataset_path=dataset_path,
             scenes_paths=train_scenes_paths,
@@ -162,17 +170,14 @@ class TrainRunner:
             num_scales=self.num_scales,
             is_train=True,
         )
-
-
-        train_dataset = self.dataset(
-            self.dataset_path,
-            train_filenames,
-            self.img_height,
-            self.img_width,
-            self.frame_ids,
-            4,
-            is_train=True,
-            img_ext=img_ext,
+        val_dataset = ColoNavDataset(
+            dataset_path=dataset_path,
+            scenes_paths=val_scenes_paths,
+            img_height=self.img_height,
+            img_width=self.img_width,
+            frame_ids=self.frame_ids,
+            num_scales=self.num_scales,
+            is_train=False,
         )
         self.train_loader = DataLoader(
             train_dataset,
@@ -181,16 +186,6 @@ class TrainRunner:
             num_workers=self.opt.num_workers,
             pin_memory=True,
             drop_last=True,
-        )
-        val_dataset = self.dataset(
-            self.dataset_path,
-            val_filenames,
-            self.img_height,
-            self.img_width,
-            self.frame_ids,
-            4,
-            is_train=False,
-            img_ext=img_ext,
         )
         self.val_loader = DataLoader(
             val_dataset,
@@ -393,7 +388,7 @@ class TrainRunner:
             disp = F.interpolate(disp, [self.img_height, self.img_width], mode="bilinear", align_corners=False)
             source_scale = 0
 
-            _, depth = disp_to_depth(disp, self.min_depth , self.max_depth)
+            _, depth = disp_to_depth(disp, self.min_depth, self.max_depth)
 
             outputs[("depth", 0, scale)] = depth
 
@@ -442,6 +437,8 @@ class TrainRunner:
             reprojection_loss = 0.85 * ssim_loss + 0.15 * l1_loss
 
         return reprojection_loss
+
+    # ---------------------------------------------------------------------------------------------------------------------
 
     def compute_losses(self, inputs, outputs):
         """Compute the reprojection and smoothness losses for a minibatch"""
@@ -612,6 +609,8 @@ class TrainRunner:
                         outputs[f"identity_selection/{s}"][j][None, ...],
                         self.step,
                     )
+
+    # ---------------------------------------------------------------------------------------------------------------------
 
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with"""

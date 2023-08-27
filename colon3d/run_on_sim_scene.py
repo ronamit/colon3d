@@ -9,7 +9,7 @@ from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.slam_alg import SlamAlgRunner
 from colon3d.alg.tracks_loader import DetectionsTracker
-from colon3d.show_slam_out import save_slam_out_plots
+from colon3d.show_slam_out import save_slam_plots
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="/mnt/disk1/data/sim_data/TestData21_cases/Scene_00000_0000",  # "data/sim_data/Zhang22/Scene_00000"
+        default="/mnt/disk1/data/sim_data/TestData21/Scene_00000/Target_Cases/Case_0000/",  # "data/sim_data/Zhang22/Scene_00000"
         help="Path to the scene folder",
     )
     parser.add_argument(
@@ -33,10 +33,10 @@ def main():
         help="Path to the save outputs",
     )
     parser.add_argument(
-        "--save_raw_outputs",
-        type=bool_arg,
-        default=False,
-        help="If True then all the raw outputs will be saved (as pickle file), not just the plots and summary",
+        "--save_raw_outputs_path",
+        type=str,
+        default="",
+        help="If not empty then the raw outputs will be saved to this path",
     )
     parser.add_argument(
         "--use_bundle_adjustment",
@@ -67,14 +67,14 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_method",
         type=str,
-        default="SC-DepthV3",
-        choices=["EndoSFM", "MonoDepth2", "SC-DepthV3"],
+        default="MonoDepth2",
+        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/sc_depth_models/kitti_scv3.ckpt",  # "saved_models/EndoSFM_orig", "saved_models/sc_depth_models/kitti_scv3.ckpt"
+        default="/mnt/disk1/saved_models/MonoDepth2_orig",  # "/mnt/disk1/saved_models/EndoSFM_orig", "/mnt/disk1/saved_models/MonoDepth2_orig", "/mnt/disk1/saved_models/MonoDepth2_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -108,7 +108,7 @@ def main():
     slam_on_scene_runner = SlamOnSimSceneRunner(
         scene_path=Path(args.scene_path),
         save_path=Path(args.save_path),
-        save_raw_outputs=args.save_raw_outputs,
+        save_raw_outputs_path=args.save_raw_outputs_path,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
         depth_and_egomotion_method=args.depth_and_egomotion_method,
@@ -127,7 +127,7 @@ def main():
 class SlamOnSimSceneRunner:
     scene_path: Path
     save_path: Path
-    save_raw_outputs: bool
+    save_raw_outputs_path: bool
     depth_maps_source: str
     egomotions_source: str
     depth_and_egomotion_method: str
@@ -143,6 +143,7 @@ class SlamOnSimSceneRunner:
     def run(self):
         self.scene_path = Path(self.scene_path)
         self.save_path = Path(self.save_path)
+        self.save_raw_outputs_path = Path(self.save_raw_outputs_path)
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists...\n" + "-" * 50)
@@ -153,7 +154,7 @@ class SlamOnSimSceneRunner:
             metrics_per_frame, metrics_stats = run_slam_on_scene(
                 scene_path=self.scene_path,
                 save_path=self.save_path,
-                save_raw_outputs=self.save_raw_outputs,
+                save_raw_outputs_path=self.save_raw_outputs_path,
                 n_frames_lim=self.n_frames_lim,
                 alg_fov_ratio=self.alg_fov_ratio,
                 depth_maps_source=self.depth_maps_source,
@@ -171,10 +172,9 @@ class SlamOnSimSceneRunner:
 
 
 def run_slam_on_scene(
-    scene_name: str,
     scene_path: Path,
     save_path: Path,
-    save_raw_outputs: bool,
+    save_raw_outputs_path: Path,
     n_frames_lim: int,
     alg_fov_ratio: float,
     depth_maps_source: str,
@@ -184,6 +184,7 @@ def run_slam_on_scene(
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
     plot_names: list | None = None,
+    example_name: str = "",
 ):
     """ "
     Run the SLAM algorithm on a scene and save the results.
@@ -228,15 +229,15 @@ def run_slam_on_scene(
     )
     slam_out = slam_runner.run()
 
-    if save_path and save_raw_outputs:
+    if save_raw_outputs_path and save_raw_outputs_path != "":
         results_file_path = save_path / "out_variables.pkl"
         # save results to a file
         with results_file_path.open("wb") as file:
             pickle.dump(slam_out, file)
-            print(f"Saved the results to {results_file_path}")
+            print(f"Saved raw algorithm outputs to {results_file_path}")
 
     # create and save plots
-    save_slam_out_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
+    save_slam_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
 
     # load the  ground truth targets info
     targets_info_path = scene_path / "targets_info.pkl"
@@ -259,10 +260,16 @@ def run_slam_on_scene(
         gt_targets_info=gt_targets_info,
         slam_out=slam_out,
     )
-    metrics_stats["Example Name"] = scene_name
+    metrics_stats["example_name"] = example_name
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
 
-    print(f"Error metrics stats: {metrics_stats}")
+    print(f"Summary metrics stats: {metrics_stats}")
+
+    # Save the metrics to a file
+    metrics_file_path = save_path / "metrics_stats.pkl"
+    with metrics_file_path.open("wb") as file:
+        pickle.dump(metrics_stats, file)
+        print(f"Saved metrics to {metrics_file_path}")
 
     return metrics_per_frame, metrics_stats
 

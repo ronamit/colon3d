@@ -38,7 +38,6 @@ class ScenesDataset(data.Dataset):
         self.load_tgt_depth = load_tgt_depth
         self.sequence_length = sequence_length
         self.transform = transform
-        self.samples = []
         self.frame_paths_per_scene = []
         # go over all the scenes in the dataset
         for scene_index, scene_path in enumerate(self.scenes_paths):
@@ -68,8 +67,7 @@ class ScenesDataset(data.Dataset):
                     "target_frame_index": target_frame_idx,
                     "ref_frames_inds": ref_frame_idxs,
                 }
-                self.samples.append(sample)
-        random.shuffle(self.samples)
+     
 
     # ---------------------------------------------------------------------------------------------------------------------
 
