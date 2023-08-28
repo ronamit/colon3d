@@ -94,7 +94,7 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
     rand_seed = 0  # random seed for reproducibility
     set_rand_seed(rand_seed)
-    train_dataset_path = Path(args.train_dataset_path)
+    dataset_path = Path(args.dataset_path)
     path_to_save_model = Path(args.path_to_save_model)
     pretrained_model_path = Path(args.pretrained_model_path)
     depth_and_egomotion_method = args.depth_and_egomotion_method
@@ -127,27 +127,27 @@ def main():
 
     # set data transforms
     if depth_and_egomotion_method == "EndoSFM":
-        train_transforms = endo_sfm_transforms.get_train_transforms()
-        val_transforms = endo_sfm_transforms.get_validation_transforms()
+        train_transform = endo_sfm_transforms.get_train_transform()
+        val_transform = endo_sfm_transforms.get_validation_transform()
     elif depth_and_egomotion_method == "MonoDepth2":
-        train_transforms = md2_transforms.get_train_transforms()
-        val_transforms = md2_transforms.get_validation_transforms()
+        train_transform = md2_transforms.get_train_transforms()
+        val_transform = md2_transforms.get_validation_transforms()
     else:
         raise ValueError(f"Unknown method: {depth_and_egomotion_method}")
 
     # training set
     train_set = ScenesDataset(
         scenes_paths=train_scenes_paths,
-        load_tgt_depth=False,
-        transforms=train_transforms,
+        load_target_depth=False,
+        transform=train_transform,
         subsample_param=subsample_param,
     )
 
     # validation set
     validation_dataset = ScenesDataset(
         scenes_paths=val_scenes_paths,
-        load_tgt_depth=True,
-        transforms=val_transforms,
+        load_target_depth=True,
+        transform=val_transform,
         subsample_param=subsample_param,
     )
 
@@ -182,7 +182,7 @@ def main():
         )
     elif depth_and_egomotion_method == "MonoDepth2":
         train_runner = monodepth2_trainer(
-            dataset_path=train_dataset_path,
+            dataset_path=dataset_path,
             save_path=path_to_save_model,
             load_weights_folder=pretrained_model_path,
             subsample_param=subsample_param,
@@ -197,7 +197,7 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
     # Save model info:
     # get scene metata for some example scene in the train dataset (should be the same for all scenes):
-    scenes_paths = get_all_scenes_paths_in_dir(train_dataset_path, with_targets=False)
+    scenes_paths = get_all_scenes_paths_in_dir(dataset_path, with_targets=False)
     scene_path = scenes_paths[0]
     with (scene_path / "meta_data.yaml").open("r") as f:
         scene_metadata = yaml.load(f, Loader=yaml.FullLoader)
@@ -205,7 +205,7 @@ def main():
     # set this value initially to 1.0, and then run the depth examination to calibrate the depth scale:
     net_out_to_mm = 1.0
 
-    model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_param: {subsample_param}, dataset_path: {train_dataset_path}"
+    model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_param: {subsample_param}, dataset_path: {dataset_path}"
     save_model_info(
         save_dir_path=path_to_save_model,
         scene_metadata=scene_metadata,
@@ -218,7 +218,7 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination to calibrate the depth scale:
     depth_examiner = DepthExaminer(
-        dataset_path=train_dataset_path,
+        dataset_path=dataset_path,
         depth_and_egomotion_method=depth_and_egomotion_method,
         depth_and_egomotion_model_path=path_to_save_model,
         save_path=path_to_save_depth_exam,
@@ -237,7 +237,7 @@ def main():
             model_info["net_out_to_mm"] = net_out_to_mm
         save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
         print(
-            f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]"
+            f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]",
         )
 
 

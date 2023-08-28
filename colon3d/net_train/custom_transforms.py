@@ -33,6 +33,8 @@ def img_to_net_in_format(
     device: torch.device,
     dtype: torch.dtype,
     normalize_values: bool = True,
+    img_normalize_mean: float = 0.45,
+    img_normalize_std: float = 0.225,
     new_height: int | None = None,
     new_width: int | None = None,
 ) -> torch.Tensor:
@@ -60,8 +62,10 @@ def img_to_net_in_format(
     img = to_torch(img, device=device).to(dtype)
 
     if normalize_values:
-        # normalize the values from [0,255] to [-1, 1]
-        img = (img / 255 - 0.45) / 0.225
+        # normalize the values from [0,255] to [0, 1]
+        img = img / 255
+        # normalize the values to the mean and std of the ImageNet dataset
+        img = (img - img_normalize_mean) / img_normalize_std
 
     # add the batch dimension
     img = img.unsqueeze(0)
@@ -133,7 +137,7 @@ class RandomScaleCrop:
         new_K[0, 2] -= offset_x
         new_K[1, 2] -= offset_y
         sample["intrinsics_K"] = new_K
-        
+
         return sample
 
 
@@ -220,10 +224,12 @@ class AddInvIntrinsics:
 
 class ToTensors:
     # Use to make sure all values are tensors
-    def __init__(self):
+    def __init__(self, img_normalize_mean=None, img_normalize_std=None, dtype=torch.float32):
         self.image_names = get_image_names()
         self.device = get_device()
-        self.dtype = torch.float32
+        self.dtype = dtype
+        self.img_normalize_mean = img_normalize_mean
+        self.img_normalize_std = img_normalize_std
 
     def __call__(self, sample):
         for k, v in sample.items():
@@ -233,12 +239,26 @@ class ToTensors:
                     device=self.device,
                     dtype=self.dtype,
                     normalize_values=True,
+                    img_normalize_mean=self.img_normalize_mean,
+                    img_normalize_std=self.img_normalize_std,
                     new_height=None,  # no reshape
                     new_width=None,
                 )
             else:
                 sample[k] = to_torch(v)
 
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+class NormalizeCamIntrinsicMat:
+    def __call__(self, sample):
+        im_width = sample["target_img"].shape[2]
+        im_height = sample["target_img"].shape[1]
+        sample["intrinsics_K"][0, :] /= im_width
+        sample["intrinsics_K"][1, :] /= im_height
         return sample
 
 

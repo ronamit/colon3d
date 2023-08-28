@@ -18,8 +18,6 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from colon3d.net_train.OLD.md2_dataset import ColoNavDataset
-from colon3d.net_train.scenes_dataset import get_scenes_dataset_random_split
 from colon3d.util.torch_util import get_device
 from monodepth2.layers import (
     SSIM,
@@ -148,53 +146,12 @@ class TrainRunner:
         print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
         print("Training is using:\n  ", self.device)
 
-        # dataset split
-        dataset_path = Path(self.dataset_path)
-        print(f"Loading dataset from {dataset_path}")
-
-        train_scenes_paths, val_scenes_paths = get_scenes_dataset_random_split(
-            dataset_path=dataset_path,
-            validation_ratio=self.validation_ratio,
-        )
 
         num_train_samples = len(train_scenes_paths)
         self.num_total_steps = num_train_samples // self.batch_size * self.opt.num_epochs
 
-        # Create datasets and dataloaders
-        train_dataset = ColoNavDataset(
-            dataset_path=dataset_path,
-            scenes_paths=train_scenes_paths,
-            img_height=self.img_height,
-            img_width=self.img_width,
-            frame_ids=self.frame_ids,
-            num_scales=self.num_scales,
-            is_train=True,
-        )
-        val_dataset = ColoNavDataset(
-            dataset_path=dataset_path,
-            scenes_paths=val_scenes_paths,
-            img_height=self.img_height,
-            img_width=self.img_width,
-            frame_ids=self.frame_ids,
-            num_scales=self.num_scales,
-            is_train=False,
-        )
-        self.train_loader = DataLoader(
-            train_dataset,
-            self.batch_size,
-            True,
-            num_workers=self.opt.num_workers,
-            pin_memory=True,
-            drop_last=True,
-        )
-        self.val_loader = DataLoader(
-            val_dataset,
-            self.batch_size,
-            True,
-            num_workers=self.opt.num_workers,
-            pin_memory=True,
-            drop_last=True,
-        )
+
+ 
         self.val_iter = iter(self.val_loader)
 
         self.writers = {}

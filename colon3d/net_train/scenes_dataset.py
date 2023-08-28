@@ -21,7 +21,6 @@ class ScenesDataset(data.Dataset):
         self,
         scenes_paths: list,
         load_target_depth: bool = False,
-        normalize_intrinsics: bool = False,
         transform: Compose | None = None,
         subsample_min: int = 1,
         subsample_max: int = 20,
@@ -38,7 +37,6 @@ class ScenesDataset(data.Dataset):
         """
         self.scenes_paths = scenes_paths
         self.load_target_depth = load_target_depth
-        self.normalize_intrinsics = normalize_intrinsics
         self.transform = transform
         self.subsample_min = subsample_min
         self.subsample_max = subsample_max
@@ -79,12 +77,8 @@ class ScenesDataset(data.Dataset):
             metadata = yaml.load(file, Loader=yaml.FullLoader)
             intrinsics_orig = get_camera_matrix(metadata)
 
-        if self.normalize_intrinsics:
-            # normalize the intrinsics matrix to the image size (for MonoDepth2)
-            intrinsics_orig[0, :] /= metadata["width"]
-            intrinsics_orig[1, :] /= metadata["height"]
-
         sample["intrinsics_K"] = to_torch(intrinsics_orig)
+        # note that the intrinsics matrix might be changed later by the transform (as needed for some methods)
 
         # load the target frame
         target_frame_ind = target_id["target_frame_idx"]
