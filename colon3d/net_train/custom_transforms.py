@@ -43,6 +43,7 @@ def img_to_net_in_format(
     img_normalize_std: float = 0.225,
     new_height: int | None = None,
     new_width: int | None = None,
+    add_batch_dim: bool = False,
 ) -> torch.Tensor:
     """Transform an single input image to the network input format.
     Args:
@@ -59,7 +60,7 @@ def img_to_net_in_format(
     # transform to channels first (HWC to CHW format)
     if img.ndim == 3:  # color
         img = np.transpose(img, (2, 0, 1))
-    elif img.ndim == 1:  # depth
+    elif img.ndim == 2:  # depth
         img = np.expand_dims(img, axis=0)
     else:
         raise ValueError("Invalid image dimension.")
@@ -72,10 +73,8 @@ def img_to_net_in_format(
         img = img / 255
         # normalize the values to the mean and std of the ImageNet dataset
         img = (img - img_normalize_mean) / img_normalize_std
-
-    # add the batch dimension
-    img = img.unsqueeze(0)
-
+    if add_batch_dim:
+        img = img.unsqueeze(0)
     return img
 
 
@@ -125,8 +124,6 @@ class RandomScaleCrop:
         # draw the offset ratio
         x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
 
-        new_K = np.copy(sample["intrinsics_K"])
-
         for im_name in image_names:
             img = sample[im_name]
             in_h, in_w = img.shape[:2]
@@ -139,11 +136,10 @@ class RandomScaleCrop:
             cropped_image = scaled_image[offset_y : offset_y + in_h, offset_x : offset_x + in_w]
             sample[im_name] = cropped_image
 
-        new_K[0, :] *= x_scaling
-        new_K[1, :] *= y_scaling
-        new_K[0, 2] -= offset_x
-        new_K[1, 2] -= offset_y
-        sample["intrinsics_K"] = new_K
+        sample["intrinsics_K"][0, :] *= x_scaling
+        sample["intrinsics_K"][1, :] *= y_scaling
+        sample["intrinsics_K"][0, 2] -= offset_x
+        sample["intrinsics_K"][1, 2] -= offset_y
 
         return sample
 
@@ -252,7 +248,7 @@ class ToTensors:
                     new_width=None,
                 )
             else:
-                sample[k] = to_torch(v)
+                sample[k] = to_torch(v, dtype=self.dtype, device=self.device)
 
         return sample
 

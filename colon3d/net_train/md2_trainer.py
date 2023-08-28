@@ -74,6 +74,9 @@ class TrainRunner:
 
     def __attrs_post_init__(self):
         self.save_path = Path(self.save_path)
+        # save params
+        with (self.save_path / "params.txt").open("w") as file:
+            file.write(str(self) + "\n")
 
         # checking height and width are multiples of 32
         assert self.img_height % 32 == 0, "'height' must be a multiple of 32"

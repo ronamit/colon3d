@@ -51,9 +51,13 @@ class TrainRunner:
     #  "zeros" will null gradients outside target image.
     #  "border" will only null gradients of the coordinate outside (x or y),
     save_overwrite: bool = True  # overwrite save path if already exists
-
+    batch_size: int = attrs.field(init=False)
     # ---------------------------------------------------------------------------------------------------------------------
 
+    def __attrs_post_init__(self):
+        self.batch_size = self.train_loader.batch_size
+
+    # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
         device = get_device()
         torch.autograd.set_detect_anomaly(True)
@@ -63,6 +67,10 @@ class TrainRunner:
             return
 
         print(f"Outputs will be saved to {self.save_path}")
+        
+        # save params
+        with (self.save_path / "params.txt").open("w") as file:
+            file.write(str(self) + "\n")
 
         with Tee(self.save_path / "prints_log.txt"):  # save the prints to a file
             ### inits
@@ -227,9 +235,9 @@ class TrainRunner:
 
             data_time.update(time.time() - end)  # measure data loading time
 
-            tgt_img = batch["tgt_img"].to(device)
-            ref_imgs = [img.to(device) for img in batch["ref_imgs"]]
-            intrinsics = batch["intrinsics"].to(device)
+            tgt_img = batch["target_img"].to(device)
+            ref_imgs = [batch["ref_img"].to(device)] # list of length 1
+            intrinsics_K = batch["intrinsics_K"].to(device)
 
             # compute output
             tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
@@ -238,7 +246,7 @@ class TrainRunner:
             loss_1, loss_3 = compute_photo_and_geometry_loss(
                 tgt_img,
                 ref_imgs,
-                intrinsics,
+                intrinsics_K,
                 tgt_depth,
                 ref_depths,
                 poses,
@@ -299,8 +307,8 @@ class TrainRunner:
 
         end = time.time()
         for i, batch in enumerate(val_loader):
-            tgt_img = batch["tgt_img"].to(device)
-            gt_depth = batch["depth_img"].to(device)
+            tgt_img = batch["target_img"].to(device)
+            gt_depth = batch["target_depth"].to(device)
 
             # compute output
             output_disp = disp_net(tgt_img)

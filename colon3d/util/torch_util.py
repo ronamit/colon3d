@@ -70,8 +70,9 @@ def to_numpy(x, num_type=None):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_torch(x, num_type=None, device=None):
-    dtype = get_default_dtype("torch", num_type)
+def to_torch(x, num_type=None, dtype=None, device=None):
+    if dtype is None:
+        dtype = get_default_dtype("torch", num_type)
     device = device or get_device()
     if isinstance(x, torch.Tensor):
         return x.to(dtype).to(device)

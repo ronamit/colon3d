@@ -116,7 +116,9 @@ class DepthModel:
             dtype=self.dtype,
             new_height=self.depth_map_height,
             new_width=self.depth_map_width,
+            add_batch_dim=True,
         )
+
 
         if self.method == "EndoSFM":
             with torch.no_grad():
@@ -209,12 +211,14 @@ class EgomotionModel:
         """
         assert from_img.shape == to_img.shape  # same shape
         assert from_img.ndim == 3  # [3 x H x W]
+        
         from_img = img_to_net_in_format(
             img=from_img,
             device=self.device,
             dtype=self.dtype,
             new_height=self.model_im_height,
             new_width=self.model_im_width,
+            add_batch_dim=True,
         )
         to_img = img_to_net_in_format(
             img=to_img,
@@ -222,6 +226,7 @@ class EgomotionModel:
             dtype=self.dtype,
             new_height=self.model_im_height,
             new_width=self.model_im_width,
+            add_batch_dim=True,
         )
 
         if self.method == "EndoSFM":
