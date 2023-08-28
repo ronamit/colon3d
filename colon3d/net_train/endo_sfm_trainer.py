@@ -82,7 +82,7 @@ class TrainRunner:
 
             # get the metadata of some scene (we assume that all scenes have the same metadata)
             train_set = self.train_loader.dataset
-            scene_metadata = train_set.get_scene_metadata(scene_index=0)
+            scene_metadata = train_set.get_scene_metadata()
 
             # save model_info file
             save_model_info(

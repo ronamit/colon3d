@@ -105,7 +105,7 @@ class ScenesDataset(data.Dataset):
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def get_scene_metadata(self, i_scene: int) -> dict:
+    def get_scene_metadata(self, i_scene: int = 0) -> dict:
         scene_path = self.scenes_paths[i_scene]
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)

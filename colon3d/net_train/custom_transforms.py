@@ -14,6 +14,12 @@ def get_image_names():
     # the names of the images in the sample of the dataset defined in colon3d/net_train/scenes_dataset.py
     return ["target_img", "ref_img", "target_depth"]
 
+# --------------------------------------------------------------------------------------------------------------------
+
+def get_sample_image_names(sample):
+    # the names of the images in the sample (the key is part of the defined names, or is a tuple which the first element is part of the defined names)
+    return [k for k in sample if  k in get_image_names() or (k is tuple and k[0] in get_image_names())]
+    
 
 # --------------------------------------------------------------------------------------------------------------------
 def resize_image(img: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
@@ -81,20 +87,20 @@ class RandomFlip:
     def __init__(self, flip_x_p=0.5, flip_y_p=0.5):
         self.flip_x_p = flip_x_p
         self.flip_y_p = flip_y_p
-        self.image_names = get_image_names()
-
+ 
     def __call__(self, sample):
         flip_x = random.random() < self.flip_x_p
         flip_y = random.random() < self.flip_y_p
+        image_names = get_sample_image_names(sample)
 
         if flip_x:
-            for img_name in self.image_names:
+            for img_name in image_names:
                 img = sample[img_name]
                 sample[img_name] = np.flip(img, axis=1)
             sample["intrinsics_K"][0, 2] = sample["target_img"].shape[2] - sample["intrinsics_K"][0, 2]
 
             if flip_y:
-                for img_name in self.image_names:
+                for img_name in image_names:
                     img = sample[img_name]
                     sample[img_name] = np.flip(img, axis=0)
                 sample["intrinsics_K"][1, 2] = sample["target_img"].shape[1] - sample["intrinsics_K"][1, 2]
@@ -109,9 +115,10 @@ class RandomScaleCrop:
 
     def __init__(self, max_scale=1.15):
         self.max_scale = max_scale
-        self.image_names = get_image_names()
 
     def __call__(self, sample):
+        image_names = get_sample_image_names(sample)
+        
         # draw the scaling factor
         x_scaling, y_scaling = np.random.uniform(1, self.max_scale, 2)
 
@@ -120,7 +127,7 @@ class RandomScaleCrop:
 
         new_K = np.copy(sample["intrinsics_K"])
 
-        for im_name in self.image_names:
+        for im_name in image_names:
             img = sample[im_name]
             in_h, in_w = img.shape[:2]
 
@@ -185,6 +192,7 @@ class CreateScalesArray:
         self.scales = scales
 
     def __call__(self, sample):
+        sample["scales"] = self.scales
         for scale in self.scales:
             if scale == -1:
                 # scale == -1 means the original image
@@ -209,13 +217,11 @@ class CreateScalesArray:
 class AddInvIntrinsics:
     """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
 
-    def __init__(self, scales):
-        self.scales = scales
-
     def __call__(self, sample):
         sample["intrinsics_inv_K"] = torch.linalg.inv(sample["intrinsics_K"])
-        for scale in self.scales:
-            sample[("intrinsics_inv_K", scale)] = torch.linalg.inv(sample["intrinsics_K", scale])
+        if "scales" in sample:
+            for scale in sample["scales"]:
+                sample[("intrinsics_inv_K", scale)] = torch.linalg.inv(sample["intrinsics_K", scale])
         return sample
 
 
@@ -225,15 +231,16 @@ class AddInvIntrinsics:
 class ToTensors:
     # Use to make sure all values are tensors
     def __init__(self, img_normalize_mean=None, img_normalize_std=None, dtype=torch.float32):
-        self.image_names = get_image_names()
         self.device = get_device()
         self.dtype = dtype
         self.img_normalize_mean = img_normalize_mean
         self.img_normalize_std = img_normalize_std
 
     def __call__(self, sample):
+        image_names = get_sample_image_names(sample)
+        
         for k, v in sample.items():
-            if k in self.image_names or (k is tuple and k[0] in self.image_names):
+            if k in image_names:
                 sample[k] = img_to_net_in_format(
                     img=v,
                     device=self.device,

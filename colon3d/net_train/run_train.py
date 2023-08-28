@@ -57,7 +57,10 @@ def main():
         default=200,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=4, type=int, help="number of data loading workers")
+    parser.add_argument("--n_workers",
+                        default=0,
+                        type=int,
+                        help="number of data loading workers")
     parser.add_argument(
         "--batch_size",
         default=8,
@@ -65,10 +68,22 @@ def main():
         help="mini-batch size, decrease this if out of memory",
     )
     parser.add_argument(
+        "--subsample_min",
+        type=int,
+        default=1,
+        help="Minimum subsample factor for generating training examples.",
+    )
+    parser.add_argument(
+        "--subsample_max",
+        type=int,
+        default=20,
+        help="Maximum subsample factor for generating training examples.",
+    )
+    parser.add_argument(
         "--overwrite_model",
         type=bool_arg,
-        default=False,
-        help="If True then overwrite the save model if it already exists in the save patb.",
+        default=True,
+        help="If True then overwrite the save model if it already exists in the save path.",
     )
     parser.add_argument(
         "--overwrite_depth_exam",
@@ -140,7 +155,8 @@ def main():
         scenes_paths=train_scenes_paths,
         load_target_depth=False,
         transform=train_transform,
-        subsample_param=subsample_param,
+        subsample_min=args.subsample_min,
+        subsample_max=args.subsample_max,
     )
 
     # validation set
@@ -148,7 +164,8 @@ def main():
         scenes_paths=val_scenes_paths,
         load_target_depth=True,
         transform=val_transform,
-        subsample_param=subsample_param,
+        subsample_min=1,
+        subsample_max=1,
     )
 
     # data loaders
@@ -157,14 +174,12 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.n_workers,
-        pin_memory=True,
     )
     validation_loader = torch.utils.data.DataLoader(
         validation_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.n_workers,
-        pin_memory=True,
     )
 
     # Run training:
