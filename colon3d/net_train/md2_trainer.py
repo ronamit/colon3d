@@ -41,8 +41,8 @@ from monodepth2.utils import normalize_image, sec_to_hm_str
 @attrs.define
 class TrainRunner:
     dataset_path: Path  # path to the training data
-    validation_ratio: float = 0.1  # ratio of validation scenes
     save_path: Path  # path to save the trained model
+    validation_ratio: float = 0.1  # ratio of validation scenes
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     img_height: int = 192  # input image height
     img_width: int = 640  # input image width

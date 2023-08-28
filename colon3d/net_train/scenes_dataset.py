@@ -7,8 +7,8 @@ import torch
 import yaml
 from imageio import imread
 from torch.utils import data
+from torchvision.transforms import Compose
 
-from colon3d.net_train.custom_transforms import Compose
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.torch_util import to_default_type, to_torch
 
@@ -30,7 +30,7 @@ class ScenesDataset(data.Dataset):
         Args:
             scenes_paths (list): List of paths to the scenes
             load_tgt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
-            transform (Compose | None): transform to apply to each sample (default: None)
+            transforms: transforms to apply to each sample  (in order)
             subsample_min (int): Minimum subsample factor to set the frame number between frames in the example.
             subsample_max (int): Maximum subsample factor to set the frame number between frames in the example.
         Notes:
@@ -104,10 +104,9 @@ class ScenesDataset(data.Dataset):
                 target_depth = to_default_type(h5f["z_depth_map"][target_frame_ind], num_type="float_m")
                 sample["target_depth"] = target_depth
 
-        # apply the transforms
-        if self.transform is not None:
+        # apply the transform
+        if self.transform:
             sample = self.transform(sample)
-
         return sample
 
     # ---------------------------------------------------------------------------------------------------------------------
