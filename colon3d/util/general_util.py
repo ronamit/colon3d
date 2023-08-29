@@ -526,6 +526,13 @@ def delete_incomplete_run_dirs(base_results_path: Path):
 def to_path(path):
     return Path(path) if path is not None else None
 
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def replace_keys(sample: dict, old_key: str, new_key: str):
+    sample[new_key] = sample.pop(old_key)
+    return sample
+
 
 # --------------------------------------------------------------------------------------------------------------------
 

@@ -1,7 +1,6 @@
 import random
 from pathlib import Path
 
-import h5py
 import numpy as np
 import torch
 import yaml
@@ -10,7 +9,7 @@ from torch.utils import data
 from torchvision.transforms import Compose
 
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
-from colon3d.util.torch_util import to_default_type, to_torch
+from colon3d.util.torch_util import to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -20,10 +19,10 @@ class ScenesDataset(data.Dataset):
     def __init__(
         self,
         scenes_paths: list,
-        load_target_depth: bool = False,
         transform: Compose | None = None,
         subsample_min: int = 1,
         subsample_max: int = 20,
+        n_sample_lim: int =0,
     ):
         r"""Initialize the DatasetLoader class
         Args:
@@ -32,11 +31,11 @@ class ScenesDataset(data.Dataset):
             transforms: transforms to apply to each sample  (in order)
             subsample_min (int): Minimum subsample factor to set the frame number between frames in the example.
             subsample_max (int): Maximum subsample factor to set the frame number between frames in the example.
+            n_sample_lim (int): Limit the number of samples to load (for debugging) if 0 then no limit
         Notes:
             for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
         """
         self.scenes_paths = scenes_paths
-        self.load_target_depth = load_target_depth
         self.transform = transform
         self.subsample_min = subsample_min
         self.subsample_max = subsample_max
@@ -50,6 +49,8 @@ class ScenesDataset(data.Dataset):
                 for frame_path in (scene_path / "RGB_Frames").iterdir()
                 if frame_path.is_file() and frame_path.name.endswith(".png")
             ]
+            if n_sample_lim > 0:
+                frames_paths = frames_paths[:n_sample_lim]
             self.frame_paths_per_scene.append(frames_paths)
             frames_paths.sort()
             n_frames = len(frames_paths)
@@ -69,9 +70,11 @@ class ScenesDataset(data.Dataset):
         sample = {}
         target_id = self.target_ids[index]
         scene_index = target_id["scene_idx"]
+        target_frame_idx = target_id["target_frame_idx"]
         scene_path = self.scenes_paths[scene_index]
         scene_frames_paths = self.frame_paths_per_scene[scene_index]
-
+        sample["scene_path"] = scene_path
+        sample["target_frame_idx"] = target_frame_idx
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
@@ -91,12 +94,6 @@ class ScenesDataset(data.Dataset):
         # load the reference frame
         ref_frame_idx = target_frame_ind + subsample_factor
         sample["ref_img"] = load_as_float(scene_frames_paths[ref_frame_idx])
-
-        if self.load_target_depth:
-            # load the depth map of the target frame and return it as part of the sample (As is, without any transformation)
-            with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
-                target_depth = to_default_type(h5f["z_depth_map"][target_frame_ind], num_type="float_m")
-                sample["target_depth"] = target_depth
 
         # apply the transform
         if self.transform:

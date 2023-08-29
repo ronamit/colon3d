@@ -28,7 +28,6 @@ class TrainRunner:
     pretrained_pose: str = ""  # path to pre-trained PoseNet model, if empty then training from scratch
     with_pretrain: bool = True  # in case training from scratch -  do we use ImageNet pretrained weights or not
     n_epochs: int = 100  # number of epochs to train
-    epoch_size: int = 0  # manual epoch size (will match dataset size if not set)
     learning_rate: float = 1e-4  # initial learning rate
     momentum: float = 0.9  # momentum for sgd, alpha parameter for adam
     beta: float = 0.999  # beta parameters for adam
@@ -48,15 +47,14 @@ class TrainRunner:
     with_mask: bool = True  # with the the mask for moving objects and occlusions or not
     with_auto_mask: bool = False  # with the the mask for stationary points
     padding_mode: str = "zeros"  # padding mode for image warping : this is important for photometric differenciation when going outside target image.
-    #  "zeros" will null gradients outside target image.
-    #  "border" will only null gradients of the coordinate outside (x or y),
+                #  "zeros" will null gradients outside target image.
+                #  "border" will only null gradients of the coordinate outside (x or y),
     save_overwrite: bool = True  # overwrite save path if already exists
-    batch_size: int = attrs.field(init=False)
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
-        self.batch_size = self.train_loader.batch_size
-
+        pass
+    
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
         device = get_device()
@@ -84,9 +82,6 @@ class TrainRunner:
             if self.log_output:
                 for i in range(3):
                     output_writers.append(SummaryWriter(self.save_path / "valid" / str(i)))
-
-            if self.epoch_size == 0:
-                self.epoch_size = len(self.train_loader)
 
             # get the metadata of some scene (we assume that all scenes have the same metadata)
             train_set = self.train_loader.dataset
@@ -160,7 +155,6 @@ class TrainRunner:
                     disp_net,
                     pose_net,
                     optimizer,
-                    self.epoch_size,
                     training_writer,
                     n_iter,
                 )
@@ -212,7 +206,6 @@ class TrainRunner:
         disp_net,
         pose_net,
         optimizer,
-        epoch_size,
         train_writer,
         n_iter: int,
     ):
@@ -269,7 +262,7 @@ class TrainRunner:
                 train_writer.add_scalar("total_loss", loss.item(), n_iter)
 
             # record loss and EPE
-            losses.update(loss.item(), self.batch_size)
+            losses.update(loss.item(), self.train_loader.batch_size)
 
             # compute gradient and do Adam step
             optimizer.zero_grad()
@@ -285,8 +278,6 @@ class TrainRunner:
                 writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
             if i % self.print_freq == 0:
                 print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
-            if i >= epoch_size - 1:
-                break
 
             n_iter += 1
 

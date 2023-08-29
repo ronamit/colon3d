@@ -1,11 +1,18 @@
 from torchvision.transforms import Compose
 
-from colon3d.net_train.custom_transforms import AddInvIntrinsics, RandomFlip, RandomScaleCrop, ToTensors
+from colon3d.net_train.custom_transforms import (
+    AddInvIntrinsics,
+    LoadTargetDepth,
+    RandomFlip,
+    RandomScaleCrop,
+    ToTensors,
+)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 def get_train_transform() -> Compose:
+    """ Training transform for EndoSFM """
     # set data transforms
     transform_list = [
         RandomFlip(flip_x_p=0.5, flip_y_p=0.5),
@@ -20,7 +27,8 @@ def get_train_transform() -> Compose:
 
 
 def get_validation_transform():
-    transform_list = [ToTensors(img_normalize_mean=0.45, img_normalize_std=0.225)]
+    """ Validation transform for EndoSFM """
+    transform_list = [LoadTargetDepth(), ToTensors(img_normalize_mean=0.45, img_normalize_std=0.225)]
     return Compose(transform_list)
 
 

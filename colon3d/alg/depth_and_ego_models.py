@@ -40,7 +40,7 @@ class DepthModel:
 
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        print(f"net_out_to_mm: {self.net_out_to_mm}")
+        print(f"net_out_to_mm: {self.net_out_to_mm:.3f}")
 
         # the camera matrix corresponding to the depth maps:
         self.depth_map_K = get_camera_matrix(self.model_info)

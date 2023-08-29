@@ -1,11 +1,12 @@
 import random
 
 import cv2
+import h5py
 import numpy as np
 import torch
 import torchvision
 
-from colon3d.util.torch_util import get_device, to_torch
+from colon3d.util.torch_util import get_device, to_default_type, to_torch
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -14,12 +15,14 @@ def get_image_names():
     # the names of the images in the sample of the dataset defined in colon3d/net_train/scenes_dataset.py
     return ["target_img", "ref_img", "target_depth"]
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
-def get_sample_image_names(sample):
+
+def get_sample_image_names(sample: dict):
     # the names of the images in the sample (the key is part of the defined names, or is a tuple which the first element is part of the defined names)
-    return [k for k in sample if  k in get_image_names() or (k is tuple and k[0] in get_image_names())]
-    
+    return [k for k in sample if k in get_image_names() or (k is tuple and k[0] in get_image_names())]
+
 
 # --------------------------------------------------------------------------------------------------------------------
 def resize_image(img: np.ndarray, new_height: int, new_width: int) -> np.ndarray:
@@ -81,13 +84,27 @@ def img_to_net_in_format(
 # --------------------------------------------------------------------------------------------------------------------
 
 
+class LoadTargetDepth:
+    def __call__(self, sample: dict):
+        scene_path = sample["scene_path"]
+        target_frame_idx = sample["target_frame_idx"]
+        # load the depth map of the target frame and return it as part of the sample.
+        with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
+            target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
+            sample["target_depth"] = target_depth
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 # Random horizontal flip transform
 class RandomFlip:
     def __init__(self, flip_x_p=0.5, flip_y_p=0.5):
         self.flip_x_p = flip_x_p
         self.flip_y_p = flip_y_p
- 
-    def __call__(self, sample):
+
+    def __call__(self, sample: dict):
         flip_x = random.random() < self.flip_x_p
         flip_y = random.random() < self.flip_y_p
         image_names = get_sample_image_names(sample)
@@ -115,9 +132,9 @@ class RandomScaleCrop:
     def __init__(self, max_scale=1.15):
         self.max_scale = max_scale
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict):
         image_names = get_sample_image_names(sample)
-        
+
         # draw the scaling factor
         x_scaling, y_scaling = np.random.uniform(1, self.max_scale, 2)
 
@@ -163,7 +180,7 @@ class ColorJitter:
             hue=self.hue,
         )
 
-    def color_jitter(self, sample):
+    def color_jitter(self, sample: dict):
         if torch.random.rand < self.p:
             sample["target_img"] = self.color_jitter(sample["target_img"])
             sample["ref_img"] = self.color_jitter(sample["ref_img"])
@@ -184,12 +201,12 @@ class CreateScalesArray:
         3       images resized to (self.width // 8, self.height // 8)
     """
 
-    def __init__(self, scales: tuple):
-        self.scales = scales
+    def __init__(self, n_scales: tuple):
+        self.n_scales = n_scales
 
-    def __call__(self, sample):
-        sample["scales"] = self.scales
-        for scale in self.scales:
+    def __call__(self, sample: dict):
+        sample["scales"] = self.n_scales
+        for scale in self.n_scales:
             if scale == -1:
                 # scale == -1 means the original image
                 for k, v in sample.items():
@@ -215,8 +232,8 @@ class AddInvIntrinsics:
 
     def __call__(self, sample):
         sample["intrinsics_inv_K"] = torch.linalg.inv(sample["intrinsics_K"])
-        if "scales" in sample:
-            for scale in sample["scales"]:
+        if "n_scales" in sample:
+            for scale in sample["n_scales"]:
                 sample[("intrinsics_inv_K", scale)] = torch.linalg.inv(sample["intrinsics_K", scale])
         return sample
 
@@ -232,9 +249,9 @@ class ToTensors:
         self.img_normalize_mean = img_normalize_mean
         self.img_normalize_std = img_normalize_std
 
-    def __call__(self, sample):
+    def __call__(self, sample: dict):
         image_names = get_sample_image_names(sample)
-        
+
         for k, v in sample.items():
             if k in image_names:
                 sample[k] = img_to_net_in_format(
@@ -257,11 +274,12 @@ class ToTensors:
 
 
 class NormalizeCamIntrinsicMat:
-    def __call__(self, sample):
+    def __call__(self, sample: dict):
         im_width = sample["target_img"].shape[2]
         im_height = sample["target_img"].shape[1]
         sample["intrinsics_K"][0, :] /= im_width
         sample["intrinsics_K"][1, :] /= im_height
+        assert "intrinsics_inv_K" not in sample, "Apply AddInvIntrinsics transform after this transform"
         return sample
 
 

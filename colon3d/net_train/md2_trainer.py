@@ -35,12 +35,22 @@ from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
 
 
+
+
+            save_path=path_to_save_model,
+            train_loader=train_loader,
+            validation_loader=validation_loader,
+            load_weights_folder=pretrained_model_path,
+            save_overwrite=args.overwrite_model,
+            n_epochs=n_epochs,
+            epoch_size=epoch_size,
+            
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
 class TrainRunner:
-    dataset_path: Path  # path to the training data
     save_path: Path  # path to save the trained model
-    validation_ratio: float = 0.1  # ratio of validation scenes
+    train_loader: DataLoader  # training data loader
+    validation_loader: DataLoader  # validation data loader
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     img_height: int = 192  # input image height
     img_width: int = 640  # input image width
@@ -48,10 +58,8 @@ class TrainRunner:
     scales: list = (0, 1, 2, 3)  # scales used in the loss
     min_depth: float = 0.1  # minimum depth
     max_depth: float = 100.0  # maximum depth
-    frame_ids: tuple = (0, -1, 1)  # frames to load
-    batch_size: int = 12  # batch size
     learning_rate: float = 1e-4  # learning rate
-    num_epochs: int = 20  # number of epochs
+    n_epochs: int = 200  # number of epochs
     scheduler_step_size: int = 15  # step size of the scheduler
     avg_reprojection: bool = False  # if set, uses average reprojection loss
     disable_automasking: bool = False  # if set, doesn't do auto-masking
@@ -60,7 +68,6 @@ class TrainRunner:
     weights_init: str = "pretrained"  # pretrained or scratch # choices=["pretrained", "scratch"]
     pose_model_input: str = "pairs"  # how many images the pose network gets # choices=["pairs", "all"]
     pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet"]
-    num_workers: int = 0  # number of dataloader workers
     load_weights_folder: str = None  # name of model to load
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
     log_frequency: int = 250  # number of batches between each tensorboard log
@@ -69,6 +76,7 @@ class TrainRunner:
     pred_depth_scale_factor: float = 1  # if set multiplies predictions by this number
     no_eval: bool = False  # if set disables evaluation
     post_process: bool = False  # if set will perform the flipping post processing from the original monodepth paper
+    save_overwrite: bool = True  # overwrite save path if already exists
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -77,6 +85,7 @@ class TrainRunner:
         # save params
         with (self.save_path / "params.txt").open("w") as file:
             file.write(str(self) + "\n")
+        self.log_path  = self.save_path / "log"
 
         # checking height and width are multiples of 32
         assert self.img_height % 32 == 0, "'height' must be a multiple of 32"
@@ -146,16 +155,14 @@ class TrainRunner:
         if self.load_weights_folder is not None:
             self.load_model()
 
-        print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
+        print("Models and tensorboard events files are saved to:\n  ", self.log_dir)
         print("Training is using:\n  ", self.device)
 
+        num_train_samples = len(self.train_loader.dataset)
+        batch_size = self.train_loader.batch_size
+        self.num_total_steps = num_train_samples // batch_size * self.n_epochs
 
-        num_train_samples = len(train_scenes_paths)
-        self.num_total_steps = num_train_samples // self.batch_size * self.opt.num_epochs
-
-
- 
-        self.val_iter = iter(self.val_loader)
+        self.val_iter = iter(self.validation_loader)
 
         self.writers = {}
         for mode in ["train", "val"]:
@@ -204,7 +211,7 @@ class TrainRunner:
         self.epoch = 0
         self.step = 0
         self.start_time = time.time()
-        for self.epoch in range(self.opt.num_epochs):
+        for self.epoch in range(self.n_epochs):
             self.run_epoch()
             if (self.epoch + 1) % self.opt.save_frequency == 0:
                 self.save_model()
@@ -229,7 +236,7 @@ class TrainRunner:
             duration = time.time() - before_op_time
 
             # log less frequently after the first 2000 steps to save time & disk space
-            early_phase = batch_idx % self.opt.log_frequency == 0 and self.step < 2000
+            early_phase = batch_idx % self.log_frequency == 0 and self.step < 2000
             late_phase = self.step % 2000 == 0
 
             if early_phase or late_phase:
@@ -390,7 +397,7 @@ class TrainRunner:
         abs_diff = torch.abs(target - pred)
         l1_loss = abs_diff.mean(1, True)
 
-        if self.opt.no_ssim:
+        if self.no_ssim:
             reprojection_loss = l1_loss
         else:
             ssim_loss = self.ssim(pred, target).mean(1, True)
@@ -577,7 +584,7 @@ class TrainRunner:
         models_dir = os.path.join(self.log_path, "models")
         if not os.path.exists(models_dir):
             os.makedirs(models_dir)
-        to_save = self.opt.__dict__.copy()
+        to_save = self.__dict__.copy()
 
         with open(os.path.join(models_dir, "opt.json"), "w") as f:
             json.dump(to_save, f, indent=2)
