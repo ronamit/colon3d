@@ -82,7 +82,7 @@ def to_torch(x, num_type=None, dtype=None, device=None):
         return {k: to_torch(v) for k, v in x.items()}
     if isinstance(x, list):
         return [to_torch(v) for v in x]
-    return None
+    return x # all other types - do nothing
 
 
 # --------------------------------------------------------------------------------------------------------------------

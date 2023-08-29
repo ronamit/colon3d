@@ -18,6 +18,7 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
+from colon3d.util.general_util import create_folder_if_not_exists, to_str
 from colon3d.util.torch_util import get_device
 from monodepth2.layers import (
     SSIM,
@@ -35,25 +36,16 @@ from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
 
 
-
-
-            save_path=path_to_save_model,
-            train_loader=train_loader,
-            validation_loader=validation_loader,
-            load_weights_folder=pretrained_model_path,
-            save_overwrite=args.overwrite_model,
-            n_epochs=n_epochs,
-            epoch_size=epoch_size,
-            
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
-class TrainRunner:
+class MonoDepth2Trainer:
     save_path: Path  # path to save the trained model
     train_loader: DataLoader  # training data loader
     validation_loader: DataLoader  # validation data loader
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     img_height: int = 192  # input image height
     img_width: int = 640  # input image width
+    n_scales: int = 4  # number of scales
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
     scales: list = (0, 1, 2, 3)  # scales used in the loss
     min_depth: float = 0.1  # minimum depth
@@ -77,15 +69,36 @@ class TrainRunner:
     no_eval: bool = False  # if set disables evaluation
     post_process: bool = False  # if set will perform the flipping post processing from the original monodepth paper
     save_overwrite: bool = True  # overwrite save path if already exists
-
+    ########  fields that will be set later ######
+    batch_size: int = attrs.field(init=False)
+    log_path: str = attrs.field(init=False)  # path to save logs
+    models: dict = attrs.field(init=False)
+    parameters_to_train: list = attrs.field(init=False)
+    device: torch.device = attrs.field(init=False)
+    frame_ids: list = attrs.field(init=False)
+    num_input_frames: int = attrs.field(init=False)
+    num_pose_frames: int = attrs.field(init=False)
+    model_optimizer: optim.Optimizer = attrs.field(init=False)
+    model_lr_scheduler: optim.lr_scheduler = attrs.field(init=False)
+    num_total_steps: int = attrs.field(init=False)
+    val_iter: iter = attrs.field(init=False)
+    writers: dict = attrs.field(init=False)
+    ssim: nn.Module = attrs.field(init=False)
+    backproject_depth: dict = attrs.field(init=False)
+    project_3d: dict = attrs.field(init=False)
+    depth_metric_names: list = attrs.field(init=False)
+    epoch: int = 0
+    step: int = 0
+    start_time: float = 0
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
         self.save_path = Path(self.save_path)
+        create_folder_if_not_exists(self.save_path)
+        self.log_path = self.save_path
         # save params
         with (self.save_path / "params.txt").open("w") as file:
             file.write(str(self) + "\n")
-        self.log_path  = self.save_path / "log"
 
         # checking height and width are multiples of 32
         assert self.img_height % 32 == 0, "'height' must be a multiple of 32"
@@ -96,7 +109,8 @@ class TrainRunner:
 
         self.device = get_device()
 
-        self.num_scales = len(self.scales)
+        self.n_scales = len(self.scales)
+        self.frame_ids = [0, 1]  # in our implementation we only use 2 frames (target, reference)
         self.num_input_frames = len(self.frame_ids)
         self.num_pose_frames = 2 if self.pose_model_input == "pairs" else self.num_input_frames
 
@@ -155,12 +169,13 @@ class TrainRunner:
         if self.load_weights_folder is not None:
             self.load_model()
 
-        print("Models and tensorboard events files are saved to:\n  ", self.log_dir)
+        print("Models and tensorboard events files are saved to:\n  ", self.log_path)
         print("Training is using:\n  ", self.device)
 
         num_train_samples = len(self.train_loader.dataset)
-        batch_size = self.train_loader.batch_size
-        self.num_total_steps = num_train_samples // batch_size * self.n_epochs
+        num_val_samples = len(self.validation_loader.dataset)
+        self.batch_size = self.train_loader.batch_size
+        self.num_total_steps = num_train_samples // self.batch_size * self.n_epochs
 
         self.val_iter = iter(self.validation_loader)
 
@@ -168,7 +183,7 @@ class TrainRunner:
         for mode in ["train", "val"]:
             self.writers[mode] = SummaryWriter(self.log_path / mode)
 
-        if not self.opt.no_ssim:
+        if not self.no_ssim:
             self.ssim = SSIM()
             self.ssim.to(self.device)
 
@@ -186,7 +201,7 @@ class TrainRunner:
 
         self.depth_metric_names = ["de/abs_rel", "de/sq_rel", "de/rms", "de/log_rms", "da/a1", "da/a2", "da/a3"]
 
-        print(f"There are {len(train_dataset):d} training items and {len(val_dataset):d} validation items\n")
+        print(f"There are {num_train_samples:d} training items and {num_val_samples:d} validation items\n")
 
         self.save_opts()
 
@@ -206,14 +221,15 @@ class TrainRunner:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def train(self):
+    def run(self):
         """Run the entire training pipeline"""
         self.epoch = 0
         self.step = 0
         self.start_time = time.time()
-        for self.epoch in range(self.n_epochs):
+        for i_epoch in range(self.n_epochs):
+            self.epoch = i_epoch
             self.run_epoch()
-            if (self.epoch + 1) % self.opt.save_frequency == 0:
+            if (i_epoch + 1) % self.save_frequency == 0:
                 self.save_model()
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -483,7 +499,7 @@ class TrainRunner:
             total_loss += loss
             losses[f"loss/{scale}"] = loss
 
-        total_loss /= self.num_scales
+        total_loss /= self.n_scales
         losses["loss"] = total_loss
         return losses
 
@@ -542,8 +558,8 @@ class TrainRunner:
     def log(self, mode, inputs, outputs, losses):
         """Write an event to the tensorboard events file"""
         writer = self.writers[mode]
-        for l, v in losses.items():
-            writer.add_scalar(f"{l}", v, self.step)
+        for loss_name, loss_val in losses.items():
+            writer.add_scalar(f"{loss_name}", loss_val, self.step)
 
         for j in range(min(4, self.batch_size)):  # write a maxmimum of four images
             for s in self.scales:
@@ -581,24 +597,20 @@ class TrainRunner:
 
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with"""
-        models_dir = os.path.join(self.log_path, "models")
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-        to_save = self.__dict__.copy()
-
-        with open(os.path.join(models_dir, "opt.json"), "w") as f:
+        models_dir = self.log_path / "models"
+        create_folder_if_not_exists(models_dir)
+        to_save = {k: to_str(v) for k, v in self.__getstate__().items()}
+        with (models_dir / "opt.json").open("w") as f:
             json.dump(to_save, f, indent=2)
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def save_model(self):
         """Save model weights to disk"""
-        save_folder = os.path.join(self.log_path, "models", f"weights_{self.epoch}")
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
-
+        save_folder = self.log_path / "models" / f"weights_{self.epoch}"
+        create_folder_if_not_exists(save_folder)
         for model_name, model in self.models.items():
-            save_path = os.path.join(save_folder, f"{model_name}.pth")
+            save_path = save_folder / f"{model_name}.pth"
             to_save = model.state_dict()
             if model_name == "encoder":
                 # save the sizes - these are needed at prediction time
@@ -613,14 +625,14 @@ class TrainRunner:
 
     def load_model(self):
         """Load model(s) from disk"""
-        self.load_weights_folder = os.path.expanduser(self.load_weights_folder)
+        self.load_weights_folder = Path(self.load_weights_folder)
 
-        assert os.path.isdir(self.load_weights_folder), f"Cannot find folder {self.load_weights_folder}"
+        assert self.load_weights_folder.is_dir(), f"Cannot find folder {self.load_weights_folder}"
         print(f"loading model from folder {self.load_weights_folder}")
 
-        for n in self.opt.models_to_load:
+        for n in self.models_to_load:
             print(f"Loading {n} weights...")
-            path = os.path.join(self.load_weights_folder, f"{n}.pth")
+            path = self.load_weights_folder / f"{n}.pth"
             model_dict = self.models[n].state_dict()
             pretrained_dict = torch.load(path)
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -628,8 +640,8 @@ class TrainRunner:
             self.models[n].load_state_dict(model_dict)
 
         # loading adam state
-        optimizer_load_path = os.path.join(self.load_weights_folder, "adam.pth")
-        if os.path.isfile(optimizer_load_path):
+        optimizer_load_path = self.load_weights_folder / "adam.pth"
+        if optimizer_load_path.is_file():
             print("Loading Adam weights")
             optimizer_dict = torch.load(optimizer_load_path)
             self.model_optimizer.load_state_dict(optimizer_dict)

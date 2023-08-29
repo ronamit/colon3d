@@ -120,7 +120,7 @@ def evaluate(opt):
 
                 output = depth_decoder(encoder(input_color))
 
-                pred_disp = disp_to_depth(output[("disp", 0)], opt.min_depth, opt.max_depth)
+                pred_disp, _ = disp_to_depth(output[("disp", 0)], opt.min_depth, opt.max_depth)
                 pred_disp = pred_disp.cpu()[:, 0].numpy()
 
                 if opt.post_process:

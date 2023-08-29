@@ -1,12 +1,13 @@
 import random
+from pathlib import Path
 
 import cv2
-import h5py
 import numpy as np
 import torch
 import torchvision
 
-from colon3d.util.torch_util import get_device, to_default_type, to_torch
+from colon3d.util.general_util import path_to_str
+from colon3d.util.torch_util import get_device, to_torch
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -84,20 +85,6 @@ def img_to_net_in_format(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-class LoadTargetDepth:
-    def __call__(self, sample: dict):
-        scene_path = sample["scene_path"]
-        target_frame_idx = sample["target_frame_idx"]
-        # load the depth map of the target frame and return it as part of the sample.
-        with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
-            target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
-            sample["target_depth"] = target_depth
-        return sample
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
 # Random horizontal flip transform
 class RandomFlip:
     def __init__(self, flip_x_p=0.5, flip_y_p=0.5):
@@ -126,13 +113,24 @@ class RandomFlip:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
+class ImagesToNumpy:
+    def __call__(self, sample: dict) -> dict:
+        image_names = get_sample_image_names(sample)
+        for k in image_names:
+            sample[k] = np.array(sample[k])
+        return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
 class RandomScaleCrop:
     """Randomly zooms images up to 15% and crop them to keep same size as before."""
 
     def __init__(self, max_scale=1.15):
         self.max_scale = max_scale
 
-    def __call__(self, sample: dict):
+    def __call__(self, sample: dict) -> dict:
         image_names = get_sample_image_names(sample)
 
         # draw the scaling factor
@@ -180,8 +178,8 @@ class ColorJitter:
             hue=self.hue,
         )
 
-    def color_jitter(self, sample: dict):
-        if torch.random.rand < self.p:
+    def __call__(self, sample: dict) -> dict:
+        if random.random() < self.p:
             sample["target_img"] = self.color_jitter(sample["target_img"])
             sample["ref_img"] = self.color_jitter(sample["ref_img"])
         return sample
@@ -201,12 +199,12 @@ class CreateScalesArray:
         3       images resized to (self.width // 8, self.height // 8)
     """
 
-    def __init__(self, n_scales: tuple):
+    def __init__(self, n_scales: int):
         self.n_scales = n_scales
 
-    def __call__(self, sample: dict):
+    def __call__(self, sample: dict) -> dict:
         sample["scales"] = self.n_scales
-        for scale in self.n_scales:
+        for scale in range(self.n_scales):
             if scale == -1:
                 # scale == -1 means the original image
                 for k, v in sample.items():
@@ -219,9 +217,10 @@ class CreateScalesArray:
                         mode="bilinear",
                         align_corners=True,
                     ).squeeze(0)
-                    sample[("intrinsics_K", scale)] = v.clone()
+                    sample[("intrinsics_K", scale)] = sample["intrinsics_K"].clone()
                     sample[("intrinsics_K", scale)][0, :] /= 2**scale
                     sample[("intrinsics_K", scale)][1, :] /= 2**scale
+        return sample
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -229,12 +228,14 @@ class CreateScalesArray:
 
 class AddInvIntrinsics:
     """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
+    def __init__(self, n_scales: int | None = None):
+        self.n_scales = n_scales
 
     def __call__(self, sample):
         sample["intrinsics_inv_K"] = torch.linalg.inv(sample["intrinsics_K"])
-        if "n_scales" in sample:
-            for scale in sample["n_scales"]:
-                sample[("intrinsics_inv_K", scale)] = torch.linalg.inv(sample["intrinsics_K", scale])
+        if self.n_scales is not None:
+            for i_scale in range(self.n_scales):
+                sample[("intrinsics_inv_K", i_scale)] = torch.linalg.pinv(sample["intrinsics_K", i_scale])
         return sample
 
 
@@ -249,7 +250,7 @@ class ToTensors:
         self.img_normalize_mean = img_normalize_mean
         self.img_normalize_std = img_normalize_std
 
-    def __call__(self, sample: dict):
+    def __call__(self, sample: dict) -> dict:
         image_names = get_sample_image_names(sample)
 
         for k, v in sample.items():
@@ -264,6 +265,8 @@ class ToTensors:
                     new_height=None,  # no reshape
                     new_width=None,
                 )
+            elif isinstance(v, Path):
+                sample[k] = path_to_str(v)
             else:
                 sample[k] = to_torch(v, dtype=self.dtype, device=self.device)
 
@@ -274,12 +277,10 @@ class ToTensors:
 
 
 class NormalizeCamIntrinsicMat:
-    def __call__(self, sample: dict):
-        im_width = sample["target_img"].shape[2]
-        im_height = sample["target_img"].shape[1]
+    def __call__(self, sample: dict) -> dict:
+        im_height, im_width = sample["target_img"].size
         sample["intrinsics_K"][0, :] /= im_width
         sample["intrinsics_K"][1, :] /= im_height
-        assert "intrinsics_inv_K" not in sample, "Apply AddInvIntrinsics transform after this transform"
         return sample
 
 

@@ -5,10 +5,10 @@ from pathlib import Path
 import torch
 import yaml
 
-import colon3d.net_train.md2_trainer as monodepth2_trainer
 from colon3d.examine_depths import DepthExaminer
 from colon3d.net_train import endosfm_transforms, md2_transforms
-from colon3d.net_train.endosfm_trainer import TrainRunner as endo_sfm_trainer
+from colon3d.net_train.endosfm_trainer import EndoSFMTrainer
+from colon3d.net_train.md2_trainer import MonoDepth2Trainer
 from colon3d.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
@@ -36,19 +36,19 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         choices=["EndoSFM", "MonoDepth2"],
-        default="MonoDepth2", # MonoDepth2 | EndoSFM
+        default="MonoDepth2",  # MonoDepth2 | EndoSFM
         help="Method to use for depth and egomotion estimation.",
     )
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/MonoDepth2_orig", # MonoDepth2_orig | EndoSFM_orig
+        default="/mnt/disk1/saved_models/MonoDepth2_orig",  # MonoDepth2_orig | EndoSFM_orig
         help="Path to the pretrained model.",
     )
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/MonoDepth2_tuned_v3", # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3
+        default="/mnt/disk1/saved_models/MonoDepth2_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -57,10 +57,7 @@ def main():
         default=200,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers",
-                        default=0,
-                        type=int,
-                        help="number of data loading workers")
+    parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")
     parser.add_argument(
         "--batch_size",
         default=8,
@@ -145,8 +142,9 @@ def main():
         train_transform = endosfm_transforms.get_train_transform()
         val_transform = endosfm_transforms.get_validation_transform()
     elif depth_and_egomotion_method == "MonoDepth2":
-        train_transform = md2_transforms.get_train_transform()
-        val_transform = md2_transforms.get_validation_transform()
+        n_scales_md2 = 4
+        train_transform = md2_transforms.get_train_transform(n_scales=n_scales_md2)
+        val_transform = md2_transforms.get_validation_transform(n_scales=n_scales_md2)
     else:
         raise ValueError(f"Unknown method: {depth_and_egomotion_method}")
 
@@ -166,6 +164,7 @@ def main():
         subsample_min=1,
         subsample_max=1,
         n_sample_lim=n_sample_lim,
+        load_target_depth=True,
     )
 
     # data loaders
@@ -185,7 +184,7 @@ def main():
     # Run training:
 
     if depth_and_egomotion_method == "EndoSFM":
-        train_runner = endo_sfm_trainer(
+        train_runner = EndoSFMTrainer(
             save_path=path_to_save_model,
             train_loader=train_loader,
             validation_loader=validation_loader,
@@ -195,10 +194,11 @@ def main():
             n_epochs=n_epochs,
         )
     elif depth_and_egomotion_method == "MonoDepth2":
-        train_runner = monodepth2_trainer(
+        train_runner = MonoDepth2Trainer(
             save_path=path_to_save_model,
             train_loader=train_loader,
             validation_loader=validation_loader,
+            n_scales=4,
             load_weights_folder=pretrained_model_path,
             save_overwrite=args.overwrite_model,
             n_epochs=n_epochs,
@@ -252,10 +252,6 @@ def main():
         print(
             f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]",
         )
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
 
 # ---------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":

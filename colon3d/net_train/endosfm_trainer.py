@@ -19,7 +19,7 @@ from endo_sfm.utils import save_checkpoint, save_model_info
 
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
-class TrainRunner:
+class EndoSFMTrainer:
     save_path: Path = None  # Path to save checkpoints and training outputs
     train_loader: torch.utils.data.DataLoader = None  # Loader for training set
     validation_loader: torch.utils.data.DataLoader = None  # Loader for validation set
@@ -47,14 +47,14 @@ class TrainRunner:
     with_mask: bool = True  # with the the mask for moving objects and occlusions or not
     with_auto_mask: bool = False  # with the the mask for stationary points
     padding_mode: str = "zeros"  # padding mode for image warping : this is important for photometric differenciation when going outside target image.
-                #  "zeros" will null gradients outside target image.
-                #  "border" will only null gradients of the coordinate outside (x or y),
+    #  "zeros" will null gradients outside target image.
+    #  "border" will only null gradients of the coordinate outside (x or y),
     save_overwrite: bool = True  # overwrite save path if already exists
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
         pass
-    
+
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
         device = get_device()
@@ -65,7 +65,7 @@ class TrainRunner:
             return
 
         print(f"Outputs will be saved to {self.save_path}")
-        
+
         # save params
         with (self.save_path / "params.txt").open("w") as file:
             file.write(str(self) + "\n")
@@ -229,7 +229,7 @@ class TrainRunner:
             data_time.update(time.time() - end)  # measure data loading time
 
             tgt_img = batch["target_img"].to(device)
-            ref_imgs = [batch["ref_img"].to(device)] # list of length 1
+            ref_imgs = [batch["ref_img"].to(device)]  # list of length 1
             intrinsics_K = batch["intrinsics_K"].to(device)
 
             # compute output

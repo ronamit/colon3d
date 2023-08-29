@@ -1,10 +1,11 @@
+import torch
 from torchvision.transforms import Compose
 
 from colon3d.net_train.custom_transforms import (
     AddInvIntrinsics,
     ColorJitter,
     CreateScalesArray,
-    LoadTargetDepth,
+    ImagesToNumpy,
     NormalizeCamIntrinsicMat,
     RandomFlip,
     RandomScaleCrop,
@@ -42,37 +43,50 @@ class FormatToMonoDepth2:
 
     """
 
-    def __init__(self, num_scales: int = 4):
-        pass
+    def __init__(self, n_scales: int = 4):
+        self.n_scales = n_scales
 
     def __call__(self, sample: dict) -> dict:
         for i_scale in range(self.n_scales):
-            replace_keys(sample, old_key=("target_img", i_scale), new_key=("color_aug", 0, i_scale))
-            replace_keys(sample, old_key=("ref_img", i_scale), new_key=("color_aug", 1, i_scale))
-            replace_keys(sample, old_key=("intrinsics_K", i_scale), new_key=("K", i_scale))
-            replace_keys(sample, old_key=("intrinsics_inv_K", i_scale), new_key=("inv_K", i_scale))
-        replace_keys(sample, old_key="intrinsics_K", new_key="K")
-        replace_keys(sample, old_key="intrinsics_inv_K", new_key="inv_K")
-        replace_keys(sample, old_key="target_depth", new_key="depth_gt")
+            sample = replace_keys(sample, old_key=("target_img", i_scale), new_key=("color_aug", 0, i_scale))
+            sample = replace_keys(sample, old_key=("ref_img", i_scale), new_key=("color_aug", 1, i_scale))
+            sample = replace_keys(sample, old_key=("intrinsics_K", i_scale), new_key=("K", i_scale))
+            sample[("K", i_scale)] = intrinsic_mat_to_4x4(sample[("K", i_scale)])
+            sample = replace_keys(sample, old_key=("intrinsics_inv_K", i_scale), new_key=("inv_K", i_scale))
+            sample[("inv_K", i_scale)] = intrinsic_mat_to_4x4(sample[("inv_K", i_scale)])
+
+        sample = replace_keys(sample, old_key="intrinsics_K", new_key="K")
+        sample["K"] = intrinsic_mat_to_4x4(sample["K"])
+        sample = replace_keys(sample, old_key="intrinsics_inv_K", new_key="inv_K")
+        sample["inv_K"] = intrinsic_mat_to_4x4(sample["inv_K"])
+        sample = replace_keys(sample, old_key="target_depth", new_key="depth_gt")
         return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+def intrinsic_mat_to_4x4(K: torch.Tensor) -> torch.Tensor:
+    K_new = torch.eye(4)
+    K_new[:3, :3] = K
+    return K_new
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_train_transform(num_scales: int = 4):
+def get_train_transform(n_scales: int = 4):
     """Training transform for MonoDepth2"""
 
     # set data transforms
     transform_list = [
+        NormalizeCamIntrinsicMat(),
         ColorJitter(p=0.5, brightness=(0.8, 1.2), contrast=(0.8, 1.2), saturation=(0.8, 1.2), hue=(-0.1, 0.1)),
+        ImagesToNumpy(),
         RandomFlip(flip_x_p=0.5, flip_y_p=0.5),
         RandomScaleCrop(max_scale=1.15),
         ToTensors(img_normalize_mean=0.45, img_normalize_std=0.225),
-        CreateScalesArray(n_scales=num_scales),
-        AddInvIntrinsics(),
-        NormalizeCamIntrinsicMat(),
-        FormatToMonoDepth2(num_scales=num_scales),
+        CreateScalesArray(n_scales=n_scales),
+        AddInvIntrinsics(n_scales=n_scales),
+        FormatToMonoDepth2(n_scales=n_scales),
     ]
     return Compose(transform_list)
 
@@ -80,14 +94,14 @@ def get_train_transform(num_scales: int = 4):
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_validation_transform(num_scales: int = 4):
+def get_validation_transform(n_scales: int = 4):
     """Validation transform for MonoDepth2"""
     transform_list = [
-        LoadTargetDepth(),
+        ImagesToNumpy(),
         ToTensors(img_normalize_mean=0.45, img_normalize_std=0.225),
-        CreateScalesArray(n_scales=num_scales),
+        CreateScalesArray(n_scales=n_scales),
         NormalizeCamIntrinsicMat(),
-        FormatToMonoDepth2(num_scales=4),
+        FormatToMonoDepth2(n_scales=4),
     ]
     return Compose(transform_list)
 
