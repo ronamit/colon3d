@@ -10,7 +10,7 @@ import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
 import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
 import monodepth2.utils as monodepth2_utils
-from colon3d.net_train.custom_transforms import img_to_net_in_format
+from colon3d.net_train.common_transforms import img_to_net_in_format
 from colon3d.util.rotations_util import axis_angle_to_quaternion
 from colon3d.util.torch_util import get_device
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet

@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import yaml
 from PIL import Image
+import matplotlib.pyplot as plt
 from torch.utils import data
 from torchvision.transforms import Compose
 
@@ -25,6 +26,7 @@ class ScenesDataset(data.Dataset):
         subsample_max: int = 20,
         n_sample_lim: int = 0,
         load_target_depth: bool = False,
+        plot_example_ind: int | None = None,
     ):
         r"""Initialize the DatasetLoader class
         Args:
@@ -42,6 +44,7 @@ class ScenesDataset(data.Dataset):
         self.subsample_min = subsample_min
         self.subsample_max = subsample_max
         self.load_target_depth = load_target_depth
+        self.plot_example_ind = plot_example_ind
         assert self.subsample_min <= self.subsample_max
         self.frame_paths_per_scene = []
         self.target_ids = []
@@ -115,6 +118,10 @@ class ScenesDataset(data.Dataset):
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
+            
+        # plot example sample for debugging
+        if self.plot_example_ind is not None and index == self.plot_example_ind:
+            plot_sample(sample)
         return sample
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -153,5 +160,18 @@ def get_scenes_dataset_random_split(dataset_path: Path, validation_ratio: float)
     print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
     return train_scenes_paths, val_scenes_paths
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+def plot_sample(sample: dict):
+
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(sample["target_img"])
+    plt.title("target_img")
+    plt.subplot(1, 2, 2)
+    plt.imshow(sample["ref_img"])
+    plt.title("ref_img")
+    plt.show()
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -4,7 +4,6 @@
 # which allows for non-commercial use only, the full terms of which are made
 # available in the LICENSE file.
 import json
-import os
 import time
 from pathlib import Path
 
@@ -280,7 +279,7 @@ class MonoDepth2Trainer:
         if self.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
 
-        outputs.update(self.predict_poses(inputs, features))
+        outputs.update(self.predict_poses(inputs))
 
         self.generate_images_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs)
@@ -289,7 +288,7 @@ class MonoDepth2Trainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def predict_poses(self, inputs, features):
+    def predict_poses(self, inputs):
         """Predict poses between input frames for monocular sequences."""
         outputs = {}
         if self.num_pose_frames == 2:
@@ -618,7 +617,7 @@ class MonoDepth2Trainer:
                 to_save["width"] = self.img_width
             torch.save(to_save, save_path)
 
-        save_path = os.path.join(save_folder, "{}.pth".format("adam"))
+        save_path = save_folder / "adam.pth"
         torch.save(self.model_optimizer.state_dict(), save_path)
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -647,6 +646,3 @@ class MonoDepth2Trainer:
             self.model_optimizer.load_state_dict(optimizer_dict)
         else:
             print("Cannot find Adam weights so Adam is randomly initialized")
-
-
-# ---------------------------------------------------------------------------------------------------------------------

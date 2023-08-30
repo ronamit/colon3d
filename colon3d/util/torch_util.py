@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torchvision
-
+import PIL
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -54,8 +54,9 @@ def to_default_type(x, num_type="float"):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def to_numpy(x, num_type=None):
-    dtype = get_default_dtype("numpy", num_type)
+def to_numpy(x, num_type=None, dtype=None):
+    if dtype is None:
+        dtype = get_default_dtype("numpy", num_type)
     if isinstance(x, np.ndarray):
         return x.astype(dtype)
     if isinstance(x, dict):
@@ -64,6 +65,8 @@ def to_numpy(x, num_type=None):
         return [to_numpy(v) for v in x]
     if isinstance(x, torch.Tensor):
         return x.numpy(force=True).astype(dtype)
+    if isinstance(x, PIL.Image.Image):
+        return np.array(x).astype(dtype)
     return x
 
 
