@@ -27,6 +27,7 @@ class EndoSFMTrainer:
     # if empty then training from scratch
     pretrained_pose: str = ""  # path to pre-trained PoseNet model, if empty then training from scratch
     with_pretrain: bool = True  # in case training from scratch -  do we use ImageNet pretrained weights or not
+    train_with_gt_depth: bool = False  # if True, train with ground truth depth (supervised training)
     n_epochs: int = 100  # number of epochs to train
     learning_rate: float = 1e-4  # initial learning rate
     momentum: float = 0.9  # momentum for sgd, alpha parameter for adam
@@ -49,10 +50,15 @@ class EndoSFMTrainer:
     #  "zeros" will null gradients outside target image.
     #  "border" will only null gradients of the coordinate outside (x or y),
     save_overwrite: bool = True  # overwrite save path if already exists
+    ########  fields that will be set later ######
+    losses_names: list = None  # list of losses names
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
-        pass
+        if self.train_with_gt_depth:
+            self.losses_names = ["depth_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"]
+        else:
+            self.losses_names = ["photo_loss", "smooth_loss", "geometry_consistency_loss"]
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
@@ -125,7 +131,7 @@ class EndoSFMTrainer:
 
             with (self.save_path / self.log_full).open("w") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")
-                writer.writerow(["train_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"])
+                writer.writerow(self.losses_names)
 
             # save initial checkpoint
             save_checkpoint(
@@ -234,7 +240,22 @@ class EndoSFMTrainer:
             tgt_depth, ref_depths = compute_depth(disp_net, tgt_img, ref_imgs)
             poses, poses_inv = compute_pose_with_inv(pose_net, tgt_img, ref_imgs)
 
-            loss_1, loss_3 = compute_photo_and_geometry_loss(
+            loss_terms = {loss_name: 0 for loss_name in self.losses_names}
+            loss_weights = {"photo_loss": w1, "smooth_loss": w2, "geometry_consistency_loss": w3}
+            if self.train_with_gt_depth:
+                # load ground truth depth
+                target_gt_depth = batch["target_depth"].to(device)
+                # add a supervised loss term for training the depth nerwork
+                loss_weights["depth_loss"] = 1
+                target_depth_loss = torch.mean(torch.abs(target_gt_depth - tgt_depth[0]))
+                ref_depth_loss = torch.mean(torch.abs(target_gt_depth - ref_depths[0][0]))
+                loss_terms["depth_loss"] = target_depth_loss + ref_depth_loss
+                #  use ground truth depth for the next loss items
+                # we use a list of length 1 - only the original image size (scale 0) is used.
+                tgt_depth = [target_gt_depth]
+                ref_depths = [[target_gt_depth]]  # only 1 ref image is used in our case
+
+            loss_terms["photo_loss"], loss_terms["geometry_consistency_loss"] = compute_photo_and_geometry_loss(
                 tgt_img,
                 ref_imgs,
                 intrinsics_K,
@@ -249,15 +270,18 @@ class EndoSFMTrainer:
                 self.padding_mode,
             )
 
-            loss_2 = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
+            loss_terms["smooth_loss"] = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
 
-            loss = w1 * loss_1 + w2 * loss_2 + w3 * loss_3
+            loss = sum(loss_terms[loss_name] * loss_weights[loss_name] for loss_name in self.losses_names)
 
             if log_losses:
-                train_writer.add_scalar("photometric_error", loss_1.item(), n_iter)
-                train_writer.add_scalar("disparity_smoothness_loss", loss_2.item(), n_iter)
-                train_writer.add_scalar("geometry_consistency_loss", loss_3.item(), n_iter)
+                for loss_name in self.losses_names:
+                    train_writer.add_scalar(loss_name, loss_terms[loss_name].item(), n_iter)
                 train_writer.add_scalar("total_loss", loss.item(), n_iter)
+
+            with (save_path / self.log_full).open("a") as csvfile:
+                writer = csv.writer(csvfile, delimiter="\t")
+                writer.writerow([loss.item()] + [loss_terms[loss_name].item() for loss_name in self.losses_names])
 
             # record loss and EPE
             losses.update(loss.item(), self.train_loader.batch_size)
@@ -271,9 +295,6 @@ class EndoSFMTrainer:
             batch_time.update(time.time() - end)
             end = time.time()
 
-            with (save_path / self.log_full).open("a") as csvfile:
-                writer = csv.writer(csvfile, delimiter="\t")
-                writer.writerow([loss.item(), loss_1.item(), loss_2.item(), loss_3.item()])
             if i % self.print_freq == 0:
                 print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
 

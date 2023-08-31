@@ -118,6 +118,8 @@ class ScenesDataset(data.Dataset):
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
                 target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
                 sample["target_depth"] = target_depth
+                ref_depth = to_default_type(h5f["z_depth_map"][ref_frame_idx], num_type="float_m")
+                
 
         # apply the transform
         if self.transform:

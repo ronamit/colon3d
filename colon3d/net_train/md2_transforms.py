@@ -106,6 +106,7 @@ class MonoDepth2Format:
         replace_keys(sample, old_key="target_img", new_key=("color", 0))
         replace_keys(sample, old_key="ref_img", new_key=("color", 1))
         replace_keys(sample, old_key="target_depth", new_key="depth_gt")
+        replace_keys(sample, old_key="ref_depth", new_key="depth_gt_ref")
         replace_keys(sample, old_key="intrinsics_K", new_key="K")
 
         # Normalize the intrinsic matrix (as suggested in monodepth2/datasets/kitti_dataset.py)
@@ -127,11 +128,15 @@ def intrinsic_mat_to_4x4(K: torch.Tensor) -> torch.Tensor:
 
 
 def get_sample_image_keys(sample: dict, img_type="all") -> list:
-    """Get the names of the images in the sample dict"""
-    if img_type == "all":
-        img_names = ["color", "color_aug", "depth_gt"]
-    elif img_type == "RGB":
-        img_names = ["color", "color_aug"]
+    """Get the possible names of the images in the sample dict"""
+    rgb_image_keys = ["color", "color_aug"]
+    depth_image_keys = ["depth_gt", "depth_gt_ref"]
+    if img_type == "RGB":
+        img_names = rgb_image_keys
+    elif img_type == "depth":
+        img_names = depth_image_keys
+    elif img_type == "all":
+        img_names = rgb_image_keys + depth_image_keys
     else:
         raise ValueError(f"Invalid image type: {img_type}")
     img_keys = [k for k in sample if k in img_names or isinstance(k, tuple) and k[0] in img_names]
@@ -157,11 +162,15 @@ class AllToTorch:
 
     def __call__(self, sample: dict) -> dict:
         rgb_img_keys = get_sample_image_keys(sample, img_type="RGB")
+        depth_img_keys = get_sample_image_keys(sample, img_type="depth")
         for k, v in sample.items():
             sample[k] = to_torch(v, dtype=self.dtype, device=self.device)
             if k in rgb_img_keys:
                 # transform to channels first (HWC to CHW format)
                 sample[k] = torch.permute(sample[k], (2, 0, 1))
+            elif k in depth_img_keys:
+                # transform to channels first (HW to CHW format)
+                sample[k] = torch.unsqueeze(sample[k], dim=0)
         return sample
 
 
@@ -212,7 +221,7 @@ class RandomScaleCrop:
 
         # draw the scaling factor
         assert self.max_scale >= 1
-        x_scaling, y_scaling = np.random.uniform(1, self.max_scale, 2)
+        zoom_factor = 1 + np.random.rand() * (self.max_scale - 1)
 
         # draw the offset ratio
         x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
@@ -221,7 +230,7 @@ class RandomScaleCrop:
             img = sample[k]
             in_h, in_w = img.shape[-2:]
 
-            scaled_h, scaled_w = int(in_h * y_scaling), int(in_w * x_scaling)
+            scaled_h, scaled_w = int(in_h * zoom_factor), int(in_w * zoom_factor)
             offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
             offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
             # increase the size of the image to be able to crop the same size as before
@@ -229,8 +238,8 @@ class RandomScaleCrop:
             cropped_image = TF.crop(img=scaled_image, top=offset_y, left=offset_x, height=in_h, width=in_w)
             sample[k] = cropped_image
 
-        sample["K"][0, :] *= x_scaling
-        sample["K"][1, :] *= y_scaling
+        sample["K"][0, :] *= zoom_factor
+        sample["K"][1, :] *= zoom_factor
         sample["K"][0, 2] -= offset_x
         sample["K"][1, 2] -= offset_y
         return sample

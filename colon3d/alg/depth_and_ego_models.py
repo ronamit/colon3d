@@ -47,7 +47,7 @@ class DepthModel:
 
         self.device = get_device()
 
-        if method == "EndoSFM":
+        if method in {"EndoSFM", "EndoSFM_GTD"}:
             # create the disparity estimation network
             self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
             # load the Disparity network
@@ -116,7 +116,7 @@ class DepthModel:
             add_batch_dim=True,
         )
 
-        if self.method == "EndoSFM":
+        if self.method in {"EndoSFM", "EndoSFM_GTD"}:
             with torch.no_grad():
                 disparity_map = self.disp_net(img)  # [N x 1 x H x W]
                 # remove the n_sample and n_channels dimension
@@ -165,7 +165,7 @@ class EgomotionModel:
         self.depth_map_K = get_camera_matrix(self.model_info)
         # create the egomotion estimation network
 
-        if method == "EndoSFM":
+        if method in {"EndoSFM", "EndoSFM_GTD"}:
             pose_net_path = model_path / "PoseNet_best.pt"
             self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
             weights = torch.load(pose_net_path)
@@ -219,7 +219,9 @@ class EgomotionModel:
             add_batch_dim=True,
         )
 
-        if self.method == "EndoSFM":
+        if self.method in {"EndoSFM", "EndoSFM_GTD"}:
+            # note: if you want to use the ground truth depth maps, you need to change depth_maps_source to "ground_trutg"
+            # "EndoSFM_GTD" is still and estimate, but it was trained with GT depth maps
             with torch.no_grad():
                 pose_out = self.pose_net(from_img, to_img)
             # this returns the estimated egomotion [N x 6] 6DoF pose parameters from target to reference  in the order of tx, ty, tz, rx, ry, rz

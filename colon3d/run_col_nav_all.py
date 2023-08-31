@@ -18,7 +18,8 @@ from colon3d.util.general_util import (
 # *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
-
+# note: if you want to use the ground truth depth maps, you need to change depth_maps_source to "ground_trutg"
+# "EndoSFM_GTD" is still and estimate, but it was trained with GT depth maps
 # --------------------------------------------------------------------------------------------------------------------
 
 

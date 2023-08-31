@@ -35,8 +35,8 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_method",
         type=str,
-        choices=["EndoSFM", "MonoDepth2"],
-        default="EndoSFM",  # MonoDepth2 | EndoSFM
+        choices=["EndoSFM", "MonoDepth2", "EndoSFM_GTD"],
+        default="EndoSFM_GTD",  # MonoDepth2 | EndoSFM | EndoSFM_GTD
         help="Method to use for depth and egomotion estimation.",
     )
     parser.add_argument(
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3
+        default="/mnt/disk1/saved_models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -138,7 +138,7 @@ def main():
     )
 
     # set data transforms
-    if depth_and_egomotion_method == "EndoSFM":
+    if depth_and_egomotion_method in {"EndoSFM", "EndoSFM_GTD"}:
         train_transform, val_transform = endosfm_transforms.get_transforms()
     elif depth_and_egomotion_method == "MonoDepth2":
         n_scales_md2 = 4
@@ -153,6 +153,7 @@ def main():
         subsample_min=args.subsample_min,
         subsample_max=args.subsample_max,
         n_sample_lim=n_sample_lim,
+        load_target_depth = depth_and_egomotion_method in {"EndoSFM_GTD"},
     )
 
     # validation set
@@ -183,15 +184,17 @@ def main():
 
     # Run training:
 
-    if depth_and_egomotion_method == "EndoSFM":
+    if depth_and_egomotion_method in {"EndoSFM", "EndoSFM_GTD"}:
+        train_with_gt_depth = depth_and_egomotion_method == "EndoSFM_GTD"
         train_runner = EndoSFMTrainer(
             save_path=path_to_save_model,
             train_loader=train_loader,
             validation_loader=validation_loader,
             pretrained_disp=pretrained_model_path / "DispNet_best.pt",
             pretrained_pose=pretrained_model_path / "PoseNet_best.pt",
-            save_overwrite=args.overwrite_model,
+            train_with_gt_depth=train_with_gt_depth,
             n_epochs=n_epochs,
+            save_overwrite=args.overwrite_model,
         )
     elif depth_and_egomotion_method == "MonoDepth2":
         train_runner = MonoDepth2Trainer(

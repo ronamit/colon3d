@@ -12,7 +12,7 @@ from colon3d.util.torch_util import get_device, to_torch
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_transforms():
+def get_transforms() -> (Compose, Compose):
     train_trans = get_train_transform()
     val_trans = get_validation_transform()
     return train_trans, val_trans
@@ -51,11 +51,15 @@ def get_validation_transform() -> Compose:
 
 
 def get_sample_image_keys(sample: dict, img_type: str = "all") -> list:
-    """Get the names of the images in the sample dict"""
+    """Get the possible names of the images in the sample dict"""
+    rgb_image_keys = ["target_img", "ref_img"]
+    depth_image_keys = ["target_depth", "ref_depth"]
     if img_type == "RGB":
-        img_names = ["target_img", "ref_img"]
+        img_names = rgb_image_keys
+    elif img_type == "depth":
+        img_names = depth_image_keys
     elif img_type == "all":
-        img_names = ["target_img", "ref_img", "target_depth"]
+        img_names = rgb_image_keys + depth_image_keys
     else:
         raise ValueError(f"Invalid image type: {img_type}")
     img_keys = [k for k in sample if k in img_names or isinstance(k, tuple) and k[0] in img_names]
@@ -81,11 +85,16 @@ class AllToTorch:
 
     def __call__(self, sample: dict) -> dict:
         rgb_img_keys = get_sample_image_keys(sample, img_type="RGB")
+        depth_img_keys = get_sample_image_keys(sample, img_type="depth")
         for k, v in sample.items():
             sample[k] = to_torch(v, dtype=self.dtype, device=self.device)
             if k in rgb_img_keys:
                 # transform to channels first (HWC to CHW format)
                 sample[k] = torch.permute(sample[k], (2, 0, 1))
+            elif k in depth_img_keys:
+                # transform to channels first (HW to CHW format)
+                sample[k] = torch.unsqueeze(sample[k], dim=0)
+        
         return sample
 
 
@@ -129,16 +138,17 @@ class RandomScaleCrop:
         images_keys = get_sample_image_keys(sample)
 
         # draw the scaling factor
-        x_scaling, y_scaling = np.random.uniform(1, self.max_scale, 2)
+        zoom_factor = 1 + np.random.rand() * (self.max_scale - 1)
 
         # draw the offset ratio
         x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
+
 
         for k in images_keys:
             img = sample[k]
             in_h, in_w = img.shape[-2:]
 
-            scaled_h, scaled_w = int(in_h * y_scaling), int(in_w * x_scaling)
+            scaled_h, scaled_w = int(in_h * zoom_factor), int(in_w * zoom_factor)
             offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
             offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
 
@@ -147,8 +157,8 @@ class RandomScaleCrop:
             cropped_image = crop(img=scaled_image, top=offset_y, left=offset_x, height=in_h, width=in_w)
             sample[k] = cropped_image
 
-        sample["intrinsics_K"][0, :] *= x_scaling
-        sample["intrinsics_K"][1, :] *= y_scaling
+        sample["intrinsics_K"][0, :] *= zoom_factor
+        sample["intrinsics_K"][1, :] *= zoom_factor
         sample["intrinsics_K"][0, 2] -= offset_x
         sample["intrinsics_K"][1, 2] -= offset_y
 
