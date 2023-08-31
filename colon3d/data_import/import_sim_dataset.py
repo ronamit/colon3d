@@ -7,7 +7,7 @@ import cv2
 import h5py
 import numpy as np
 
-from colon3d.sim_import import sim_load_colon_nav_sim, sim_load_zhang
+from colon3d.data_import import sim_load_colon_nav_sim, sim_load_zhang
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import (
     ArgsHelpFormatter,

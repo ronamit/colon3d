@@ -478,7 +478,7 @@ def compute_metrics_statistics(metrics_table: pd.DataFrame):
         std_val = np.nanstd(metrics_table[col])
         n_scenes = np.sum(~np.isnan(metrics_table[col]))
         confidence_interval = 1.96 * std_val / np.sqrt(max(n_scenes, 1))  # 95% confidence interval
-        metrics_summary[col] = f"{mean_val:.2f} +- {confidence_interval:.2f}"
+        metrics_summary[col] = f"{mean_val:.2f}({confidence_interval:.2f})"
     return metrics_summary
 
 

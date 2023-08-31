@@ -26,7 +26,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="/mnt/disk1/results/my_videos_results/Example_4/new",
+        default="/mnt/disk1/results/my_videos_results/Example_4_new",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--depth_maps_source",
         type=str,
-        default="loaded_estimates",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the depth maps, if 'ground_truth' then the ground truth depth maps will be loaded, "
         "if 'online_estimates' then the depth maps will be estimated online by the algorithm"
@@ -54,7 +54,7 @@ def main():
     parser.add_argument(
         "--egomotions_source",
         type=str,
-        default="loaded_estimates",
+        default="none",
         choices=["ground_truth", "loaded_estimates", "online_estimates", "none"],
         help="The source of the egomotion, if 'ground_truth' then the ground truth egomotion will be loaded, "
         "if 'online_estimates' then the egomotion will be estimated online by the algorithm"
@@ -65,13 +65,13 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
+        choices=["EndoSFM", "MonoDepth2"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="saved_models/EndoSFM_orig",
+        default="/mnt/disk1/saved_models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

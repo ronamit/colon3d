@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
-from colon3d.sim_import.import_sim_dataset import SimImporter
+from colon3d.data_import.import_sim_dataset import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_unified_results_table
 
 # --------------------------------------------------------------------------------------------------------------------
