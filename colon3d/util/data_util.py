@@ -128,6 +128,8 @@ class SceneLoader:
                     frame_exists, raw_frame = vidcap.read()
                     if not frame_exists:
                         break
+                    # convert to RGB
+                    raw_frame = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2RGB)
                     frame = self.adjust_frame(raw_frame, frame_type)
                     yield frame
                     i_frame += 1

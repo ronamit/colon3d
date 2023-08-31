@@ -48,19 +48,21 @@ def main():
     # save the frames
     frames_out_path = save_scene_path / "Frames"
     create_empty_folder(frames_out_path, save_overwrite=False)
-    n_frames = len(rgb_frames_paths)
+    n_frames = scene_loader.n_frames
     for i_frame in range(n_frames):
+        print(f"i_frame={i_frame}/{n_frames}")
         im = scene_loader.get_frame_at_index(i_frame, frame_type="full")
         frame_name = f"{i_frame:06d}.png"
         # save the image
         save_rgb_image(img=im, save_path=frames_out_path / frame_name)
+        rgb_frames_paths.append(frames_out_path / frame_name)
 
     # save the video
     save_video_from_frames_paths(save_path=save_scene_path / "Video", frames=rgb_frames_paths, fps=fps)
 
 
-# ----------------------------------- gb----------------------------------------------------------------------------------
- 
+# ---------------------------------------------------------------------------------------------------------------------
+
 if __name__ == "__main__":
     main()
 
