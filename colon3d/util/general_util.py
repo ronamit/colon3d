@@ -211,6 +211,14 @@ def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
         return frames[i_frame]
 
     save_video_from_func(save_path, make_frame, len(frames), fps)
+    
+# --------------------------------------------------------------------------------------------------------------------
+
+def save_video_from_frames_paths(save_path: Path, frames: list, fps: float):
+    def make_frame(i_frame) -> np.ndarray:
+        return load_rgb_image(frames[i_frame])
+
+    save_video_from_func(save_path, make_frame, len(frames), fps)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -465,8 +473,13 @@ def to_str(a):
 
 def save_rgb_image(img: np.ndarray, save_path: Path):
     cv2.imwrite(path_to_str(save_path), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    
+# ------------------------------------------------------------
 
-
+def load_rgb_image(img_path: Path):
+    frame = cv2.imread(path_to_str(img_path))
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return  frame
 # ------------------------------------------------------------
 
 

@@ -13,6 +13,7 @@ from colon3d.util.general_util import (
     colors_platte,
     coord_to_cv2kp,
     create_empty_folder,
+    load_rgb_image,
     save_plot_and_close,
     save_rgb_image,
     save_video_from_frames_list,
@@ -70,9 +71,9 @@ def draw_track_box_on_frame(
 def save_video_with_tracks(frames_folder_path: Path, path_to_save: Path, tracks: pd.DataFrame, fps: float):
     frames_paths = sorted(frames_folder_path.glob("*.png"))
     n_frames = len(frames_paths)
+
     def get_frame_with_tracks(i_frame):
-        frame = cv2.imread(str(frames_paths[i_frame]))
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = load_rgb_image(frames_paths[i_frame])
         vis_frame = np.copy(frame)
         tracks_in_frame = tracks.loc[tracks["frame_idx"] == i_frame].to_dict("records")
         for track in tracks_in_frame:

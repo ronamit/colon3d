@@ -3,7 +3,6 @@ import os
 import pickle
 from pathlib import Path
 
-import cv2
 import h5py
 import numpy as np
 
@@ -13,9 +12,10 @@ from colon3d.util.general_util import (
     ArgsHelpFormatter,
     bool_arg,
     create_empty_folder,
-    path_to_str,
+    load_rgb_image,
     save_depth_video,
     save_dict_to_yaml,
+    save_rgb_image,
     save_video_from_func,
 )
 from colon3d.util.torch_util import np_func, to_default_type
@@ -91,7 +91,7 @@ def main():
     sim_importer.run()
 
 
-# --------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
 
 
 class SimImporter:
@@ -201,11 +201,12 @@ class SimImporter:
             # infer the egomotions (camera pose changes) from the camera poses:
             egomotions = np_func(infer_egomotions)(cam_poses)
 
-            # Save RGB video
-            self.save_rgb_frames(
+            # Save RGB frames and video
+            save_rgb_frames(
+                raw_sim_data_path=self.raw_sim_data_path,
                 scene_path=scene_path,
                 rgb_frames_paths=rgb_frames_paths,
-                metadata=metadata,
+                fps=metadata["fps"],
                 save_video=True,
             )
 
@@ -245,38 +246,43 @@ class SimImporter:
         print(f"Done creating {n_scenes} scenes in {self.path_to_save_data}")
         return scenes_paths
 
-    # --------------------------------------------------------------------------------------------------------------------
-    def save_rgb_frames(self, rgb_frames_paths: list, scene_path: Path, metadata: dict, save_video: bool = True):
-        n_frames = len(rgb_frames_paths)
 
-        # frame loader function
-        def load_rgb_frame(i_frame) -> np.ndarray:
-            frame_path = self.raw_sim_data_path / rgb_frames_paths[i_frame]
-            assert frame_path.exists(), f"File {frame_path} does not exist"
-            im = cv2.imread(path_to_str(frame_path))
-            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-            return im
+# --------------------------------------------------------------------------------------------------------------------
 
-        # copy all the rgb frames to the output directory
-        frames_out_path = scene_path / "RGB_Frames"
-        create_empty_folder(frames_out_path, save_overwrite=False)
-        n_frames = len(rgb_frames_paths)
-        for i_frame in range(n_frames):
-            im = load_rgb_frame(i_frame)
-            frame_name = f"{i_frame:06d}.png"
-            # save the image
-            cv2.imwrite(
-                filename=path_to_str(frames_out_path / frame_name),
-                img=cv2.cvtColor(im, cv2.COLOR_RGB2BGR),
-            )
-        if save_video:
-            output_vid_path = scene_path / "Video"
-            save_video_from_func(
-                save_path=output_vid_path,
-                make_frame=load_rgb_frame,
-                n_frames=n_frames,
-                fps=metadata["fps"],
-            )
+
+def save_rgb_frames(
+    raw_sim_data_path: Path,
+    rgb_frames_paths: list,
+    scene_path: Path,
+    fps: float = 0.1,
+    save_video: bool = True,
+):
+    n_frames = len(rgb_frames_paths)
+
+    # frame loader function
+    def load_rgb_frame(i_frame) -> np.ndarray:
+        frame_path = raw_sim_data_path / rgb_frames_paths[i_frame]
+        assert frame_path.exists(), f"File {frame_path} does not exist"
+        im = load_rgb_image(frame_path)
+        return im
+
+    # copy all the rgb frames to the output directory
+    frames_out_path = scene_path / "RGB_Frames"
+    create_empty_folder(frames_out_path, save_overwrite=False)
+    n_frames = len(rgb_frames_paths)
+    for i_frame in range(n_frames):
+        im = load_rgb_frame(i_frame)
+        frame_name = f"{i_frame:06d}.png"
+        save_rgb_image(img=im, save_path=frames_out_path / frame_name)
+
+    if save_video:
+        output_vid_path = scene_path / "Video"
+        save_video_from_func(
+            save_path=output_vid_path,
+            make_frame=load_rgb_frame,
+            n_frames=n_frames,
+            fps=fps,
+        )
 
 
 # --------------------------------------------------------------------------------------------------------------------

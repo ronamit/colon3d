@@ -93,7 +93,7 @@ def main():
     frame_name = f"Frame{frame_idx:04d}"
 
     # save the color frame
-    rgb_frame = scene_loader.get_frame_at_index(frame_idx, color_type="RGB", frame_type="full")
+    rgb_frame = scene_loader.get_frame_at_index(frame_idx, frame_type="full")
     file_path = save_path / f"{frame_name}.png"
     save_rgb_image(rgb_frame, file_path)
     print(f"Saved color frame to {file_path}")
