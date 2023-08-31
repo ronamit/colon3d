@@ -92,8 +92,7 @@ def save_checkpoint(
 
 def save_model_info(
     save_dir_path: Path,
-    disp_resnet_layers: int,
-    pose_resnet_layers: int,
+    num_layers: int,
     scene_metadata: dict,
     overwrite: bool,
     extra_info: dict | None = None,
@@ -104,10 +103,9 @@ def save_model_info(
 
     # save an updated model_info.yaml file:
     model_info = {
-        "DispResNet_layers": disp_resnet_layers,
-        "PoseResNet_layers": pose_resnet_layers,
-        "frame_height": scene_metadata["frame_height"],
-        "frame_width": scene_metadata["frame_width"],
+        "ResNet_layers": num_layers,
+        "frame_height": scene_metadata["frame_height"], # the height of the frames in the data we trained with
+        "frame_width": scene_metadata["frame_width"], # the width of the frames in the data we trained with
         "fx": scene_metadata["fx"],
         "fy": scene_metadata["fy"],
         "cx": scene_metadata["cx"],

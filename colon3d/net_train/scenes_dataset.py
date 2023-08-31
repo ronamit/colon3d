@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import yaml
 from PIL import Image
-import matplotlib.pyplot as plt
 from torch.utils import data
 from torchvision.transforms import Compose
 
@@ -66,6 +65,10 @@ class ScenesDataset(data.Dataset):
 
         self.subsample_min = min(self.subsample_min, min(n_frames_per_scene) - 1)
         self.subsample_max = min(self.subsample_max, min(n_frames_per_scene) - 1)
+        
+        scene_mata_data = self.get_scene_metadata()
+        self.img_height = scene_mata_data["frame_height"]
+        self.img_width = scene_mata_data["frame_width"]
 
         for i_scene, frames_paths in enumerate(frames_paths_per_scene):
             n_frames = len(frames_paths)
@@ -102,6 +105,7 @@ class ScenesDataset(data.Dataset):
         target_frame_path = scene_frames_paths[target_frame_ind]
         # Load with PIL
         sample["target_img"] = Image.open(target_frame_path)
+        assert sample["target_img"].size == (self.img_height, self.img_width)
 
         # randomly choose the subsample factor
         subsample_factor = torch.randint(self.subsample_min, self.subsample_max + 1, (1,)).item()
@@ -114,14 +118,10 @@ class ScenesDataset(data.Dataset):
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
                 target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
                 sample["target_depth"] = target_depth
-                
+
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
-            
-        # plot example sample for debugging
-        if self.plot_example_ind is not None and index == self.plot_example_ind:
-            plot_sample(sample)
         return sample
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ class ScenesDataset(data.Dataset):
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         return metadata
-
+    
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -160,18 +160,5 @@ def get_scenes_dataset_random_split(dataset_path: Path, validation_ratio: float)
     print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
     return train_scenes_paths, val_scenes_paths
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-def plot_sample(sample: dict):
-
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.imshow(sample["target_img"])
-    plt.title("target_img")
-    plt.subplot(1, 2, 2)
-    plt.imshow(sample["ref_img"])
-    plt.title("ref_img")
-    plt.show()
 
 # ---------------------------------------------------------------------------------------------------------------------

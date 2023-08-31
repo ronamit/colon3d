@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 
 from colon3d.alg.alg_settings import AlgorithmParam
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
 from colon3d.util.torch_util import to_numpy
-from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track_box_on_frame
 
 # --------------------------------------------------------------------------------------------------------------------

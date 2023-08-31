@@ -42,13 +42,14 @@ class DepthModel:
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         print(f"net_out_to_mm: {self.net_out_to_mm:.3f}")
 
-        # the camera matrix corresponding to the depth maps:
+        # load the camera matrix corresponding to the depth maps:
         self.depth_map_K = get_camera_matrix(self.model_info)
+
         self.device = get_device()
 
         if method == "EndoSFM":
             # create the disparity estimation network
-            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["DispResNet_layers"], pretrained=True)
+            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
             # load the Disparity network
             self.disp_net_path = model_path / "DispNet_best.pt"
             weights = torch.load(self.disp_net_path)
@@ -69,8 +70,7 @@ class DepthModel:
             loaded_dict_enc = torch.load(encoder_path)
             filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
             self.encoder.load_state_dict(filtered_dict_enc)
-            self.feed_height = loaded_dict_enc["height"]
-            self.feed_width = loaded_dict_enc["width"]
+
             loaded_dict = torch.load(depth_decoder_path)
             self.depth_decoder.load_state_dict(loaded_dict)
             self.encoder.to(self.device)
@@ -100,7 +100,7 @@ class DepthModel:
             imgs: the input images [H x W x 3]
         Returns:
             depth_map (torch.Tensor): the estimated depth maps [H x W] (units: mm)
-            
+
         Note:
             * The estimated depth map might not be the same size as the input image.
             This is accounted for when estimating the depth at a certain pixel of the original image since we use the camera matrix associated with  depth map.
@@ -108,21 +108,17 @@ class DepthModel:
         assert img.ndim == 3  # [H x W x 3]
         assert img.shape[2] == 3  # RGB image
 
-        
         # resize and change dimension order of the images to fit the network input format  # [3 x H x W]
         img = img_to_net_in_format(
             img=img,
             device=self.device,
             dtype=self.dtype,
-            new_height=self.depth_map_height,
-            new_width=self.depth_map_width,
             add_batch_dim=True,
         )
 
-
         if self.method == "EndoSFM":
             with torch.no_grad():
-                disparity_map = self.disp_net(img) # [N x 1 x H x W]
+                disparity_map = self.disp_net(img)  # [N x 1 x H x W]
                 # remove the n_sample and n_channels dimension
                 disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
                 # convert the disparity to depth
@@ -133,11 +129,11 @@ class DepthModel:
             with torch.no_grad():
                 encoded = self.encoder(img)
                 output = self.depth_decoder(encoded)
-                disparity_map = output[("disp", 0)] # [N x 1 x H x W]
+                disparity_map = output[("disp", 0)]  # [N x 1 x H x W]
                 # remove the n_sample and n_channels dimension
                 disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
                 # convert the disparity to depth
-                depth_map  = monodepth2_layers.disp_to_depth(
+                _, depth_map = monodepth2_layers.disp_to_depth(
                     disparity_map,
                     min_depth=self.depth_lower_bound,
                     max_depth=self.depth_upper_bound,
@@ -149,7 +145,7 @@ class DepthModel:
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_map = torch.clamp(depth_map, self.depth_lower_bound, self.depth_upper_bound)
-        
+
         return depth_map
 
 
@@ -163,8 +159,6 @@ class EgomotionModel:
         self.method = method
         self.model_info = get_model_info(model_path)
         self.device = get_device()
-        self.model_im_height = self.model_info["frame_height"]
-        self.model_im_width = self.model_info["frame_width"]
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.net_out_to_mm = self.model_info["net_out_to_mm"]
         # the camera matrix corresponding to the depth maps.
@@ -173,7 +167,7 @@ class EgomotionModel:
 
         if method == "EndoSFM":
             pose_net_path = model_path / "PoseNet_best.pt"
-            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["PoseResNet_layers"], pretrained=True)
+            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
             weights = torch.load(pose_net_path)
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
@@ -211,21 +205,17 @@ class EgomotionModel:
         """
         assert from_img.shape == to_img.shape  # same shape
         assert from_img.ndim == 3  # [3 x H x W]
-        
+
         from_img = img_to_net_in_format(
             img=from_img,
             device=self.device,
             dtype=self.dtype,
-            new_height=self.model_im_height,
-            new_width=self.model_im_width,
             add_batch_dim=True,
         )
         to_img = img_to_net_in_format(
             img=to_img,
             device=self.device,
             dtype=self.dtype,
-            new_height=self.model_im_height,
-            new_width=self.model_im_width,
             add_batch_dim=True,
         )
 

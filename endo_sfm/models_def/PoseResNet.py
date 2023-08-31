@@ -8,7 +8,7 @@
 import torch
 from torch import nn
 
-from .resnet_encoder import ResnetEncoder
+from endo_sfm.models_def.resnet_encoder import ResnetEncoder
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -90,8 +90,8 @@ if __name__ == "__main__":
     model = PoseResNet().cuda()
     model.train()
 
-    tgt_img = torch.randn(4, 3, 256, 832).cuda()
-    ref_imgs = [torch.randn(4, 3, 256, 832).cuda() for i in range(2)]
+    tgt_img = torch.randn(4, 3, 320, 320).cuda()
+    ref_imgs = [torch.randn(4, 3, 320, 320).cuda() for i in range(2)]
 
     pose = model(tgt_img, ref_imgs[0])
 

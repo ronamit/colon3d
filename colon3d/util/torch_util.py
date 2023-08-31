@@ -1,7 +1,8 @@
 import numpy as np
+import PIL
 import torch
 import torchvision
-import PIL
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -81,11 +82,13 @@ def to_torch(x, num_type=None, dtype=None, device=None):
         return x.to(dtype).to(device)
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).to(dtype).to(device)
+    if isinstance(x, PIL.Image.Image):
+        return torch.from_numpy(np.array(x)).to(dtype).to(device)
     if isinstance(x, dict):
         return {k: to_torch(v) for k, v in x.items()}
     if isinstance(x, list):
         return [to_torch(v) for v in x]
-    return x # all other types - do nothing
+    return x  # all other types - do nothing
 
 
 # --------------------------------------------------------------------------------------------------------------------

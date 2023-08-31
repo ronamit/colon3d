@@ -36,19 +36,19 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         choices=["EndoSFM", "MonoDepth2"],
-        default="MonoDepth2",  # MonoDepth2 | EndoSFM
+        default="EndoSFM",  # MonoDepth2 | EndoSFM
         help="Method to use for depth and egomotion estimation.",
     )
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/MonoDepth2_orig",  # MonoDepth2_orig | EndoSFM_orig
+        default="/mnt/disk1/saved_models/EndoSFM_orig",  # MonoDepth2_orig | EndoSFM_orig
         help="Path to the pretrained model.",
     )
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/MonoDepth2_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3
+        default="/mnt/disk1/saved_models/EndoSFM_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -139,12 +139,10 @@ def main():
 
     # set data transforms
     if depth_and_egomotion_method == "EndoSFM":
-        train_transform = endosfm_transforms.get_train_transform()
-        val_transform = endosfm_transforms.get_validation_transform()
+        train_transform, val_transform = endosfm_transforms.get_transforms()
     elif depth_and_egomotion_method == "MonoDepth2":
         n_scales_md2 = 4
-        train_transform = md2_transforms.get_train_transform(n_scales=n_scales_md2)
-        val_transform = md2_transforms.get_validation_transform(n_scales=n_scales_md2)
+        train_transform, val_transform = md2_transforms.get_transforms(n_scales=n_scales_md2)
     else:
         raise ValueError(f"Unknown method: {depth_and_egomotion_method}")
 
@@ -173,12 +171,14 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.n_workers,
+        drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
     )
     validation_loader = torch.utils.data.DataLoader(
         validation_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.n_workers,
+        drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
     )
 
     # Run training:
@@ -198,6 +198,8 @@ def main():
             save_path=path_to_save_model,
             train_loader=train_loader,
             validation_loader=validation_loader,
+            img_height=train_set.img_height,
+            img_width=train_set.img_width,
             n_scales=4,
             load_weights_folder=pretrained_model_path,
             save_overwrite=args.overwrite_model,
@@ -222,8 +224,7 @@ def main():
     save_model_info(
         save_dir_path=path_to_save_model,
         scene_metadata=scene_metadata,
-        disp_resnet_layers=train_runner.disp_resnet_layers,
-        pose_resnet_layers=train_runner.pose_resnet_layers,
+        num_layers=train_runner.num_layers,
         overwrite=True,
         extra_info={"model_description": model_description, "net_out_to_mm": net_out_to_mm},
     )
@@ -240,6 +241,7 @@ def main():
     )
     depth_exam = depth_examiner.run()
 
+    # --------------------------------------------------------------------------------------------------------------------
     if args.update_depth_scale:
         # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
         net_out_to_mm = depth_exam["avg_gt_to_est_depth_ratio"]
@@ -252,6 +254,7 @@ def main():
         print(
             f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]",
         )
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":

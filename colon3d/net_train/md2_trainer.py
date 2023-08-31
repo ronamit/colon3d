@@ -41,9 +41,9 @@ class MonoDepth2Trainer:
     save_path: Path  # path to save the trained model
     train_loader: DataLoader  # training data loader
     validation_loader: DataLoader  # validation data loader
+    img_height: int   # input image height
+    img_width: int   # input image width
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
-    img_height: int = 192  # input image height
-    img_width: int = 640  # input image width
     n_scales: int = 4  # number of scales
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
     scales: list = (0, 1, 2, 3)  # scales used in the loss
@@ -273,7 +273,8 @@ class MonoDepth2Trainer:
             inputs[key] = ipt.to(self.device)
 
         # In MonoDepth v2 we only feed the image with frame_id 0 through the depth encoder
-        features = self.models["encoder"](inputs["color_aug", 0, 0])
+        input_imgs = inputs[("color_aug", 0, 0)]
+        features = self.models["encoder"](input_imgs)
         outputs = self.models["depth"](features)
 
         if self.predictive_mask:
@@ -343,10 +344,10 @@ class MonoDepth2Trainer:
         """Validate the model on a single minibatch"""
         self.set_eval()
         try:
-            inputs = self.val_iter.next()
+            inputs = next(self.val_iter)
         except StopIteration:
             self.val_iter = iter(self.val_loader)
-            inputs = self.val_iter.next()
+            inputs = next(self.val_iter)
 
         with torch.no_grad():
             outputs, losses = self.process_batch(inputs)
@@ -400,6 +401,7 @@ class MonoDepth2Trainer:
                     inputs[("color", frame_id, source_scale)],
                     outputs[("sample", frame_id, scale)],
                     padding_mode="border",
+                    align_corners=True,
                 )
 
                 if not self.disable_automasking:
@@ -511,19 +513,14 @@ class MonoDepth2Trainer:
         so is only used to give an indication of validation performance
         """
         depth_pred = outputs[("depth", 0, 0)]
-        depth_pred = torch.clamp(F.interpolate(depth_pred, [375, 1242], mode="bilinear", align_corners=False), 1e-3, 80)
-        depth_pred = depth_pred.detach()
-
-        depth_gt = inputs["depth_gt"]
+        depth_pred = depth_pred.detach().squeeze(1)  # [B, 1, H, W] -> [B, H, W]
+        depth_gt = inputs["depth_gt"].squeeze(1)  # [B, 1, H, W] -> [B, H, W]
+ 
         mask = depth_gt > 0
-
-        # garg/eigen crop
-        crop_mask = torch.zeros_like(mask)
-        crop_mask[:, :, 153:371, 44:1197] = 1
-        mask = mask * crop_mask
 
         depth_gt = depth_gt[mask]
         depth_pred = depth_pred[mask]
+
         depth_pred *= torch.median(depth_gt) / torch.median(depth_pred)
 
         depth_pred = torch.clamp(depth_pred, min=1e-3, max=80)
@@ -596,29 +593,28 @@ class MonoDepth2Trainer:
 
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with"""
-        models_dir = self.log_path / "models"
-        create_folder_if_not_exists(models_dir)
         to_save = {k: to_str(v) for k, v in self.__getstate__().items()}
-        with (models_dir / "opt.json").open("w") as f:
+        with ( self.log_path  / "opt.json").open("w") as f:
             json.dump(to_save, f, indent=2)
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def save_model(self):
         """Save model weights to disk"""
-        save_folder = self.log_path / "models" / f"weights_{self.epoch}"
-        create_folder_if_not_exists(save_folder)
-        for model_name, model in self.models.items():
-            save_path = save_folder / f"{model_name}.pth"
-            to_save = model.state_dict()
-            if model_name == "encoder":
-                # save the sizes - these are needed at prediction time
-                to_save["height"] = self.img_height
-                to_save["width"] = self.img_width
-            torch.save(to_save, save_path)
-
-        save_path = save_folder / "adam.pth"
-        torch.save(self.model_optimizer.state_dict(), save_path)
+        # save the last model  to log_path and also save the weights to log_path/models/weights_{epoch}
+        save_folders = [ self.log_path , self.log_path / "models" / f"weights_{self.epoch}"]
+        for save_folder in save_folders:
+            create_folder_if_not_exists(save_folder)
+            for model_name, model in self.models.items():
+                save_path = save_folder / f"{model_name}.pth"
+                to_save = model.state_dict()
+                if model_name == "encoder":
+                    # save the sizes - these are needed at prediction time
+                    to_save["height"] = self.img_height
+                    to_save["width"] = self.img_width
+                torch.save(to_save, save_path)
+            save_path = save_folder / "adam.pth"
+            torch.save(self.model_optimizer.state_dict(), save_path)
 
     # ---------------------------------------------------------------------------------------------------------------------
 

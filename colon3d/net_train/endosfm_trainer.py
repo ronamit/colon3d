@@ -37,8 +37,7 @@ class EndoSFMTrainer:
     log_summary: str = "progress_log_summary.csv"  # csv where to save per-epoch train and valid stats
     log_full: str = "progress_log_full.csv"  # csv where to save per-gradient descent train stats
     log_output: bool = False  # will log dispnet outputs at validation step
-    disp_resnet_layers: int = 18  # number of ResNet layers for disparity estimation.
-    pose_resnet_layers: int = 18  #    # only 18 is supported for now
+    num_layers: int = 18  # number of ResNet layers for depth and pose networks
     num_scales: int = 1  # the number of scales
     photo_loss_weight: float = 1  # weight for photometric loss
     smooth_loss_weight: float = 0.1  # weight for disparity smoothness loss
@@ -91,15 +90,14 @@ class EndoSFMTrainer:
             save_model_info(
                 save_dir_path=self.save_path,
                 scene_metadata=scene_metadata,
-                disp_resnet_layers=self.disp_resnet_layers,
-                pose_resnet_layers=self.pose_resnet_layers,
+                num_layers=self.num_layers,
                 overwrite=self.save_overwrite,
             )
 
             # create model
             print("=> creating model")
-            disp_net = DispResNet(self.disp_resnet_layers, pretrained=self.with_pretrain).to(device)
-            pose_net = PoseResNet(self.pose_resnet_layers, pretrained=self.with_pretrain).to(device)
+            disp_net = DispResNet(self.num_layers, pretrained=self.with_pretrain).to(device)
+            pose_net = PoseResNet(self.num_layers, pretrained=self.with_pretrain).to(device)
 
             # load parameters
             if self.pretrained_disp:
