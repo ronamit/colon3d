@@ -40,10 +40,12 @@ class SceneLoader:
                 key=lambda path: int(path.stem),
             )
             self.rgb_source = "Images"
+            self.n_frames = len(self.image_files_paths)
         else:
             self.video_path = self.origin_scene_path / "Video.mp4"
             assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
             self.rgb_source = "Video"
+            self.n_frames = int(cv2.VideoCapture(str(self.video_path)).get(cv2.CAP_PROP_FRAME_COUNT))
 
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
@@ -105,14 +107,10 @@ class SceneLoader:
             np.arctan(self.alg_view_radius / max(self.alg_cam_info.fx, self.alg_cam_info.fy)),
         )
         self.metadata = metadata
-        n_frames = 0
-        for _ in self.frames_generator():
-            n_frames += 1
-        self.n_frames = n_frames
         if n_frames_lim == 0:
-            print(f"Using all {n_frames} frames of the video...")
+            print(f"Using all {self.n_frames} frames of the video...")
         else:
-            print(f"Using only the first {n_frames} frames of the video...")
+            print(f"Using only the first {self.n_frames} frames of the video...")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -158,13 +156,20 @@ class SceneLoader:
     # --------------------------------------------------------------------------------------------------------------------
     def get_frame_at_index(self, frame_idx: int, frame_type="alg_input"):
         if self.rgb_source == "Video":
-            for i, frame in enumerate(self.frames_generator(frame_type=frame_type)):
-                if i == frame_idx:
-                    return frame
+            # read the frame from the video:
+            vidcap = cv2.VideoCapture(str(self.video_path))
+            vidcap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            frame_exists, raw_frame = vidcap.read()
+            vidcap.release()
+            if frame_exists:
+                # convert to RGB
+                raw_frame = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2RGB)
+                frame = self.adjust_frame(raw_frame, frame_type)
+                return frame
         else:
-            image_file = self.image_files_paths[frame_idx]
-            frame = load_rgb_image(image_file)
-            frame = self.adjust_frame(frame, frame_type)
+            frame_path = self.image_files_paths[frame_idx]
+            raw_frame = load_rgb_image(frame_path)
+            frame = self.adjust_frame(raw_frame, frame_type)
             return frame
         return None
 

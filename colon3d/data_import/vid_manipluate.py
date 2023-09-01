@@ -1,6 +1,10 @@
 import argparse
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
@@ -11,6 +15,7 @@ from colon3d.util.general_util import (
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+# TODO: add the video rotation code from the colab notebook (including tracks)
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
@@ -40,15 +45,35 @@ def main():
         alg_fov_ratio=alg_fov_ratio,
     )
 
+    detections_tracker = DetectionsTracker(
+        scene_path=load_scene_path,
+        scene_loader=scene_loader,
+    )
     # loop over all frames and saved them as images
 
     rgb_frames_paths = []
-    fps = 0.1
-
+    fps = scene_loader.fps
+    
     # save the frames
     frames_out_path = save_scene_path / "Frames"
     create_empty_folder(frames_out_path, save_overwrite=False)
     n_frames = scene_loader.n_frames
+    
+    n_tracks_per_frame = np.zeros(n_frames)
+    for i_frame in range(n_frames):
+        # Get the targets tracks in the current frame inside the algorithmic field of view
+        tracks = detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
+        n_tracks_per_frame[i_frame] = len(tracks)
+        
+    
+    
+    # plot the number of tracks per frame
+    plt.figure()
+    plt.plot(n_tracks_per_frame)
+    plt.xlabel("Frame index")
+    plt.ylabel("Number of tracks")
+    
+    
     for i_frame in range(n_frames):
         print(f"i_frame={i_frame}/{n_frames}")
         im = scene_loader.get_frame_at_index(i_frame, frame_type="full")
@@ -59,6 +84,7 @@ def main():
 
     # save the video
     save_video_from_frames_paths(save_path=save_scene_path / "Video", frames=rgb_frames_paths, fps=fps)
+
 
 
 # ---------------------------------------------------------------------------------------------------------------------
