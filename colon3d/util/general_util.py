@@ -213,14 +213,6 @@ def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
 
     save_video_from_func(save_path, make_frame, len(frames), fps)
     
-# --------------------------------------------------------------------------------------------------------------------
-
-def save_video_from_frames_paths(save_path: Path, frames: list, fps: float):
-    def make_frame(i_frame) -> np.ndarray:
-        return load_rgb_image(frames[i_frame])
-
-    save_video_from_func(save_path, make_frame, len(frames), fps)
-
 
 # --------------------------------------------------------------------------------------------------------------------
 
