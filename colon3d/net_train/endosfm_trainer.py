@@ -245,6 +245,7 @@ class EndoSFMTrainer:
             if self.train_with_gt_depth:
                 # load ground truth depth
                 target_gt_depth = batch["target_depth"].to(device)
+                ref_gt_depth = batch["ref_depth"].to(device)
                 # add a supervised loss term for training the depth nerwork
                 loss_weights["depth_loss"] = 1
                 target_depth_loss = torch.mean(torch.abs(target_gt_depth - tgt_depth[0]))
@@ -253,7 +254,7 @@ class EndoSFMTrainer:
                 #  use ground truth depth for the next loss items
                 # we use a list of length 1 - only the original image size (scale 0) is used.
                 tgt_depth = [target_gt_depth]
-                ref_depths = [[target_gt_depth]]  # only 1 ref image is used in our case
+                ref_depths = [[ref_gt_depth]]  # only 1 ref image is used in our case
 
             loss_terms["photo_loss"], loss_terms["geometry_consistency_loss"] = compute_photo_and_geometry_loss(
                 tgt_img,

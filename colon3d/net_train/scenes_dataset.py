@@ -119,8 +119,8 @@ class ScenesDataset(data.Dataset):
                 target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
                 sample["target_depth"] = target_depth
                 ref_depth = to_default_type(h5f["z_depth_map"][ref_frame_idx], num_type="float_m")
+                sample["ref_depth"] = ref_depth
                 
-
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
