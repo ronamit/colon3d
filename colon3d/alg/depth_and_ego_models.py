@@ -39,8 +39,9 @@ class DepthModel:
         self.depth_map_height = self.model_info["frame_height"]
 
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.net_out_to_mm = self.model_info["net_out_to_mm"]
-        print(f"net_out_to_mm: {self.net_out_to_mm:.3f}")
+        self.depth_calib_a = self.model_info["depth_calib_a"]
+        self.depth_calib_b = self.model_info["depth_calib_b"]
+        print(f"depth_calibrations: a={self.depth_calib_a}, b={self.depth_calib_b}")
 
         # load the camera matrix corresponding to the depth maps:
         self.depth_map_K = get_camera_matrix(self.model_info)
@@ -140,8 +141,9 @@ class DepthModel:
                 )
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
-        # multiply by the scale factor to get the depth in mm
-        depth_map *= self.net_out_to_mm
+        # use the depth calibration to get the depth in mm
+        depth_map = self.depth_calib_a * depth_map + self.depth_calib_b
+            
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_map = torch.clamp(depth_map, self.depth_lower_bound, self.depth_upper_bound)
@@ -160,7 +162,7 @@ class EgomotionModel:
         self.model_info = get_model_info(model_path)
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.net_out_to_mm = self.model_info["net_out_to_mm"]
+        self.depth_calib_a = self.model_info["depth_calib_a"]
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
         # create the egomotion estimation network
@@ -246,7 +248,7 @@ class EgomotionModel:
         rotation_quaternion = axis_angle_to_quaternion(rotation_axis_angle)
 
         # multiply the translation by the conversion factor to get mm units
-        translation *= self.net_out_to_mm
+        translation = self.depth_calib_a * translation
         egomotion = torch.cat((translation, rotation_quaternion), dim=0)
         assert egomotion.ndim == 1
         return egomotion
@@ -262,9 +264,11 @@ def get_model_info(model_dir_path: Path):
     assert model_info_path.is_file(), f"Model info file not found at {model_info_path}"
     with model_info_path.open("r") as f:
         model_info = yaml.load(f, Loader=yaml.FullLoader)
-    if "net_out_to_mm" not in model_info:
-        print("net_out_to_mm not found in model info, using default value of 1.0")
-        model_info["net_out_to_mm"] = 1.0
+    if "depth_calib_type" not in model_info:
+        print("depth_calib not found in model info, using default 'none'")
+        model_info["depth_calib_type"] = "none"
+        model_info["depth_calib_a"] = 1
+        model_info["depth_calib_b"] = 0
 
     return model_info
 

@@ -36,7 +36,7 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         choices=["EndoSFM", "MonoDepth2", "EndoSFM_GTD"],
-        default="EndoSFM_GTD",  # MonoDepth2 | EndoSFM | EndoSFM_GTD
+        default="EndoSFM",  # MonoDepth2 | EndoSFM | EndoSFM_GTD
         help="Method to use for depth and egomotion estimation.",
     )
     parser.add_argument(
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="/mnt/disk1/saved_models/EndoSFM_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -79,7 +79,7 @@ def main():
     parser.add_argument(
         "--overwrite_model",
         type=bool_arg,
-        default=True,
+        default=False,
         help="If True then overwrite the save model if it already exists in the save path.",
     )
     parser.add_argument(
@@ -89,10 +89,17 @@ def main():
         help="If True then overwrite the depth examination if it already exists in the save path.",
     )
     parser.add_argument(
-        "--update_depth_scale",
+        "--update_depth_calib",
         type=bool_arg,
         default=True,
         help="If True then update the depth scale in the model info file based on the depth examination.",
+    )
+    parser.add_argument(
+        "--depth_calib_method",
+        type=str,
+        choices=["affine", "linear", "none"],
+        default="affine",
+        help="Method to use for depth scale calibration.",
     )
     parser.add_argument(
         "--debug_mode",
@@ -153,7 +160,7 @@ def main():
         subsample_min=args.subsample_min,
         subsample_max=args.subsample_max,
         n_sample_lim=n_sample_lim,
-        load_target_depth = depth_and_egomotion_method in {"EndoSFM_GTD"},
+        load_target_depth=depth_and_egomotion_method in {"EndoSFM_GTD"},
     )
 
     # validation set
@@ -220,8 +227,8 @@ def main():
     with (scene_path / "meta_data.yaml").open("r") as f:
         scene_metadata = yaml.load(f, Loader=yaml.FullLoader)
 
-    # set this value initially to 1.0, and then run the depth examination to calibrate the depth scale:
-    net_out_to_mm = 1.0
+    # set no depth calibration (depth = net_out) and then run the depth examination to calibrate the depth scale:
+    depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
 
     model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_param: {subsample_param}, dataset_path: {dataset_path}"
     save_model_info(
@@ -229,7 +236,7 @@ def main():
         scene_metadata=scene_metadata,
         num_layers=train_runner.num_layers,
         overwrite=True,
-        extra_info={"model_description": model_description, "net_out_to_mm": net_out_to_mm},
+        extra_info={"model_description": model_description, "depth_calib": depth_calib},
     )
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -239,24 +246,38 @@ def main():
         depth_and_egomotion_method=depth_and_egomotion_method,
         depth_and_egomotion_model_path=path_to_save_model,
         save_path=path_to_save_depth_exam,
+        depth_calib_method=args.depth_calib_method,
         n_scenes_lim=n_scenes_lim,
         save_overwrite=args.overwrite_depth_exam,
     )
-    depth_exam = depth_examiner.run()
+    depth_calib = depth_examiner.run()
 
     # --------------------------------------------------------------------------------------------------------------------
-    if args.update_depth_scale:
-        # the output of the depth network needs to be multiplied by this number to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-        net_out_to_mm = depth_exam["avg_gt_to_est_depth_ratio"]
+    if args.update_depth_calib:
+        # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
         info_model_path = path_to_save_model / "model_info.yaml"
-        # update the model info file with the new net_out_to_mm value:
+        # update the model info file with the new depth_calib value:
         with info_model_path.open("r") as f:
             model_info = yaml.load(f, Loader=yaml.FullLoader)
-            model_info["net_out_to_mm"] = net_out_to_mm
+            model_info.update(depth_calib)
         save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
         print(
-            f"Updated model info file {info_model_path} with the calibrated net_out_to_mm value: {net_out_to_mm} [mm]",
+            f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
         )
+
+    # --------------------------------------------------------------------------------------------------------------------
+    # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
+    depth_examiner = DepthExaminer(
+        dataset_path=dataset_path,
+        depth_and_egomotion_method=depth_and_egomotion_method,
+        depth_and_egomotion_model_path=path_to_save_model,
+        depth_calib_method="none",
+        save_path=path_to_save_depth_exam / "after_update",
+        n_scenes_lim=5,
+        n_frames_lim=5,
+        save_overwrite=args.overwrite_depth_exam,
+    )
+    depth_calib = depth_examiner.run()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -12,7 +12,6 @@ from colon3d.util.general_util import (
     Tee,
     bool_arg,
     create_empty_folder,
-    save_dict_to_yaml,
     save_plot_and_close,
 )
 from colon3d.util.torch_util import resize_grayscale_image, to_numpy
@@ -86,7 +85,9 @@ class DepthExaminer:
         depth_and_egomotion_method: str,
         depth_and_egomotion_model_path: Path,
         save_path: Path,
+        depth_calib_method: str = "none",
         n_scenes_lim: int = 0,
+        n_frames_lim: int = 0,
         save_overwrite: bool = True,
         frame_idx_to_show: int = 0,
     ):
@@ -94,7 +95,9 @@ class DepthExaminer:
         self.depth_and_egomotion_method = depth_and_egomotion_method
         self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
         self.save_path = Path(save_path)
+        self.depth_calib_method = depth_calib_method
         self.n_scenes_lim = n_scenes_lim
+        self.n_frames_lim = n_frames_lim
         self.save_overwrite = save_overwrite
         self.frame_idx_to_show = frame_idx_to_show
 
@@ -118,10 +121,11 @@ class DepthExaminer:
             scenes_paths.sort()
 
             # initialize the variables for the depth statistics (over all pixels in all frames in all scenes)
-            n_pix_averaged = 0
-            avg_gt_depth = 0
-            avg_est_depth = 0
-            avg_gt_to_est_depth_ratio = 0
+            n_pix_tot = 0
+            sum_gt_depth = 0
+            sum_est_depth = 0
+            sum_est_depth_sqr = 0
+            sum_gt_depth_times_est_depth = 0
 
             for i_scene in range(n_scenes):
                 scene_path = scenes_paths[i_scene]
@@ -129,6 +133,7 @@ class DepthExaminer:
                 # get frames loader for current scene
                 scene_loader = SceneLoader(
                     scene_path=scene_path,
+                    n_frames_lim=self.n_frames_lim,
                 )
                 # get the ground truth depth loader
                 gt_depth_loader = DepthAndEgoMotionLoader(
@@ -172,31 +177,35 @@ class DepthExaminer:
                     gt_depths = gt_depths.flatten()
                     est_depths = est_depths.flatten()
                     n_pix_new = len(gt_depths)
-                    # ensure the estimated depth is not zero to avoid division by zero
-                    est_depths[est_depths < 1e-6] = 1e-6
                     # update the depth statistics
-                    avg_gt_depth = (n_pix_averaged * avg_gt_depth + n_pix_new * np.mean(gt_depths)) / (
-                        n_pix_averaged + n_pix_new
-                    )
-                    avg_est_depth = (n_pix_averaged * avg_est_depth + n_pix_new * np.mean(est_depths)) / (
-                        n_pix_averaged + n_pix_new
-                    )
-                    avg_gt_to_est_depth_ratio = (
-                        n_pix_averaged * avg_gt_to_est_depth_ratio + n_pix_new * np.mean(gt_depths / est_depths)
-                    ) / (n_pix_averaged + n_pix_new)
-                    n_pix_averaged += n_pix_new
+                    n_pix_tot += n_pix_new
+                    sum_gt_depth += np.sum(gt_depths)
+                    sum_est_depth += np.sum(est_depths)
+                    sum_gt_depth_times_est_depth += np.sum(gt_depths * est_depths)
+                    sum_est_depth_sqr += np.sum(est_depths**2)
 
-            # save the results as yaml file
-            depth_exam = {
-                "dataset_path": self.dataset_path,
-                "avg_gt_depth": avg_gt_depth,
-                "avg_est_depth": avg_est_depth,
-                "avg_gt_depth divided_by_avg_est_depth": avg_gt_depth / avg_est_depth,
-                "avg_gt_to_est_depth_ratio": avg_gt_to_est_depth_ratio,
-            }
-            save_dict_to_yaml(save_path=self.save_path / "depth_exam.yaml", dict_to_save=depth_exam)
-            print("Depth examination results:\n" + "-" * 50)
-            return depth_exam
+            avg_gt_depth = sum_gt_depth / n_pix_tot
+            avg_est_depth = sum_est_depth / n_pix_tot
+            avg_est_depth_sqr = sum_est_depth_sqr / n_pix_tot
+            # empirical variance of the estimated depth
+            var_est_depth = avg_est_depth_sqr - avg_est_depth**2
+            # empirical covariance of the estimated depth and the ground truth depth
+            cov_gt_depth_est_depth = sum_gt_depth_times_est_depth / n_pix_tot - avg_gt_depth * avg_est_depth
+            # calculate the depth calibration parameters:
+            if self.depth_calib_method == "none":
+                depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
+            elif self.depth_calib_method == "linear":
+                # linear model: depth = a * net_output, where a is the calibration parameter (calculated with least squares)
+                depth_calib = {"depth_calib_type": "linear", "depth_calib_a": cov_gt_depth_est_depth / var_est_depth, "depth_calib_b": 0}
+            elif self.depth_calib_method == "affine":
+                # affine model: depth = a * net_output + b, where a and b are the calibration parameters (calculated with least squares)
+                a = cov_gt_depth_est_depth / var_est_depth
+                b = avg_gt_depth - a * avg_est_depth
+                depth_calib = {"depth_calib_type": "affine", "depth_calib_a": a, "depth_calib_b": b}
+            else:
+                raise ValueError(f"Unknown depth calibration method: {self.depth_calib_method}")
+            
+            return depth_calib
 
 
 # ---------------------------------------------------------------------------------------------------------------------
