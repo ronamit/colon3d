@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 from colon3d.run_on_sim_dataset import SlamOnDatasetRunner
