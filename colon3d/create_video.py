@@ -138,6 +138,15 @@ n_frames_new = len(new_vid_frame_inds)
 print(f"Number of frames in the new video: {n_frames_new}")
 
 
+# plot new_vid_frame_inds:
+plt.figure()
+plt.plot(new_vid_frame_inds)
+plt.xlabel("Frame index in the new video")
+plt.ylabel("Frame index in the original video")
+save_plot_and_close(save_scene_path / "new_vid_frame_inds.png")
+
+
+
 # # Create new video
 
 fps = scene_loader.fps

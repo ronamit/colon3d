@@ -36,7 +36,7 @@ def main():
         "--depth_and_egomotion_method",
         type=str,
         choices=["EndoSFM", "MonoDepth2", "EndoSFM_GTD"],
-        default="EndoSFM",  # MonoDepth2 | EndoSFM | EndoSFM_GTD
+        default="EndoSFM_GTD",  # MonoDepth2 | EndoSFM | EndoSFM_GTD
         help="Method to use for depth and egomotion estimation.",
     )
     parser.add_argument(
@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_tuned_v3",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="/mnt/disk1/saved_models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(
