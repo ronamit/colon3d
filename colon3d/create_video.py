@@ -11,9 +11,9 @@ from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track
 load_scene_path = Path("/mnt/disk1/data/my_videos/Example_4")
 save_scene_path = Path("/mnt/disk1/data/my_videos/Example_4_processed")
 alg_fov_ratio = 0.8
-n_frames_lim = 0
+n_frames_lim = 0  # limit the number of frames to load from the original video
 
-seg_scale = 4  # scale factor to change the duration of each out-of-view segments
+seg_scale = 3  # scale factor to change the duration of each out-of-view segments
 max_len = 5000  # limit the number of frames in the new video
 
 scene_loader = SceneLoader(
@@ -57,7 +57,26 @@ plt.figure()
 plt.plot(is_in_view)
 plt.xlabel("Frame index")
 plt.ylabel("Is track in alg. view")
-save_plot_and_close(save_scene_path / "orig_segments.png")
+save_plot_and_close(save_scene_path / "orig_is_in_view.png")
+
+
+# start the new video with the first frame that is in view in the original video
+first_frame_to_use = is_in_view.argmax()
+
+# save the start and end frame indexes of each out-of-view segment as list
+segments = []
+
+for i_frame in range(first_frame_to_use, n_frames):
+    if is_in_view[i_frame]:
+        # if current frame is in view and previous frame was out of view, save the end of the out-of-view segment
+        if i_frame > 0 and not is_in_view[i_frame - 1] and len(segments) > 0:
+            segments[-1]["last"] = i_frame - 1
+    # if current frame is out of view and it is frame 0 or if the previous frame was in view, save the start of the out-of-view segment
+    elif i_frame == 0 or (i_frame > 0 and is_in_view[i_frame - 1]):
+        segments.append({"first": i_frame, "last": None})
+    # if we reached the last frame and it is not in view, save the end of the out-of-view segment
+    if i_frame == n_frames - 1 and not is_in_view[i_frame]:
+        segments[-1]["last"] = i_frame
 
 
 print("Out of view segments:")
@@ -66,8 +85,9 @@ for i_seg, segment in enumerate(segments):
 
 
 # Average segment duration
-segment_durations = np.array([1 + seg["last"] - seg["first"] for seg in segments])
-avg_segment_duration = np.mean(segment_durations)
+for seg in segments:
+    seg["duration"] = 1 + seg["last"] - seg["first"]
+avg_segment_duration = np.mean(np.array([seg["duration"] for seg in segments]))
 print(f"Average segment duration: {avg_segment_duration:.2f} frames")
 
 # # Extend the time of each out-of-view segment, by playing it forward and backward
@@ -75,31 +95,36 @@ print(f"Average segment duration: {avg_segment_duration:.2f} frames")
 
 new_vid_frame_inds = []
 
-# start the new video with the first frame that is in view in the original video
-i_frame = is_in_view.argmax()
-cur_seg_idx = 0  # index of the first out-of-view segment
+
+next_seg_idx = 0 # index of the out-of-view segment we will see next
+seg = segments[next_seg_idx]
 n_frames_remains = 0  # number of frames that remains to be added from the current out-of-view segment to the new video
 move_dir = 1  # 1 for forward, -1 for backward
 i = 0
+i_frame = first_frame_to_use
 
 # go over all the original video frames and add them to the new video in a way that out-of-view segments may be repeated
 while (i_frame < n_frames) and (i < max_len):
-    print(f"i_frame={i_frame}/{n_frames}, n_frames_remains={n_frames_remains}, segment #{cur_seg_idx}: {segments[cur_seg_idx]}, is_in_view={is_in_view[i_frame]}, move_dir={move_dir}")
+    print(f"i_frame={i_frame}/{n_frames}, n_frames_remains={n_frames_remains}, segment #{next_seg_idx}: {seg}, is_in_view={is_in_view[i_frame]}, move_dir={move_dir}")
     if is_in_view[i_frame]:
         move_dir = 1  # move forward
-    else:
-        # We are in an out-of-view segment.
-        if n_frames_remains > 0:
-            # if we still have frames to add from the previous out-of-view segment,
-            if i_frame in {segments[cur_seg_idx]["first"] , segments[cur_seg_idx]["last"]}:
-                print(f"Reached the end of the current out-of-view segment #{cur_seg_idx}")
-                # if we reached one of the the ends of the current out-of-view segment, change direction
-                move_dir *= -1
-        else:
+    else: # We are in an out-of-view segment.
+        print(f"Position in the original out-of-view segment: {i_frame - seg['first'] + 1}/{seg['duration']}")
+        if n_frames_remains == 0:
             # we started a new out-of-view segment
-            cur_seg_idx += 1
+            seg = segments[next_seg_idx]
+            next_seg_idx += 1
             move_dir = 1  # move forward
-            n_frames_remains = int(seg_scale * segment_durations[cur_seg_idx])
+            n_frames_remains = int(seg_scale * seg["duration"])
+        elif n_frames_remains > seg["duration"] // 2:
+            # if we still have frames to add for this segment, and to do back and forth
+            if i_frame in {seg["first"] , seg["last"]}:
+                print(f"Reached on the ends of the current out-of-view segment #{next_seg_idx}, so we will change the direction of movement")
+                move_dir *= -1
+        else: #  0 < n_frames_remains <= seg["duration"] // 2:
+            #  if we still have frames to add for this segment, but we must stop going back and forth and go forward only
+            # so that we wil reach the end of the segment when n_frames_remains==0
+            move_dir = 1  # move forward
         n_frames_remains -= 1
     # add the current frame to the new video
     new_vid_frame_inds.append(i_frame)
@@ -122,7 +147,7 @@ frames_out_path = save_scene_path / "Frames"
 create_empty_folder(frames_out_path, save_overwrite=True)
 
 
-cur_seg_idx = -1  # index of the current out-of-view segment
+next_seg_idx = -1  # index of the current out-of-view segment
 
 # start the new video from the first in-view frame
 start_frame = is_in_view.argmin()
