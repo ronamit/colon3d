@@ -43,7 +43,7 @@ for i_frame in range(n_frames):
     if is_in_view[i_frame]:
         # if current frame is in view and previous frame was out of view, save the end of the out-of-view segment
         if i_frame > 0 and not is_in_view[i_frame - 1]:
-            segments[-1]["last"] = i_frame
+            segments[-1]["last"] = i_frame - 1
     # if current frame is out of view and it is frame 0 or if the previous frame was in view, save the start of the out-of-view segment
     elif i_frame == 0 or (i_frame > 0 and is_in_view[i_frame - 1]):
         segments.append({"first": i_frame, "last": None})
@@ -84,14 +84,14 @@ i = 0
 
 # go over all the original video frames and add them to the new video in a way that out-of-view segments may be repeated
 while (i_frame < n_frames) and (i < max_len):
+    print(f"i_frame={i_frame}/{n_frames}, n_frames_remains={n_frames_remains}, segment #{cur_seg_idx}: {segments[cur_seg_idx]}, is_in_view={is_in_view[i_frame]}, move_dir={move_dir}")
     if is_in_view[i_frame]:
         move_dir = 1  # move forward
     else:
         # We are in an out-of-view segment.
         if n_frames_remains > 0:
-            print(f"i_frame={i_frame}/{n_frames}, n_frames_remains={n_frames_remains}, segment #{cur_seg_idx}: {segments[cur_seg_idx]}")
             # if we still have frames to add from the previous out-of-view segment,
-            if i_frame in {segments[cur_seg_idx]["first"], segments[cur_seg_idx]["last"]}:
+            if i_frame in {segments[cur_seg_idx]["first"] , segments[cur_seg_idx]["last"]}:
                 print(f"Reached the end of the current out-of-view segment #{cur_seg_idx}")
                 # if we reached one of the the ends of the current out-of-view segment, change direction
                 move_dir *= -1
