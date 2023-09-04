@@ -269,6 +269,7 @@ def coord_to_cv2kp(coord):
 
 
 def save_plot_and_close(save_path):
+    create_folder_if_not_exists(save_path.parent)
     plt.savefig(save_path)
     plt.cla()
     plt.clf()

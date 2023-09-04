@@ -8,8 +8,8 @@ from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import create_empty_folder, save_plot_and_close, save_video_from_frames_list
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track_box_on_frame
 
-load_scene_path = Path("/mnt/disk1/data/my_videos/Example_4")
-save_scene_path = Path("/mnt/disk1/data/my_videos/Example_4_processed")
+load_scene_path = Path("data/Example_4")
+save_scene_path = Path("data/Example_4_processed")
 alg_fov_ratio = 0.8
 n_frames_lim = 0  # limit the number of frames to load from the original video
 

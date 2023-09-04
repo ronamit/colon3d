@@ -3,7 +3,7 @@
     "python.analysis.extraPaths": [
         "/home/repos/pytorch-minimize"
     ],
-    "workbench.colorTheme": "One Dark Modern",
+    "workbench.colorTheme": "Default Dark+",
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
