@@ -181,6 +181,21 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
+        
+        # --------------------------------------------------------------------------------------------------------------------
+        # Bundle-adjustment, with history=2, without monocular depth and egomotion estimation
+        # --------------------------------------------------------------------------------------------------------------------
+        exp_name = "BA_history_2_no_depth_no_ego"
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="none",
+                egomotions_source="none",
+                alg_settings_override={"n_last_frames_to_use": 2},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------

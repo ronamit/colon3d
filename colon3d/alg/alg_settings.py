@@ -6,8 +6,9 @@ import numpy as np
 @dataclass
 class AlgorithmParam:
     use_bundle_adjustment: bool = True
-    n_last_frames_to_opt: int = 1
-    optimize_each_n_frames: int = 1
+    n_last_frames_to_opt: int = 1 # number of last frames to set camera poses and 3D points as optimization variables
+    n_last_frames_to_use: int = -1  # number of last frames to use for the bundle adjustment loss term, if -1, then use all history
+    optimize_each_n_frames: int = 1 # optimize each n frames
     add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
     max_angular_vel: float = 3.0 * np.pi  # rad/s

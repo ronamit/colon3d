@@ -69,15 +69,17 @@ class KeyPointsLog:
         return None
 
     # --------------------------------------------------------------------------------------------------------------------
-    def get_kp_ids_in_frames_or_p3d_ids(self, frame_inds: list, p3d_flag_vec: list) -> list:
+    def get_kp_ids_in_frames_or_p3d_ids(self, frame_inds: list, p3d_flag_vec: list, earliest_frame_to_use: int) -> list:
         """Get all the keypoint ids in the given frames if its associated 3D point is in the given set of 3D points.
         Args:
             frame_inds: list of frame indexes
+            earliest_frame_to_use: the first frame index to use for the loss terms, if -1, then use all history
         """
         kp_ids = []
         frame_inds_set = set(frame_inds)
         for kp_id, p3d_id in self.map_kp_to_p3d_idx.items():
-            if (kp_id[0] in frame_inds_set) or p3d_flag_vec[p3d_id]:
+            frame_idx = kp_id[0]
+            if  ((frame_idx in frame_inds_set) or p3d_flag_vec[p3d_id]) and (frame_idx >= earliest_frame_to_use or earliest_frame_to_use == -1):
                 kp_ids.append(kp_id)
         return kp_ids
 

@@ -164,6 +164,7 @@ def run_bundle_adjust(
     kp_log: KeyPointsLog,
     p3d_inds_per_frame: list,
     frames_inds_to_opt: list,
+    earliest_frame_to_use: int,
     alg_prm: AlgorithmParam,
     fps: float,
     scene_metadata: dict,
@@ -175,8 +176,8 @@ def run_bundle_adjust(
         cam_poses: saves per-frame of the 6DOF camera pose arrays of size 7 (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
         points_3d: saves of 3d points in world coordinates  [List of arrays of size 3] (units: mm)
         p3d_inds_in_frame: list of lists of 3d point indexes for each frame [List of size n_frames of list of lengths n_points_in_frame]
-        frames_inds_to_opt: list of frame indexes to optimize
-
+        frames_inds_to_opt: the frame indexes to set the optimization variables (cam poses and 3D points)
+        earliest_frame_to_use: the first frame index to use for the loss terms, if -1, then use all history
         verbose: verbosity level
     Returns:
         cam_poses_opt: camera poses after bundle adjustment optimization [saves per-frame of arrays of size 7]
@@ -203,6 +204,7 @@ def run_bundle_adjust(
     kp_opt_ids = kp_log.get_kp_ids_in_frames_or_p3d_ids(
         frame_inds=frames_inds_to_opt,
         p3d_flag_vec=p3d_opt_flag,
+        earliest_frame_to_use=earliest_frame_to_use,
     )
 
     # take the subsets that are used in the optimization objective:

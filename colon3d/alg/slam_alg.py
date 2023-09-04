@@ -389,8 +389,10 @@ class SlamAlgRunner:
         # ---- Run bundle-adjustment:
         if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
+            # The frame indexes to set the optimization variables (cam poses and 3D points)
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
-
+            # The frame indexes to use for the loss terms (if n_last_frames_to_use=-1, use all history)
+            earliest_frame_to_use = max(0, i_frame - alg_prm.n_last_frames_to_use + 1) if alg_prm.n_last_frames_to_use > -1  else -1
             # Loop that runs the bundle adjustment until no more KPs are discarded
             n_invalid_kps = -1
             i_repeat = 0
@@ -402,6 +404,7 @@ class SlamAlgRunner:
                     kp_log=self.kp_log,
                     p3d_inds_per_frame=self.p3d_inds_per_frame,
                     frames_inds_to_opt=frames_inds_to_opt,
+                    earliest_frame_to_use=earliest_frame_to_use,
                     alg_prm=alg_prm,
                     fps=fps,
                     scene_metadata=self.scene_metadata,
