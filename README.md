@@ -143,3 +143,16 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 * [OpenCV: Feature matching tutorial](https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html)
 * [Scipy: bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html)
 * [OpenCV: Feature matching + homography](https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html)
+
+
+
+# Troubleshooting
+Exception has occurred: ImportError 
+libtiff.so.5: cannot open shared object file: No such file or directory
+sudo apt-get update
+sudo apt-get install libffi-dev
+in your Conda environment:
+conda install -c conda-forge libffi 
+conda install -c anaconda libtiff
+cd ~/miniconda3/envs/YOUR_ENV/lib
+ln -s libtiff.so.6  libtiff.so.5

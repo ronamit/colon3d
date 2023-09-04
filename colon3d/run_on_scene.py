@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4",  # "data/my_videos/Example_4_rotV2",
+        default="/mnt/disk1/data/my_videos/Example_4_yoyo",  # Example_4_rotV2 | Example_4 | Example_4_yoyo
         help="path to the scene folder",
     )
     parser.add_argument(
