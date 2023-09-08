@@ -9,21 +9,23 @@ from colon3d.run_on_scene import SlamRunner
 
 
 def main():
-    load_scene_path = Path("/mnt/disk1/data/my_videos/Example_4")
+    base_data_path = Path("/mnt/disk1/data/my_videos")
+    load_scene_path = base_data_path / "Example_4"
     alg_fov_ratio = 0.8
-    n_frames_lim = 50
 
     video_modifier = VideoModifier(
         load_scene_path=load_scene_path,
         alg_fov_ratio=alg_fov_ratio,
-        n_frames_lim=n_frames_lim,
-        verbose=False,
+        n_frames_lim=0,
+        # verbose=False,
     )
 
-    seg_scale = np.linspace(0.5, 1.5, 10)
-    for scale in seg_scale:
+    # set the grid of scales to modify the video with
+    seg_scales =  np.array([2, 3, 4])
+    
+    for scale in seg_scales:
         # Modify the video to have longer out-of-view segments
-        mod_scene_path = Path(f"/mnt/disk1/data/Mod_Vids/Scale_{scale}")
+        mod_scene_path = base_data_path / f"Mod_Vids/Scale_{scale}".replace(".", "_")
         video_modifier.run(seg_scale=scale, save_path=mod_scene_path)
 
 
@@ -49,3 +51,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+# ---------------------------------------------------------------------------------------------------------------------

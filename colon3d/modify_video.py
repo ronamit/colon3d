@@ -78,12 +78,13 @@ class VideoModifier:
         print(f"Average segment duration: {avg_segment_duration:.2f} frames")
 
     # ---------------------------------------------------------------------------------------------------------------------
-    def run(self, seg_scale: float = 3.0, save_path: Path = Path("/mnt/disk1/data/my_videos/Example_4_processed")):
+    def run(self, seg_scale: float, save_path: Path):
         """"""
         """ Modify the video to have longer out-of-view segments
         Args:
             seg_scale: scale factor to change the duration of each out-of-view segments
         """
+        assert seg_scale >= 1, f"seg_scale={seg_scale} must be >= 1"
 
         if self.verbose:
             print("Out of view segments:")
@@ -212,7 +213,8 @@ class VideoModifier:
 # ---------------------------------------------------------------------------------------------------------------------
 def main():
     video_modifier = VideoModifier()
-    video_modifier.run()
+    seg_scale = 1.5
+    video_modifier.run(save_path=Path("/mnt/disk1/data/my_videos/Mod_Vids/Scale_1_5"), seg_scale=seg_scale)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
