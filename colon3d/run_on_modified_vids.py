@@ -27,12 +27,12 @@ def main():
         # Modify the video to have longer out-of-view segments
         mod_scene_path = base_data_path / f"Mod_Vids/Scale_{scale}".replace(".", "_")
         video_modifier.run(seg_scale=scale, save_path=mod_scene_path)
-
+        mod_scene_results_path = mod_scene_path / "results"
 
         # Run the algorithm on the modified video
         slam_runner = SlamRunner(
             scene_path=mod_scene_path,
-            save_path=mod_scene_path,
+            save_path=mod_scene_results_path,
             save_overwrite=True,
             save_raw_outputs=False,
             depth_maps_source="none",

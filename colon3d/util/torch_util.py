@@ -5,12 +5,17 @@ import torchvision
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def mps_available():
+    # Mac ARM
+    return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+
+
+# --------------------------------------------------------------------------------------------------------------------
 
 def get_device(gpu_id: int = 0):
-    mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
     if torch.cuda.is_available():
         return torch.device("cuda", gpu_id)
-    if mps_available:
+    if mps_available():
         return torch.device("mps")
     return torch.device("cpu")
 
@@ -22,7 +27,7 @@ def get_default_dtype(package="torch", num_type=None):
     num_type = num_type or "float"
     if package == "torch":
         if num_type == "float":
-            return torch.float64
+            return torch.float32 if mps_available() else torch.float64
         if num_type == "float_m":
             # the precision for depth maps
             return torch.float32

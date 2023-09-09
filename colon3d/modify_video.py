@@ -119,6 +119,7 @@ class VideoModifier:
         """
         assert seg_scale >= 1, f"seg_scale={seg_scale} must be >= 1"
 
+        create_empty_folder(save_path, save_overwrite=True)
         if self.verbose:
             print("Out of view segments:")
             for i_seg, segment in enumerate(self.segments):
@@ -174,7 +175,7 @@ class VideoModifier:
                 # in any case - decrease the number of frames that remains to be added from the current out-of-view segment to the new video
                 n_frames_remains -= 1
                 print(f"--i={i}, original i_frame={i_frame}, move_dir={move_dir}, n_frames_remains={n_frames_remains}, forward_only={forward_only}")
-                
+
             # add the current frame to the new video
             new_vid_frame_inds.append(i_frame)
             i_frame += move_dir

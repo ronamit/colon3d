@@ -109,7 +109,7 @@ class SlamAlgRunner:
         """
 
         # saves for each frame the most up-to-date estimate of the 6DOF camera pose change from the initial pose:
-        self.cam_poses = torch.full((1, 7), torch.nan, device=self.device)
+        self.cam_poses = torch.full((1, 7), torch.nan, device=self.device, dtype=get_default_dtype())
         self.cam_poses[0, :] = torch.cat((torch.tensor([0, 0, 0]), get_identity_quaternion()))
         #  saves the identified world 3D point - the currently optimized coordinates  (units: mm):
         self.points_3d = torch.full((0, 3), torch.nan, device=self.device)
