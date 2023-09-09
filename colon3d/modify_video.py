@@ -1,3 +1,4 @@
+import argparse
 import shutil
 from pathlib import Path
 
@@ -8,15 +9,48 @@ import pandas as pd
 
 from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader
-from colon3d.util.general_util import create_empty_folder, save_plot_and_close, save_video_from_frames_list
+from colon3d.util.general_util import (
+    ArgsHelpFormatter,
+    create_empty_folder,
+    save_plot_and_close,
+    save_video_from_frames_list,
+)
 from colon3d.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track_box_on_frame
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+def main():
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+    parser.add_argument(
+        "--load_scene_path",
+        type=str,
+        default="/mnt/disk1/data/my_videos/Example_4",
+        help="Path to load scene",
+    )
+    parser.add_argument(
+        "--save_path",
+        type=str,
+        default="/mnt/disk1/data/my_videos/Example_4_modified",
+        help="Path to save modified video",
+    )
+    parser.add_argument(
+        "--seg_scale",
+        type=float,
+        default=2.0,
+        help="Scaling factor to increase the time of the out-of-view segments (must be >- 1)",
+    )
+
+    args = parser.parse_args()
+    video_modifier = VideoModifier(load_scene_path=Path(args.load_scene_path))
+    video_modifier.run(save_path=Path(args.save_path), seg_scale=args.seg_scale)
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 @attrs.define
 class VideoModifier:
-    load_scene_path: Path = Path("/mnt/disk1/data/my_videos/Example_4")
+    load_scene_path: Path = Path()
     alg_fov_ratio: float = (
         0.8  # the ratio of the algorithmic field of view (alg_view) to the full field of view (full_view)
     )
@@ -208,13 +242,6 @@ class VideoModifier:
             if seg["first"] <= i_frame <= seg["last"]:
                 return i_seg, seg
         return None, None
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-def main():
-    video_modifier = VideoModifier()
-    seg_scale = 1.5
-    video_modifier.run(save_path=Path("/mnt/disk1/data/my_videos/Mod_Vids/Scale_1_5"), seg_scale=seg_scale)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

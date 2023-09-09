@@ -9,7 +9,7 @@ from colon3d.run_on_scene import SlamRunner
 
 
 def main():
-    base_data_path = Path("/mnt/disk1/data/my_videos")
+    base_data_path = Path("data") # Path("/mnt/disk1/data/my_videos")
     load_scene_path = base_data_path / "Example_4"
     alg_fov_ratio = 0.8
 
