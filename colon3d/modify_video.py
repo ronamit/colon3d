@@ -36,7 +36,7 @@ def main():
     parser.add_argument(
         "--seg_scale",
         type=float,
-        default=1.,
+        default=2.5,
         help="Scaling factor to increase the time of the out-of-view segments (must be >- 1)",
     )
 
@@ -161,7 +161,7 @@ class VideoModifier:
                         print("Change direction of movement")
                         move_dir *= -1  # change the direction of movement
 
-                elif n_frames_remains <= seg["duration"] // 2 + 1:
+                elif n_frames_remains <=  (seg["last"] - i_frame + 1):
                     #  we may still have frames to add for this segment, but we must stop going back and forth and go forward only
                     # so that we wil reach the end of the segment when n_frames_remains==0
                     # i.e. we don't have enough frames to go back and forth and still reach the end of the segment
@@ -170,9 +170,11 @@ class VideoModifier:
                     
                 else:
                     pass  # keep the current direction of movement
+
                 # in any case - decrease the number of frames that remains to be added from the current out-of-view segment to the new video
                 n_frames_remains -= 1
                 print(f"--i={i}, original i_frame={i_frame}, move_dir={move_dir}, n_frames_remains={n_frames_remains}, forward_only={forward_only}")
+                
             # add the current frame to the new video
             new_vid_frame_inds.append(i_frame)
             i_frame += move_dir
