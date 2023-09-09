@@ -24,19 +24,19 @@ def main():
     parser.add_argument(
         "--load_scene_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4",
+        default="data/Example_4",  #  "/mnt/disk1/data/my_videos/Example_4",
         help="Path to load scene",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4_modified",
+        default="data/Example_4_modified",  # "/mnt/disk1/data/my_videos/Example_4_modified",
         help="Path to save modified video",
     )
     parser.add_argument(
         "--seg_scale",
         type=float,
-        default=2.0,
+        default=1.,
         help="Scaling factor to increase the time of the out-of-view segments (must be >- 1)",
     )
 
@@ -51,9 +51,8 @@ def main():
 @attrs.define
 class VideoModifier:
     load_scene_path: Path = Path()
-    alg_fov_ratio: float = (
-        0.8  # the ratio of the algorithmic field of view (alg_view) to the full field of view (full_view)
-    )
+    # the ratio of the algorithmic field of view (alg_view) to the full field of view (full_view):
+    alg_fov_ratio: float = 0.8
     n_frames_lim: int = 0  # limit the number of frames to load from the original video
     max_len = 5000  # limit the number of frames in the new video
     verbose: bool = True
@@ -134,10 +133,12 @@ class VideoModifier:
         # # Extend the time of each out-of-view segment, by playing it forward and backward
         new_vid_frame_inds = []
         # number of frames that remains to be added from the current out-of-view segment to the new video:
-        n_frames_remains = 0
+        n_frames_remains = -1  # -1 means that we are not in an out-of-view segment
         move_dir = 1  # 1 for forward, -1 for backward
         i = 0
         i_frame = self.first_frame_to_use
+        forward_only = False
+        cur_seg_idx = -1
 
         # go over all the original video frames and add them to the new video in a way that out-of-view segments may be repeated
         while (i_frame < self.n_frames) and (i < self.max_len):
@@ -145,22 +146,33 @@ class VideoModifier:
                 move_dir = 1  # move forward
             else:  # We are in an out-of-view segment.
                 i_seg, seg = self.get_orig_vid_out_of_view_segment(i_frame)
-                print(f"Position in the original out-of-view segment: {i_frame - seg['first'] + 1}/{seg['duration']}")
-                if n_frames_remains == 0:
+                if i_seg > cur_seg_idx:
+                    # we started a new out-of-view segment
+                    print(f"** i_frame={i_frame}, staring a new out-of-view segment: #{i_seg}, {seg}")
+                    n_frames_remains = int(seg["duration"] * seg_scale) - 1
+                    print(f"n_frames_remains={n_frames_remains}")
                     move_dir = 1  # move forward
-                    n_frames_remains = int(seg_scale * seg["duration"])
-                elif n_frames_remains > seg["duration"] // 2:
-                    # if we still have frames to add for this segment, and to do back and forth
-                    if i_frame in {seg["first"], seg["last"]}:
-                        print(
-                            f"Reached on the ends of the current out-of-view segment #{i_seg}, so we will change the direction of movement",
-                        )
-                        move_dir *= -1
-                else:  #  0 < n_frames_remains <= seg["duration"] // 2:
-                    #  if we still have frames to add for this segment, but we must stop going back and forth and go forward only
+                    forward_only = False
+                    cur_seg_idx = i_seg
+
+                elif i_frame in {seg["first"], seg["last"]}:
+                    print(f"Reached on the ends of the current out-of-view segment #{i_seg}, i_frame={i_frame}")
+                    if n_frames_remains > 0:
+                        print("Change direction of movement")
+                        move_dir *= -1  # change the direction of movement
+
+                elif n_frames_remains <= seg["duration"] // 2 + 1:
+                    #  we may still have frames to add for this segment, but we must stop going back and forth and go forward only
                     # so that we wil reach the end of the segment when n_frames_remains==0
+                    # i.e. we don't have enough frames to go back and forth and still reach the end of the segment
                     move_dir = 1  # move forward
+                    forward_only = True
+                    
+                else:
+                    pass  # keep the current direction of movement
+                # in any case - decrease the number of frames that remains to be added from the current out-of-view segment to the new video
                 n_frames_remains -= 1
+                print(f"--i={i}, original i_frame={i_frame}, move_dir={move_dir}, n_frames_remains={n_frames_remains}, forward_only={forward_only}")
             # add the current frame to the new video
             new_vid_frame_inds.append(i_frame)
             i_frame += move_dir
