@@ -79,7 +79,7 @@ def main():
     parser.add_argument(
         "--overwrite_model",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then overwrite the save model if it already exists in the save path.",
     )
     parser.add_argument(
