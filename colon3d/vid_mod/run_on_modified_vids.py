@@ -3,9 +3,9 @@ from pathlib import Path
 
 import numpy as np
 
-from colon3d.modify_video import VideoModifier
 from colon3d.run_on_scene import SlamRunner
 from colon3d.util.general_util import ArgsHelpFormatter
+from colon3d.vid_mod.modify_video import VideoModifier
 
 # ---------------------------------------------------------------------------------------------------------------------
 
