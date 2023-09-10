@@ -175,7 +175,7 @@ class VideoModifier:
                 # in any case - decrease the number of frames that remains to be added from the current out-of-view segment to the new video
                 n_frames_remains -= 1
                 print(
-                    f"--i={i}, original i_frame={i_frame}, move_dir={move_dir}, n_frames_remains={n_frames_remains}, forward_only={forward_only}"
+                    f"--i={i}, original i_frame={i_frame}, move_dir={move_dir}, n_frames_remains={n_frames_remains}, forward_only={forward_only}",
                 )
 
             # add the current frame to the new video
