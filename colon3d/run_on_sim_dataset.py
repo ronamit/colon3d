@@ -1,4 +1,5 @@
 import argparse
+import os
 from pathlib import Path
 
 import attrs
@@ -16,6 +17,8 @@ from colon3d.util.general_util import (
     to_path,
 )
 
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -24,7 +27,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="/mnt/disk1/data/sim_data/TestData21_cases",
+        default="/mnt/disk1/data/sim_data/TestData21",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(

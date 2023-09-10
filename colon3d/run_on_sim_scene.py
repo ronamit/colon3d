@@ -1,4 +1,5 @@
 import argparse
+import os
 import pickle
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.util.torch_util import to_default_type
+
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -67,14 +70,14 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_method",
         type=str,
-        default="MonoDepth2",
+        default="EndoSFM",
         choices=["EndoSFM", "MonoDepth2", "SC_DepthV3", "none"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/MonoDepth2_orig",  # "/mnt/disk1/saved_models/EndoSFM_orig", "/mnt/disk1/saved_models/MonoDepth2_orig", "/mnt/disk1/saved_models/MonoDepth2_orig",
+        default="/mnt/disk1/saved_models/EndoSFM_orig",  # "/mnt/disk1/saved_models/EndoSFM_orig", "/mnt/disk1/saved_models/MonoDepth2_orig", "/mnt/disk1/saved_models/MonoDepth2_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

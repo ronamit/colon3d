@@ -1,10 +1,4 @@
-# set up environment with:
-# go to the directory where this file is located
-# $ conda env create -f environment.yml
-# $ conda activate py_env
-# $  Install pytorch and torchvision (See https://pytorch.org/get-started/locally/), e.g. conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-# $ python -m pip install lightning tensorboard tensorboardX pytorch-minimize
-# $ pip install -e .
+# See README.md for install instructions
 name: py_env
 channels:
   - pytorch

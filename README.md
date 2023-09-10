@@ -7,29 +7,34 @@ This code loads the simulation output from the Simulator:  The simulator generat
 ## Setup
 
 * Install Conda \ MiniConda
-* To create conda environment with the basic required packages use:
+* (Recomended)
+Switch to a faster conflict solver 
+```bash
+conda install -n base conda-libmamba-solver
+```
+```bash
+conda config --set solver libmamba
+```
 
+
+* To create conda environment with the basic required packages, go to the main project dir and run:
 ```bash
  conda env create -f environment.yml
 ```
-
 * activate the environment
 
 ```bash
- conda activate py3
+ conda activate py_env
 ```
 
-* Install [PyTorch](https://pytorch.org/get-started/locally/) (tested with 2.0.1)
-* Clone [pytorch-minimize](https://github.com/rfeinman/pytorch-minimize) to some location *(e.g. ~/repos)*
-
+* Install [PyTorch](https://pytorch.org/get-started/locally/) (tested with 2.0.1, pip version) e.g. with
 ```bash
-gh repo clone rfeinman/pytorch-minimize
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
-* go to the cloned dir *(e.g. ~/repos/pytorch-minimize)* and run setup with
-
+* Install  additional packages:
 ```bash
-pip install -e .
+ python -m pip install lightning tensorboard tensorboardX pytorch-minimize
 ```
 
 * Final step:

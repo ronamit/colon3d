@@ -12,5 +12,9 @@
         "results/**": true,
         "saved_models/**": true,
         "build/**": true,
-    }
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none"
 }

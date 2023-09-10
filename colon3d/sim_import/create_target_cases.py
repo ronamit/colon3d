@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/SimData18",
+        default="data/sim_data/TestData21",
         help="The path to the folder with processed simulated scenes to load",
     )
     parser.add_argument(
