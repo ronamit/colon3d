@@ -1,9 +1,10 @@
 import argparse
+import pickle
 from pathlib import Path
 
 import numpy as np
 
-from colon3d.util.general_util import ArgsHelpFormatter
+from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder
 from colon3d.vid_mod.modify_video import VideoModifier
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -41,6 +42,15 @@ def main():
     for scale in seg_scales:
         # Modify the video to have longer out-of-view segments
         mod_scene_path = base_save_path / f"Scale_{scale}".replace(".", "_")
+        
+        # create the modified scene folder
+        create_empty_folder(mod_scene_path, save_overwrite=True)
+        
+        # save the scale info as a pickle file
+        with (mod_scene_path / "scale.pkl").open("wb") as f:
+            pickle.dump(scale, f)
+
+        # create the modified video
         video_modifier.run(seg_scale=scale, save_path=mod_scene_path)
 
 
