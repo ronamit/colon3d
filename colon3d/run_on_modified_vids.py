@@ -1,16 +1,32 @@
+import argparse
 from pathlib import Path
 
 import numpy as np
 
 from colon3d.modify_video import VideoModifier
 from colon3d.run_on_scene import SlamRunner
+from colon3d.util.general_util import ArgsHelpFormatter
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 def main():
-    base_data_path = Path("data") # Path("/mnt/disk1/data/my_videos")
-    load_scene_path = base_data_path / "Example_4"
+    parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
+    parser.add_argument(
+        "--load_scene_path",
+        type=str,
+        default="/mnt/disk1/data/my_videos/Example_4",
+        help="Path to load scene",
+    )
+    parser.add_argument(
+        "--base_save_path",
+        type=str,
+        default="/mnt/disk1/results/Mod_Vids",
+        help="path to the save outputs",
+    )
+    args = parser.parse_args()
+    load_scene_path = Path(args.load_scene_path)
+    base_save_path = Path(args.base_save_path)
     alg_fov_ratio = 0.8
 
     video_modifier = VideoModifier(
@@ -21,11 +37,11 @@ def main():
     )
 
     # set the grid of scales to modify the video with
-    seg_scales =  np.array([2, 3, 4])
-    
+    seg_scales = np.array([2, 3, 4])
+
     for scale in seg_scales:
         # Modify the video to have longer out-of-view segments
-        mod_scene_path = base_data_path / f"Mod_Vids/Scale_{scale}".replace(".", "_")
+        mod_scene_path = base_save_path / f"Scale_{scale}".replace(".", "_")
         video_modifier.run(seg_scale=scale, save_path=mod_scene_path)
         mod_scene_results_path = mod_scene_path / "results"
 
@@ -44,7 +60,6 @@ def main():
             verbose_print_interval=0,
         )
         slam_runner.run()
-        
 
 
 # ---------------------------------------------------------------------------------------------------------------------
