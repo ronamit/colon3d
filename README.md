@@ -1,8 +1,7 @@
 # Colon3D
 
 ## About
-
-This code loads the simulation output from the Simulator:  The simulator generates single-camera colonoscopic images with ground truth of camera poses.
+SLAM using monocular colonscopic videos.
 
 ## Setup
 
@@ -57,7 +56,22 @@ pip install -e .
   pip3 install pycuda --user
   ```
 
-## Importing the datasets
+## Downloading the data
+Go to the main project dir and download the Data folder using google cloud CLI.
+
+```bash
+gcloud storage cp -r  gs://col_nav/Data  Data 
+```
+The folder includes the following subfolders:
+* RawDatasets - raw datasets from external sources
+* Datasets - processed datasets
+* Results - results of the experiments
+* SavedModels - saved weights of trained models
+ 
+
+## Data preparation
+
+### Zhang22 dataset
 
 * Download the dataset from [Zhang22](https://github.com/zsustc/colon_reconstruction_dataset).
   If download fails, try to download each case folder separately.
@@ -68,7 +82,6 @@ pip install -e .
 python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_path "data/raw_sim_data/Zhang22" --processed_sim_data_path "data/sim_data/Zhang22"
 ```
 
-* TODO: add link to our generated \ real dataset.
 
 ## Code use examples
 
