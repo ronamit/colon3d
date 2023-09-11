@@ -56,18 +56,30 @@ pip install -e .
   pip3 install pycuda --user
   ```
 
-## Downloading the data
+## Downloading the data from the cloud
 Go to the main project dir and download the Data folder using google cloud CLI.
-
+To get all the stored data for the project, run:
 ```bash
-gcloud storage cp -r  gs://col_nav/Data  Data 
+gcloud storage cp -r  gs://col_nav  gcp_data
 ```
 The folder includes the following subfolders:
-* RawDatasets - raw datasets from external sources
-* Datasets - processed datasets
-* Results - results of the experiments
-* SavedModels - saved weights of trained models
+* gcp_data/raw_datasets - raw datasets from external sources
+* gcp_data/datasets - processed datasets
+* gcp_data/results -  saved results of the experiments
+* gcp_data/models - saved weights of trained models
  
+ ## Folder structure
+By default, the code will save outputs to the following folders:
+* local_data/datasets - processed datasets
+* local_data/results -   results of the experiments
+* local_data/models -  weights of trained models
+
+To save an output for long term use, copy it from local_data folder to the gcp_data folder, and upload fhe folder to the cloud:
+```bash
+gcloud storage cp -r  gcp_data  gs://col_nav
+```
+```
+
 
 ## Data preparation
 
