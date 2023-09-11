@@ -154,6 +154,7 @@ class EndoSFMTrainer:
 
                 # train for one epoch
                 train_loss, n_iter = self.run_epoch(
+                    i_epoch,
                     self.save_path,
                     self.train_loader,
                     disp_net,
@@ -205,6 +206,7 @@ class EndoSFMTrainer:
 
     def run_epoch(
         self,
+        i_epoch,
         save_path: Path,
         train_loader,
         disp_net,
@@ -297,7 +299,7 @@ class EndoSFMTrainer:
             end = time.time()
 
             if i % self.print_freq == 0:
-                print(f"Train: batch-time {batch_time}, data-time {data_time}, Loss {losses}")
+                print(f"Train: Epoch {i_epoch}, batch-time {batch_time}, data-time {data_time}, Loss {losses}")
 
             n_iter += 1
 

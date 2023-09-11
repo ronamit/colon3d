@@ -54,13 +54,13 @@ def main():
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=100,
+        default=200,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")
+    parser.add_argument("--n_workers", default=4, type=int, help="number of data loading workers")
     parser.add_argument(
         "--batch_size",
-        default=8,
+        default=32,
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )
@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--subsample_max",
         type=int,
-        default=20,
+        default=10,
         help="Maximum subsample factor for generating training examples.",
     )
     parser.add_argument(
@@ -110,7 +110,9 @@ def main():
     args = parser.parse_args()
     print(f"args={args}")
 
-    # --------------------------------------------------------------------------------------------------------------------
+    # Set multiprocessing start method to spawn (to avoid error in DataLoader):
+    torch.multiprocessing.set_start_method("spawn")
+
     rand_seed = 0  # random seed for reproducibility
     set_rand_seed(rand_seed)
     dataset_path = Path(args.dataset_path)
@@ -120,7 +122,8 @@ def main():
 
     # The parameters for generating the training samples:
     # for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
-    subsample_param = {"type": "uniform", "min": 1, "max": 20}
+    subsample_min = args.subsample_min
+    subsample_max = args.subsample_max
 
     path_to_save_depth_exam = path_to_save_model / "depth_exam"
 
@@ -134,7 +137,6 @@ def main():
         path_to_save_model = path_to_save_model / "debug"
         n_scenes_lim = 1
 
-    # --------------------------------------------------------------------------------------------------------------------
     # dataset split
     dataset_path = Path(args.dataset_path)
     print(f"Loading dataset from {dataset_path}")
@@ -230,7 +232,7 @@ def main():
     # set no depth calibration (depth = net_out) and then run the depth examination to calibrate the depth scale:
     depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
 
-    model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_param: {subsample_param}, dataset_path: {dataset_path}"
+    model_description = f"Method: {depth_and_egomotion_method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_min: {subsample_min}, subsample_max: {subsample_max}, dataset_path: {dataset_path}"
     save_model_info(
         save_dir_path=path_to_save_model,
         scene_metadata=scene_metadata,

@@ -61,9 +61,12 @@ class VideoModifier:
     detections_tracker: DetectionsTracker = attrs.field(init=False)
     alg_view_cropper: np.ndarray = attrs.field(init=False)
     n_frames: int = attrs.field(init=False)
-    is_in_view: np.ndarray = attrs.field(init=False)
-    segments: list = attrs.field(init=False)
+    is_in_view_orig: np.ndarray = attrs.field(init=False)
+    orig_segments: list = attrs.field(init=False)
+    new_segments: list = attrs.field(init=False)
+    is_in_view_new: np.ndarray = attrs.field(init=False)
     first_frame_to_use: int = attrs.field(init=False)
+    n_frames_new: int = attrs.field(init=False)
 
     # ---------------------------------------------------------------------------------------------------------------------
     def __attrs_post_init__(self):
@@ -81,33 +84,22 @@ class VideoModifier:
 
         self.n_frames = self.scene_loader.n_frames
         # if track is in view, then 1, else 0
-        self.is_in_view = np.zeros(self.n_frames, dtype=bool)
+        self.is_in_view_orig = np.zeros(self.n_frames, dtype=bool)
 
-        # save the start and end frame indexes of each out-of-view segment as list
-        self.segments = []
-
+        # mark the frames that have tracks in view in the original video
         for i_frame in range(self.n_frames):
             # Get the targets tracks in the current frame inside the algorithmic field of view
             tracks = self.detections_tracker.get_tracks_in_frame(i_frame, frame_type="alg_view")
-            self.is_in_view[i_frame] = len(tracks) > 0
-            if self.is_in_view[i_frame]:
-                # if current frame is in view and previous frame was out of view, save the end of the out-of-view segment
-                if i_frame > 0 and not self.is_in_view[i_frame - 1]:
-                    self.segments[-1]["last"] = i_frame - 1
-            # if current frame is out of view and it is frame 0 or if the previous frame was in view, save the start of the out-of-view segment
-            elif i_frame == 0 or (i_frame > 0 and self.is_in_view[i_frame - 1]):
-                self.segments.append({"first": i_frame, "last": None})
-            # if we reached the last frame and it is not in view, save the end of the out-of-view segment
-            if i_frame == self.n_frames - 1 and not self.is_in_view[i_frame]:
-                self.segments[-1]["last"] = i_frame
+            self.is_in_view_orig[i_frame] = len(tracks) > 0
+
+        # save the start and end frame indexes of each out-of-view segment as list
+        self.orig_segments = find_out_of_view_segments(self.is_in_view_orig)
 
         # start the new video with the first frame that is in view in the original video
-        self.first_frame_to_use = self.is_in_view.argmax()
+        self.first_frame_to_use = self.is_in_view_orig.argmax()
 
         # Average segment duration
-        for seg in self.segments:
-            seg["duration"] = 1 + seg["last"] - seg["first"]
-        avg_segment_duration = np.mean(np.array([seg["duration"] for seg in self.segments]))
+        avg_segment_duration = np.mean(np.array([seg["duration"] for seg in self.orig_segments]))
         print(f"Average segment duration: {avg_segment_duration:.2f} frames")
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -122,11 +114,11 @@ class VideoModifier:
         create_empty_folder(save_path, save_overwrite=True)
         if self.verbose:
             print("Out of view segments:")
-            for i_seg, segment in enumerate(self.segments):
+            for i_seg, segment in enumerate(self.orig_segments):
                 print(f"Out of view segment #{i_seg}: {segment}")
 
             plt.figure()
-            plt.plot(self.is_in_view)
+            plt.plot(self.is_in_view_orig)
             plt.xlabel("Frame index")
             plt.ylabel("Is track in alg. view")
             save_plot_and_close(save_path / "orig_is_in_view.png")
@@ -140,10 +132,12 @@ class VideoModifier:
         i_frame = self.first_frame_to_use
         forward_only = False
         cur_seg_idx = -1
+        self.is_in_view_new = [] # list of booleans that indicate if the current frame has in-view-track in the new video
 
         # go over all the original video frames and add them to the new video in a way that out-of-view segments may be repeated
         while (i_frame < self.n_frames) and (i < self.max_len):
-            if self.is_in_view[i_frame]:
+            if self.is_in_view_orig[i_frame]:
+                # If the current frame in the original video has a track in view, add it to the new video
                 move_dir = 1  # move forward
             else:  # We are in an out-of-view segment.
                 i_seg, seg = self.get_orig_vid_out_of_view_segment(i_frame)
@@ -180,6 +174,7 @@ class VideoModifier:
 
             # add the current frame to the new video
             new_vid_frame_inds.append(i_frame)
+            self.is_in_view_new.append(self.is_in_view_orig[i_frame])
             i_frame += move_dir
             i += 1
 
@@ -187,6 +182,11 @@ class VideoModifier:
 
         n_frames_new = len(new_vid_frame_inds)
         print(f"Number of frames in the new video: {n_frames_new}")
+
+        self.is_in_view_new = np.array(self.is_in_view_new)
+        print(f"Number of frames in the new video that have out-of-view tracks: {(~self.is_in_view_new).sum()}")
+        # save the start and end frame indexes of each out-of-view segment as list
+        self.new_segments = find_out_of_view_segments(self.is_in_view_orig)
 
         # plot new_vid_frame_inds:
         plt.figure()
@@ -251,15 +251,37 @@ class VideoModifier:
 
         # save the new tracks csv file
         pd.DataFrame(new_tracks_original).to_csv(save_path / "tracks.csv", index=False)
+        self.n_frames_new = n_frames_new
+
+
 
     # ---------------------------------------------------------------------------------------------------------------------
     def get_orig_vid_out_of_view_segment(self, i_frame: int) -> dict:
         # find the segment:
-        for i_seg, seg in enumerate(self.segments):
+        for i_seg, seg in enumerate(self.orig_segments):
             if seg["first"] <= i_frame <= seg["last"]:
                 return i_seg, seg
         return None, None
 
+# ---------------------------------------------------------------------------------------------------------------------
+def find_out_of_view_segments(is_in_view_orig):
+    # save the start and end frame indexes of each out-of-view segment as list
+    n_frames = len(is_in_view_orig)
+    orig_segments = []
+    for i_frame in range(n_frames):
+        if is_in_view_orig[i_frame]:
+            # if current frame is in view and previous frame was out of view, save the end of the out-of-view segment
+            if i_frame > 0 and not is_in_view_orig[i_frame - 1]:
+                orig_segments[-1]["last"] = i_frame - 1
+        # if current frame is out of view and it is frame 0 or if the previous frame was in view, save the start of the out-of-view segment
+        elif i_frame == 0 or (i_frame > 0 and is_in_view_orig[i_frame - 1]):
+            orig_segments.append({"first": i_frame, "last": None})
+        # if we reached the last frame and it is not in view, save the end of the out-of-view segment
+        if i_frame == n_frames - 1 and not is_in_view_orig[i_frame]:
+            orig_segments[-1]["last"] = i_frame
+    for seg in orig_segments:
+        seg["duration"] = 1 + seg["last"] - seg["first"]
+    return orig_segments
 
 # ---------------------------------------------------------------------------------------------------------------------
 

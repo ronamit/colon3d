@@ -46,14 +46,19 @@ def main():
         # create the modified scene folder
         create_empty_folder(mod_scene_path, save_overwrite=True)
         
-        # save the scale info as a pickle file
-        with (mod_scene_path / "scale.pkl").open("wb") as f:
-            pickle.dump(scale, f)
-
         # create the modified video
         video_modifier.run(seg_scale=scale, save_path=mod_scene_path)
 
-
+        # save the scale info as a pickle file
+        with (mod_scene_path / "out_of_view_info.pkl").open("wb") as f:
+            info_dict = {"scale": scale,  "new_segments": video_modifier.new_segments, "is_in_view_new": video_modifier.is_in_view_new}
+            pickle.dump(info_dict, f)
+        
+        with (mod_scene_path / "out_of_view_info.txt").open("w") as f:
+            f.write(f"scale: {scale}\n")
+            f.write(f"n_frames_new: {video_modifier.n_frames_new}\n")
+            f.write(f"n_frames_out_of_view: {video_modifier.is_in_view_new.sum()}\n")
+            f.write(f"new_segments: {video_modifier.new_segments}\n")
 # ---------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
