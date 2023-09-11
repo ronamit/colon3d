@@ -1,4 +1,5 @@
 import argparse
+import pickle
 import shutil
 from pathlib import Path
 
@@ -132,7 +133,9 @@ class VideoModifier:
         i_frame = self.first_frame_to_use
         forward_only = False
         cur_seg_idx = -1
-        self.is_in_view_new = [] # list of booleans that indicate if the current frame has in-view-track in the new video
+        self.is_in_view_new = (
+            []
+        )  # list of booleans that indicate if the current frame has in-view-track in the new video
 
         # go over all the original video frames and add them to the new video in a way that out-of-view segments may be repeated
         while (i_frame < self.n_frames) and (i < self.max_len):
@@ -253,7 +256,22 @@ class VideoModifier:
         pd.DataFrame(new_tracks_original).to_csv(save_path / "tracks.csv", index=False)
         self.n_frames_new = n_frames_new
 
+        # save the scale info as a pickle file
+        with (save_path / "out_of_view_info.pkl").open("wb") as f:
+            info_dict = {
+                "seg_scale": seg_scale,
+                "new_segments": self.new_segments,
+                "is_in_view_new": self.is_in_view_new,
+                "alg_fov_ratio": self.alg_fov_ratio,
+            }
+            pickle.dump(info_dict, f)
 
+        with (save_path / "out_of_view_info.txt").open("w") as f:
+            f.write(f"seg_scale: {seg_scale}\n")
+            f.write(f"alg_fov_ratio: {self.alg_fov_ratio}\n")
+            f.write(f"n_frames_new: {self.n_frames_new}\n")
+            f.write(f"n_frames_out_of_view: {self.is_in_view_new.sum()}\n")
+            f.write(f"new_segments: {self.new_segments}\n")
 
     # ---------------------------------------------------------------------------------------------------------------------
     def get_orig_vid_out_of_view_segment(self, i_frame: int) -> dict:
@@ -262,6 +280,7 @@ class VideoModifier:
             if seg["first"] <= i_frame <= seg["last"]:
                 return i_seg, seg
         return None, None
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 def find_out_of_view_segments(is_in_view_orig):
@@ -282,6 +301,7 @@ def find_out_of_view_segments(is_in_view_orig):
     for seg in orig_segments:
         seg["duration"] = 1 + seg["last"] - seg["first"]
     return orig_segments
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 

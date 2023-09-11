@@ -54,7 +54,7 @@ def main():
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=200,
+        default=100,
         help="Number of epochs to train.",
     )
     parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")

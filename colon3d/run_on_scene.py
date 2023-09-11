@@ -143,7 +143,7 @@ class SlamRunner:
         is_created = create_empty_folder(self.save_path, save_overwrite=self.save_overwrite)
         if not is_created:
             print(f"{self.save_path} already exists...\n" + "-" * 50)
-            return
+            return None
         print(f"Outputs will be saved to {self.save_path}")
 
         assert self.scene_path.exists(), f"scene_path={self.scene_path} does not exist"
@@ -191,6 +191,7 @@ class SlamRunner:
                     print(f"Saved the results to {results_file_path}")
             # Show results
             save_slam_plots(slam_out=slam_out, save_path=self.save_path, scene_path=self.scene_path)
+        return slam_out
 
 
 # ---------------------------------------------------------------------------------------------------------------------
