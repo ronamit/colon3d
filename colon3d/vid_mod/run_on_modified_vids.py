@@ -2,12 +2,8 @@ import argparse
 import pickle
 from pathlib import Path
 
-import h5py
-
 from colon3d.run_on_scene import SlamRunner
 from colon3d.util.general_util import ArgsHelpFormatter
-from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
-from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -31,7 +27,7 @@ def main():
         with (mod_scene_path / "out_of_view_info.pkl").open("rb") as f:
             info_dict = pickle.load(f)
             scale = info_dict["scale"]
-            new_segments = info_dict["new_segments"]
+            # new_segments = info_dict["new_segments"]
             is_in_view_new = info_dict["is_in_view_new"]
             alg_fov_ratio = info_dict["alg_fov_ratio"] if "alg_fov_ratio" in info_dict else 0.8
         print(
