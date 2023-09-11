@@ -227,6 +227,7 @@ class EndoSFMTrainer:
         pose_net.train()
 
         end = time.time()
+        n_batches = len(train_loader)
 
         # loop over batches
         for i, batch in enumerate(train_loader):
@@ -299,7 +300,7 @@ class EndoSFMTrainer:
             end = time.time()
 
             if i % self.print_freq == 0:
-                print(f"Train: Epoch {i_epoch}, batch-time {batch_time}, data-time {data_time}, Loss {losses}")
+                print(f"Train: Epoch {i_epoch}, Batch: {i}/{n_batches} batch-time {batch_time}, data-time {data_time}, Loss {losses}")
 
             n_iter += 1
 

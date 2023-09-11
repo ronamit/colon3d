@@ -57,7 +57,7 @@ def main():
         default=200,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=4, type=int, help="number of data loading workers")
+    parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")
     parser.add_argument(
         "--batch_size",
         default=32,
@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--subsample_max",
         type=int,
-        default=10,
+        default=40,
         help="Maximum subsample factor for generating training examples.",
     )
     parser.add_argument(
