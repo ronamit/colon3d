@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="/mnt/disk1/data/sim_data/TrainData22",
+        default="data_gcp/datasets/ColNav/TrainData22",
         help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_sim_dataset.py.py ).",
     )
     parser.add_argument(
@@ -42,13 +42,13 @@ def main():
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_orig",  # MonoDepth2_orig | EndoSFM_orig
+        default="data_gcp/models/EndoSFM_orig",  # MonoDepth2_orig | EndoSFM_orig
         help="Path to the pretrained model.",
     )
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="data_gcp/models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(

@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "--base_save_path",
         type=str,
-        default="/mnt/disk1/results/Mod_Vids",
+        default="data/results/real_videos/Mod_Vids",
         help="path to the save outputs",
     )
     args = parser.parse_args()

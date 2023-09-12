@@ -29,19 +29,19 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="/mnt/disk1/data/sim_data/TestData21",
+        default="data_gcp/datasets/ColNav/TestData21",
         help="Path to the dataset of scenes (not raw data, i.e., output of run_data_prep.py ).",
     )
     parser.add_argument(
         "--results_base_path",
         type=str,
-        default="/mnt/disk1/results/ColonNav",
+        default="data/results/ColonNav",
         help="Base path for the results",
     )
     parser.add_argument(
         "--models_base_path",
         type=str,
-        default="/mnt/disk1/saved_models",
+        default="data_gcp/models",
     )
     parser.add_argument(
         "--overwrite_results",

@@ -20,13 +20,12 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4_yoyo",  # Example_4_rotV2 | Example_4 | Example_4_yoyo
-        help="path to the scene folder",
+        default="data_gcp/datasets/real_videos/Example_4"
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="/mnt/disk1/results/my_videos_results/Example_4_new",
+        default="data/results/real_videos/Example_4_new",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -71,7 +70,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_orig",
+        default="data_gcp/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

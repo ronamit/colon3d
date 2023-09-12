@@ -58,9 +58,10 @@ pip install -e .
 
 ## Downloading the data from the cloud
 Go to the main project dir and download the Data folder using google cloud CLI.
+First, login to your GCP user and project.
 To get all the stored data for the project, run:
 ```bash
-gcloud storage cp -r  gs://col_nav  data_gcp
+mkdir data_gcp; gcloud storage cp -r  gs://col_nav/data_gcp  data_gcp
 ```
 The folder includes the following subfolders:
 * data_gcp/raw_datasets - raw datasets from external sources
@@ -74,9 +75,9 @@ By default, the code will save outputs to the following folders:
 * data/results - results of the experiments
 * data/models - weights of trained models
 
-To save an output for long term use, copy it from data folder to the data_gcp folder, and upload fhe folder to the cloud:
+To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud:
 ```bash
-gcloud storage cp -r  data_gcp  gs://col_nav
+gcloud storage cp -r  data_gcp  gs://col_nav/data_gcp
 ```
 ```
 

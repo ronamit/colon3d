@@ -26,13 +26,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="/mnt/disk1/data/sim_data/TestData21/Scene_00000/Target_Cases/Case_0000/",  # "data/sim_data/Zhang22/Scene_00000"
+        default="data_gcp/datasets/ColNav/TestData21/Scene_00000/Target_Cases/Case_0000/",
         help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="/mnt/disk1/results/Temp/temp1",
+        default="data/results/ColNav/temp1",
         help="Path to the save outputs",
     )
     parser.add_argument(
@@ -77,7 +77,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="/mnt/disk1/saved_models/EndoSFM_orig",  # "/mnt/disk1/saved_models/EndoSFM_orig", "/mnt/disk1/saved_models/MonoDepth2_orig", "/mnt/disk1/saved_models/MonoDepth2_orig",
+        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(

@@ -25,13 +25,13 @@ def main():
     parser.add_argument(
         "--load_scene_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4",
+        default="data_gcp/datasets/real_videos/Example_4",
         help="Path to load scene",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="/mnt/disk1/data/my_videos/Example_4_modified",
+        default="data/datasets/real_videos/Example_4_modified",
         help="Path to save modified video",
     )
     parser.add_argument(

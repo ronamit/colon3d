@@ -13,18 +13,18 @@ parser.add_argument(
     "--raw_dataset_path",
     type=str,
     help="The path to the dataset to run the algorithm on",
-    default="/mnt/disk1/data/raw_sim_data/Zhang22",
+    default="data_gcp/raw_datasets/Zhang22",
 )
 parser.add_argument(
     "--processed_dataset_path",
     type=str,
     help="The path to save the processed dataset",
-    default="/mnt/disk1/data/sim_data/Zhang22",
+    default="data_gcp/datasets/Zhang22",
 )
 parser.add_argument(
     "--results_base_path",
     type=str,
-    default="/mnt/disk1/results/Zhang22_v2",
+    default="data/results/Zhang22_v2",
     help="Base path for the results",
 )
 parser.add_argument(
@@ -78,7 +78,7 @@ else:
 
 # Importing a raw dataset of scenes from the unity simulator:
 SimImporter(
-    raw_sim_data_path=raw_sim_data_path,
+    load_path=raw_sim_data_path,
     processed_sim_data_path=scenes_dataset_path,
     limit_n_scenes=limit_n_scenes,
     limit_n_frames=limit_n_frames,
