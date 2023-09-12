@@ -72,7 +72,7 @@ def main():
                 "online_est_track_world_loc": online_est_track_world_loc,
                 "online_est_track_cam_loc": online_est_track_cam_loc,
                 "online_est_track_angle": online_est_track_angle,
-                "scene_info": slam_runner.scene_info,
+                "scene_info": scene_info,
             }
             pickle.dump(save_dict, f)
 
