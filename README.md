@@ -87,7 +87,7 @@ By default, the code will save outputs to the following folders:
 * data/results - results of the experiments
 * data/models - weights of trained models
 
-To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud:
+To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud (after deleting previous results in that path):
 
 ```bash
 gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOLDER
