@@ -65,7 +65,9 @@ def main():
         online_est_track_angle = slam_out["online_est_track_angle"]
 
         # save the estimated track location in the camera system per frame
-        with pickle.open(mod_scene_results_path / "slam_results.pkl", "wb") as f:
+
+
+        with (mod_scene_results_path / "slam_results.pkl").open("wb") as f:
             save_dict = {
                 "online_est_track_world_loc": online_est_track_world_loc,
                 "online_est_track_cam_loc": online_est_track_cam_loc,

@@ -32,7 +32,7 @@ def main():
         # get info about the scene:
         with (result_path / "out_of_view_info.pkl").open("rb") as f:
             scene_info = pickle.load(f)
-            scale = scene_info["scale"]
+            seg_scale = scene_info["seg_scale"]
             # new_segments = info_dict["new_segments"]
             is_in_view_new = scene_info["is_in_view_new"]
             alg_fov_ratio = scene_info["alg_fov_ratio"] if "alg_fov_ratio" in scene_info else 0.8
@@ -40,6 +40,7 @@ def main():
         # load the estimated track location in the camera system per frame
         with pickle.open(result_path / "slam_results.pkl", "rb") as f:
             slam_results = pickle.load(f)
+
         online_est_track_world_loc = slam_results["online_est_track_world_loc"]
         online_est_track_cam_loc = slam_results["online_est_track_cam_loc"]
         online_est_track_angle = slam_results["online_est_track_angle"]
