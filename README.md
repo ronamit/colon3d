@@ -90,7 +90,7 @@ By default, the code will save outputs to the following folders:
 To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud:
 
 ```bash
-gcloud storage cp -r  data_gcp  gs://col_nav
+gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOLDER
 ```
 
 ## Code use examples

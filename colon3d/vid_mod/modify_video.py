@@ -263,20 +263,22 @@ class VideoModifier:
         self.n_frames_new = n_frames_new
 
         # save the scale info as a pickle file
-        with (save_path / "out_of_view_info.pkl").open("wb") as f:
-            info_dict = {
+        with (save_path / "scene_info.pkl").open("wb") as f:
+            scene_info = {
                 "seg_scale": seg_scale,
                 "new_segments": self.new_segments,
                 "is_in_view_new": self.is_in_view_new,
                 "alg_fov_ratio": self.alg_fov_ratio,
             }
-            pickle.dump(info_dict, f)
+            pickle.dump(scene_info, f)
 
         with (save_path / "out_of_view_info.txt").open("w") as f:
             f.write(f"seg_scale: {seg_scale}\n")
             f.write(f"alg_fov_ratio: {self.alg_fov_ratio}\n")
+            f.write(f"n_frames_orig: {self.n_frames}\n")
             f.write(f"n_frames_new: {self.n_frames_new}\n")
-            f.write(f"n_frames_out_of_view: {self.is_in_view_new.sum()}\n")
+            f.write(f"n_frames_out_of_view_new: {(~self.is_in_view_new).sum()}\n")
+            f.write(f"n_frames_in_view_new: {(self.is_in_view_new).sum()}\n")
             f.write(f"new_segments: {self.new_segments}\n")
 
     # ---------------------------------------------------------------------------------------------------------------------

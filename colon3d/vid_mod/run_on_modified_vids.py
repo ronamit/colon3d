@@ -11,32 +11,39 @@ from colon3d.util.general_util import ArgsHelpFormatter
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
     parser.add_argument(
+        "--base_load_path",
+        type=str,
+        default="data/datasets/real_videos/Mod_Vids",
+        help="path to the save outputs",
+    )
+    parser.add_argument(
         "--base_save_path",
         type=str,
         default="data/results/real_videos/Mod_Vids",
         help="path to the save outputs",
     )
     args = parser.parse_args()
+    base_load_path = Path(args.base_load_path)
     base_save_path = Path(args.base_save_path)
 
     #  get the per-scale scene folders paths
-    mod_scene_paths = sorted(base_save_path.glob("Scale_*"))
+    mod_scene_paths = sorted(base_load_path.glob("Scale_*"))
 
     for mod_scene_path in mod_scene_paths:
         # get info about the scene:
-        with (mod_scene_path / "out_of_view_info.pkl").open("rb") as f:
-            info_dict = pickle.load(f)
-            scale = info_dict["scale"]
+        with (mod_scene_path / "scene_info.pkl").open("rb") as f:
+            scene_info = pickle.load(f)
+            scale = scene_info["scale"]
             # new_segments = info_dict["new_segments"]
-            is_in_view_new = info_dict["is_in_view_new"]
-            alg_fov_ratio = info_dict["alg_fov_ratio"] if "alg_fov_ratio" in info_dict else 0.8
+            is_in_view_new = scene_info["is_in_view_new"]
+            alg_fov_ratio = scene_info["alg_fov_ratio"] if "alg_fov_ratio" in scene_info else 0.8
         print(
             "-" * 100
             + f"\nscale={scale}, in_view_frames={is_in_view_new.sum()}, out_of_view_frames={len(is_in_view_new) - is_in_view_new.sum()}",
         )
 
         # Modify the video to have longer out-of-view segments
-        mod_scene_results_path = mod_scene_path / "results"
+        mod_scene_results_path = base_save_path / f"Scale_{scale}".replace(".", "_")
 
         # Run the algorithm on the modified video
         slam_runner = SlamRunner(
@@ -56,15 +63,17 @@ def main():
         online_est_track_world_loc = slam_out["online_est_track_world_loc"]
         online_est_track_cam_loc = slam_out["online_est_track_cam_loc"]
         online_est_track_angle = slam_out["online_est_track_angle"]
-        
+
         # save the estimated track location in the camera system per frame
         with pickle.open(mod_scene_results_path / "slam_results.pkl", "wb") as f:
-            save_dict = {"online_est_track_world_loc": online_est_track_world_loc,
-                         "online_est_track_cam_loc": online_est_track_cam_loc,
-                         "online_est_track_angle": online_est_track_angle}
+            save_dict = {
+                "online_est_track_world_loc": online_est_track_world_loc,
+                "online_est_track_cam_loc": online_est_track_cam_loc,
+                "online_est_track_angle": online_est_track_angle,
+                "scene_info": slam_runner.scene_info,
+            }
             pickle.dump(save_dict, f)
 
- 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
