@@ -195,7 +195,7 @@ class VideoModifier:
         self.is_in_view_new = np.array(self.is_in_view_new)
         print(f"Number of frames in the new video that have out-of-view tracks: {(~self.is_in_view_new).sum()}")
         # save the start and end frame indexes of each out-of-view segment as list
-        self.new_segments = find_out_of_view_segments(self.is_in_view_orig)
+        self.new_segments = find_out_of_view_segments(self.is_in_view_new)
 
         # plot new_vid_frame_inds:
         plt.figure()
