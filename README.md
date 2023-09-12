@@ -1,25 +1,29 @@
 # Colon3D
 
 ## About
+
 SLAM using monocular colonscopic videos.
 
 ## Setup
 
 * Install Conda \ MiniConda
 * (Recomended)
-Switch to a faster conflict solver 
+Switch to a faster conflict solver
+
 ```bash
 conda install -n base conda-libmamba-solver
 ```
+
 ```bash
 conda config --set solver libmamba
 ```
 
-
 * To create conda environment with the basic required packages, go to the main project dir and run:
+
 ```bash
  conda env create -f environment.yml
 ```
+
 * activate the environment
 
 ```bash
@@ -27,11 +31,13 @@ conda config --set solver libmamba
 ```
 
 * Install [PyTorch](https://pytorch.org/get-started/locally/) (tested with 2.0.1, pip version, CUDA 11.7) e.g. with
+
 ```bash
 pip3 install torch torchvision torchaudio
 ```
 
 * Install  additional packages:
+
 ```bash
  python -m pip install lightning tensorboard tensorboardX pytorch-minimize
 ```
@@ -57,44 +63,35 @@ pip install -e .
   ```
 
 ## Downloading the data from the cloud
+
 Go to the main project dir and download the Data folder using google cloud CLI.
 First, login to your GCP user and project.
 To get all the stored data for the project, run:
+
 ```bash
-mkdir data_gcp; gcloud storage cp -r  gs://col_nav/data_gcp  data_gcp
+gcloud storage cp -r  gs://col_nav/data_gcp  .
 ```
+
 The folder includes the following subfolders:
+
 * data_gcp/raw_datasets - raw datasets from external sources
 * data_gcp/datasets - processed datasets
 * data_gcp/results - saved results of the experiments
 * data_gcp/models - saved weights of trained models
- 
- ## Folder structure
+
+## Folder structure
+
 By default, the code will save outputs to the following folders:
+
 * data/datasets - processed datasets
 * data/results - results of the experiments
 * data/models - weights of trained models
 
 To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud:
-```bash
-gcloud storage cp -r  data_gcp  gs://col_nav/data_gcp
-```
-```
-
-
-## Data preparation
-
-### Zhang22 dataset
-
-* Download the dataset from [Zhang22](https://github.com/zsustc/colon_reconstruction_dataset).
-  If download fails, try to download each case folder separately.
-* Extract all the Case `<number>`  directories (1 to 15)  to a some path, e.g. `<main project dir>`\data\raw_sim_data\Zhang22
-* Run the import script:
 
 ```bash
-python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_path "data/raw_sim_data/Zhang22" --processed_sim_data_path "data/sim_data/Zhang22"
+gcloud storage cp -r  data_gcp  gs://col_nav
 ```
-
 
 ## Code use examples
 
@@ -175,15 +172,14 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 * [Scipy: bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html)
 * [OpenCV: Feature matching + homography](https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html)
 
+## Troubleshooting
 
-
-# Troubleshooting
-Exception has occurred: ImportError 
+Exception has occurred: ImportError
 libtiff.so.5: cannot open shared object file: No such file or directory
 sudo apt-get update
 sudo apt-get install libffi-dev
 in your Conda environment:
-conda install -c conda-forge libffi 
+conda install -c conda-forge libffi
 conda install -c anaconda libtiff
 cd ~/miniconda3/envs/YOUR_ENV/lib
 ln -s libtiff.so.6  libtiff.so.5

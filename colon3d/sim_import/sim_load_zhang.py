@@ -8,6 +8,20 @@ from colon3d.util.general_util import find_between_str, path_to_str
 from colon3d.util.rotations_util import normalize_quaternions
 from colon3d.util.torch_util import np_func
 
+"""
+Instructions for importing the data from the Zhang22 simulator (not needed if you use the pre-processed data)):
+
+* Download the dataset from [Zhang22](https://github.com/zsustc/colon_reconstruction_dataset).
+If download fails, try to download each case folder separately.
+
+* Extract all the Case `<number>`  directories (1 to 15)  to a some path
+
+* Run the import script:
+
+```bash
+python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_path PATH --processed_sim_data_path PATH
+```
+"""
 # --------------------------------------------------------------------------------------------------------------------
 
 

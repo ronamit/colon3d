@@ -40,9 +40,15 @@ def main():
         default=2.5,
         help="Scaling factor to increase the time of the out-of-view segments (must be >- 1)",
     )
+    parser.add_argument(
+        "--alg_fov_ratio",
+        type=float,
+        default=0.8,
+        help="The ratio of the field of view of the algorithm",
+    )
 
     args = parser.parse_args()
-    video_modifier = VideoModifier(load_scene_path=Path(args.load_scene_path))
+    video_modifier = VideoModifier(load_scene_path=Path(args.load_scene_path), alg_fov_ratio=args.alg_fov_ratio)
     video_modifier.run(save_path=Path(args.save_path), seg_scale=args.seg_scale)
 
 
