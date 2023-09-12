@@ -2,7 +2,6 @@ import argparse
 import pickle
 from pathlib import Path
 
-from colon3d.run_on_scene import SlamRunner
 from colon3d.util.general_util import ArgsHelpFormatter
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -13,7 +12,7 @@ def main():
     parser.add_argument(
         "--loaded_results_path",
         type=str,
-        default="data/results/real_videos/Mod_Vids",
+        default="data_gcp/results/real_videos/Mod_Vids",
         help="path to the load the save outputs",
     )
     parser.add_argument(
@@ -37,14 +36,15 @@ def main():
             # new_segments = info_dict["new_segments"]
             is_in_view_new = scene_info["is_in_view_new"]
             alg_fov_ratio = scene_info["alg_fov_ratio"] if "alg_fov_ratio" in scene_info else 0.8
- 
+
         # load the estimated track location in the camera system per frame
         with pickle.open(result_path / "slam_results.pkl", "rb") as f:
             slam_results = pickle.load(f)
         online_est_track_world_loc = slam_results["online_est_track_world_loc"]
         online_est_track_cam_loc = slam_results["online_est_track_cam_loc"]
         online_est_track_angle = slam_results["online_est_track_angle"]
- 
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "--base_load_path",
         type=str,
-        default="data/datasets/real_videos/Mod_Vids",
+        default="data_gcp/datasets/real_videos/Mod_Vids",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -33,17 +33,17 @@ def main():
         # get info about the scene:
         with (mod_scene_path / "scene_info.pkl").open("rb") as f:
             scene_info = pickle.load(f)
-            scale = scene_info["scale"]
+            seg_scale = scene_info["seg_scale"]
             # new_segments = info_dict["new_segments"]
             is_in_view_new = scene_info["is_in_view_new"]
             alg_fov_ratio = scene_info["alg_fov_ratio"] if "alg_fov_ratio" in scene_info else 0.8
         print(
             "-" * 100
-            + f"\nscale={scale}, in_view_frames={is_in_view_new.sum()}, out_of_view_frames={len(is_in_view_new) - is_in_view_new.sum()}",
+            + f"\nscale={seg_scale}, in_view_frames={is_in_view_new.sum()}, out_of_view_frames={len(is_in_view_new) - is_in_view_new.sum()}",
         )
 
         # Modify the video to have longer out-of-view segments
-        mod_scene_results_path = base_save_path / f"Scale_{scale}".replace(".", "_")
+        mod_scene_results_path = base_save_path / f"Scale_{seg_scale}".replace(".", "_")
 
         # Run the algorithm on the modified video
         slam_runner = SlamRunner(
