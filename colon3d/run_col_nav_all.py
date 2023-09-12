@@ -18,8 +18,7 @@ from colon3d.util.general_util import (
 # *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
-# note: if you want to use the ground truth depth maps, you need to change depth_maps_source to "ground_trutg"
-# "EndoSFM_GTD" is still and estimate, but it was trained with GT depth maps
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -106,6 +105,42 @@ def main():
             "save_overwrite": overwrite_results,
         }
         save_unified_results_table(base_results_path)
+
+        # --------------------------------------------------------------------------------------------------------------------
+        # the (supervised with GT depth) tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
+        # --------------------------------------------------------------------------------------------------------------------
+        exp_name = "no_BA_with_EndoSFM_GTD_tuned"
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_GTD",
+                alg_settings_override={"use_bundle_adjustment": False},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
+        
+        # --------------------------------------------------------------------------------------------------------------------
+        # the (supervised with GT depth) tuned EndoSFM monocular depth and egomotion estimation, with bundle adjustment
+        # --------------------------------------------------------------------------------------------------------------------
+        exp_name = "BA_with_EndoSFM_GTD_tuned"
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="online_estimates",
+                egomotions_source="online_estimates",
+                depth_and_egomotion_method="EndoSFM",
+                depth_and_egomotion_model_path=models_base_path / "EndoSFM_GTD",
+                alg_settings_override={"use_bundle_adjustment": True},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
+        
+
         # --------------------------------------------------------------------------------------------------------------------
         # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
