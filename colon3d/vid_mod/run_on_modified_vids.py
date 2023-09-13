@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "--base_load_path",
         type=str,
-        default="data_gcp/datasets/real_videos/Mod_Vids",
+        default="data/datasets/real_videos/Mod_Vids",
         help="path to the save outputs",
     )
     parser.add_argument(

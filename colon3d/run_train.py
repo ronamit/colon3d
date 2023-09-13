@@ -48,13 +48,13 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/EndoSFM_GTD",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="data_gcp/models/EndoSFM_GTD_v2",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=100,
+        default=200,
         help="Number of epochs to train.",
     )
     parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")
@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--subsample_max",
         type=int,
-        default=40,
+        default=20,
         help="Maximum subsample factor for generating training examples.",
     )
     parser.add_argument(

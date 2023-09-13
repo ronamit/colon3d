@@ -259,7 +259,7 @@ class VideoModifier:
             shutil.copy(self.load_scene_path / file_name, save_path / file_name)
 
         # save the new tracks csv file
-        pd.DataFrame(new_tracks_original).to_csv(save_path / "tracks.csv", index=False)
+        pd.DataFrame(new_tracks_original).to_csv(save_path / "Tracks.csv", index=False)
         self.n_frames_new = n_frames_new
 
         # save the scale info as a pickle file
