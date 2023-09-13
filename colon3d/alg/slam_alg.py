@@ -11,7 +11,11 @@ from colon3d.alg.bundle_adjust import run_bundle_adjust
 from colon3d.alg.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.slam_out_analysis import AnalysisLogger
-from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.alg.tracks_loader import (
+    DetectionsTracker,
+    get_track_angle_from_cam_sys_loc,
+    get_track_angle_from_pixel_loc,
+)
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str
 from colon3d.util.rotations_util import get_identity_quaternion
@@ -392,7 +396,9 @@ class SlamAlgRunner:
             # The frame indexes to set the optimization variables (cam poses and 3D points)
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             # The frame indexes to use for the loss terms (if n_last_frames_to_use=-1, use all history)
-            earliest_frame_to_use = max(0, i_frame - alg_prm.n_last_frames_to_use + 1) if alg_prm.n_last_frames_to_use > -1  else -1
+            earliest_frame_to_use = (
+                max(0, i_frame - alg_prm.n_last_frames_to_use + 1) if alg_prm.n_last_frames_to_use > -1 else -1
+            )
             # Loop that runs the bundle adjustment until no more KPs are discarded
             n_invalid_kps = -1
             i_repeat = 0
@@ -450,13 +456,17 @@ class SlamAlgRunner:
     def estimate_track_angle_in_frame(self, track_id: int, i_frame: int, cur_track_KPs: dict):
         """estimate the direction of the track in he camera frame XY plane (for navigation arrow) [rad]"""
 
+        alg_cam_info = self.scene_loader.alg_cam_info
+
         if track_id in cur_track_KPs:
             # in this case - we see the track in the current frame, so we use its pixel coordinates
             track_loc_pix = cur_track_KPs[track_id]
-            # transform to normalized image coordinates:
-            track_loc_nrm, _ = self.alg_view_pix_normalizer.get_normalized_coord(track_loc_pix)
-            # transform from pixel coordinates to camera system coordinates:
-            angle_rad = np.arctan2(track_loc_nrm[1], track_loc_nrm[0])
+            angle_rad = get_track_angle_from_pixel_loc(
+                track_x_pix=track_loc_pix[0],
+                track_y_pix=track_loc_pix[1],
+                cx=alg_cam_info.cx,
+                cy=alg_cam_info.cy,
+            )
 
         elif self.alg_prm.use_trivial_nav_aid:
             # the track is out-of-view.
@@ -467,8 +477,12 @@ class SlamAlgRunner:
             # the track is out-of-view.
             # use the estimated location of the track in the current frame
             track_loc_cam = self.online_est_track_cam_loc[i_frame][track_id]
-            # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
-            angle_rad = np.arctan2(track_loc_cam[1], track_loc_cam[0])
+            angle_rad = get_track_angle_from_cam_sys_loc(
+                track_p3d_cam=track_loc_cam,
+                cx=alg_cam_info.cx,
+                cy=alg_cam_info.cy,
+                alg_view_pix_normalizer=self.alg_view_pix_normalizer,
+            )
 
         return angle_rad
 

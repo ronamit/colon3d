@@ -77,7 +77,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig
+        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -95,7 +95,7 @@ def main():
     parser.add_argument(
         "--draw_interval",
         type=int,
-        default=50,
+        default=100,
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(
@@ -262,6 +262,7 @@ def run_slam_on_scene(
         gt_cam_poses=gt_cam_poses,
         gt_targets_info=gt_targets_info,
         slam_out=slam_out,
+        scene_loader=scene_loader,
     )
     metrics_stats["example_name"] = example_name
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")

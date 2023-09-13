@@ -3,8 +3,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.alg.tracks_loader import DetectionsTracker, get_track_angle_from_cam_sys_loc
 from colon3d.sim_import.simulate_tracks import TargetsInfo
+from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import save_plot_and_close
 from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.util.torch_util import np_func, to_numpy
@@ -176,6 +177,7 @@ def calc_nav_aid_metrics(
     online_est_track_cam_loc: list,
     online_est_track_angle: list,
     detections_tracker: DetectionsTracker,
+    scene_loader: SceneLoader,
 ) -> dict:
     """Calculates the navigation-aid metrics.
     Args:
@@ -185,6 +187,8 @@ def calc_nav_aid_metrics(
     """
     n_frames = est_cam_poses.shape[0]
     n_targets = gt_targets_info.n_targets
+    alg_view_pix_normalizer = scene_loader.alg_view_pix_normalizer
+    alg_cam_info = scene_loader.alg_cam_info
 
     deg_err_thresh = 15  # [deg] the threshold for the angular error to consider a target as "detected"
 
@@ -242,7 +246,8 @@ def calc_nav_aid_metrics(
                 is_front_est[i, track_id] = True
 
                 # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
-                gt_angle_rad = np.arctan2(gt_p3d_cam[1], gt_p3d_cam[0])  # [rad]
+                gt_angle_rad = get_track_angle_from_cam_sys_loc(track_p3d_cam=gt_p3d_cam, cx=alg_cam_info.cx, cy=alg_cam_info.cy, alg_view_pix_normalizer=alg_view_pix_normalizer)
+
                 # est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
                 est_angle_rad = online_est_track_angle[i][track_id]  # [rad]
 
@@ -309,6 +314,7 @@ def calc_performance_metrics(
     gt_cam_poses: np.ndarray,
     gt_targets_info: TargetsInfo | None,
     slam_out: dict,
+    scene_loader: SceneLoader,
 ) -> dict:
     """Calculate the SLAM performance metrics w.r.t ground truth."""
 
@@ -346,6 +352,7 @@ def calc_performance_metrics(
             online_est_track_cam_loc=online_est_track_cam_loc,
             online_est_track_angle=online_est_track_angle,
             detections_tracker=slam_out["detections_tracker"],
+            scene_loader=scene_loader,
         )
         # add the navigation-aid metrics
         metrics_per_frame = metrics_per_frame | nav_metrics_per_frame

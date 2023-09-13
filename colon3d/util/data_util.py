@@ -46,10 +46,10 @@ class SceneLoader:
             assert self.video_path.is_file(), f"Video file not found at {self.video_path}"
             self.rgb_source = "Video"
             self.n_frames = int(cv2.VideoCapture(str(self.video_path)).get(cv2.CAP_PROP_FRAME_COUNT))
-            self.n_frames = min(self.n_frames, n_frames_lim) if n_frames_lim != 0 else self.n_frames
 
         self.alg_fov_ratio = alg_fov_ratio
         self.n_frames_lim = n_frames_lim
+        self.n_frames = min(self.n_frames, n_frames_lim) if n_frames_lim != 0 else self.n_frames
         metadata_path = self.origin_scene_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
         with (self.origin_scene_path / "meta_data.yaml").open() as file:

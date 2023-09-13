@@ -29,8 +29,8 @@ class DetectionsTracker:
         self.fps = scene_loader.fps
         self.alg_view_cropper = scene_loader.alg_view_cropper
         self.truncate_tracks_for_alg_view()
+    # ------------------------------------------------------------------------------------------------------------------
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_tracks_in_frame(self, frame_idx: int, frame_type: str = "alg_view"):
         """Gets the detections for the current algorithm view or full frame.
@@ -55,8 +55,33 @@ class DetectionsTracker:
             assert len(tracks_in_frame[track_id]) == 1, "There should be only one detection per (track,frame) pair"
             tracks_in_frame[track_id] = tracks_in_frame[track_id][0]  # take the first (and only) element
         return tracks_in_frame
+    # ------------------------------------------------------------------------------------------------------------------
+    
+    def get_tracks_angles_in_frame(self, frame_idx: int, frame_type: str):
+        tracks_in_frame = self.get_tracks_in_frame(frame_idx, frame_type)
+        # get the center of the algorithm view
+        if frame_type == "alg_view":
+            cx = self.alg_view_cropper.cx_new
+            cy = self.alg_view_cropper.cy_new
+        elif frame_type == "full_view":
+            cx = self.alg_view_cropper.cx_orig
+            cy = self.alg_view_cropper.cy_orig
+        else:
+            raise ValueError("Unknown frame_type: " + frame_type)
+        # get the angle of each track in the current frame
+        tracks_angles = {}
+        for track_id, track_info in tracks_in_frame.items():
+            x_min = track_info["xmin"]
+            x_max = track_info["xmax"]
+            y_min = track_info["ymin"]
+            y_max = track_info["ymax"]
+            x_center = (x_min + x_max) / 2
+            y_center = (y_min + y_max) / 2
+            tracks_angles[track_id] = get_track_angle_from_pixel_loc(x_center, y_center, cx, cy)
+        return tracks_angles
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # ------------------------------------------------------------------------------------------------------------------
 
     def is_track_in_alg_view(self, track_id, frame_inds):
         """Checks if a track is in the current algorithm view.
@@ -73,7 +98,7 @@ class DetectionsTracker:
             is_track_in_view[i] = track_id in self.get_tracks_in_frame(i_frame)
         return is_track_in_view
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------------------------------------------------------------
 
     def truncate_tracks_for_alg_view(self):
         """Truncates the detections to the defined algorithm view"""
@@ -135,7 +160,30 @@ class DetectionsTracker:
         ).astype({"frame_idx": int, "track_id": int})
         self.tracks_for_alg = detections_new
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------------------------------------------------------------
 
+def get_track_angle_from_pixel_loc(track_x_pix, track_y_pix, cx, cy):
+    """ Gets track pixel location and the coordinates of the optical center and returns the angle of the track in the camera system.
+    Args:
+        track_x_pix, track_y_pix: coordinates of the track center in pixels
+        cx, cy: coordinates of the optical center in pixels
+    Returns:
+        angle: angle of the track w.r.t. the optical center in the image  [rad]
+    """
+    dx = track_x_pix - cx
+    dy = track_y_pix - cy
+    angle = np.arctan2(dy, dx)
+    return angle
 
 # --------------------------------------------------------------------------------------------------------------------
+def get_track_angle_from_cam_sys_loc(track_p3d_cam, cx, cy, alg_view_pix_normalizer):
+    """ Gets track location in the camera system and the coordinates of the optical center and returns the angle of the track in the camera system.
+    Args:
+        track_p3d_cam: 3D coordinates of the track center in the camera system
+        cx, cy: coordinates of the optical center in the camera system
+    Returns:
+        angle: angle of the track w.r.t. the optical center in the image  [rad]
+    """
+    track_pix_loc, _ = alg_view_pix_normalizer.project_from_cam_sys_to_pixels(track_p3d_cam)
+    track_x_pix, track_y_pix = track_pix_loc.squeeze(0)
+    return get_track_angle_from_pixel_loc(track_x_pix, track_y_pix, cx, cy)
