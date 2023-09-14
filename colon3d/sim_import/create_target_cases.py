@@ -24,7 +24,7 @@ def main():
         "--sim_data_path",
         type=str,
         default="data/sim_data/TestData21",
-        help="The path to the folder with processed simulated scenes to load",
+        help="The path to the folder with processed simulated scenes to load (the generated cases will be saved in a subfolder of each scene folder).)",
     )
     parser.add_argument(
         "--n_cases_per_scene",
