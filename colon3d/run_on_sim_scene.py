@@ -26,13 +26,13 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data_gcp/datasets/ColNav/TestData21/Scene_00000/Target_Cases/Case_0000/",
+        default="data_gcp/datasets/ColonNav/TestData21/Scene_00000/Target_Cases/Case_0000/",
         help="Path to the scene folder",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/results/ColNav/temp1",
+        default="data/results/ColonNav/temp1",
         help="Path to the save outputs",
     )
     parser.add_argument(

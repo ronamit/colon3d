@@ -27,13 +27,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/ColNav/TestData21",
+        default="data_gcp/datasets/ColonNav/TestData21",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/results/ColNav/temp_on_sim_dataset",
+        default="data/results/ColonNav/temp_on_sim_dataset",
         help="path to the save outputs",
     )
     parser.add_argument(

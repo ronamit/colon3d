@@ -6,9 +6,11 @@ import numpy as np
 @dataclass
 class AlgorithmParam:
     use_bundle_adjustment: bool = True
-    n_last_frames_to_opt: int = 1 # number of last frames to set camera poses and 3D points as optimization variables
-    n_last_frames_to_use: int = -1  # number of last frames to use for the bundle adjustment loss term, if -1, then use all history
-    optimize_each_n_frames: int = 1 # optimize each n frames
+    n_last_frames_to_opt: int = 1  # number of last frames to set camera poses and 3D points as optimization variables
+    n_last_frames_to_use: int = (
+        -1
+    )  # number of last frames to use for the bundle adjustment loss term, if -1, then use all history
+    optimize_each_n_frames: int = 1  # optimize each n frames
     add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
     max_angular_vel: float = 3.0 * np.pi  # rad/s
@@ -25,10 +27,11 @@ class AlgorithmParam:
     depth_lower_bound: float = 1e-2  # lower bound to clip the the z-depth estimation (units: mm)
     depth_default: float = 15  # default z-depth estimation, when no other data is available (units: mm)
     opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"]
-    opt_max_iter: int = 100  # maximum number of iterations for the optimization
+    opt_max_iter: int = 5  # maximum number of iterations for the optimization
     opt_x_tol: float = 1e-3  # Optimization termination tolerance on function/parameter changes.
     opt_g_tol: float = 1e-6  # Optimization termination tolerance on the gradient.
     # opt_lr: float = 10.  # initial learning rate for the optimization
+    opt_line_search = "strong-wolfe"  # line search method for the optimization, options: none, strong-wolfe (slow)
     ransac_reprojection_err_threshold: float = 2.0  # reprojection error threshold for RANSAC (units: pixels)
     max_initial_keypoints: int = 300  # maximum number of keypoints the KPs detector will return.
     kp_descriptor_patch_size: int = 51  # patch size for the keypoint descriptor (units: pixels)
