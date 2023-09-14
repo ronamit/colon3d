@@ -77,6 +77,7 @@ def main():
             limit_n_scenes=limit_n_scenes,
             limit_n_frames=limit_n_frames,
             save_overwrite=overwrite_data,
+            sim_name="ColonNav",
         ).run()
 
         # --------------------------------------------------------------------------------------------------------------------

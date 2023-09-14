@@ -29,7 +29,7 @@ def main():
         "--dataset_path",
         type=str,
         default="data_gcp/datasets/ColonNav/TestData21",
-        help="Path to the dataset of scenes (not raw data, i.e., output of run_data_prep.py ).",
+        help="Path to the dataset of scenes (not raw).",
     )
     parser.add_argument(
         "--results_base_path",

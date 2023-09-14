@@ -18,9 +18,8 @@ If download fails, try to download each case folder separately.
 
 * Run the import script:
 
-```bash
-python -m colon3d.sim_import.sim_importer --sim_name "Zhang22"  --raw_sim_data_path PATH --processed_sim_data_path PATH
-```
+python -m colon3d.sim_import.import_sim_dataset --sim_name "Zhang22"  --raw_sim_data_path PATH --path_to_save_data PATH
+
 """
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -44,7 +43,7 @@ def load_sim_raw(
 
     for i_scene in range(n_scenes):
         case_path = case_dir_names[i_scene]
-        # Gey the RGB frames file paths (relative to input_data_path):
+        # Get the RGB frames file paths (relative to input_data_path):
         rgb_frames_paths = list((input_data_path / case_path / cam_to_load).glob("*.png"))
         rgb_frames_paths = [Path(case_path) / cam_to_load / p.name for p in rgb_frames_paths]
         rgb_frames_paths.sort()
@@ -185,7 +184,7 @@ def get_cam_poses(scene_path: Path, limit_n_frames: int, cam_to_load: str) -> np
     cam_loc = np.column_stack((pos_x, pos_y, pos_z)) * loaded_translation_to_mm
     # (q_w, q_x, q_y, q_z) is a  unit-quaternion has the real part as the first value, that represents the camera rotation w.r.t. the world system
     cam_rot = np.column_stack((quat_w, quat_x, quat_y, quat_z))
-    # transform from the unity left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
+    # transform from Unity's left handed space to a right handed space  (see readme.md of https://github.com/zsustc/colon_reconstruction_dataset)
     # y -> -y
     cam_loc[:, 1] *= -1
     # change the rotation accordingly: qy -> -qy

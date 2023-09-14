@@ -25,9 +25,11 @@ dependencies:
   - sympy=1.11.1
   - libtiff=4.5.1
   - imageio
+  - intel-openmp
   - pip:
       - opencv-python==4.8.0.76
       - kornia==0.6.12
       - configargparse==1.5.5
       - scipy==1.11.1
       - imread-from-url==0.1.3
+
