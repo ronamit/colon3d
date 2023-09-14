@@ -2,6 +2,7 @@ import argparse
 import pickle
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from colon3d.alg.tracks_loader import DetectionsTracker
@@ -41,33 +42,33 @@ def main():
     all_results_paths = sorted(loaded_results_path.glob("Scale_*"))
     print(f"Found {len(all_results_paths)} scale result folders")
 
-    scales = []
-    err_per_scale = []
-    std_per_scale = []
-    n_seg_per_scale = []
+    out_of_view_avg_seg_time = []
+    avg_err_deg = []
+    std_err_deg = []
+    n_seg = []
     for result_path in all_results_paths:
         scene_name = result_path.name
         scene_path = loaded_scenes_path / scene_name
-        avg_err, std_err, n_seg, seg_scale = analyze_scene_result(result_path, scene_path)
-        err_per_scale.append(avg_err)
-        std_per_scale.append(std_err)
-        n_seg_per_scale.append(n_seg)
-        scales.append(seg_scale)
+        _avg_err_deg, _std_err_deg, _n_seg, _out_of_view_avg_seg_time = analyze_scene_result(result_path, scene_path)
+        avg_err_deg.append(_avg_err_deg)
+        std_err_deg.append(_std_err_deg)
+        n_seg.append(_n_seg)
+        out_of_view_avg_seg_time.append(_out_of_view_avg_seg_time)
 
     # plot the average error per scale with 95% confidence interval
-    import matplotlib.pyplot as plt
 
-    err_per_scale = np.array(err_per_scale)
-    std_per_scale = np.array(std_per_scale)
-    scales = np.array(scales)
-    n_seg_per_scale = np.array(n_seg_per_scale)
-    err_confidence = 1.96 * std_per_scale / np.sqrt(n_seg_per_scale)
+    avg_err_deg = np.array(avg_err_deg)
+    std_err_deg = np.array(std_err_deg)
+    n_seg = np.array(n_seg)
+    out_of_view_avg_seg_time = np.array(out_of_view_avg_seg_time)
+    err_confidence = 1.96 * std_err_deg / np.sqrt(n_seg)
 
     plt.figure()
-    plt.errorbar(scales, err_per_scale, yerr=err_confidence, fmt="o")
-    plt.xlabel("Scale")
-    plt.ylabel("Average error")
-    plt.title("Average error per scale (95 CI)")
+    plt.errorbar(out_of_view_avg_seg_time, avg_err_deg, yerr=err_confidence, fmt="o")
+    plt.xlabel("Avg. out-of-view segment length [Sec]")
+    plt.ylabel("Average error [Deg]")
+    plt.title(r"Average estimation error of the target angle before return to view. (95% CI)")
+    plt.grid()
     save_plot_and_close(save_path / "avg_err_per_scale.png")
 
 
@@ -84,10 +85,17 @@ def analyze_scene_result(result_path: Path, scene_path: Path):
     new_segments = scene_info["new_segments"]
     alg_fov_ratio = scene_info["alg_fov_ratio"]
     seg_scale = scene_info["seg_scale"]
+    is_in_view = scene_info["is_in_view_new"]
+    n_segments = len(new_segments)
 
     # get the ground-truth tracks info in the full frame
     scene_loader = SceneLoader(scene_path=scene_path, alg_fov_ratio=alg_fov_ratio)
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
+    fps = scene_loader.fps
+
+    n_frames_out_of_view = (~is_in_view).sum()
+    out_of_view_tot_time = n_frames_out_of_view / fps  # [Sec]
+    out_of_view_avg_seg_time = out_of_view_tot_time / n_segments  # [Sec]
 
     track_id = 0  # we only have one track in the scene
     err_per_seg = []
@@ -114,17 +122,17 @@ def analyze_scene_result(result_path: Path, scene_path: Path):
 
     err_per_seg = np.array(err_per_seg)
     n_seg = len(err_per_seg)
-    avg_err = np.mean(err_per_seg)
-    std_err = np.std(err_per_seg)
+    avg_err_deg = np.mean(err_per_seg) * 180 / np.pi
+    std_err_deg = np.std(err_per_seg) * 180 / np.pi
     print(f"Scale {seg_scale} results")
-    print(f"Average error: {avg_err}")
-    print(f"Std error: {std_err}")
+    print(f"Average error: {avg_err_deg} [deg]")
+    print(f"Std error: {std_err_deg}  [deg]")
     print(
         "Number of out-of-algorithm-view segment) (where the track is visible in the full-frame before the segment) ",
         n_seg,
     )
 
-    return avg_err, std_err, n_seg, seg_scale
+    return avg_err_deg, std_err_deg, n_seg, out_of_view_avg_seg_time
 
 
 # ---------------------------------------------------------------------------------------------------------------------
