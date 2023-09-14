@@ -6,7 +6,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-from colon3d.sim_import import sim_load_colon_nav_sim, sim_load_simcol3d, sim_load_zhang
+from colon3d.sim_import import load_colon_nav_sim, load_simcol3d, load_zhang_data
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
@@ -156,7 +156,7 @@ class SimImporter:
                 rgb_frames_paths_per_scene,
                 cam_poses_per_scene,
                 depth_frames_paths_per_scene,
-            ) = sim_load_colon_nav_sim.load_sim_raw(
+            ) = load_colon_nav_sim.load_sim_raw(
                 input_data_path=self.raw_sim_data_path,
                 limit_n_scenes=self.limit_n_scenes,
                 limit_n_frames=self.limit_n_frames,
@@ -168,7 +168,7 @@ class SimImporter:
                 metadata_per_scene,
                 rgb_frames_paths_per_scene,
                 cam_poses_per_scene,
-            ) = sim_load_zhang.load_sim_raw(
+            ) = load_zhang_data.load_sim_raw(
                 input_data_path=self.raw_sim_data_path,
                 limit_n_scenes=self.limit_n_scenes,
                 limit_n_frames=self.limit_n_frames,
@@ -184,7 +184,7 @@ class SimImporter:
                 rgb_frames_paths_per_scene,
                 cam_poses_per_scene,
                 depth_frames_paths_per_scene,
-            ) = sim_load_simcol3d.load_sim_raw(
+            ) = load_simcol3d.load_sim_raw(
                 input_data_path=self.raw_sim_data_path,
                 split_name=self.split_name,
                 limit_n_scenes=self.limit_n_scenes,
@@ -240,13 +240,13 @@ class SimImporter:
 
                 # extract the GT depth frames
                 if self.sim_name == "ColonNavSim":
-                    z_depth_frames, depth_info = sim_load_colon_nav_sim.get_ground_truth_depth(
+                    z_depth_frames, depth_info = load_colon_nav_sim.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                         metadata=metadata,
                     )
                 else:
-                    z_depth_frames, depth_info = sim_load_simcol3d.get_ground_truth_depth(
+                    z_depth_frames, depth_info = load_simcol3d.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                         metadata=metadata,
