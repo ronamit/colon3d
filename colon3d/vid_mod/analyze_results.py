@@ -67,7 +67,7 @@ def main():
     plt.errorbar(out_of_view_avg_seg_time, avg_err_deg, yerr=err_confidence, fmt="o")
     plt.xlabel("Avg. out-of-view segment length [Sec]")
     plt.ylabel("Average error [Deg]")
-    plt.title(r"Average estimation error of the target angle before return to view. (95% CI)")
+    plt.title(f"Average estimation error of the target angle before return to view. \n over {int(n_seg.mean())} segments (95% CI)")
     plt.grid()
     save_plot_and_close(save_path / "avg_err_per_scale.png")
 

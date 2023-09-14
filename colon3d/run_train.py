@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/EndoSFM_GTD_v2",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="data_gcp/models/EndoSFM_GTD_v33",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -57,7 +57,7 @@ def main():
         default=200,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=0, type=int, help="number of data loading workers")
+    parser.add_argument("--n_workers", default=8, type=int, help="number of data loading workers")
     parser.add_argument(
         "--batch_size",
         default=32,
@@ -104,7 +104,7 @@ def main():
     parser.add_argument(
         "--debug_mode",
         type=bool_arg,
-        default=True,
+        default=False,
         help="If True, then use a small dataset and 1 epoch for debugging",
     )
     args = parser.parse_args()
