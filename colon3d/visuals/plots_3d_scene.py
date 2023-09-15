@@ -245,7 +245,7 @@ def plot_camera_sys_per_frame(
 
 
 def plot_3d_trajectories(
-    trajectories: np.ndarray | dict, save_path: Path, start_frame: int = 0, stop_frame: int | None = None
+    trajectories: np.ndarray | dict, save_path: Path, start_frame: int = 0, stop_frame: int | None = None,
 ):
     """
     Plot the 3D trajectory of the camera in the world system.
