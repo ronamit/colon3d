@@ -1,6 +1,5 @@
 {
 
-    "workbench.colorTheme": "Default Dark+",
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
