@@ -24,7 +24,7 @@ def main():
         "--dataset_path",
         type=str,
         default="data_gcp/datasets/ColonNav/TrainData22",
-        help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_sim_dataset.py.py ).",
+        help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py.py ).",
     )
     parser.add_argument(
         "--validation_ratio",

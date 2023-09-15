@@ -6,7 +6,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-from colon3d.sim_import import load_colon_nav_sim, load_simcol3d, load_zhang_data
+from colon3d.sim_import import load_colon_nav_sim, load_sim_col_3d, load_zhang_data
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.general_util import (
     ArgsHelpFormatter,
@@ -20,6 +20,7 @@ from colon3d.util.general_util import (
 )
 from colon3d.util.torch_util import np_func, to_default_type
 from colon3d.util.transforms_util import compose_poses, get_identity_pose, infer_egomotions
+from colon3d.visuals.plots_3d_scene import plot_3d_trajectory
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
@@ -37,7 +38,7 @@ def main():
     parser.add_argument(
         "--path_to_save_data",
         type=str,
-        default="data/datasets/SimCol3D", #  ColonNav/TrainData22 | ColonNav/TestData21 | SimCol3D |
+        default="data/datasets/SimCol3D/train",  #  ColonNav/TrainData22 | ColonNav/TestData21 | SimCol3D/train | SimCol3D/test
         help="The path to the folder where the processed simulated scenes will be saved.",
     )
     parser.add_argument(
@@ -50,7 +51,7 @@ def main():
     parser.add_argument(
         "--split_name",
         type=str,
-        choices=["train", "val", "test"],
+        choices=["train", "test"],
         default="train",
         help="The name of the split to load (train, val or test), relevant for the Simcol3D dataset.",
     )
@@ -184,7 +185,7 @@ class SimImporter:
                 rgb_frames_paths_per_scene,
                 cam_poses_per_scene,
                 depth_frames_paths_per_scene,
-            ) = load_simcol3d.load_sim_raw(
+            ) = load_sim_col_3d.load_sim_raw(
                 input_data_path=self.raw_sim_data_path,
                 split_name=self.split_name,
                 limit_n_scenes=self.limit_n_scenes,
@@ -236,8 +237,8 @@ class SimImporter:
                 save_video=True,
             )
 
+            # Get the GT depth frames (if available) and save them
             if self.sim_name in ["ColonNavSim", "SimCol3D"]:
-
                 # extract the GT depth frames
                 if self.sim_name == "ColonNavSim":
                     z_depth_frames, depth_info = load_colon_nav_sim.get_ground_truth_depth(
@@ -246,7 +247,7 @@ class SimImporter:
                         metadata=metadata,
                     )
                 else:
-                    z_depth_frames, depth_info = load_simcol3d.get_ground_truth_depth(
+                    z_depth_frames, depth_info = load_sim_col_3d.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                         metadata=metadata,
@@ -276,6 +277,12 @@ class SimImporter:
                         data=to_default_type(z_depth_frames, num_type="float_m"),
                         compression="gzip",
                     )
+
+            # plot the camera trajectory
+            plot_3d_trajectory(
+                cam_poses=cam_poses,
+                save_path=scene_path / "gt_cam_trajectory",
+            )
 
         print(f"Done creating {n_scenes} scenes in {self.path_to_save_data}")
         return scenes_paths

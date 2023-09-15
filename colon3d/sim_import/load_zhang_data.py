@@ -18,7 +18,7 @@ If download fails, try to download each case folder separately.
 
 * Run the import script:
 
-python -m colon3d.sim_import.import_sim_dataset --sim_name "Zhang22"  --raw_sim_data_path PATH --path_to_save_data PATH
+python -m colon3d.sim_import.import_dataset --sim_name "Zhang22"  --raw_sim_data_path PATH --path_to_save_data PATH
 
 """
 # --------------------------------------------------------------------------------------------------------------------

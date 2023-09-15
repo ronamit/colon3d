@@ -114,7 +114,7 @@ def get_scene_metadata(scene_full_path: Path, fps_override: float = 0) -> dict:
     frame_width = 475  # [pixels]
     frame_height = 475  # [pixels]
     min_vis_z_mm = 0  # [mm] not relevant for this simulator
-    fps = 30  # [Hz]
+    fps = 20  # [Hz]  the paper doesn't mention the frame rate, so I assume it is 5 Hz (used for video showing + maximum speed penalty)
     if fps_override != 0:
         fps = fps_override
 

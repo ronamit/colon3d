@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from colon3d.sim_import.create_target_cases import TargetCasesCreator
-from colon3d.sim_import.import_sim_dataset import SimImporter
+from colon3d.sim_import.import_dataset import SimImporter
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg
 
 # -------------------------------------------------------------------------------------

@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 import plotly.graph_objects as go
 
-from colon3d.util.torch_util import to_numpy
 from colon3d.alg.tracks_loader import DetectionsTracker
+from colon3d.util.torch_util import to_numpy
 from colon3d.visuals.animate_util import create_animation_video, create_interactive_3d_animation
 from colon3d.visuals.create_3d_obj import plot_fov_cone
 
@@ -67,11 +69,11 @@ def plot_world_sys_per_frame(
                 ),
             )
             max_dist = max(max_dist, np.linalg.norm(salient_kps, axis=1).max())
-            
+
     # plot the tracks\polyps estimated 3D location in the world system per frame:
     for i_step, i_frame in enumerate(frame_inds):
         for track_id, track_p3d_tensor in online_est_track_world_loc[i_frame].items():
-            track_p3d_world = to_numpy(track_p3d_tensor) # location of the track in the world system
+            track_p3d_world = to_numpy(track_p3d_tensor)  # location of the track in the world system
             # check if the track is in the view of the algorithm
             is_track_in_view = detections_tracker.is_track_in_alg_view(track_id, [i_frame])[0]
             color = "green" if is_track_in_view else "red"
@@ -237,6 +239,41 @@ def plot_camera_sys_per_frame(
         print("Saved figure at ", file_path)
     if show_fig:
         fig.show()
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def plot_3d_trajectory(cam_poses: np.ndarray, save_path: Path, start_frame: int = 0, stop_frame: int | None = None):
+    """
+    Plot the 3D trajectory of the camera in the world system.
+    Args:
+        cam_poses: camera poses in world system [n_frames, 7]: [x,y,z, qw, qx, qy, qz]
+        start_frame: start frame
+        stop_frame: stop frame
+    """
+    if stop_frame is None:
+        stop_frame = cam_poses.shape[0]
+    cam_poses = cam_poses[start_frame:stop_frame]
+    cam_traj = cam_poses[:, 0:3]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter3d(
+            x=cam_traj[:, 0],
+            y=cam_traj[:, 1],
+            z=cam_traj[:, 2],
+            mode="lines",
+            line={"color": "darkblue", "width": 1},
+            name="Cam. path",
+        ),
+    )
+    fig.update_layout(
+        scene={"xaxis_title": "X [mm]", "yaxis_title": "Y [mm]", "zaxis_title": "Z [mm]"},
+        title="Camera Trajectory",
+        hoverlabel={"font_size": 12, "font_family": "Rockwell"},
+    )
+    fig.write_html(save_path)
+    print("Saved figure at ", save_path)
 
 
 # --------------------------------------------------------------------------------------------------------------------
