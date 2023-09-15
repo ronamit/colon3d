@@ -1,20 +1,13 @@
 {
-    "livePreview.defaultPreviewPath": "/data/sim_data/SimData2/Seq_00001/plots/Frame0033_point_cloud_ground_truth.html",
-    "python.analysis.extraPaths": [
-        "/home/repos/pytorch-minimize"
-    ],
+
     "workbench.colorTheme": "Default Dark+",
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
         "**/node_modules/*/**": true,
-        "data/**:": true,
-        "results/**": true,
-        "saved_models/**": true,
         "build/**": true,
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.provider": "none"
 }
