@@ -244,29 +244,34 @@ def plot_camera_sys_per_frame(
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def plot_3d_trajectory(cam_poses: np.ndarray, save_path: Path, start_frame: int = 0, stop_frame: int | None = None):
+def plot_3d_trajectories(
+    trajectories: np.ndarray | dict, save_path: Path, start_frame: int = 0, stop_frame: int | None = None
+):
     """
     Plot the 3D trajectory of the camera in the world system.
     Args:
-        cam_poses: camera poses in world system [n_frames, 7]: [x,y,z, qw, qx, qy, qz]
+        cam_poses: camera poses in world system [n_frames, 7]: [x,y,z, qw, qx, qy, qz] (or a dict with several trajectories to plot)
         start_frame: start frame
         stop_frame: stop frame
     """
-    if stop_frame is None:
-        stop_frame = cam_poses.shape[0]
-    cam_poses = cam_poses[start_frame:stop_frame]
-    cam_traj = cam_poses[:, 0:3]
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter3d(
-            x=cam_traj[:, 0],
-            y=cam_traj[:, 1],
-            z=cam_traj[:, 2],
-            mode="lines",
-            line={"color": "darkblue", "width": 1},
-            name="Cam. path",
-        ),
-    )
+    if isinstance(trajectories, np.ndarray):
+        trajectories = {"cam": trajectories}
+
+    for traj_name, poses in trajectories.items():
+        if stop_frame is None:
+            stop_frame = poses.shape[0]
+        locs = to_numpy(poses[start_frame:stop_frame, 0:3])
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter3d(
+                x=locs[:, 0],
+                y=locs[:, 1],
+                z=locs[:, 2],
+                mode="lines",
+                line={"color": "darkblue", "width": 1},
+                name=traj_name,
+            ),
+        )
     fig.update_layout(
         scene={"xaxis_title": "X [mm]", "yaxis_title": "Y [mm]", "zaxis_title": "Z [mm]"},
         title="Camera Trajectory",

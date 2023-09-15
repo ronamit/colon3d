@@ -20,7 +20,7 @@ from colon3d.util.general_util import (
 )
 from colon3d.util.torch_util import np_func, to_default_type
 from colon3d.util.transforms_util import compose_poses, get_identity_pose, infer_egomotions
-from colon3d.visuals.plots_3d_scene import plot_3d_trajectory
+from colon3d.visuals.plots_3d_scene import plot_3d_trajectories
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files
 
@@ -38,7 +38,7 @@ def main():
     parser.add_argument(
         "--path_to_save_data",
         type=str,
-        default="data/datasets/SimCol3D/train",  #  ColonNav/TrainData22 | ColonNav/TestData21 | SimCol3D/train | SimCol3D/test
+        default="data/datasets/SimCol3D/test",  #  ColonNav/TrainData22 | ColonNav/TestData21 | SimCol3D/train | SimCol3D/test
         help="The path to the folder where the processed simulated scenes will be saved.",
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def main():
         "--split_name",
         type=str,
         choices=["train", "test"],
-        default="train",
+        default="test",
         help="The name of the split to load (train, val or test), relevant for the Simcol3D dataset.",
     )
     parser.add_argument(
@@ -279,9 +279,9 @@ class SimImporter:
                     )
 
             # plot the camera trajectory
-            plot_3d_trajectory(
-                cam_poses=cam_poses,
-                save_path=scene_path / "gt_cam_trajectory",
+            plot_3d_trajectories(
+                trajectories=cam_poses,
+                save_path=scene_path / "gt_cam_trajectory.html",
             )
 
         print(f"Done creating {n_scenes} scenes in {self.path_to_save_data}")

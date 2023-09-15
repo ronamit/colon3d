@@ -96,7 +96,7 @@ def main():
         "--draw_interval",
         type=int,
         default=100,
-        help="plot and save figures each draw_interval frames",
+        help="plot and save figures each draw_interval frames, set 0 to disable",
     )
     parser.add_argument(
         "--save_overwrite",

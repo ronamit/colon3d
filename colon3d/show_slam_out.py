@@ -2,12 +2,15 @@ import argparse
 import pickle
 from pathlib import Path
 
+import h5py
+
 from colon3d.alg.slam_out_analysis import plot_z_dist_from_cam
+from colon3d.util.data_util import get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
-from colon3d.util.torch_util import to_torch
+from colon3d.util.torch_util import to_default_type, to_torch
 from colon3d.visuals.plot_nav_aid import draw_aided_nav
 from colon3d.visuals.plots_2d import draw_keypoints_and_tracks
-from colon3d.visuals.plots_3d_scene import plot_camera_sys_per_frame, plot_world_sys_per_frame
+from colon3d.visuals.plots_3d_scene import plot_3d_trajectories, plot_camera_sys_per_frame, plot_world_sys_per_frame
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -132,7 +135,7 @@ def save_slam_plots(
             save_path=save_path,
         )
 
-    # plot the camera trajectory and the track estimated positions in world system
+    # plot the camera trajectory and the track estimated positions in world system (animated plot)
     if plot_names is None or "world_sys" in plot_names:
         plot_world_sys_per_frame(
             online_est_track_world_loc=online_est_track_world_loc,
@@ -146,6 +149,17 @@ def save_slam_plots(
             save_path=save_path,
         )
 
+    # plot the camera trajectory and the track estimated positions (and ground-truth, if available) in world system (simple plot)
+    trajectories = {"Est": est_cam_poses}
+    gt_data_path = get_origin_scene_path(scene_path) / "gt_3d_data.h5"
+    if gt_data_path.exists():
+        with h5py.File(gt_data_path.resolve(), "r") as hf:
+            gt_cam_poses = to_default_type(hf["cam_poses"][:])  # load the ground-truth camera poses into memory
+        trajectories["GT"] = gt_cam_poses
+    plot_3d_trajectories(
+        trajectories=trajectories,
+        save_path=save_path / "trajectory_world.html",
+    )
 
 # ---------------------------------------------------------------------------------------------------------------------
 

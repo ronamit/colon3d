@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data_gcp/datasets/real_videos/Example_4"
+        default="data_gcp/datasets/real_videos/Example_4",
     )
     parser.add_argument(
         "--save_path",
