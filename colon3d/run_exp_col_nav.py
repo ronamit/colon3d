@@ -31,7 +31,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/TestD",
+        default="data_gcp/datasets/ColonNav/Test",
         help="Path to the dataset of scenes (not raw).",
     )
     parser.add_argument(
