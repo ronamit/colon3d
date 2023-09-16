@@ -16,6 +16,9 @@ from endo_sfm.utils import save_model_info
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
+"""
+If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
+"""
 
 # -------------------------------------------------------------------------------------------------------------------
 def main():

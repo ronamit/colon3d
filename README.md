@@ -93,61 +93,34 @@ To save an output for long term use, copy it from "data" folder to the "data_gcp
 gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOLDER
 ```
 
-## Code use examples
+## Code usage
 
-* Here are common examples of how to use the code. See the code for more details on the arguments.
-* First, activate the conda environment *(e.g., conda activate py3)* and go to the main project dir (*e.g. ~/repos/colon3d)*.
-
-* Importing a raw dataset of scenes from the ColonNav unity simulator and creating cases with tracked targets (note that we already provide the processed datasets in the cloud, so this step is not required)
+* Note that that the all the outputs that was used in the paper are provided in the cloud storage.
+* To run a script, activate the conda environment *(e.g., conda activate py_env)* and go to the main project dir (*e.g. ~/repos/colon3d)*. and run the script using python -m, for example:
 
 ```bash
-  python -m colon3d.sim_import.prep_ColonNav_dataset
+  python -m colon3d.sim_import.import_dataset --dataset_name "SimCol3D" --dataset_path "data/raw_datasets/SimCol3D" --save_path "data/datasets/SimCol3D"
 ```
 
-* Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.
-  Ths training checkpoints will be saved in "saved_models/EndoSFM_tuned"
+* We outline below the main run scripts in the code. See the scripts for more details on the run options.
 
-```bash
-  python -m endo_sfm.train --name "EndoSFM_tuned" --dataset_path "data/sim_data/ScenesForNetsTrain"
-  --pretrained_disp "saved_models/EndoSFM_orig/DispNet.pt",
-  --pretrained_pose "saved_models/EndoSFM_orig/PoseNet.pt"
-```
+** colon3d.sim_import.prep_ColonNav_dataset: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
 
-If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
+** colon3d.sim_import.import_dataset : Importing the otr datasets into the format used by our code.
 
-* Run the algorithm on a single simulated scene:
+** colon3d.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
 
-```bash
-  python -m colon3d.run_on_sim --scene_path "data/sim_data/Scene_00009_short/Examples/0000" --save_path "results/sim_data/Scene_00009_short/Examples/0000/result_new"
-```
+** colon3d.run_train:  Train depth & egomotion estimators using training data.
 
-* Run the algorithm on a dataset of simulated examples:
+* colon3d.run_on_scene: Run the algorithm on a single scene.
 
-  ```bash
-  python -m colon3d.run_on_sim_dataset --dataset_path  "data/sim_data/SimData8_Examples" --save_path "results/sim_data/SimData8_Examples/result_new" --depth_maps_source "none" --egomotions_source "none"
-  ```
-  
-* Run the algorithm on real data example:
+* colon3d.run_on_sim_scene: Run the algorithm on a single simulated scene (that have ground-truth camera pose data).
 
-```bash
-  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4" --save_path  "results/my_videos/Example_4/result_new" --alg_fov_ratio 0.8 --n_frames_lim 0
-```
+* colon3d.run_on_sim_dataset: Run the algorithm on a dataset of simulated examples (that have ground-truth camera pose data).
 
-```bash
-  python -m colon3d.run_on_scene --scene_path "data/my_videos/Example_4_rotV2" --save_path  "results/my_videos/Example_4_rotV2/result_new" --alg_fov_ratio 0.8 --n_frames_lim 0
-```
+* Run all experiments on the ColonNav dataset (see file for more details).
 
-* Run all experiments with the Zhang22 dataset:
-
-```bash
-  python -m colon3d.run_zhang_all --test_dataset_name "Zhang22" --results_name "Zhang22_new" --overwrite_results 1 --overwrite_data 1 --debug_mode 0
-```
-
-* Run all experiments on the ColonNav dataset (see file for more details)):
-
-```bash
-  python -m colon3d.run_exp_col_nav
-```
+* olon3d.run_zhang_all: Run all experiments with the Zhang22 dataset
 
 ## References
 
