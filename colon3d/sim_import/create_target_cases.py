@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--sim_data_path",
         type=str,
-        default="data/sim_data/TestData",
+        default="data/sim_data/Test",
         help="The path to the folder with processed simulated scenes to load (the generated cases will be saved in a subfolder of each scene folder).)",
     )
     parser.add_argument(
@@ -53,14 +53,14 @@ class TargetCasesCreator:
         sim_data_path: str,
         n_cases_per_scene: int = 5,
         rand_seed: int = 0,
-        min_pixels_in_bb: int = 20,
-        min_target_radius_mm: float = 1.0,
-        max_target_radius_mm: float = 3.0,
+        min_target_radius_mm: float = 2.0,
+        max_target_radius_mm: float = 5.0,
         max_dist_from_center_ratio: float = 1.0,
         min_dist_from_center_ratio: float = 0.0,
         min_visible_frames: int = 5,
         min_non_visible_frames: int = 20,
-        min_initial_pixels_in_bb: int = 20,
+        min_initial_pixels_in_bb: int = 50,
+        min_pixels_in_bb: int = 4,
         simulate_depth_and_egomotion_estimation: bool = False,
         depth_noise_std_mm: float = 0.0,
         cam_motion_loc_std_mm: float = 0.0,

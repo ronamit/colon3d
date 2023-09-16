@@ -75,7 +75,7 @@ gcloud storage cp -r  gs://col_nav/data_gcp  .
 The folder includes the following subfolders:
 
 * data_gcp/raw_datasets - raw datasets from external sources
-* data_gcp/datasets - processed datasets
+* data_gcp/datasets -  datasets, after processing, prepared to be used by the code
 * data_gcp/results - saved results of the experiments
 * data_gcp/models - saved weights of trained models
 
@@ -97,16 +97,11 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 
 * Here are common examples of how to use the code. See the code for more details on the arguments.
 * First, activate the conda environment *(e.g., conda activate py3)* and go to the main project dir (*e.g. ~/repos/colon3d)*.
-* Importing a raw dataset of scenes from the unity simulator.
+
+* Importing a raw dataset of scenes from the ColonNav unity simulator and creating cases with tracked targets (note that we already provide the processed datasets in the cloud, so this step is not required)
 
 ```bash
-  python -m colon3d.sim_import.import_from_sim --raw_sim_data_path "data/raw_sim_data/SimData4" --processed_sim_data_path "data/sim_data/SimData4"
-```
-
-* Generating cases based on the imported scenes, with randomly simulated tracked targets.
-
-```bash
-  python -m colon3d.sim_import.create_target_cases --sim_data_path "data/sim_data/SimData11" --path_to_save_cases "data/sim_data/SimData11_cases" --n_cases_per_scene 5
+  python -m colon3d.sim_import.prep_ColonNav_dataset
 ```
 
 * Train depth & egomotion estimators on a held-out set of scenes, starting from pretrained weights.

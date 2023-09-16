@@ -79,6 +79,7 @@ else:
 # Importing a raw dataset of scenes from the unity simulator:
 SimImporter(
     load_path=raw_sim_data_path,
+    split_name="Test",
     processed_sim_data_path=scenes_dataset_path,
     limit_n_scenes=limit_n_scenes,
     limit_n_frames=limit_n_frames,
