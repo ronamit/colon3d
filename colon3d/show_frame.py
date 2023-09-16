@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/TestData21_cases/Scene_00005_0000",
+        default="data_gcp/datasets/ColonNav/TestData_cases/Scene_00005_0000",
         help="Path to the scene folder",
     )
     parser.add_argument(

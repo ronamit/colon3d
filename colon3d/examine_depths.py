@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/TrainData22",
+        default="data/sim_data/TrainData",
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
