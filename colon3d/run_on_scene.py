@@ -162,6 +162,7 @@ class SlamRunner:
             )
             depth_estimator = DepthAndEgoMotionLoader(
                 scene_path=self.scene_path,
+                scene_loader=scene_loader,
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
                 depth_and_egomotion_method=self.depth_and_egomotion_method,

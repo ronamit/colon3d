@@ -17,7 +17,7 @@ class SceneLoader:
         scene_path: Path,
         alg_fov_ratio: float = 0,
         n_frames_lim: int = 0,
-        fps: float | None = None,
+        fps_override: float | None = None,
     ):
         """Initialize the video loader.
 
@@ -25,7 +25,7 @@ class SceneLoader:
             scene_path: path to the scene data folder
             alg_fov_ratio: The FOV ratio (in the range [0,1]) used for the SLAM algorithm, out of the original FOV, the rest is hidden and only used for validation
             n_frames_lim: limit the number of frames to load
-            fps: if not None, the video will be resampled to this fps
+            fps_override: if not None, the video will be resampled to this fps
         """
         assert 0 <= alg_fov_ratio <= 1, "alg_fov_ratio must be in the range [0,1]"
         # ---- Load video and metadata:
@@ -54,11 +54,11 @@ class SceneLoader:
         print(f"Loading meta-data from {metadata_path}")
         with (self.origin_scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
-        if fps is None:
-            fps = metadata["fps"]
-        self.fps = fps
-        self.frame_interval = 1 / fps  # in seconds
-        print(f"Frames per second: {to_str(fps)}")
+        if fps_override is None:
+            fps_override = metadata["fps"]
+        self.fps = fps_override
+        self.frame_interval = 1 / fps_override  # in seconds
+        print(f"Frames per second: {to_str(fps_override)}")
         distort_pram = metadata["distort_pram"]
         distort_pram = np.zeros(4) if distort_pram is None else np.array(distort_pram)
         # get the camera info of the original loaded video:
@@ -70,7 +70,7 @@ class SceneLoader:
             fx=metadata["fx"],  # focal length in pixels in the x direction
             fy=metadata["fy"],  # focal length in pixels in the y direction,
             distort_pram=distort_pram,
-            fps=fps,
+            fps=fps_override,
             min_vis_z_mm=metadata["min_vis_z_mm"],
         )
         # converts pixel coordinates in the a original viewed video to normalized coordinates
@@ -96,7 +96,7 @@ class SceneLoader:
                 fx=metadata["fx"],
                 fy=metadata["fy"],
                 distort_pram=distort_pram,
-                fps=fps,
+                fps=fps_override,
                 min_vis_z_mm=metadata["min_vis_z_mm"],
             )
             # converts pixel coordinates in the alg-viewed video to normalized coordinates

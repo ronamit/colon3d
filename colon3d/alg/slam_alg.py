@@ -368,9 +368,10 @@ class SlamAlgRunner:
             # get the camera poses corresponding to the new KPs
             cam_poses_of_new = self.cam_poses[frame_inds_of_new]
             # get the normalized pixel coordinates of the new KPs
-            kp_nrm_of_new = [self.kp_log.get_kp_norm_coord(kp_id) for kp_id in new_world_point_kp_ids]
+            kp_nrm_of_new = [np.array(self.kp_log.get_kp_norm_coord(kp_id)) for kp_id in new_world_point_kp_ids]
+            kp_nrm_of_new = np.stack(kp_nrm_of_new, axis=0)
             # convert to torch
-            kp_nrm_of_new = torch.tensor(np.array(kp_nrm_of_new), device=self.device)
+            kp_nrm_of_new = torch.tensor(kp_nrm_of_new, device=self.device)
             # estimate the 3d points of the new KPs (using the depth estimator)
             # note: the depth estimator already process the frame index until the current frame, and saved the results in a buffer
             z_depths_of_new = depth_and_ego_estimator.get_z_depth_at_pixels(

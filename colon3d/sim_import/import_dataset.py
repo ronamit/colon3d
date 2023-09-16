@@ -1,6 +1,5 @@
 import argparse
 import os
-import pickle
 from pathlib import Path
 
 import h5py
@@ -44,7 +43,7 @@ def main():
     parser.add_argument(
         "--sim_name",
         type=str,
-        choices=["Zhang22", "ColonNavSim", "SimCol3D"],
+        choices=["Zhang22", "ColonNav", "SimCol3D"],
         default="SimCol3D",
         help="The name of the simulator that generated the data.",
     )
@@ -114,7 +113,7 @@ class SimImporter:
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
-        sim_name: str = "ColonNavSim",
+        sim_name: str = "ColonNav",
         split_name: str = "train",
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
@@ -150,7 +149,7 @@ class SimImporter:
             print(f"Loading existing dataset from {self.path_to_save_data}...\n" + "-" * 50)
             return scenes_paths
 
-        if self.sim_name == "ColonNavSim":
+        if self.sim_name == "ColonNav":
             (
                 scenes_names,
                 metadata_per_scene,
@@ -238,23 +237,20 @@ class SimImporter:
             )
 
             # Get the GT depth frames (if available) and save them
-            if self.sim_name in ["ColonNavSim", "SimCol3D"]:
+            if self.sim_name in ["ColonNav", "SimCol3D"]:
                 # extract the GT depth frames
-                if self.sim_name == "ColonNavSim":
-                    z_depth_frames, depth_info = load_colon_nav_sim.get_ground_truth_depth(
+                if self.sim_name == "ColonNav":
+                    z_depth_frames = load_colon_nav_sim.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                         metadata=metadata,
                     )
                 else:
-                    z_depth_frames, depth_info = load_sim_col_3d.get_ground_truth_depth(
+                    z_depth_frames = load_sim_col_3d.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                         metadata=metadata,
                     )
-                # save depth info
-                with (scene_path / "gt_depth_info.pkl").open("wb") as file:
-                    pickle.dump(depth_info, file)
                 # save depth video
                 save_depth_video(
                     depth_frames=z_depth_frames,

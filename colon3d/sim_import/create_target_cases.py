@@ -8,7 +8,7 @@ import yaml
 from numpy.random import default_rng
 
 from colon3d.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
-from colon3d.util.data_util import get_all_scenes_paths_in_dir
+from colon3d.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, set_rand_seed, to_str
 from colon3d.util.rotations_util import get_random_rot_quat
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
@@ -161,10 +161,11 @@ def generate_cases_from_scene(
         gt_cam_poses = to_numpy(h5f["cam_poses"][:])
         gt_egomotions = to_numpy(h5f["egomotions"][:])
 
+    scene_loader = SceneLoader(scene_path=scene_path)
+    cam_K = scene_loader.alg_cam_info.K
+
     n_frames = gt_depth_maps.shape[0]
     assert n_frames == gt_cam_poses.shape[0], "The number of frames in the depth maps and camera poses is not equal"
-    with (scene_path / "gt_depth_info.pkl").open("rb") as file:
-        depth_info = to_numpy(pickle.load(file))
 
     for i_case in range(n_cases_per_scene):
         scene_name = scene_path.name
@@ -178,7 +179,7 @@ def generate_cases_from_scene(
             gt_depth_maps=gt_depth_maps,
             gt_cam_poses=gt_cam_poses,
             rng=rng,
-            depth_info=depth_info,
+            cam_K=cam_K,
             cases_params=cases_params,
         )
         if targets_info is None:
@@ -206,9 +207,6 @@ def generate_cases_from_scene(
                     compression="gzip",
                 )
                 hf.create_dataset("egomotions", data=to_default_type(est_egomotions))
-            # save depth info to a file (unchanged from the ground truth):
-            with (case_path / "est_depth_info.pkl").open("wb") as file:
-                pickle.dump(depth_info, file)
 
         # get the FPS:
         with (scene_path / "meta_data.yaml").open("r") as file:
@@ -225,7 +223,7 @@ def generate_cases_from_scene(
         tracks = create_tracks_per_frame(
             gt_depth_maps=gt_depth_maps,
             gt_cam_poses=gt_cam_poses,
-            depth_info=depth_info,
+            cam_K=cam_K,
             targets_info=targets_info,
             min_pixels_in_bb=cases_params["min_pixels_in_bb"],
         )

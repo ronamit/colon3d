@@ -161,7 +161,7 @@ def transform_points_world_to_cam(
     do_squeeze = False
     if points_3d_world.ndim == 1:
         points_3d_world = points_3d_world.unsqueeze(0)
-        do_squeeze  = True
+        do_squeeze = True
     if cam_poses.ndim == 1:
         cam_poses = cam_poses.unsqueeze(0)
     points_3d_world = assert_2d_tensor(points_3d_world, 3)
@@ -379,11 +379,11 @@ def get_pose_delta(
 
 
 # --------------------------------------------------------------------------------------------------------------------
-def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray, cam_pose: np.ndarray):
+def get_frame_point_cloud(z_depth_frame: np.ndarray, cam_K: np.ndarray, cam_pose: np.ndarray):
     """Returns a point cloud for a given depth map and camera pose
     Args:
         z_depth_frame: [frame_width x frame_height] (units: mm)
-        K_of_depth_map: [3 x 3] camera intrinsics matrix (we assume it is of the form [fx, 0, cx; 0, fy, cy; 0, 0, 1])
+        cam_K: [3 x 3] camera intrinsics matrix (we assume it is of the form [fx, 0, cx; 0, fy, cy; 0, 0, 1])
         cam_pose: [7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation (in the world coordinate system)
             If None, then we assume the camera is at the origin and looking in the direction of the positive z axis.
     Returns:
@@ -404,7 +404,7 @@ def get_frame_point_cloud(z_depth_frame: np.ndarray, K_of_depth_map: np.ndarray,
     points_nrm = transform_rectilinear_image_pixel_coords_to_normalized(
         pixels_x=pixels_x,
         pixels_y=pixels_y,
-        cam_K=K_of_depth_map,
+        cam_K=cam_K,
     )
     points3d_cam_sys = np_func(unproject_image_normalized_coord_to_cam_sys)(points_nrm=points_nrm, z_depths=z_depths)
 

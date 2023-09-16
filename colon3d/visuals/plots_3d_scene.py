@@ -245,7 +245,10 @@ def plot_camera_sys_per_frame(
 
 
 def plot_3d_trajectories(
-    trajectories: np.ndarray | dict, save_path: Path, start_frame: int = 0, stop_frame: int | None = None,
+    trajectories: np.ndarray | dict,
+    save_path: Path,
+    start_frame: int = 0,
+    stop_frame: int | None = None,
 ):
     """
     Plot the 3D trajectory of the camera in the world system.
@@ -257,18 +260,44 @@ def plot_3d_trajectories(
     if isinstance(trajectories, np.ndarray):
         trajectories = {"cam": trajectories}
 
-    for traj_name, poses in trajectories.items():
+    colors = [
+        "darkblue",
+        "darkred",
+        "darkgreen",
+        "darkorange",
+        "darkmagenta",
+        "darkcyan",
+        "darkgoldenrod",
+        "darkviolet",
+    ]
+
+    fig = go.Figure()
+    # add point at the axes origin:
+    fig.add_trace(
+        go.Scatter3d(
+            x=[0],
+            y=[0],
+            z=[0],
+            mode="markers",
+            marker={"size": 4, "color": "black"},
+            name="Origin",
+        ),
+    )
+    # plot all the trajectories:
+    for i_traj, traj_name in enumerate(trajectories):
+        poses = trajectories[traj_name]
+        color = colors[i_traj % len(colors)]
         if stop_frame is None:
             stop_frame = poses.shape[0]
         locs = to_numpy(poses[start_frame:stop_frame, 0:3])
-        fig = go.Figure()
         fig.add_trace(
             go.Scatter3d(
                 x=locs[:, 0],
                 y=locs[:, 1],
                 z=locs[:, 2],
-                mode="lines",
-                line={"color": "darkblue", "width": 1},
+                mode="lines+markers",
+                marker={"color": color, "symbol": "circle", "size": 1},
+                line={"color": color, "width": 1},
                 name=traj_name,
             ),
         )

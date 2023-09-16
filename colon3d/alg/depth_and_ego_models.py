@@ -85,16 +85,6 @@ class DepthModel:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def get_depth_info(self) -> dict:
-        #  metadata for the depth maps
-        depth_info = {
-            "K_of_depth_map": self.depth_map_K,
-            "depth_map_size": {"width": self.depth_map_width, "height": self.depth_map_height},
-        }
-        return depth_info
-
-    # --------------------------------------------------------------------------------------------------------------------
-
     def estimate_depth_map(self, img: np.ndarray) -> torch.Tensor:
         """Estimate the depth map from the image.
         Args:

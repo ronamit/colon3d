@@ -14,6 +14,7 @@ scene_loader = SceneLoader(scene_path=scene_path, n_frames_lim=0, alg_fov_ratio=
 detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
 depth_estimator = DepthAndEgoMotionLoader(
     scene_path=scene_path,
+    scene_loader=scene_loader,
     depth_maps_source="ground_truth",
     egomotions_source="ground_truth",
 )

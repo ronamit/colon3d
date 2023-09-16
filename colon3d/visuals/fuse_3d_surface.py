@@ -1,7 +1,6 @@
 """Fuse 1000 RGB-D images from the 7-scenes dataset into a TSDF voxel volume with 2cm resolution.
 """
 import argparse
-import pickle
 import time
 from pathlib import Path
 
@@ -64,11 +63,9 @@ def main():
     with h5py.File((example_path / "gt_3d_data.h5").resolve(), "r") as h5f:
         gt_depth_maps = to_default_type(h5f["z_depth_map"][:], num_type="float_m")
         gt_cam_poses = to_default_type(h5f["cam_poses"][:])
-    with (example_path / "gt_depth_info.pkl").open("rb") as file:
-        depth_info = pickle.load(file)
 
     # The matrix of the camera intrinsics (camera_sys_hom_cord = cam_K_mat @ pixel_hom_cord) [3x3]
-    K_of_depth_map = depth_info["K_of_depth_map"]
+    cam_K = scene_loader.alg_cam_info.K
 
     # the spatial size of each voxel [mm] (if the number of voxels is too large then increase this value)
     voxel_size_mm = 0.5
@@ -91,7 +88,7 @@ def main():
         cam_pose_mat = cam_pose_as_hom_matrix(cam_loc, cam_rot)
 
         # Compute camera view frustum and extend convex hull
-        view_frust_pts = fusion.get_view_frustum(depth_im, K_of_depth_map, cam_pose_mat)
+        view_frust_pts = fusion.get_view_frustum(depth_im, cam_K, cam_pose_mat)
         vol_bnds[:, 0] = np.minimum(vol_bnds[:, 0], np.amin(view_frust_pts, axis=1))
         vol_bnds[:, 1] = np.maximum(vol_bnds[:, 1], np.amax(view_frust_pts, axis=1))
     print("Volume bounds [mm]: \n", vol_bnds)
@@ -120,7 +117,7 @@ def main():
         cam_pose_mat = cam_pose_as_hom_matrix(cam_loc, cam_rot)
 
         # Integrate observation into voxel volume (assume color aligned with depth)
-        tsdf_vol.integrate(color_image, depth_im, K_of_depth_map, cam_pose_mat, obs_weight=1.0)
+        tsdf_vol.integrate(color_image, depth_im, cam_K, cam_pose_mat, obs_weight=1.0)
 
     print(f"Average number of frames processed per second: {n_frames / (time.time() - t0_elapse):.2f}")
 

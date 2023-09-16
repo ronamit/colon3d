@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/EndoSFM_GTD_v33",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
+        default="data_gcp/models/Temp",  # MonoDepth2_tuned_v3 | EndoSFM_tuned_v3 | EndoSFM_GTD
         help="Path to save the trained model.",
     )
     parser.add_argument(

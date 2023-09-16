@@ -28,7 +28,7 @@ def generate_targets(
     gt_depth_maps: np.ndarray,
     gt_cam_poses: np.ndarray,
     rng: np.random.Generator,
-    depth_info: dict,
+    cam_K: np.ndarray,
     cases_params: dict,
 ) -> TargetsInfo | None:
     """generate random 3D points on the surface of the colon, which will be used as the center of the tracks/"""
@@ -44,7 +44,6 @@ def generate_targets(
     dtype_int = get_default_dtype("numpy", num_type="int")
 
     n_frames, frame_width, frame_height = gt_depth_maps.shape
-    K_of_depth_map = depth_info["K_of_depth_map"]
     frame_radius = min(frame_width / 2, frame_height / 2)
     target_center_radius_max = max_dist_from_center_ratio * frame_radius
     target_center_radius_min = min_dist_from_center_ratio * frame_radius
@@ -77,7 +76,7 @@ def generate_targets(
         targets_centers_nrm = transform_rectilinear_image_pixel_coords_to_normalized(
             pixels_x=pixels_x,
             pixels_y=pixels_y,
-            cam_K=K_of_depth_map,
+            cam_K=cam_K,
         )
         targets_centers_3d = np_func(unproject_image_normalized_coord_to_world)(
             points_nrm=targets_centers_nrm,
@@ -98,7 +97,7 @@ def generate_targets(
         tracks = create_tracks_per_frame(
             gt_depth_maps=gt_depth_maps,
             gt_cam_poses=gt_cam_poses,
-            depth_info=depth_info,
+            cam_K=cam_K,
             targets_info=targets_info,
         )
 
@@ -131,7 +130,7 @@ def generate_targets(
         # ensure minimum number of pixels in the bounding box of each target in the first frame:
         if np.any(initial_pixels_in_bb < min_initial_pixels_in_bb):
             continue
-        
+
         break  # we found a valid target
 
     if i_attempt == max_attempts:
@@ -148,7 +147,7 @@ def generate_targets(
 def create_tracks_per_frame(
     gt_depth_maps: np.ndarray,
     gt_cam_poses: np.ndarray,
-    depth_info: dict,
+    cam_K: np.ndarray,
     targets_info: TargetsInfo,
     min_pixels_in_bb: int = 10,
 ) -> pd.DataFrame:
@@ -156,7 +155,6 @@ def create_tracks_per_frame(
     Args:
         gt_depth_maps: the depth maps of the scene
         gt_cam_poses: the camera poses of the scene
-        depth_info: a dictionary containing the depth map information
         targets_info: a TargetsInfo object containing the targets information
     Returns:
         a dataframe containing the bounding boxes of the tracks in each frame
@@ -165,7 +163,6 @@ def create_tracks_per_frame(
     targets_radiuses = targets_info.radiuses
     n_targets = targets_p3d_world.shape[0]
     n_frames, frame_width, frame_height = gt_depth_maps.shape
-    K_of_depth_map = depth_info["K_of_depth_map"]
     # pixel coordinates of all the pixels in the image - we use (y, x) since this is the index order of the depth image
     pixels_y, pixels_x = np.meshgrid(np.arange(frame_height), np.arange(frame_width), indexing="ij")
     pixels_x = pixels_x.flatten()
@@ -184,7 +181,7 @@ def create_tracks_per_frame(
         cam_pose = gt_cam_poses[i_frame].reshape(1, 7)
         depth_map = gt_depth_maps[i_frame]
         # get the point cloud that the camera views (in world coordinates)
-        point_cloud_world = get_frame_point_cloud(z_depth_frame=depth_map, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
+        point_cloud_world = get_frame_point_cloud(z_depth_frame=depth_map, cam_K=cam_K, cam_pose=cam_pose)
         for i_trg in range(n_targets):
             trg_cent_world = targets_p3d_world[i_trg]
             trg_radius = targets_radiuses[i_trg]
@@ -209,13 +206,13 @@ def create_tracks_per_frame(
             if n_pix_in_bb < min_pixels_in_bb:
                 # if the number of pixels in the bounding box is too small - ignore this detection
                 continue
-            
+
             # find bounding box of the pixels that are inside the ball:
             x_min = pixels_x_inside.min()
             y_min = pixels_y_inside.min()
             x_max = pixels_x_inside.max()
             y_max = pixels_y_inside.max()
-            
+
             # find the pixel coordinate that is closest to the target center:
             pix_ind = np.argmin(dists_to_trg)
             x_trg = pixels_x[pix_ind]
@@ -223,7 +220,7 @@ def create_tracks_per_frame(
             target_x_list.append(x_trg)
             target_y_list.append(y_trg)
             # print(f"i_frame: {i_frame}, trg_pos: {(x_trg, y_trg)}, bbbox center: {(x_min + x_max) / 2, (y_min + y_max) / 2}")
-            
+
             ## create a new record for this track in this frame:
             xmin_list.append(x_min)
             ymin_list.append(y_min)

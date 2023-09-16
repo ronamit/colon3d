@@ -204,20 +204,8 @@ def get_ground_truth_depth(
         z_depth_mm = UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
         z_depth_frames[i_frame] = z_depth_mm
 
-    # The simulator generates depth maps with the same camera intrinsics as the RGB images.
-    fx = metadata["fx"]
-    fy = metadata["fy"]
-    cx = metadata["cx"]
-    cy = metadata["cy"]
-    K_of_depth_map = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
 
-    # save metadata for the depth maps
-    depth_info = {
-        "K_of_depth_map": K_of_depth_map,
-        "n_frames": n_frames,
-        "depth_map_size": {"width": frame_width, "height": frame_height},
-    }
-    return z_depth_frames, depth_info
+    return z_depth_frames
 
 
 # --------------------------------------------------------------------------------------------------------------------

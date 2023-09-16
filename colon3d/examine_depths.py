@@ -138,6 +138,7 @@ class DepthExaminer:
                 # get the ground truth depth loader
                 gt_depth_loader = DepthAndEgoMotionLoader(
                     scene_path=scene_path,
+                    scene_loader=scene_loader,
                     depth_maps_source="ground_truth",
                     egomotions_source="ground_truth",
                     depth_and_egomotion_method=None,
@@ -146,6 +147,7 @@ class DepthExaminer:
                 # get the estimated depth loader
                 est_depth_loader = DepthAndEgoMotionLoader(
                     scene_path=scene_path,
+                    scene_loader=scene_loader,
                     depth_maps_source="online_estimates",
                     egomotions_source="online_estimates",
                     depth_and_egomotion_method=self.depth_and_egomotion_method,

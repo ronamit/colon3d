@@ -1,4 +1,3 @@
-import pickle
 from pathlib import Path
 
 import h5py
@@ -8,7 +7,7 @@ import torch
 from colon3d.alg.depth_and_ego_models import DepthModel, EgomotionModel
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
-from colon3d.util.torch_util import get_default_dtype, get_device, to_default_type, to_numpy, to_torch
+from colon3d.util.torch_util import get_default_dtype, get_device, to_default_type, to_torch
 from colon3d.util.transforms_util import transform_rectilinear_image_norm_coords_to_pixel
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -18,6 +17,7 @@ class DepthAndEgoMotionLoader:
     def __init__(
         self,
         scene_path: Path,
+        scene_loader: SceneLoader,
         depth_maps_source: str,
         egomotions_source: str,
         depth_and_egomotion_method: str | None = None,
@@ -70,25 +70,22 @@ class DepthAndEgoMotionLoader:
                 method=depth_and_egomotion_method,
                 model_path=depth_and_egomotion_model_path,
             )
-            self.depth_info = self.depth_estimator.get_depth_info()
-            self.depth_map_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
-            self.depth_map_size = self.depth_info["depth_map_size"]
             print("Using online depth estimation")
 
         elif depth_maps_source == "ground_truth":
             print("Using loaded ground-truth depth maps")
-            self.init_loaded_depth("gt_3d_data.h5", "gt_depth_info.pkl")
+            self.init_loaded_depth("gt_3d_data.h5")
 
         elif depth_maps_source == "loaded_estimates":
             print("Using loaded estimated depth maps")
-            self.init_loaded_depth("est_depth_and_egomotion.h5", "est_depth_info.pkl")
+            self.init_loaded_depth("est_depth_and_egomotion.h")
 
         elif depth_maps_source == "none":
             assert depth_default is not None
-            self.depth_map_size = None
-            self.depth_map_K = None
         else:
             raise ValueError(f"Unknown depth maps source: {depth_maps_source}")
+
+        self.alg_cam_info = scene_loader.alg_cam_info
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -100,19 +97,14 @@ class DepthAndEgoMotionLoader:
         self.egomotions_buffer_frame_inds = list(range(n_frames))
 
     # --------------------------------------------------------------------------------------------------------------------
-    def init_loaded_depth(self, depth_maps_file_name: str, depth_info_file_name: str):
+    def init_loaded_depth(self, depth_maps_file_name: str):
         """Load the pre-computed depth maps into buffer."""
         self.depth_maps_path = self.orig_scene_path / depth_maps_file_name
-        # load the depth estimation info\metadata
-        with (self.orig_scene_path / depth_info_file_name).open("rb") as file:
-            self.depth_info = to_numpy(pickle.load(file))
         # load the depth maps
         with h5py.File(self.depth_maps_path.resolve(), "r") as h5f:
             self.depth_maps_buffer = to_torch(h5f["z_depth_map"][:], num_type="float_m")  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))
-        self.depth_map_size = self.depth_info["depth_map_size"]
-        self.depth_map_K = self.depth_info["K_of_depth_map"]  # the camera matrix of the depth map images
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -221,14 +213,11 @@ class DepthAndEgoMotionLoader:
 
         if self.depth_maps_source == "none":
             return torch.ones((n_points), device=device, dtype=dtype) * self.depth_default
+        # transform the query points from normalized coords (rectilinear with  K=I) to pixel coordinates.
 
-        # transform the query points from normalized coords (rectilinear with  K=I) to the depth estimation map coordinates (rectilinear with a given K matrix)
-        # that the depth estimation map was created with
         pixels_cord = transform_rectilinear_image_norm_coords_to_pixel(
             points_nrm=kp_norm_coords,
-            cam_K=self.depth_map_K,
-            im_height=self.depth_map_size["height"],
-            im_width=self.depth_map_size["width"],
+            cam_info=self.alg_cam_info,
         )
 
         x = pixels_cord[:, 0]
@@ -240,10 +229,10 @@ class DepthAndEgoMotionLoader:
         kps_in_cur = kp_frame_inds == cur_frame_idx
         kps_in_prev = kp_frame_inds == cur_frame_idx - 1
         assert kps_in_cur.sum() + kps_in_prev.sum() == n_points, "sanity check XOR should be true for all points"
-        if np.any(kps_in_cur):
-            z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]].to(dtype)
         if np.any(kps_in_prev):
-            z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]].to(dtype)
+            z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]]
+        if np.any(kps_in_cur):
+            z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]]
 
         # clip the depth
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:

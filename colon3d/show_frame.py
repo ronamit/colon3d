@@ -79,6 +79,7 @@ def main():
     )
     depth_loader = DepthAndEgoMotionLoader(
         scene_path=scene_path,
+        scene_loader=scene_loader,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
         depth_and_egomotion_method=args.depth_and_egomotion_method,
@@ -108,9 +109,9 @@ def main():
     plt.ylabel("y [pixels]")
     save_plot_and_close(save_path / f"{frame_name}_depth_{args.depth_maps_source}.png")
 
-    depth_info = depth_loader.depth_info
-    K_of_depth_map = depth_info["K_of_depth_map"]
-    fx, fy = K_of_depth_map[0, 0], K_of_depth_map[1, 1]
+    fx = scene_loader.alg_cam_info.fx
+    fy = scene_loader.alg_cam_info.fy
+    cam_K = scene_loader.alg_cam_info.K
     frame_height, frame_width = z_depth_frame.shape[:2]
     fov_deg = 2 * np.rad2deg(np.arctan(0.5 * min(frame_width / fx, frame_height / fy)))
 
@@ -150,7 +151,7 @@ def main():
         print("Frame index:", frame_idx)
         # get the point cloud (in the world coordinate system)
         print("World system:")
-        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=cam_pose)
+        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, cam_K=cam_K, cam_pose=cam_pose)
         plot_cam_and_point_cloud(
             points3d=points3d,
             cam_pose=cam_pose,
@@ -162,7 +163,7 @@ def main():
         )
         # get the point cloud (in the camera coordinate system)
         print("Camera system:")
-        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, K_of_depth_map=K_of_depth_map, cam_pose=None)
+        points3d = get_frame_point_cloud(z_depth_frame=z_depth_frame, cam_K=cam_K, cam_pose=None)
         plot_cam_and_point_cloud(
             points3d=points3d,
             cam_pose=None,

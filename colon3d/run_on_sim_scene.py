@@ -77,7 +77,7 @@ def main():
     parser.add_argument(
         "--depth_and_egomotion_model_path",
         type=str,
-        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD
+        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD_v2
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -212,6 +212,7 @@ def run_slam_on_scene(
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
     depth_estimator = DepthAndEgoMotionLoader(
         scene_path=scene_path,
+        scene_loader=scene_loader,
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
         depth_and_egomotion_method=depth_and_egomotion_method,
