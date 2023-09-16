@@ -23,7 +23,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/TrainData",
+        default="data_gcp/datasets/ColonNav/Train",
         help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py.py ).",
     )
     parser.add_argument(
