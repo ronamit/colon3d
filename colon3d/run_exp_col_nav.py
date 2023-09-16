@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--results_base_path",
         type=str,
-        default="data/results/ColonNav",
+        default="data/results/ColonNav_v2",
         help="Base path for the results",
     )
     parser.add_argument(
