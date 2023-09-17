@@ -26,20 +26,20 @@ def get_device(gpu_id: int = 0):
 def get_default_dtype(package="torch", num_type=None):
     num_type = num_type or "float"
     if package == "torch":
-        if num_type == "float":
+        if num_type in ["float", "float_m"]:
             return torch.float32 if mps_available() else torch.float64
-        if num_type == "float_m":
-            # the precision for depth maps
-            return torch.float32
+        # if num_type == "float_m":
+        #     # the precision for depth maps
+        #     return torch.float32
         if num_type == "int":
             return torch.int32
         raise ValueError(f"Unknown num_type: {num_type}")
     if package == "numpy":
-        if num_type == "float":
+        if num_type in ["float", "float_m"]:
             return np.float64
-        if num_type == "float_m":
+        # if num_type == "float_m":
             # the precision for depth maps
-            return np.float32
+            # return np.float32
         if num_type == "int":
             return np.int64
         raise ValueError(f"Unknown num_type: {num_type}")

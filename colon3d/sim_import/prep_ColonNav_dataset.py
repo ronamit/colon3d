@@ -23,10 +23,10 @@ def main():
         default="data_gcp/datasets/ColonNav",
     )
     parser.add_argument(
-        "--overwrite_data",
+        "--save_overwrite",
         type=bool_arg,
         default=True,
-        help="If True then the pre-processed data folders will be overwritten if they already exists",
+        help="If True then scenes folders will be overwritten if they already exists",
     )
     parser.add_argument(
         "--debug_mode",
@@ -41,7 +41,7 @@ def main():
         default=False,
     )
     args = parser.parse_args()
-    overwrite_data = args.overwrite_data
+    save_overwrite = args.save_overwrite
     debug_mode = args.debug_mode
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ def main():
                 save_path=save_path,
                 limit_n_scenes=limit_n_scenes,
                 limit_n_frames=limit_n_frames,
-                save_overwrite=overwrite_data,
+                save_overwrite=save_overwrite,
                 sim_name="ColonNav",
             ).run()
 
@@ -90,7 +90,7 @@ def main():
                 n_cases_per_scene=n_cases_per_scene,
                 min_non_visible_frames=min_non_visible_frames,
                 rand_seed=rand_seed,
-                save_overwrite=overwrite_data,
+                save_overwrite=save_overwrite,
             ).run()
 
 

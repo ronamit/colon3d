@@ -194,7 +194,7 @@ def get_ground_truth_depth(
     n_frames = len(depth_frames_paths)
     frame_height = metadata["frame_height"]
     frame_width = metadata["frame_width"]
-    z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float32)
+    z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float64)
     for i_frame in range(n_frames):
         depth_file_path = input_data_path / depth_frames_paths[i_frame]
         print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")

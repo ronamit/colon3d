@@ -58,8 +58,9 @@ class TargetCasesCreator:
         max_dist_from_center_ratio: float = 1.0,
         min_dist_from_center_ratio: float = 0.0,
         min_visible_frames: int = 5,
-        min_non_visible_frames: int = 20,
+        min_non_visible_frames: int = 100,
         min_initial_pixels_in_bb: int = 50,
+        max_init_depth_mm: float = 70.0,
         min_pixels_in_bb: int = 4,
         simulate_depth_and_egomotion_estimation: bool = False,
         depth_noise_std_mm: float = 0.0,
@@ -106,6 +107,7 @@ class TargetCasesCreator:
             "min_visible_frames": min_visible_frames,
             "min_non_visible_frames": min_non_visible_frames,
             "min_initial_pixels_in_bb": min_initial_pixels_in_bb,
+            "max_init_depth_mm": max_init_depth_mm,
             "min_pixels_in_bb": min_pixels_in_bb,
         }
         if simulate_depth_and_egomotion_estimation:

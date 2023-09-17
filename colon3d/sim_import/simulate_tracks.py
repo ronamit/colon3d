@@ -18,6 +18,7 @@ class TargetsInfo:
     n_targets: int
     points3d: np.ndarray  # shape: (n_targets, 3) the 3D points of the targets centers in world coordinate system
     radiuses: np.ndarray  # shape: (n_targets,) the radius of the targets in mm
+    init_targ_depth_mm: float  # the depth of the target in the first frame (minimal z in cam sys) [mm]
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -40,6 +41,7 @@ def generate_targets(
     min_visible_frames = cases_params["min_visible_frames"]
     min_non_visible_frames = cases_params["min_non_visible_frames"]
     min_initial_pixels_in_bb = cases_params["min_initial_pixels_in_bb"]
+    max_init_depth_mm = cases_params["max_init_depth_mm"]
     dtype = get_default_dtype("numpy")
     dtype_int = get_default_dtype("numpy", num_type="int")
 
@@ -72,6 +74,12 @@ def generate_targets(
         # get of the depth target center in the first frame (per target):
         pixels_depth = gt_depth_maps[inspected_frame_idx][pixels_y, pixels_x]
 
+        # ensure that the target is not too far from the camera:
+        init_targ_depth_mm = pixels_depth.min()
+        print(f"Initial target depth: {init_targ_depth_mm} [mm]]")
+        if init_targ_depth_mm > max_init_depth_mm:
+            continue
+
         # get the 3D point in the world coordinate system of the target center (per target):
         targets_centers_nrm = transform_rectilinear_image_pixel_coords_to_normalized(
             pixels_x=pixels_x,
@@ -90,6 +98,7 @@ def generate_targets(
             n_targets=n_targets,
             points3d=targets_centers_3d,
             radiuses=targets_radiuses,
+            init_targ_depth_mm=init_targ_depth_mm,
         )
 
         # Ensure the targets are valid:
