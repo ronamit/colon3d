@@ -204,7 +204,6 @@ def get_ground_truth_depth(
         z_depth_mm = UNITY_TO_MM * depth_img[:, :, R_channel_idx]  # z-depth is stored in the R channel
         z_depth_frames[i_frame] = z_depth_mm
 
-
     return z_depth_frames
 
 

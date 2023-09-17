@@ -151,7 +151,7 @@ class SimImporter:
             return scenes_paths
 
         if self.sim_name == "ColonNav":
-            self.path_to_save_data  = self.path_to_save_data / self.split_name
+            self.path_to_save_data = self.path_to_save_data / self.split_name
             self.raw_sim_data_path = self.raw_sim_data_path / self.split_name
             (
                 scenes_names,
