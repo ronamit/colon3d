@@ -50,7 +50,7 @@ def load_sim_raw(
     fps_override: float,
 ):
     # Get the train\test split from the misc folder:
-    split_file_path = input_data_path / "misc" / f"{split_name}_file.txt"
+    split_file_path = input_data_path / "misc" / f"{split_name.lower()}_file.txt"
     with split_file_path.open() as file:
         lines = file.readlines()
         scenes_paths = [Path(line.strip()) for line in lines]

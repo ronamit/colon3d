@@ -104,7 +104,9 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 
 * We outline below the main run scripts in the code. See the scripts for more details on the run options.
 
-** colon3d.sim_import.prep_ColonNav_dataset: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
+** colon3d.sim_import.create_ColonNav_dataset: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
+
+** colon3d.sim_import.create_SimCol3D_dataset:  Importing the SimCol3D dataset the format used by our code.
 
 ** colon3d.sim_import.import_dataset : Importing the otr datasets into the format used by our code.
 
