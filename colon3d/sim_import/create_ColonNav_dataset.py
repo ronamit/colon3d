@@ -23,7 +23,7 @@ def main():
         default="data_gcp/datasets/ColonNav",
     )
     parser.add_argument(
-        " ",
+        "--save_overwrite",
         type=bool_arg,
         default=True,
         help="If True then scenes folders will be overwritten if they already exists",
@@ -73,12 +73,10 @@ def main():
         for split_name in ["Train", "Test"]:
             # Importing a raw dataset of scenes from the unity simulator:
             SimImporter(
-                load_path=load_path,
-                split_name=split_name,
-                save_path=save_path,
+                load_path=load_path / split_name,
+                save_path=save_path / split_name,
                 limit_n_scenes=limit_n_scenes,
                 limit_n_frames=limit_n_frames,
-                save_overwrite=save_overwrite,
                 sim_name="ColonNav",
             ).run()
 

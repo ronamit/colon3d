@@ -17,6 +17,7 @@ UNITY_TO_MM = 100  # multiply the loaded distance values by this factor to get m
 
 def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps_override: float):
     """Load the raw data saved using Unity's Perception Package camera captures."""
+    
     # gather all the "capture" files
     assert input_data_path.is_dir(), "The input path should be a directory"
     paths = [p for p in input_data_path.glob("Dataset*") if p.is_dir()]
