@@ -16,9 +16,9 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 # --------------------------------------------------------------------------------------------------------------------
 """ Notes:
-* Run run_data_prep.py first to generate the dataset of cases with randomly generated targets added to the original scenes.
+* Run colon3d.sim_import.create_SimCol3Dfirst to generate the dataset.
 * You can run several instances of this script in parallel, if setting  delete_incomplete_run_dirs == False, overwrite_results == False.
-# *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
+*  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
 
