@@ -272,17 +272,7 @@ def plot_3d_trajectories(
     ]
 
     fig = go.Figure()
-    # add point at the axes origin:
-    fig.add_trace(
-        go.Scatter3d(
-            x=[0],
-            y=[0],
-            z=[0],
-            mode="markers",
-            marker={"size": 4, "color": "black"},
-            name="Origin",
-        ),
-    )
+
     # plot all the trajectories:
     for i_traj, traj_name in enumerate(trajectories):
         poses = trajectories[traj_name]
@@ -301,6 +291,18 @@ def plot_3d_trajectories(
                 name=traj_name,
             ),
         )
+        # Plot the first point in larger size:
+        fig.add_trace(
+            go.Scatter3d(
+                x=[locs[0, 0]],
+                y=[locs[0, 1]],
+                z=[locs[0, 2]],
+                mode="markers",
+                marker={"color": color, "symbol": "circle", "size": 3},
+                name=traj_name,
+            ),
+        )
+
     fig.update_layout(
         scene={"xaxis_title": "X [mm]", "yaxis_title": "Y [mm]", "zaxis_title": "Z [mm]"},
         title="Camera Trajectory",
