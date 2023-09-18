@@ -61,7 +61,7 @@ def main():
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed, results will be saved to a debug folder",
-        default=True,
+        default=False,
     )
     parser.add_argument(
         "--exp_list",
