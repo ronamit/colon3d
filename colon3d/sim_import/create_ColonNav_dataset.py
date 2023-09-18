@@ -23,7 +23,7 @@ def main():
         default="data_gcp/datasets/ColonNav",
     )
     parser.add_argument(
-        "--save_overwrite",
+        " ",
         type=bool_arg,
         default=True,
         help="If True then scenes folders will be overwritten if they already exists",
@@ -82,16 +82,15 @@ def main():
                 sim_name="ColonNav",
             ).run()
 
-            # --------------------------------------------------------------------------------------------------------------------
-
-            # Generate several cases from each scene, each with randomly chosen target location and size.
-            TargetCasesCreator(
-                sim_data_path=save_path / split_name,
-                n_cases_per_scene=n_cases_per_scene,
-                min_non_visible_frames=min_non_visible_frames,
-                rand_seed=rand_seed,
-                save_overwrite=save_overwrite,
-            ).run()
+        # Test only:
+        # Generate several cases from each scene, each with randomly chosen target location and size.
+        TargetCasesCreator(
+            sim_data_path=save_path / "Test",
+            n_cases_per_scene=n_cases_per_scene,
+            min_non_visible_frames=min_non_visible_frames,
+            rand_seed=rand_seed,
+            save_overwrite=save_overwrite,
+        ).run()
 
 
 # --------------------------------------------------------------------------------------------------------------------
