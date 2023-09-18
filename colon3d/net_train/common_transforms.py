@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torchvision
 
-from colon3d.util.torch_util import to_torch
+from colon3d.util.torch_util import resize_images_batch, to_torch
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -15,6 +15,8 @@ def img_to_net_in_format(
     img_normalize_mean: float = 0.45,
     img_normalize_std: float = 0.225,
     add_batch_dim: bool = False,
+    net_in_height: int | None = None,
+    net_in_width: int | None = None,
 ) -> torch.Tensor:
     """Transform an single input image to the network input format.
     Args:
@@ -39,6 +41,13 @@ def img_to_net_in_format(
 
     if add_batch_dim:
         img = img.unsqueeze(0)
+
+    img = resize_images_batch(
+        imgs=img,
+        new_height=net_in_height,
+        new_width=net_in_width,
+    )
+
     return img
 
 

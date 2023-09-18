@@ -12,7 +12,7 @@ import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
 import monodepth2.utils as monodepth2_utils
 from colon3d.net_train.common_transforms import img_to_net_in_format
 from colon3d.util.rotations_util import axis_angle_to_quaternion
-from colon3d.util.torch_util import get_device
+from colon3d.util.torch_util import get_device, resize_single_image
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
@@ -48,8 +48,11 @@ class DepthModel:
 
         self.device = get_device()
 
+        self.net_in_width = self.model_info["frame_width"]
+        self.net_in_height = self.model_info["frame_height"]
+
+        # create the disparity\depth estimation network
         if method in {"EndoSFM", "EndoSFM_GTD"}:
-            # create the disparity estimation network
             self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
             # load the Disparity network
             self.disp_net_path = model_path / "DispNet_best.pt"
@@ -71,7 +74,6 @@ class DepthModel:
             loaded_dict_enc = torch.load(encoder_path)
             filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
             self.encoder.load_state_dict(filtered_dict_enc)
-
             loaded_dict = torch.load(depth_decoder_path)
             self.depth_decoder.load_state_dict(loaded_dict)
             self.encoder.to(self.device)
@@ -98,6 +100,8 @@ class DepthModel:
         """
         assert img.ndim == 3  # [H x W x 3]
         assert img.shape[2] == 3  # RGB image
+        frame_height = img.shape[0]
+        frame_width = img.shape[1]
 
         # resize and change dimension order of the images to fit the network input format  # [3 x H x W]
         img = img_to_net_in_format(
@@ -105,8 +109,11 @@ class DepthModel:
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
+            net_in_height=self.net_in_height,
+            net_in_width=self.net_in_width,
         )
 
+        # estimate the disparity map
         if self.method in {"EndoSFM", "EndoSFM_GTD"}:
             with torch.no_grad():
                 disparity_map = self.disp_net(img)  # [N x 1 x H x W]
@@ -131,9 +138,18 @@ class DepthModel:
                 )
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
+
+
+        # resize to the original image size
+        depth_map = resize_single_image(
+            img=depth_map,
+            new_height=frame_height,
+            new_width=frame_width,
+        )
+    
         # use the depth calibration to get the depth in mm
         depth_map = self.depth_calib_a * depth_map + self.depth_calib_b
-            
+
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
             depth_map = torch.clamp(depth_map, self.depth_lower_bound, self.depth_upper_bound)
@@ -155,8 +171,11 @@ class EgomotionModel:
         self.depth_calib_a = self.model_info["depth_calib_a"]
         # the camera matrix corresponding to the depth maps.
         self.depth_map_K = get_camera_matrix(self.model_info)
-        # create the egomotion estimation network
 
+        self.net_in_width = self.model_info["frame_width"]
+        self.net_in_height = self.model_info["frame_height"]
+
+        # create the egomotion estimation network
         if method in {"EndoSFM", "EndoSFM_GTD"}:
             pose_net_path = model_path / "PoseNet_best.pt"
             self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
@@ -203,12 +222,16 @@ class EgomotionModel:
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
+            net_in_height=self.net_in_height,
+            net_in_width=self.net_in_width,
         )
         to_img = img_to_net_in_format(
             img=to_img,
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
+            net_in_height=self.net_in_height,
+            net_in_width=self.net_in_width,
         )
 
         if self.method in {"EndoSFM", "EndoSFM_GTD"}:

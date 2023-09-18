@@ -7,14 +7,8 @@ import yaml
 
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
-from colon3d.util.general_util import (
-    ArgsHelpFormatter,
-    Tee,
-    bool_arg,
-    create_empty_folder,
-    save_plot_and_close,
-)
-from colon3d.util.torch_util import resize_grayscale_image, to_numpy
+from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, save_plot_and_close
+from colon3d.util.torch_util import resize_single_image, to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps
@@ -33,7 +27,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/monodepth2/MonoDepth2_orig/examination_result",
+        default="saved_models/MonoDepth2_orig/examination_result",
         help="Path to save the results.",
     )
     parser.add_argument(
@@ -198,7 +192,11 @@ class DepthExaminer:
                 depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
             elif self.depth_calib_method == "linear":
                 # linear model: depth = a * net_output, where a is the calibration parameter (calculated with least squares)
-                depth_calib = {"depth_calib_type": "linear", "depth_calib_a": cov_gt_depth_est_depth / var_est_depth, "depth_calib_b": 0}
+                depth_calib = {
+                    "depth_calib_type": "linear",
+                    "depth_calib_a": cov_gt_depth_est_depth / var_est_depth,
+                    "depth_calib_b": 0,
+                }
             elif self.depth_calib_method == "affine":
                 # affine model: depth = a * net_output + b, where a and b are the calibration parameters (calculated with least squares)
                 a = cov_gt_depth_est_depth / var_est_depth
@@ -206,7 +204,7 @@ class DepthExaminer:
                 depth_calib = {"depth_calib_type": "affine", "depth_calib_a": a, "depth_calib_b": b}
             else:
                 raise ValueError(f"Unknown depth calibration method: {self.depth_calib_method}")
-            
+
             return depth_calib
 
 
@@ -227,14 +225,16 @@ def compute_depths(
 
     if make_plots:
         # resize to the original image size
-        depth_map_resized = resize_grayscale_image(
+        depth_map_resized = resize_single_image(
             img=depth_map,
+            is_grayscale=True,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
         )
         # resize to the original image size
-        depth_map = resize_grayscale_image(
+        depth_map = resize_single_image(
             img=depth_map,
+            is_grayscale=True,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
         )

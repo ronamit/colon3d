@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--overwrite_results",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(
@@ -61,7 +61,7 @@ def main():
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed, results will be saved to a debug folder",
-        default=False,
+        default=True,
     )
     parser.add_argument(
         "--exp_list",
@@ -279,7 +279,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="MonoDepth2",
-                depth_and_egomotion_model_path=models_base_path / "monodepth2/MonoDepth2_orig",
+                depth_and_egomotion_model_path=models_base_path / "MonoDepth2_orig",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()

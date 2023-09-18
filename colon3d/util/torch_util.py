@@ -5,12 +5,14 @@ import torchvision
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 def mps_available():
     # Mac ARM
     return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
 
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def get_device(gpu_id: int = 0):
     if torch.cuda.is_available():
@@ -38,8 +40,8 @@ def get_default_dtype(package="torch", num_type=None):
         if num_type in ["float", "float_m"]:
             return np.float64
         # if num_type == "float_m":
-            # the precision for depth maps
-            # return np.float32
+        # the precision for depth maps
+        # return np.float32
         if num_type == "int":
             return np.int64
         raise ValueError(f"Unknown num_type: {num_type}")
@@ -186,21 +188,37 @@ def pseudo_huber_loss_on_x_sqr(x_sqr, delta=1.0):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def resize_grayscale_image(
+def resize_single_image(
     img: torch.Tensor,
     new_height: int,
     new_width: int,
 ) -> torch.Tensor:
-    """Resize grayscale image.
-    imgs: the input images [height x width]
+    """Resize an image that is in a torch tensor format.
+    img: single input image [height x width] or [n_channels x height x width]
     new_height: the new height
     new_width: the new width
     """
-    img = img.unsqueeze(0)
+    img = img.unsqueeze(0)  # add batch dimension
     resizer = torchvision.transforms.Resize((new_height, new_width), antialias=True)
     resized_img = resizer(img)
-    resized_img = resized_img.squeeze(0)
+    resized_img = resized_img.squeeze(0)  # remove batch dimension
     return resized_img
+
+# --------------------------------------------------------------------------------------------------------------------
+
+def resize_images_batch(
+    imgs: torch.Tensor,
+    new_height: int,
+    new_width: int,
+) -> torch.Tensor:
+    """Resize a batch of images that are in a torch tensor format.
+    imgs: input images [batch_size x n_channels x height x width]
+    new_height: the new height
+    new_width: the new width
+    """
+    resizer = torchvision.transforms.Resize((new_height, new_width), antialias=True)
+    resized_imgs = resizer(imgs)
+    return resized_imgs
 
 
 # --------------------------------------------------------------------------------------------------------------------
