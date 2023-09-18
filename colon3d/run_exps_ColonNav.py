@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--results_base_path",
         type=str,
-        default="data/results/ColonNav_v2",
+        default="data/results/ColonNav",
         help="Base path for the results",
     )
     parser.add_argument(
@@ -80,11 +80,11 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
 
     if args.debug_mode:
-        n_cases_lim = 1  # num cases to run the algorithm on
+        n_scenes_lim = 1  # num cases to run the algorithm on
         n_frames_lim = 25  # num frames to run the algorithm on from each scene.
         base_results_path = base_results_path / "debug"
     else:
-        n_cases_lim = 0  # no limit
+        n_scenes_lim = 0  # no limit
         n_frames_lim = 0  # no limit
     # ------------------------------------------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ def main():
             "save_raw_outputs": False,
             "alg_fov_ratio": 0,
             "n_frames_lim": n_frames_lim,
-            "n_scenes_lim": n_cases_lim,
+            "n_scenes_lim": n_scenes_lim,
             "save_overwrite": overwrite_results,
         }
         save_unified_results_table(base_results_path)

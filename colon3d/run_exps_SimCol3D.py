@@ -31,13 +31,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/Test",
+        default="data_gcp/datasets/SimCol3D",
         help="Path to the dataset of scenes (not raw).",
     )
     parser.add_argument(
         "--results_base_path",
         type=str,
-        default="data/results/ColonNav_v2",
+        default="data/results/SimCol3D",
         help="Base path for the results",
     )
     parser.add_argument(
@@ -80,11 +80,11 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
 
     if args.debug_mode:
-        n_cases_lim = 1  # num cases to run the algorithm on
+        n_scenes_lim = 1  # num cases to run the algorithm on
         n_frames_lim = 25  # num frames to run the algorithm on from each scene.
         base_results_path = base_results_path / "debug"
     else:
-        n_cases_lim = 0  # no limit
+        n_scenes_lim = 0  # no limit
         n_frames_lim = 0  # no limit
     # ------------------------------------------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ def main():
             "save_raw_outputs": False,
             "alg_fov_ratio": 0,
             "n_frames_lim": n_frames_lim,
-            "n_scenes_lim": n_cases_lim,
+            "n_scenes_lim": n_scenes_lim,
             "save_overwrite": overwrite_results,
         }
         save_unified_results_table(base_results_path)
@@ -220,20 +220,7 @@ def main():
             ).run()
         save_unified_results_table(base_results_path)
         
-        # --------------------------------------------------------------------------------------------------------------------
-        # Bundle-adjustment, with history=2, without monocular depth and egomotion estimation
-        # --------------------------------------------------------------------------------------------------------------------
-        exp_name = "BA_history_2_no_depth_no_ego"
-        if not exp_list or exp_name in exp_list:
-            SlamOnDatasetRunner(
-                dataset_path=dataset_path,
-                save_path=base_results_path / exp_name,
-                depth_maps_source="none",
-                egomotions_source="none",
-                alg_settings_override={"n_last_frames_to_use": 2},
-                **common_args,
-            ).run()
-        save_unified_results_table(base_results_path)
+
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------
@@ -265,21 +252,7 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
-        # --------------------------------------------------------------------------------------------------------------------
-        # Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
-        # --------------------------------------------------------------------------------------------------------------------
-        exp_name = "trivial_nav"
-        if not exp_list or exp_name in exp_list:
-            SlamOnDatasetRunner(
-                dataset_path=dataset_path,
-                save_path=base_results_path / exp_name,
-                depth_maps_source="none",
-                egomotions_source="none",
-                depth_and_egomotion_method="none",
-                alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
-                **common_args,
-            ).run()
-        save_unified_results_table(base_results_path)
+
         # -------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with the original MonoDepth2 monocular depth and egomotion estimation
         # -------------------------------------------------------------------------------------------------
