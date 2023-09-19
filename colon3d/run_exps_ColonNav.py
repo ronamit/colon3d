@@ -54,7 +54,7 @@ def main():
     parser.add_argument(
         "--delete_incomplete_run_dirs",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then empty results folders will be deleted",
     )
     parser.add_argument(

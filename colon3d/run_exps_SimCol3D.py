@@ -48,13 +48,13 @@ def main():
     parser.add_argument(
         "--save_overwrite",
         type=bool_arg,
-        default=True,
+        default=False,
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(
         "--delete_incomplete_run_dirs",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then empty results folders will be deleted",
     )
     parser.add_argument(
