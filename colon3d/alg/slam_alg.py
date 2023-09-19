@@ -158,7 +158,7 @@ class SlamAlgRunner:
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print_now = self.print_interval and i_frame % self.print_interval == 0
-            print_if(print_now, f"i_frame: {i_frame}/{n_frames-1}")
+            print_if(print_now, f"* i_frame: {i_frame}/{n_frames-1} *")
             # Get the RGB frame:
             cur_rgb_frame = frames_generator.__next__()
             # Get the targets tracks in the current frame:
