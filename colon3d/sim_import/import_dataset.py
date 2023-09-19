@@ -95,7 +95,7 @@ def main():
         world_sys_to_first_cam=args.world_sys_to_first_cam,
         fps_override=args.fps_override,
         save_overwrite=args.save_overwrite,
-        sim_name=args.sim_name,
+        source_name=args.sim_name,
     )
     sim_importer.run()
 
@@ -115,7 +115,7 @@ class SimImporter:
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
-        sim_name: str = "ColonNav",
+        source_name: str = "ColonNav",
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
         Args:
@@ -135,14 +135,13 @@ class SimImporter:
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
         self.save_overwrite = save_overwrite
-        self.sim_name = sim_name
+        self.source_name = source_name
         self.split_name = split_name
-        print("Simulator: ", self.sim_name)
+        print("Data source: ", self.source_name)
 
     # --------------------------------------------------------------------------------------------------------------------
 
     def run(self):
-    
         is_created = create_empty_folder(self.path_to_save_data, save_overwrite=self.save_overwrite)
         if not is_created:
             # in this case the dataset already exists, so we will load it instead of creating it
@@ -150,7 +149,7 @@ class SimImporter:
             print(f"Loading existing dataset from {self.path_to_save_data}...\n" + "-" * 50)
             return scenes_paths
 
-        if self.sim_name == "ColonNav":
+        if self.source_name == "ColonNav":
             (
                 scenes_names,
                 metadata_per_scene,
@@ -163,7 +162,7 @@ class SimImporter:
                 limit_n_frames=self.limit_n_frames,
                 fps_override=self.fps_override,
             )
-        elif self.sim_name == "Zhang22":
+        elif self.source_name == "Zhang22":
             (
                 scenes_names,
                 metadata_per_scene,
@@ -178,7 +177,7 @@ class SimImporter:
             )
             depth_frames_paths_per_scene = None  # the Zhang22 dataset does not have GT depth frames
 
-        elif self.sim_name == "SimCol3D":
+        elif self.source_name == "SimCol3D":
             (
                 scenes_names,
                 metadata_per_scene,
@@ -193,7 +192,7 @@ class SimImporter:
                 fps_override=self.fps_override,
             )
         else:
-            raise NotImplementedError(f"Unknown sim_name={self.sim_name}")
+            raise NotImplementedError(f"Unknown sim_name={self.source_name}")
 
         n_scenes = len(scenes_names)
         # save the camera poses and depth frames for each scene
@@ -238,9 +237,9 @@ class SimImporter:
             )
 
             # Get the GT depth frames (if available) and save them
-            if self.sim_name in ["ColonNav", "SimCol3D"]:
+            if self.source_name in ["ColonNav", "SimCol3D"]:
                 # extract the GT depth frames
-                if self.sim_name == "ColonNav":
+                if self.source_name == "ColonNav":
                     z_depth_frames = loader_ColonNav.get_ground_truth_depth(
                         input_data_path=self.raw_sim_data_path,
                         depth_frames_paths=depth_frames_paths_per_scene[i_scene],

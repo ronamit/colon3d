@@ -77,7 +77,7 @@ def main():
                 save_path=save_path / split_name,
                 limit_n_scenes=limit_n_scenes,
                 limit_n_frames=limit_n_frames,
-                sim_name="ColonNav",
+                source_name="ColonNav",
             ).run()
 
         # Test only:
