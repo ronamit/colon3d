@@ -222,6 +222,7 @@ class SlamAlgRunner:
             we call the current frame "frame B" and the previous frame "frame A"
         """
         alg_prm = self.alg_prm
+        use_bundle_adjustment = alg_prm.use_bundle_adjustment
 
         # Keep  the (frame_idx, x, y) of keypoints that are associated with a newly discovered 3D point (in the current frame)
         new_world_point_kp_ids = []
@@ -256,7 +257,7 @@ class SlamAlgRunner:
             # concat the current guess to the cam_poses tensor
             self.cam_poses = torch.cat((self.cam_poses, cur_guess_cam_pose), dim=0)
 
-        if self.alg_prm.use_bundle_adjustment:
+        if use_bundle_adjustment:
             # in this case - we need to find KPs matches for the bundle adjustment
             # find salient keypoints with ORB
             salient_KPs_B = self.kp_detector.detect(cur_rgb_frame, None)
@@ -289,8 +290,9 @@ class SlamAlgRunner:
                 descriptors_B=descriptors_B,
                 kp_matcher=self.kp_matcher,
                 alg_prm=self.alg_prm,
-                print_now=print_now,
             )
+
+            print_if(print_now and use_bundle_adjustment , f"Found {len(matched_A_kps)} matches in frame {i_frame}.")
             # -----Draw the matches
             if draw_interval and i_frame % draw_interval == 0:
                 # draw our inliers (if RANSAC was done) or all good matching keypoints
@@ -391,7 +393,7 @@ class SlamAlgRunner:
         self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:
-        if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
+        if i_frame > 0 and use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
             verbose = 2 if print_now else 0
             # The frame indexes to set the optimization variables (cam poses and 3D points)
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from colon3d.alg.alg_settings import AlgorithmParam
-from colon3d.util.general_util import print_if, to_str
+from colon3d.util.general_util import to_str
 from colon3d.util.torch_util import get_default_dtype
 
 np_dtype = get_default_dtype("numpy")
@@ -148,7 +148,6 @@ def get_kp_matchings(
     descriptors_B,
     kp_matcher,
     alg_prm: AlgorithmParam,
-    print_now: bool = True,
 ):
     """
     Parameters:
@@ -163,7 +162,6 @@ def get_kp_matchings(
     max_match_pix_dist = alg_prm.max_match_pix_dist
 
     if len(keypoints_A) == 0 or len(keypoints_B) == 0:
-        print_if(print_now, "No keypoints to match...")
         return [], []
 
     matches = kp_matcher.match(descriptors_A, descriptors_B)
