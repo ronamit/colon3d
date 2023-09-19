@@ -289,6 +289,7 @@ class SlamAlgRunner:
                 descriptors_B=descriptors_B,
                 kp_matcher=self.kp_matcher,
                 alg_prm=self.alg_prm,
+                print_now=print_now,
             )
             # -----Draw the matches
             if draw_interval and i_frame % draw_interval == 0:

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from colon3d.alg.alg_settings import AlgorithmParam
-from colon3d.util.general_util import to_str
+from colon3d.util.general_util import print_if, to_str
 from colon3d.util.torch_util import get_default_dtype
 
 np_dtype = get_default_dtype("numpy")
@@ -79,7 +79,9 @@ class KeyPointsLog:
         frame_inds_set = set(frame_inds)
         for kp_id, p3d_id in self.map_kp_to_p3d_idx.items():
             frame_idx = kp_id[0]
-            if  ((frame_idx in frame_inds_set) or p3d_flag_vec[p3d_id]) and (frame_idx >= earliest_frame_to_use or earliest_frame_to_use == -1):
+            if ((frame_idx in frame_inds_set) or p3d_flag_vec[p3d_id]) and (
+                frame_idx >= earliest_frame_to_use or earliest_frame_to_use == -1
+            ):
                 kp_ids.append(kp_id)
         return kp_ids
 
@@ -146,6 +148,7 @@ def get_kp_matchings(
     descriptors_B,
     kp_matcher,
     alg_prm: AlgorithmParam,
+    print_now: bool = True,
 ):
     """
     Parameters:
@@ -160,7 +163,7 @@ def get_kp_matchings(
     max_match_pix_dist = alg_prm.max_match_pix_dist
 
     if len(keypoints_A) == 0 or len(keypoints_B) == 0:
-        print("No keypoints to match...")
+        print_if(print_now, "No keypoints to match...")
         return [], []
 
     matches = kp_matcher.match(descriptors_A, descriptors_B)
