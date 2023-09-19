@@ -31,8 +31,8 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/SimCol3D",
-        help="Path to the dataset of scenes (not raw).",
+        default="data_gcp/datasets/SimCol3D/Test",
+        help="Path to a dataset of scenes.",
     )
     parser.add_argument(
         "--results_base_path",
@@ -106,9 +106,8 @@ def main():
             "n_frames_lim": n_frames_lim,
             "n_scenes_lim": n_scenes_lim,
             "save_overwrite": save_overwrite,
+            "load_scenes_with_targets": False, # The SimCol3D dataset does not have targets
         }
-        save_unified_results_table(base_results_path)
-
         # --------------------------------------------------------------------------------------------------------------------
         # the (supervised with GT depth) tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------

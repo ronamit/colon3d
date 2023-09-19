@@ -31,6 +31,12 @@ def main():
         help="Path to the dataset of scenes.",
     )
     parser.add_argument(
+        "--load_scenes_with_targets",
+        type=bool_arg,
+        default=True,
+        help="If True, then only the scenes with targets under dataset_path will be loaded (use for datasets that have targets)",
+    )
+    parser.add_argument(
         "--save_path",
         type=str,
         default="data/results/ColonNav/temp_on_sim_dataset",
@@ -105,6 +111,7 @@ def main():
     slam_on_dataset_runner = SlamOnDatasetRunner(
         dataset_path=Path(args.dataset_path),
         save_path=Path(args.save_path),
+        load_scenes_with_targets=args.load_scenes_with_targets,
         save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
@@ -125,6 +132,7 @@ def main():
 class SlamOnDatasetRunner:
     dataset_path: Path
     save_path: Path
+    load_scenes_with_targets: bool = True
     save_raw_outputs: bool = False
     depth_maps_source: str = "none"
     egomotions_source: str = "none"
@@ -155,7 +163,12 @@ class SlamOnDatasetRunner:
             return metrics_stats
 
         print(f"Outputs will be saved to {self.save_path}")
-        scenes_paths = get_all_scenes_paths_in_dir(dataset_path=self.dataset_path, with_targets=True)
+        scenes_paths = get_all_scenes_paths_in_dir(
+            dataset_path=self.dataset_path,
+            with_targets=self.load_scenes_with_targets,
+        )
+
+        assert len(scenes_paths) > 0, f"No scenes found in {self.dataset_path}"
 
         if self.n_scenes_lim:
             scenes_paths = scenes_paths[: self.n_scenes_lim]

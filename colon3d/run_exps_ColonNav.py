@@ -107,7 +107,6 @@ def main():
             "n_scenes_lim": n_scenes_lim,
             "save_overwrite": save_overwrite,
         }
-        save_unified_results_table(base_results_path)
 
         # --------------------------------------------------------------------------------------------------------------------
         # the (supervised with GT depth) tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment

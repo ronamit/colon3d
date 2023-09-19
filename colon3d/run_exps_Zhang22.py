@@ -98,6 +98,7 @@ common_args = {
     "n_scenes_lim": n_cases_lim,
     "save_overwrite": args.save_overwrite,
     "plot_aided_nav": False,
+    "load_scenes_with_targets": False, # The Zhang22 dataset does not have targets
 }
 # --------------------------------------------------------------------------------------------------------------------
 # using the ground truth egomotions - without bundle adjustment
