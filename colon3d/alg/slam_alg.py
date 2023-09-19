@@ -297,6 +297,7 @@ class SlamAlgRunner:
                 descriptors_B=descriptors_B,
                 kp_matcher=self.kp_matcher,
                 alg_prm=self.alg_prm,
+                print_now=print_now,
             )
 
             print_if(print_now and use_bundle_adjustment, f"Found {len(matched_A_kps)} matches in frame {i_frame}.")

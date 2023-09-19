@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from colon3d.alg.alg_settings import AlgorithmParam
-from colon3d.util.general_util import to_str
+from colon3d.util.general_util import print_if, to_str
 from colon3d.util.torch_util import get_default_dtype
 
 np_dtype = get_default_dtype("numpy")
@@ -148,6 +148,7 @@ def get_kp_matchings(
     descriptors_B,
     kp_matcher,
     alg_prm: AlgorithmParam,
+    print_now: bool = True,
 ):
     """
     Parameters:
@@ -175,7 +176,7 @@ def get_kp_matchings(
     n_matches = len(matches)
     # check minimum number of matches to use RANSAC filter
     if n_matches > min_n_matches_to_filter:
-        print(f"Matched {n_matches} salient keypoint pairs...")
+        print_if(print_now, f"Matched {n_matches} salient keypoint pairs...")
         # If enough matches are found, we extract the locations of matched keypoints in both the images.
         # They are passed to find the perspective transformation. Once we get this 3x3 transformation matrix,
         src_pts = np.array([keypoints_A[m.queryIdx].pt for m in matches], dtype=np_dtype).reshape(-1, 1, 2)
@@ -195,23 +196,27 @@ def get_kp_matchings(
             ransacReprojThreshold=ransac_reprojection_err_threshold,
         )
         if M_hom is None or M_hom.shape == ():
-            print("RANSAC failed to find a homography...")
+            print_if(print_now, "RANSAC failed to find a homography...")
             good_matches = []
         else:
             # find the (Frobenius norm) distance of the estimated homography matrix from the identity matrix
             hom_dist_from_identity = np.linalg.norm(M_hom - np.eye(3), ord="fro")
             if hom_dist_from_identity > alg_prm.hom_dist_from_identity_threshold:
-                print(
+                print_if(
+                    print_now,
                     f"RANSAC failed to find a homography... (distance from identity is {to_str(hom_dist_from_identity)})",
                 )
                 good_matches = []
             else:
                 matches_mask = post_mask.ravel().tolist()
                 good_matches = [match for i_match, match in enumerate(matches) if matches_mask[i_match]]
-            print(f"After RANSAC, we kept only {len(good_matches)} good matches ...")
+            print_if(print_now, f"After RANSAC, we kept only {len(good_matches)} good matches ...")
     else:
         good_matches = matches
-        print(f"Too few matches for RANSAC {len(good_matches)}/{min_n_matches_to_filter}, using all matches...")
+        print_if(
+            print_now,
+            f"Too few matches for RANSAC {len(good_matches)}/{min_n_matches_to_filter}, using all matches...",
+        )
         matches_mask = None
 
     matched_A_kps = []
