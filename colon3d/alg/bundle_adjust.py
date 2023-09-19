@@ -295,7 +295,7 @@ def run_bundle_adjust(
 
     # Discard the invalid keypoints
     n_invalid_kps = is_kp_invalid.sum()
-    print_if(print_now, "Number of invalid keypoints to discard: ", n_invalid_kps)
+    print_if(print_now, f"Number of invalid keypoints to discard: {n_invalid_kps}")
     kp_ids_to_discard = [kp_id for i_kp, kp_id in enumerate(kp_opt_ids) if is_kp_invalid[i_kp]]
     kp_log.discard_keypoints(kp_ids_to_discard)
 
