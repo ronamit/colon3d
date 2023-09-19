@@ -424,6 +424,7 @@ class SlamAlgRunner:
                     fps=fps,
                     scene_metadata=self.scene_metadata,
                     verbose=verbose,
+                    print_now=print_now,
                 )
                 i_repeat += 1
 

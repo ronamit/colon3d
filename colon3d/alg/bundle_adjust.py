@@ -8,6 +8,7 @@ import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  
 from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.alg.constraints_terms import SoftConstraints
 from colon3d.alg.keypoints_util import KeyPointsLog
+from colon3d.util.general_util import print_if
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.util.torch_util import concat_list_to_tensor, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
 from colon3d.util.transforms_util import project_world_to_image_normalized_coord
@@ -35,7 +36,7 @@ def compute_cost_function(
 ):
     """
     Compute the cost function for the given optimization vector x.
-     (re-projection errors + additional penalties)
+    (re-projection errors + additional penalties)
     Args:
         x = torch.cat([cam_poses_opt, points_3d_opt]), where cam_poses_opt is a flattened vector the of the optimized camera poses per optimized frame
             where each cam_pose has 7 elements (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation
@@ -168,7 +169,8 @@ def run_bundle_adjust(
     alg_prm: AlgorithmParam,
     fps: float,
     scene_metadata: dict,
-    verbose=2,
+    verbose: int =2,
+    print_now: bool = False,
 ):
     """
     Run bundle adjustment on the given data
@@ -209,7 +211,7 @@ def run_bundle_adjust(
 
     # take the subsets that are used in the optimization objective:
     if len(kp_opt_ids) == 0:
-        print("No keypoints to be used in the optimization objective... skipping optimization")
+        print_if(print_now, "No keypoints to be used in the optimization objective... skipping optimization")
         return cam_poses, points_3d, kp_log, 0
 
     kp_frame_idx_u = concat_list_to_tensor([kp_id[0] for kp_id in kp_opt_ids], num_type="int")
@@ -226,9 +228,7 @@ def run_bundle_adjust(
     points_3d_opt = torch.as_tensor(points_3d[p3d_opt_flag]).requires_grad_()
     n_cam_poses_opt = cam_poses_opt.shape[0]
     n_points_3d_opt = points_3d_opt.shape[0]
-    print(
-        f"Optimizing cam-pose of {n_cam_poses_opt} frames, and {n_points_3d_opt} 3D-points, using {n_kp_used} keypoints.",
-    )
+    print_if(print_now, f"Optimizing cam-pose of {n_cam_poses_opt} frames, and {n_points_3d_opt} 3D-points, using {n_kp_used} keypoints.")
 
     # Set constraints on the optimization
     constraints = {}
@@ -269,7 +269,7 @@ def run_bundle_adjust(
         return cost
 
     # run the optimization
-    print(f"Running optimization for frames: {frames_inds_to_opt}...")
+    print_if(print_now, f"Running optimization for frames: {frames_inds_to_opt}...")
     t0 = time.time()
     if alg_prm.opt_method in {"bfgs", "l-bfgs", "cg", "newton-cg", "newton-exact", "trust-ncg"}:
         result = torchmin.minimize(
@@ -283,19 +283,19 @@ def run_bundle_adjust(
         )
     else:
         raise ValueError(f"Unknown opt_method: {alg_prm.opt_method}")
-    print(f"Optimization took {time.time() - t0:.1f} seconds")
+    print_if(print_now, f"Optimization took {time.time() - t0:.1f} seconds")
     with torch.no_grad():
         tot_cost, cost_components, reproject_dists_sqr = compute_cost_function(result.x, **cost_fun_kwargs)
         # mark the salient keypoints (type==-1) that have a large re-projection error as invalid
         kp_reproject_err_threshold = alg_prm.kp_reproject_err_threshold
         is_kp_invalid = (reproject_dists_sqr > kp_reproject_err_threshold**2) & (kp_type_u == -1)
         is_kp_invalid = is_kp_invalid.cpu().numpy()
-        print(f"Total final cost: {get_val(tot_cost):1.6g}")
-        print("Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
+        print_if(print_now, f"Total final cost: {get_val(tot_cost):1.6g}")
+        print_if(print_now, "Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
 
     # Discard the invalid keypoints
     n_invalid_kps = is_kp_invalid.sum()
-    print("Number of invalid keypoints to discard: ", n_invalid_kps)
+    print_if(print_now, "Number of invalid keypoints to discard: ", n_invalid_kps)
     kp_ids_to_discard = [kp_id for i_kp, kp_id in enumerate(kp_opt_ids) if is_kp_invalid[i_kp]]
     kp_log.discard_keypoints(kp_ids_to_discard)
 

@@ -75,7 +75,7 @@ def main():
     parser.add_argument(
         "--world_sys_to_first_cam",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True, the world coordinate system will be set to the first camera pose (the first camera pose will be at zero location and unit rotation)",
     )
     parser.add_argument(
@@ -112,7 +112,7 @@ class SimImporter:
         split_name: str = "Test",
         limit_n_scenes: int = 0,
         limit_n_frames: int = 0,
-        world_sys_to_first_cam: bool = False,
+        world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
         sim_name: str = "ColonNav",
