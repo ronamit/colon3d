@@ -102,7 +102,6 @@ def save_slam_plots(
         draw_aided_nav(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
-            tracks_ids=tracks_ids,
             online_est_track_cam_loc=online_est_track_cam_loc,
             online_est_track_angle=online_est_track_angle,
             alg_prm=alg_prm,
