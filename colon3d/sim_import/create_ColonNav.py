@@ -20,7 +20,7 @@ def main():
         "--save_path",
         type=str,
         help="The path to save the prepared dataset",
-        default="data_gcp/datasets/ColonNav",
+        default="data/datasets/ColonNav",
     )
     parser.add_argument(
         "--save_overwrite",

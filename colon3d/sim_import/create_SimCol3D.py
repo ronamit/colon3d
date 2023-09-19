@@ -19,7 +19,7 @@ def main():
         "--save_path",
         type=str,
         help="The path to save the prepared dataset",
-        default="data_gcp/datasets/SimCol3D",
+        default="data/datasets/SimCol3D",
     )
     parser.add_argument(
         "--save_overwrite",
