@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--save_overwrite",
         type=bool_arg,
-        default=True,
+        default=False,
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(

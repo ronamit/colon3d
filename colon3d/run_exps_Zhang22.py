@@ -21,15 +21,14 @@ parser.add_argument(
     help="Base path for the results",
 )
 parser.add_argument(
-    "--overwrite_data",
-    type=bool_arg,
-    default=True,
-    help="If True then the pre-processed data folders will be overwritten if they already exists",
+    "--models_base_path",
+    type=str,
+    default="data_gcp/models",
 )
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=True,
+    default=False,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -46,7 +45,7 @@ rand_seed = 0  # random seed for reproducibility
 # path to the raw data generate by the unity simulator:
 # path to save the processed scenes dataset:
 dataset_path = Path(args.dataset_path)
-
+models_base_path = Path(args.models_base_path)
 alg_settings_override_common = {}
 
 # base path to save the algorithm runs results:
@@ -107,7 +106,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_method="EndoSFM",
-    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
+    depth_and_egomotion_model_path=models_base_path/ "EndoSFM_orig",
     alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
@@ -120,7 +119,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_method="EndoSFM",
-    depth_and_egomotion_model_path="saved_models/EndoSFM_orig",
+    depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
     alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()

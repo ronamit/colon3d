@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="saved_models/MonoDepth2_orig/examination_result",
+        default="data/models/MonoDepth2_orig/examination_result",
         help="Path to save the results.",
     )
     parser.add_argument(
