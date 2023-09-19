@@ -147,7 +147,14 @@ class SlamAlgRunner:
         self.init_algorithm(scene_metadata)
 
         # ---- Run algorithm (on-line)  ----
-        print("-" * 50 + f"\nRunning SLAM algorithm. Time now: {get_time_now_str()}...\n" + "-" * 50 + f"{self.alg_prm}\n" + "-" * 50 + f"\nProcessing {n_frames} frames...")
+        print(
+            "-" * 50
+            + f"\nRunning SLAM algorithm... save path: {self.save_path}, time now: {get_time_now_str()}...\n"
+            + "-" * 50
+            + f"\n{self.alg_prm}\n"
+            + "-" * 50
+            + f"\nProcessing {n_frames} frames...",
+        )
         runtime_start = time.time()
         for i_frame in range(n_frames):
             print_now = self.print_interval and i_frame % self.print_interval == 0
@@ -292,7 +299,7 @@ class SlamAlgRunner:
                 alg_prm=self.alg_prm,
             )
 
-            print_if(print_now and use_bundle_adjustment , f"Found {len(matched_A_kps)} matches in frame {i_frame}.")
+            print_if(print_now and use_bundle_adjustment, f"Found {len(matched_A_kps)} matches in frame {i_frame}.")
             # -----Draw the matches
             if draw_interval and i_frame % draw_interval == 0:
                 # draw our inliers (if RANSAC was done) or all good matching keypoints
