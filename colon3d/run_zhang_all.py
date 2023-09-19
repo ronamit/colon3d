@@ -34,7 +34,7 @@ parser.add_argument(
     help="If True then the pre-processed data folders will be overwritten if they already exists",
 )
 parser.add_argument(
-    "--overwrite_results",
+    "--save_overwrite",
     type=bool_arg,
     default=True,
     help="If True then the save folders will be overwritten if they already exists",
@@ -96,7 +96,7 @@ common_args = {
     "alg_fov_ratio": 0,
     "n_frames_lim": 0,
     "n_scenes_lim": n_cases_lim,
-    "save_overwrite": args.overwrite_results,
+    "save_overwrite": args.save_overwrite,
     "plot_aided_nav": False,
 }
 # --------------------------------------------------------------------------------------------------------------------

@@ -17,7 +17,7 @@ from colon3d.alg.tracks_loader import (
     get_track_angle_from_pixel_loc,
 )
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
-from colon3d.util.general_util import convert_sec_to_str, get_time_now_str
+from colon3d.util.general_util import convert_sec_to_str, get_time_now_str, print_if
 from colon3d.util.rotations_util import get_identity_quaternion
 from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
 from colon3d.util.transforms_util import (
@@ -42,7 +42,7 @@ class SlamAlgRunner:
         depth_and_ego_estimator: DepthAndEgoMotionLoader,
         save_path: Path | None = None,
         draw_interval: int = 0,
-        verbose_print_interval: int = 0,
+        print_interval: int = 20,
     ):
         self.alg_prm = alg_prm
         self.scene_loader = scene_loader
@@ -50,7 +50,7 @@ class SlamAlgRunner:
         self.depth_and_ego_estimator = depth_and_ego_estimator
         self.save_path = save_path
         self.draw_interval = draw_interval
-        self.verbose_print_interval = verbose_print_interval
+        self.print_interval = print_interval
 
         #  ---- Algorithm hyperparameters  ----
         # ---- ORB feature detector and descriptor (https://docs.opencv.org/4.x/db/d95/classcv_1_1ORB.html)
@@ -147,12 +147,11 @@ class SlamAlgRunner:
         self.init_algorithm(scene_metadata)
 
         # ---- Run algorithm (on-line)  ----
-        print("-" * 50 + f"\nRunning SLAM algorithm. Time now: {get_time_now_str()}...\n" + "-" * 50)
-        print(f"{self.alg_prm}\n" + "-" * 50)
-        print(f"Processing {n_frames} frames...")
+        print("-" * 50 + f"\nRunning SLAM algorithm. Time now: {get_time_now_str()}...\n" + "-" * 50 + f"{self.alg_prm}\n" + "-" * 50 + f"\nProcessing {n_frames} frames...")
         runtime_start = time.time()
         for i_frame in range(n_frames):
-            print("-" * 50 + f"\ni_frame: {i_frame}/{n_frames-1}")
+            print_now = self.print_interval and i_frame % self.print_interval == 0
+            print_if(print_now, f"i_frame: {i_frame}/{n_frames-1}")
             # Get the RGB frame:
             cur_rgb_frame = frames_generator.__next__()
             # Get the targets tracks in the current frame:
@@ -166,7 +165,7 @@ class SlamAlgRunner:
                 depth_and_ego_estimator=self.depth_and_ego_estimator,
                 fps=fps,
                 draw_interval=self.draw_interval,
-                verbose_print_interval=self.verbose_print_interval,
+                print_now=print_now,
                 save_path=self.save_path,
             )
         print("-" * 50, f"\nSLAM algorithm run finished. Time now: {get_time_now_str()}")
@@ -202,7 +201,7 @@ class SlamAlgRunner:
         depth_and_ego_estimator: DepthAndEgoMotionLoader,
         fps: float,
         draw_interval: int,
-        verbose_print_interval: int,
+        print_now: bool,
         save_path: Path | None = None,
     ):
         """Run the algorithm on a new frame.
@@ -216,8 +215,7 @@ class SlamAlgRunner:
             curr_tracks: the tracks in the current frame (bounding boxes)
             alg_view_cropper: the view cropper
             fps: the FPS of the video [Hz]
-            draw_interval: the interval (in frames) in which to draw the results (0 for no drawing)
-            verbose_print_interval: the interval (in frames) in which to print the results (0 for no printing)
+            draw_interval: the interval (in frames) in which to draw the results (0 for no drawing
             save_path: the path to save the results and plots
 
         Note:
@@ -393,7 +391,7 @@ class SlamAlgRunner:
 
         # ---- Run bundle-adjustment:
         if i_frame > 0 and self.alg_prm.use_bundle_adjustment and i_frame % alg_prm.optimize_each_n_frames == 0:
-            verbose = 2 if (verbose_print_interval and i_frame % verbose_print_interval == 0) else 0
+            verbose = 2 if print_now else 0
             # The frame indexes to set the optimization variables (cam poses and 3D points)
             frames_inds_to_opt = list(range(max(0, i_frame - alg_prm.n_last_frames_to_opt + 1), i_frame + 1))
             # The frame indexes to use for the loss terms (if n_last_frames_to_use=-1, use all history)
@@ -404,7 +402,7 @@ class SlamAlgRunner:
             n_invalid_kps = -1
             i_repeat = 0
             while n_invalid_kps != 0:
-                print(f"Running bundle adjustment. Repeat #{i_repeat}")
+                print_if(print_now, f"Running bundle adjustment. Repeat #{i_repeat}")
                 self.cam_poses, self.points_3d, self.kp_log, n_invalid_kps = run_bundle_adjust(
                     cam_poses=self.cam_poses,
                     points_3d=self.points_3d,

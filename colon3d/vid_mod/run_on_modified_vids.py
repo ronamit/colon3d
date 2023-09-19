@@ -57,7 +57,7 @@ def main():
             alg_fov_ratio=alg_fov_ratio,
             n_frames_lim=0,
             draw_interval=200,
-            verbose_print_interval=0,
+            print_interval=0,
         )
         slam_out = slam_runner.run()
         online_est_track_world_loc = slam_out["online_est_track_world_loc"]
@@ -65,7 +65,6 @@ def main():
         online_est_track_angle = slam_out["online_est_track_angle"]
 
         # save the estimated track location in the camera system per frame
-
 
         with (mod_scene_results_path / "slam_results.pkl").open("wb") as f:
             save_dict = {

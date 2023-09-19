@@ -92,10 +92,10 @@ def main():
         help="plot and save figures each draw_interval frames",
     )
     parser.add_argument(
-        "--verbose_print_interval",
+        "--print_interval",
         type=int,
-        default=0,
-        help="print verbose information each verbose_print_interval frames",
+        default=20,
+        help="print the results each print_interval frames. If 0 then no prints",
     )
 
     args = parser.parse_args()
@@ -112,7 +112,7 @@ def main():
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
         draw_interval=args.draw_interval,
-        verbose_print_interval=args.verbose_print_interval,
+        print_interval=args.print_interval,
     )
     slam_runner.run()
 
@@ -133,7 +133,7 @@ class SlamRunner:
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
     draw_interval: int = 0
-    verbose_print_interval: int = 0
+    print_interval: int = 0
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
@@ -180,7 +180,7 @@ class SlamRunner:
                 depth_and_ego_estimator=depth_estimator,
                 save_path=self.save_path,
                 draw_interval=self.draw_interval,
-                verbose_print_interval=self.verbose_print_interval,
+                print_interval=self.print_interval,
             )
             slam_out = alg_runner.run()
 

@@ -17,7 +17,7 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # --------------------------------------------------------------------------------------------------------------------
 """ Notes:
 * Run colon3d.sim_import.create_SimCol3Dfirst to generate the dataset.
-* You can run several instances of this script in parallel, if setting  delete_incomplete_run_dirs == False, overwrite_results == False.
+* You can run several instances of this script in parallel, if setting  delete_incomplete_run_dirs == False, save_overwrite == False.
 *  To run an instance of the script using specific CUDA device (e.g. 0), use the following command:
     CUDA_VISIBLE_DEVICES=0 python -m colon3d.run_col_nav_all  ....
 """
@@ -46,7 +46,7 @@ def main():
         default="data_gcp/models",
     )
     parser.add_argument(
-        "--overwrite_results",
+        "--save_overwrite",
         type=bool_arg,
         default=True,
         help="If True then the results folders will be overwritten if they already exists",
@@ -71,7 +71,7 @@ def main():
         help="List of experiments to run, if empty then all experiments will be run",
     )
     args = parser.parse_args()
-    overwrite_results = args.overwrite_results
+    save_overwrite = args.save_overwrite
     models_base_path = Path(args.models_base_path)
     dataset_path = Path(args.dataset_path)
     # base path to save the algorithm runs results:
@@ -105,7 +105,7 @@ def main():
             "alg_fov_ratio": 0,
             "n_frames_lim": n_frames_lim,
             "n_scenes_lim": n_scenes_lim,
-            "save_overwrite": overwrite_results,
+            "save_overwrite": save_overwrite,
         }
         save_unified_results_table(base_results_path)
 
