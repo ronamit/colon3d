@@ -166,7 +166,6 @@ class SlamOnSimSceneRunner:
                 depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
                 alg_settings_override=self.alg_settings_override,
                 draw_interval=self.draw_interval,
-                plot_names=None,  # create all plots
             )
         return metrics_per_frame, metrics_stats
 
@@ -186,7 +185,6 @@ def run_slam_on_scene(
     depth_and_egomotion_model_path: Path | None = None,
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
-    plot_names: list | None = None,
     example_name: str = "",
 ):
     """ "
@@ -199,8 +197,6 @@ def run_slam_on_scene(
         depth_maps_source: The source of the depth maps.
         egomotions_source: The source of the egomotion.
         draw_interval: plot and save figures each draw_interval frame, if 0 then no plots are saved.
-        plot_names: list of plot names to save, if None then all plots are saved.
-
     """
     # get the default parameters for the SLAM algorithm
     alg_prm = AlgorithmParam()
@@ -241,7 +237,7 @@ def run_slam_on_scene(
             print(f"Saved raw algorithm outputs to {results_file_path}")
 
     # create and save plots
-    save_slam_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path, plot_names=plot_names)
+    save_slam_plots(slam_out=slam_out, save_path=save_path, scene_path=scene_path)
 
     # load the  ground truth targets info
     targets_info_path = scene_path / "targets_info.pkl"

@@ -142,7 +142,6 @@ class SlamOnDatasetRunner:
     n_frames_lim: int = 0
     n_scenes_lim: int = 0
     save_overwrite: bool = True
-    plot_aided_nav: bool = True
     alg_settings_override: dict | None = None
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -197,10 +196,7 @@ class SlamOnDatasetRunner:
 
                 # create the save folder
                 create_empty_folder(scene_save_path, save_overwrite=True)
-
-                # result plots to save
-                plot_names = ["aided_nav", "keypoints_and_tracks"] if self.plot_aided_nav else ["keypoints_and_tracks"]
-
+        
                 # run the SLAM algorithm on the current scene
                 _, scene_metrics_stats = run_slam_on_scene(
                     scene_path=scene_path,
@@ -213,7 +209,6 @@ class SlamOnDatasetRunner:
                     depth_and_egomotion_method=self.depth_and_egomotion_method,
                     depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
                     alg_settings_override=self.alg_settings_override,
-                    plot_names=plot_names,  # plots to create
                     example_name=scene_name,
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)

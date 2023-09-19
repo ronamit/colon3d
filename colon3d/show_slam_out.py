@@ -57,7 +57,6 @@ def save_slam_plots(
     scene_path,
     start_frame=0,
     stop_frame=None,
-    plot_names=None,
     max_anim_frames=10,
 ):
     save_path = Path(save_path)
@@ -67,7 +66,6 @@ def save_slam_plots(
     scene_loader.example_path = scene_path
     n_frames_orig = scene_loader.n_frames
     assert n_frames_orig > 0, "No frames were loaded!"
-
     tracks_p3d_inds = slam_out["tracks_p3d_inds"]
     detections_tracker = slam_out["detections_tracker"]
     online_logger = slam_out["online_logger"]
@@ -87,7 +85,7 @@ def save_slam_plots(
     t_interval_sec = 1 / fps  # sec
 
     # ---- Plot the estimated tracks z-coordinate in the camera system per fame
-    if plot_names is None or "z_dist_from_cam" in plot_names:
+    if tracks_ids:
         plot_z_dist_from_cam(
             tracks_ids,
             start_frame,
@@ -100,10 +98,11 @@ def save_slam_plots(
     online_logger.plot_cam_pose_changes(save_path, t_interval_sec)
 
     # Draw local-aided navigation video
-    if plot_names is None or "aided_nav" in plot_names:
+    if tracks_ids:
         draw_aided_nav(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
+            tracks_ids=tracks_ids,
             online_est_track_cam_loc=online_est_track_cam_loc,
             online_est_track_angle=online_est_track_angle,
             alg_prm=alg_prm,
@@ -111,43 +110,45 @@ def save_slam_plots(
             stop_frame=stop_frame,
             save_path=save_path,
         )
+    else:
+        print("Skipping draw_aided_nav...")
 
     # Draw the keypoints and detections on the video
-    if plot_names is None or "keypoints_and_tracks" in plot_names:
+    if tracks_ids or alg_prm.use_bundle_adjustment:
         draw_keypoints_and_tracks(
             scene_loader=scene_loader,
             detections_tracker=detections_tracker,
             kp_log=slam_out["kp_log"],
             save_path=save_path,
         )
+    else:
+        print("Skipping draw_keypoints_and_tracks...")
 
     # plot the estimated tracks positions in the camera system per fame
     stop_frame_anim = min(stop_frame, start_frame + max_anim_frames)
-    if plot_names is None or "camera_sys" in plot_names:
-        plot_camera_sys_per_frame(
-            tracks_kps_cam_loc_per_frame=online_est_track_cam_loc,
-            detections_tracker=detections_tracker,
-            start_frame=start_frame,
-            stop_frame=stop_frame_anim,
-            fps=fps,
-            cam_fov_deg=scene_loader.alg_fov_deg,
-            show_fig=False,
-            save_path=save_path,
-        )
+    plot_camera_sys_per_frame(
+        tracks_kps_cam_loc_per_frame=online_est_track_cam_loc,
+        detections_tracker=detections_tracker,
+        start_frame=start_frame,
+        stop_frame=stop_frame_anim,
+        fps=fps,
+        cam_fov_deg=scene_loader.alg_fov_deg,
+        show_fig=False,
+        save_path=save_path,
+    )
 
     # plot the camera trajectory and the track estimated positions in world system (animated plot)
-    if plot_names is None or "world_sys" in plot_names:
-        plot_world_sys_per_frame(
-            online_est_track_world_loc=online_est_track_world_loc,
-            online_est_salient_kp_world_loc=online_est_salient_kp_world_loc,
-            cam_poses=est_cam_poses,
-            start_frame=start_frame,
-            stop_frame=stop_frame_anim,
-            fps=fps,
-            cam_fov_deg=scene_loader.alg_fov_deg,
-            detections_tracker=detections_tracker,
-            save_path=save_path,
-        )
+    plot_world_sys_per_frame(
+        online_est_track_world_loc=online_est_track_world_loc,
+        online_est_salient_kp_world_loc=online_est_salient_kp_world_loc,
+        cam_poses=est_cam_poses,
+        start_frame=start_frame,
+        stop_frame=stop_frame_anim,
+        fps=fps,
+        cam_fov_deg=scene_loader.alg_fov_deg,
+        detections_tracker=detections_tracker,
+        save_path=save_path,
+    )
 
     # plot the camera trajectory and the track estimated positions (and ground-truth, if available) in world system (simple plot)
     trajectories = {"Est": est_cam_poses}
@@ -160,6 +161,7 @@ def save_slam_plots(
         trajectories=trajectories,
         save_path=save_path / "trajectory_world.html",
     )
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
