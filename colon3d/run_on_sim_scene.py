@@ -13,7 +13,7 @@ from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.show_slam_out import save_slam_plots
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
-from colon3d.util.performance_metrics import calc_performance_metrics, plot_trajectory_metrics
+from colon3d.util.perf_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon3d.util.torch_util import to_default_type
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"

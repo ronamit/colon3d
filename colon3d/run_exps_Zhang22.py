@@ -17,7 +17,7 @@ parser.add_argument(
 parser.add_argument(
     "--results_base_path",
     type=str,
-    default="data/results/Zhang22_v2",
+    default="data/results/Zhang22",
     help="Base path for the results",
 )
 parser.add_argument(
