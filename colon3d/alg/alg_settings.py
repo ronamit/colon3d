@@ -14,7 +14,7 @@ class AlgorithmParam:
     add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
     max_angular_vel: float = 3.0 * np.pi  # rad/s
-    w_salient_kp: float = 0.005  # default weighting for the bundle adjustment cost function for salient KPs
+    w_salient_kp: float = 0.01  # default weighting for the bundle adjustment cost function for salient KPs
     w_track_kp: float = 1.0  # default  weighting for the bundle adjustment cost function for track KPs
     w_cam_trans: float = 1e-5  # default weighting for the penalty term of the l2 norm of the camera translation (from previous frame) in the bundle adjustment cost function
     w_cam_rot: float = 1e-4  # default weighting for the penalty term of the camera rotation (from previous frame) in the bundle adjustment cost function
@@ -35,6 +35,7 @@ class AlgorithmParam:
     ransac_reprojection_err_threshold: float = 2.0  # reprojection error threshold for RANSAC (units: pixels)
     max_initial_keypoints: int = 300  # maximum number of keypoints the KPs detector will return.
     kp_descriptor_patch_size: int = 51  # patch size for the keypoint descriptor (units: pixels)
+    kp_descriptor_edgeThreshold: int = 26  # edge threshold for the keypoint descriptor (units: pixels)
     min_n_matches_to_filter: int = 10  # minimum number of keypoints matches to filter out outliers.
     # maximum distance from the identity matrix to consider a homography as valid
     hom_dist_from_identity_threshold: float = 50.0

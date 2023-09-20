@@ -6,19 +6,19 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11.4
-  - h5py=3.8.0
-  - numpy=1.24.3
-  - numpy-base=1.24.3
-  - pandas=2.0.2
+  - python=3.11.5
+  - h5py=3.9.0
+  - numpy=1.25.2
+  - numpy-base=1.25.2
+  - pandas=2.0.3
   - pillow=9.4.0
   - plotly=5.14.1
-  - pyyaml=6.0
+  - pyyaml=6.0.1
   - scikit-image=0.20.0
-  - setuptools=67.8.0
+  - setuptools=68.0.0
   - toml=0.10.2
   - yaml=0.2.5
-  - matplotlib=3.7.1
+  - matplotlib=3.7.2
   - pip>=21.3.2
   - scikit-image=0.20.0
   - pillow=9.4.0
@@ -31,7 +31,7 @@ dependencies:
       - opencv-python==4.8.0.76
       - kornia==0.6.12
       - configargparse==1.5.5
-      - scipy==1.11.1
+      - scipy==1.11.2
       - imread-from-url==0.1.3
 
 

@@ -141,7 +141,7 @@ def compute_RPE(gt_poses: np.ndarray, est_poses: np.ndarray) -> dict:
     delta_pose = np_func(get_pose_delta)(pose1=delta_pose_gt, pose2=delta_pose_est)
     delta_trans = delta_pose[:, :3]
     delta_rot = delta_pose[:, 3:]
-    rpe_trans = np.linalg.norm(delta_trans)  # [mm]
+    rpe_trans = np.linalg.norm(delta_trans, axis=-1)  # [mm]
     # The angle of rotation of the unit-quaternion
     delta_rot = np_func(normalize_quaternions)(delta_rot)  # normalize the quaternions (avoid numerical issues)
     delta_rot_rad = np_func(get_rotation_angles)(delta_rot)  # [rad] in the range [-pi, pi]
