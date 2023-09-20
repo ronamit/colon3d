@@ -62,7 +62,7 @@ class SlamAlgRunner:
             firstLevel=0,  # The level of pyramid to put source image to.
             WTA_K=2,  # The number of points that produce each element of the oriented BRIEF descriptor.
             scoreType=cv2.ORB_HARRIS_SCORE,  # 	The default HARRIS_SCORE means that Harris algorithm is used to rank features
-            patchSize=alg_prm.kp_descriptor_edgeThreshold,  # size of the patch used by the oriented BRIEF descriptor.
+            patchSize=alg_prm.kp_descriptor_edge_threshold,  # size of the patch used by the oriented BRIEF descriptor.
             fastThreshold=alg_prm.orb_fast_thresh,  # Threshold on difference between intensity of the central pixel and pixels of a circle around this pixel.
         )
 
