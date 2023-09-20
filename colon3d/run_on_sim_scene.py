@@ -261,7 +261,6 @@ def run_slam_on_scene(
         slam_out=slam_out,
         scene_loader=scene_loader,
     )
-    metrics_stats["example_name"] = example_name
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
 
     print(f"Summary metrics stats: {metrics_stats}")

@@ -140,8 +140,15 @@ def assert_2d_tensor(t: torch.Tensor, dim2: int):
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
     assert is_finite(t), "Tensor should be finite."
     return t
+# --------------------------------------------------------------------------------------------------------------------
 
-
+def assert_2d_array(t: np.ndarray, dim2: int):
+    if t.ndim == 1:
+        t = t[np.newaxis, :]  # add the "number of samples" dimension
+    assert t.ndim == 2, f"Tensor should be [n x {dim2}]."
+    assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
+    assert is_finite(t), "Tensor should be finite."
+    return t
 # --------------------------------------------------------------------------------------------------------------------
 
 

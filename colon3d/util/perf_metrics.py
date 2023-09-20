@@ -7,6 +7,7 @@ from colon3d.alg.tracks_loader import DetectionsTracker, get_track_angle_from_ca
 from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import save_plot_and_close
+from colon3d.util.perf_metrics_SimCol import calc_sim_col_metrics
 from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
 from colon3d.util.torch_util import np_func, to_numpy
 from colon3d.util.transforms_util import (
@@ -246,7 +247,12 @@ def calc_nav_aid_metrics(
                 is_front_est[i, track_id] = True
 
                 # get the angle of the 2D arrow vector which is the projection of the vector from the camera origin to the camera system XY plane
-                gt_angle_rad = get_track_angle_from_cam_sys_loc(track_p3d_cam=gt_p3d_cam, cx=alg_cam_info.cx, cy=alg_cam_info.cy, alg_view_pix_normalizer=alg_view_pix_normalizer)
+                gt_angle_rad = get_track_angle_from_cam_sys_loc(
+                    track_p3d_cam=gt_p3d_cam,
+                    cx=alg_cam_info.cx,
+                    cy=alg_cam_info.cy,
+                    alg_view_pix_normalizer=alg_view_pix_normalizer,
+                )
 
                 # est_angle_rad = np.arctan2(est_p3d_cam[1], est_p3d_cam[0])  # [rad]
                 est_angle_rad = online_est_track_angle[i][track_id]  # [rad]
@@ -340,8 +346,14 @@ def calc_performance_metrics(
     ate_metrics_per_frame, ate_metrics_stats = compute_ATE(gt_cam_poses=gt_cam_poses, est_cam_poses=est_cam_poses)
     rpe_metrics_per_frame, rpe_metrics_stats = compute_RPE(gt_poses=gt_cam_poses, est_poses=est_cam_poses)
 
+    sim_col_metrics = calc_sim_col_metrics(
+        gt_cam_poses=gt_cam_poses,
+        est_cam_poses=est_cam_poses,
+        is_synthetic=True,
+    )
+
     metrics_per_frame = ate_metrics_per_frame | rpe_metrics_per_frame
-    metrics_stats = ate_metrics_stats | rpe_metrics_stats
+    metrics_stats = ate_metrics_stats | rpe_metrics_stats | sim_col_metrics
 
     # Compute navigation-aid metrics, if targets info is available
     if gt_targets_info is not None:

@@ -11,10 +11,12 @@ from colon3d.util.rotations_util import (
     get_identity_quaternion,
     invert_rotation,
     normalize_quaternions,
+    quaternions_to_rot_matrices,
     rotate_points,
 )
 from colon3d.util.torch_util import (
     assert_1d_tensor,
+    assert_2d_array,
     assert_2d_tensor,
     assert_same_sample_num,
     get_default_dtype,
@@ -599,6 +601,46 @@ def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: tor
             )
             cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
     return cam_p3d_per_frame_per_track
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def poses_to_4x4_matrices(poses: np.ndarray) -> np.ndarray:
+    """Transforms a sequence of poses in vector & quaternion format to 4x4 matrix format.
+    Args:
+        poses: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and
+            (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+    Returns:
+        poses_mat: [n x 4 x 4] each row is the pose in 4x4 matrix format
+    """
+    poses = assert_2d_array(poses, 7)
+    poses_mat = np.zeros((poses.shape[0], 4, 4))
+    poses_mat[:, 0:3, 0:3] = quaternions_to_rot_matrices(poses[:, 3:])
+    poses_mat[:, 0:3, 3] = poses[:, 0:3]
+    poses_mat[:, 3, 3] = 1
+    return poses_mat
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_relative_4x4_poses(abs_poses: np.ndarray, delta: int = 1) -> np.ndarray:
+    """Returns the relative poses between the absolute poses
+    Args:
+        abs_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
+        delta: the delta between the poses
+    Returns:
+        rel_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
+    """
+    ## Absolute  poses --> relative  poses
+    rel_poses = []
+    for i in range(0, abs_poses.shape[0] - 1, delta):
+        pose_t0 = abs_poses[i]
+        pose_t1 = abs_poses[i + delta]
+        out = np.matmul(np.linalg.inv(pose_t0), pose_t1)
+        rel_poses.append(out)
+    return np.array(rel_poses)
 
 
 # --------------------------------------------------------------------------------------------------------------------

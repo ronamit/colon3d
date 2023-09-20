@@ -143,6 +143,7 @@ def get_scene_metadata(scene_full_path: Path, fps_override: float = 0) -> dict:
         "fps": fps,  # frame rate [Hz]
         "distort_pram": None,  # simulated images are not distorted
         "min_vis_z_mm": min_vis_z_mm,  # in the simulation,
+        "raw_scene_path": scene_full_path,
     }
 
     return metadata

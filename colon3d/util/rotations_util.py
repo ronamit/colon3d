@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from scipy.spatial.transform import Rotation as spRotation
 from torch.nn.functional import normalize
 
 from colon3d.util.torch_util import assert_2d_tensor, to_default_type
@@ -249,4 +250,18 @@ def axis_angle_to_quaternion(rot_axis_angle: torch.Tensor) -> torch.Tensor:
     if is_single_vec:
         rot_quat = rot_quat[0]
     return rot_quat
+# ----------------------------------------------------------------------
+
+def quaternions_to_rot_matrices(rot_quats: np.ndarray) ->  np.ndarray:
+    """ Transforms unit quaternions into a rotation matrix.
+    Args:
+        rot_quats: [n x 4] unit quaternions (real part first).
+    Returns:
+        rot_mats: [n x 3 x 3] rotation matrices.
+    """
+    # convert to scipy rotation format (real part last)
+    rot_quats_real_last = np.roll(rot_quats, shift=-1, axis=1)
+    rot_mats = spRotation.from_quat(rot_quats_real_last).as_matrix()
+    return rot_mats
+
 # ----------------------------------------------------------------------

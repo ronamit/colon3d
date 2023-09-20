@@ -17,7 +17,7 @@ UNITY_TO_MM = 100  # multiply the loaded distance values by this factor to get m
 
 def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps_override: float):
     """Load the raw data saved using Unity's Perception Package camera captures."""
-    
+
     # gather all the "capture" files
     assert input_data_path.is_dir(), "The input path should be a directory"
     paths = [p for p in input_data_path.glob("Dataset*") if p.is_dir()]
@@ -63,7 +63,11 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
                 break
             n_scenes = scene_idx + 1
             scene_name = "Scene_" + str(scene_idx).zfill(5)
-            metadata = get_scene_metadata(capture=capture, fps_override=fps_override)
+            metadata = get_scene_metadata(
+                capture=capture,
+                raw_data_source=rgb_file_path.parent,
+                fps_override=fps_override,
+            )
             metadata_per_scene.append(metadata)
             scenes_names.append(scene_name)
             rgb_frames_paths_per_scene.append([])
@@ -106,7 +110,7 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_scene_metadata(capture: dict, fps_override: float) -> dict:
+def get_scene_metadata(capture: dict, raw_data_source: Path, fps_override: float) -> dict:
     cam_intrinsic = next(a for a in capture["annotations"] if a["@type"] == "camDataDef")
     frame_width = cam_intrinsic["pixelWidth"]  # [pixels]
     frame_height = cam_intrinsic["pixelHeight"]  # [pixels]
@@ -146,6 +150,7 @@ def get_scene_metadata(capture: dict, fps_override: float) -> dict:
             "total_sensor_size_y_mm": total_sensor_size_y_mm,
             "focal_length_mm": float(focal_length_mm),
         },
+        "raw_data_source": raw_data_source,
     }
     return metadata
 
