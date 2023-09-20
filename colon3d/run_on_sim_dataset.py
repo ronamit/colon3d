@@ -213,12 +213,13 @@ class SlamOnDatasetRunner:
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
                 return scene_metrics_stats
-
             # ------------------------------------------------------------------------
-
+            
+            # run the SLAM algorithm on all scenes
             all_scene_metrics_stats = []
             for i_scene in range(n_scenes):
-                all_scene_metrics_stats.append(run_on_scene(i_scene))
+                scene_metrics = run_on_scene(i_scene)
+                all_scene_metrics_stats.append(scene_metrics)
 
             metrics_table = pd.DataFrame()
             for i_scene in range(n_scenes):
