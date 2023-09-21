@@ -28,7 +28,7 @@ parser.add_argument(
 parser.add_argument(
     "--save_overwrite",
     type=bool_arg,
-    default=False,
+    default=True,
     help="If True then the save folders will be overwritten if they already exists",
 )
 parser.add_argument(
@@ -53,14 +53,15 @@ base_results_path = Path(args.results_base_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 if args.debug_mode:
-    limit_n_scenes = 1  # num scenes to import
-    limit_n_frames = 100  # num frames to import from each scene
+    print("Running in debug mode!!!!")
+    limit_n_scenes = 1  # num scenes to run on (0 means no limit)
+    limit_n_frames = 10  # num frames to run on (0 means no limit)
     base_results_path = base_results_path / "debug"
-    n_cases_lim = 1  # num cases to run the algorithm on
+    print_interval = 1  # print progress every frame
 else:
-    limit_n_scenes = 0  # 0 means no limit
+    limit_n_scenes = 0  # 0 means no limit]
     limit_n_frames = 0  # 0 means no limit
-    n_cases_lim = 0  # 0 means no limit
+    print_interval = 20  # print progress every X frames
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -70,22 +71,13 @@ else:
 common_args = {
     "save_raw_outputs": False,
     "alg_fov_ratio": 0,
-    "n_frames_lim": 0,
-    "n_scenes_lim": n_cases_lim,
+    "n_frames_lim": limit_n_frames,
+    "n_scenes_lim": limit_n_scenes,
     "save_overwrite": args.save_overwrite,
     "load_scenes_with_targets": False,  # The Zhang22 dataset does not have targets
+    "print_interval": print_interval,
 }
-# --------------------------------------------------------------------------------------------------------------------
-# using the ground truth egomotions - without bundle adjustment
-SlamOnDatasetRunner(
-    dataset_path=dataset_path,
-    save_path=base_results_path / "no_BA_with_GT_ego",
-    depth_maps_source="none",
-    egomotions_source="ground_truth",
-    alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
-    **common_args,
-).run()
-save_unified_results_table(base_results_path)
+
 # --------------------------------------------------------------------------------------------------------------------
 
 # Bundle-adjustment, without monocular depth and egomotion estimation
@@ -98,6 +90,19 @@ SlamOnDatasetRunner(
     **common_args,
 ).run()
 save_unified_results_table(base_results_path)
+
+# --------------------------------------------------------------------------------------------------------------------
+# using the ground truth egomotions - without bundle adjustment
+SlamOnDatasetRunner(
+    dataset_path=dataset_path,
+    save_path=base_results_path / "no_BA_with_GT_ego",
+    depth_maps_source="none",
+    egomotions_source="ground_truth",
+    alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
+    **common_args,
+).run()
+save_unified_results_table(base_results_path)
+
 # --------------------------------------------------------------------------------------------------------------------
 # Bundle-adjustment, with the original EndoSFM monocular depth and egomotion estimation
 SlamOnDatasetRunner(

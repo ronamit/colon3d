@@ -143,6 +143,7 @@ class SlamOnDatasetRunner:
     n_scenes_lim: int = 0
     save_overwrite: bool = True
     alg_settings_override: dict | None = None
+    print_interval: int = 20
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -210,6 +211,7 @@ class SlamOnDatasetRunner:
                     depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
                     alg_settings_override=self.alg_settings_override,
                     example_name=scene_name,
+                    print_interval=self.print_interval,
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
                 return scene_metrics_stats
@@ -239,8 +241,9 @@ class SlamOnDatasetRunner:
             metrics_summary = compute_metrics_statistics(metrics_table)
             print("-" * 100 + "\nError metrics summary (mean +- 95\\% confidence interval):\n", metrics_summary)
             # save to csv file
-            metrics_summary = {"save_path": str(self.save_path), "run_name": self.save_path.name} | metrics_summary
-            pd.DataFrame(metrics_summary, index=[0]).to_csv(self.save_path / "metrics_summary.csv", index=[0])
+            metrics_summary = {"run_name": self.save_path.name} | metrics_summary
+            metrics_summary_df = pd.DataFrame(metrics_summary, index=["run_name"])
+            metrics_summary_df.to_csv(self.save_path / "metrics_summary.csv", index=["run_name"])
             print("-" * 100)
             return None
 

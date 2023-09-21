@@ -185,6 +185,7 @@ def run_slam_on_scene(
     depth_and_egomotion_model_path: Path | None = None,
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
+    print_interval: int = 20,
     example_name: str = "",
 ):
     """ "
@@ -226,6 +227,7 @@ def run_slam_on_scene(
         depth_and_ego_estimator=depth_estimator,
         save_path=save_path,
         draw_interval=draw_interval,
+        print_interval=print_interval,
     )
     slam_out = slam_runner.run()
 
@@ -262,7 +264,7 @@ def run_slam_on_scene(
         scene_loader=scene_loader,
     )
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
-
+    metrics_stats["example_name"] = example_name
     print(f"Summary metrics stats: {metrics_stats}")
 
     # Save the metrics to a file

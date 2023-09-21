@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--save_overwrite",
         type=bool_arg,
-        default=False,
+        default=True,
         help="If True then the results folders will be overwritten if they already exists",
     )
     parser.add_argument(
@@ -80,12 +80,15 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
 
     if args.debug_mode:
+        print("Running in debug mode!!!!")
         n_scenes_lim = 1  # num cases to run the algorithm on
         n_frames_lim = 25  # num frames to run the algorithm on from each scene.
         base_results_path = base_results_path / "debug"
+        print_interval = 1  # print progress every X frames
     else:
         n_scenes_lim = 0  # no limit
         n_frames_lim = 0  # no limit
+        print_interval = 20  # print progress every X frames
     # ------------------------------------------------------------------------------------------------------------
 
     with Tee(base_results_path / "log.txt"):  # save the prints to a file
@@ -106,6 +109,7 @@ def main():
             "n_frames_lim": n_frames_lim,
             "n_scenes_lim": n_scenes_lim,
             "save_overwrite": save_overwrite,
+            "print_interval": print_interval,
         }
 
         # --------------------------------------------------------------------------------------------------------------------
@@ -124,7 +128,7 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
-        
+
         # --------------------------------------------------------------------------------------------------------------------
         # the (supervised with GT depth) tuned EndoSFM monocular depth and egomotion estimation, with bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
@@ -141,7 +145,6 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
-        
 
         # --------------------------------------------------------------------------------------------------------------------
         # the tuned EndoSFM monocular depth and egomotion estimation, with no bundle adjustment
@@ -159,7 +162,7 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
-        
+
         # --------------------------------------------------------------------------------------------------------------------
         # the tuned EndoSFM monocular depth and egomotion estimation, with  bundle adjustment
         # --------------------------------------------------------------------------------------------------------------------
@@ -218,7 +221,7 @@ def main():
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
-        
+
         # --------------------------------------------------------------------------------------------------------------------
         # Bundle-adjustment, with history=2, without monocular depth and egomotion estimation
         # --------------------------------------------------------------------------------------------------------------------

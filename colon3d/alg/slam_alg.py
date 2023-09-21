@@ -397,7 +397,7 @@ class SlamAlgRunner:
             )
             self.points_3d = torch.cat((self.points_3d, new_p3d_est), dim=0)
 
-        # save the current camera pose guess
+        # save the current camera pose guess (pre bundle-adjustment)
         self.online_logger.save_cam_pose_guess(self.cam_poses[i_frame, :])
 
         # ---- Run bundle-adjustment:

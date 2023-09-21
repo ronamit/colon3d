@@ -135,6 +135,7 @@ def main():
     n_scenes_lim = 0  # if 0 then use all the scenes in the dataset for depth examination
 
     if args.debug_mode:
+        print("Running in debug mode!!!!")
         n_sample_lim = 5  # limit the number of samples per epoch
         n_epochs = 1  # limit the number of epochs
         path_to_save_model = path_to_save_model / "debug"
