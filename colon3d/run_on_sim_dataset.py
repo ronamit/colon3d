@@ -243,7 +243,7 @@ class SlamOnDatasetRunner:
             # save to csv file
             metrics_summary = {"run_name": self.save_path.name} | metrics_summary
             metrics_summary_df = pd.DataFrame(metrics_summary, index=["run_name"])
-            metrics_summary_df.to_csv(self.save_path / "metrics_summary.csv", index=["run_name"])
+            metrics_summary_df.to_csv(self.save_path / "metrics_summary.csv", index=False)
             print("-" * 100)
             return None
 

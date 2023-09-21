@@ -82,7 +82,7 @@ def main():
     if args.debug_mode:
         print("Running in debug mode!!!!")
         n_scenes_lim = 1  # num cases to run the algorithm on
-        n_frames_lim = 25  # num frames to run the algorithm on from each scene.
+        n_frames_lim = 3  # num frames to run the algorithm on from each scene.
         base_results_path = base_results_path / "debug"
         print_interval = 1  # print progress every X frames
     else:

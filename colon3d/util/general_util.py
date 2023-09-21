@@ -509,7 +509,7 @@ def save_unified_results_table(base_results_path: Path):
         metrics_table_path = results_path / "err_table.csv"
         if not metrics_table_path.exists():
             continue
-        metrics_table = pd.read_csv(metrics_table_path)
+        metrics_table = pd.read_csv(metrics_table_path, index_col=[0])
         # compute statistics over all scenes
         metrics_summary = compute_metrics_statistics(metrics_table)
         # add the run-name column
