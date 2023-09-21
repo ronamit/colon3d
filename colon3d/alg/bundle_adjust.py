@@ -277,6 +277,7 @@ def run_bundle_adjust(
             x0=x0,
             method=alg_prm.opt_method,
             max_iter=alg_prm.opt_max_iter,
+            tol=alg_prm.opt_x_tol,
             disp=verbose,
             options={"xtol": alg_prm.opt_x_tol, "gtol": alg_prm.opt_g_tol, "line_search": alg_prm.opt_line_search},
         )

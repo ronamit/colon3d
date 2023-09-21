@@ -28,7 +28,7 @@ class AlgorithmParam:
     depth_default: float = 15  # default z-depth estimation, when no other data is available (units: mm)
     opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"]
     opt_max_iter: int = 500  # maximum number of iterations for the optimization
-    opt_x_tol: float = 1e-2  # Optimization termination tolerance on function/parameter changes.
+    opt_x_tol: float = 1e-3  # Optimization termination tolerance on function/parameter changes.
     opt_g_tol: float = 1e-6  # Optimization termination tolerance on the gradient.
     # opt_lr: float = 10.  # initial learning rate for the optimization
     opt_line_search = "strong-wolfe"  # line search method for the optimization, options: none, strong-wolfe (slow)
