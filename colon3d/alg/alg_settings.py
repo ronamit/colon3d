@@ -11,7 +11,7 @@ class AlgorithmParam:
         -1
     )  # number of last frames to use for the bundle adjustment loss term, if -1, then use all history
     optimize_each_n_frames: int = 1  # optimize each n frames
-    add_penalties = True  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
+    add_penalties = False  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
     max_angular_vel: float = 3.0 * np.pi  # rad/s
     w_salient_kp: float = 0.01  # default weighting for the bundle adjustment cost function for salient KPs
