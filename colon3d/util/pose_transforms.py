@@ -28,9 +28,27 @@ from colon3d.util.torch_util import (
 # --------------------------------------------------------------------------------------------------------------------
 
 
+def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | None = None) -> torch.Tensor:
+    """returns a pose transform.
+    Args:
+        trans_vec: [3] (units: mm) translation vector
+        rot_quat: [4] unit-quaternion
+    Returns:
+        pose: [7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
+    """
+    if trans_vec is None:
+        trans_vec = torch.zeros(3, device=get_device(), dtype=get_default_dtype())
+    if rot_quat is None:
+        rot_quat = get_identity_quaternion()
+    return torch.cat((trans_vec, rot_quat), dim=0).to(get_default_dtype()).to(get_device())
+
+
+# -------------------------------------------------------------------------------------------------------------------
+
+
 def get_identity_pose():
     """Returns the identity pose transform (no change)"""
-    return torch.cat((torch.zeros(3), get_identity_quaternion()), dim=0).to(get_default_dtype()).to(get_device())
+    return get_pose(trans_vec=None, rot_quat=None)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -526,6 +544,79 @@ def find_rigid_registration(poses1: np.ndarray, poses2: np.ndarray, method: str 
 # --------------------------------------------------------------------------------------------------------------------
 
 
+def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:
+    """
+    Transform 3D points of from world system to the camera system per frame.
+    Parameters:
+        tracks_world_locs: list per frame of dict with key=track_id, value = 3D coordinates of the track's KP (in world system) (units: mm)
+
+        cam_poses: Tensor[n_frames ,7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+    Return:
+        cam_p3d_per_frame_per_track: transformed to the per-frame camera system (units: mm)
+    """
+    n_frames = cam_poses.shape[0]
+    if cam_poses.ndim == 1:
+        # if only one camera pose is given, repeat it for all frames
+        cam_poses = cam_poses.expand(n_frames, -1)
+    cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
+    for i_frame in range(n_frames):
+        cam_pose = cam_poses[i_frame]
+        for track_id, track_world_p3d in tracks_world_locs[i_frame].items():
+            # Rotate & translate to camera view (of the current frame camera pose)
+            track_cam_p3d = transform_points_world_to_cam(
+                points_3d_world=track_world_p3d,
+                cam_poses=cam_pose,
+            )
+            cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
+    return cam_p3d_per_frame_per_track
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def poses_to_4x4_matrices(poses: np.ndarray) -> np.ndarray:
+    """Transforms a sequence of poses in vector & quaternion format to 4x4 matrix format.
+    Args:
+        poses: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and
+            (q0, qx, qy, qz) is the unit-quaternion of the rotation.
+    Returns:
+        poses_mat: [n x 4 x 4] each row is the pose in 4x4 matrix format
+    """
+    poses = assert_2d_array(poses, 7)
+    poses_mat = np.zeros((poses.shape[0], 4, 4))
+    poses_mat[:, 0:3, 0:3] = np_func(quaternions_to_rot_matrices)(poses[:, 3:])
+    poses_mat[:, 0:3, 3] = poses[:, 0:3]
+    poses_mat[:, 3, 3] = 1
+    return poses_mat
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def get_relative_4x4_poses(abs_poses: np.ndarray, delta: int = 1) -> np.ndarray:
+    """Returns the relative poses between the absolute poses
+    Args:
+        abs_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
+        delta: the delta between the poses
+    Returns:
+        rel_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
+    """
+    ## Absolute  poses --> relative  poses
+    rel_poses = []
+    for i in range(0, abs_poses.shape[0] - 1, delta):
+        pose_t0 = abs_poses[i]
+        pose_t1 = abs_poses[i + delta]
+        out = np.matmul(np.linalg.inv(pose_t0), pose_t1)
+        rel_poses.append(out)
+    return np.array(rel_poses)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 def main():
     """Main function for testing."""
     # set random seed:
@@ -571,76 +662,6 @@ def main():
     # print the results:
     for i in range(n):
         print("i=", i, "rec. align. loc=", to_str(poses_rec_aligned[i, :3]), "rot=", to_str(poses_rec_aligned[i, 3:]))
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def transform_tracks_points_to_cam_frame(tracks_world_locs: list, cam_poses: torch.Tensor) -> list:
-    """
-    Transform 3D points of from world system to the camera system per frame.
-    Parameters:
-        tracks_world_locs: list per frame of dict with key=track_id, value = 3D coordinates of the track's KP (in world system) (units: mm)
-
-        cam_poses: Tensor[n_frames ,7], each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
-    Return:
-        cam_p3d_per_frame_per_track: transformed to the per-frame camera system (units: mm)
-    """
-    n_frames = cam_poses.shape[0]
-    if cam_poses.ndim == 1:
-        # if only one camera pose is given, repeat it for all frames
-        cam_poses = cam_poses.expand(n_frames, -1)
-    cam_p3d_per_frame_per_track = [{} for _ in range(n_frames)]
-    for i_frame in range(n_frames):
-        cam_pose = cam_poses[i_frame]
-        for track_id, track_world_p3d in tracks_world_locs[i_frame].items():
-            # Rotate & translate to camera view (of the current frame camera pose)
-            track_cam_p3d = transform_points_world_to_cam(
-                points_3d_world=track_world_p3d,
-                cam_poses=cam_pose,
-            )
-            cam_p3d_per_frame_per_track[i_frame][track_id] = track_cam_p3d
-    return cam_p3d_per_frame_per_track
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def poses_to_4x4_matrices(poses: np.ndarray) -> np.ndarray:
-    """Transforms a sequence of poses in vector & quaternion format to 4x4 matrix format.
-    Args:
-        poses: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and
-            (q0, qx, qy, qz) is the unit-quaternion of the rotation.
-    Returns:
-        poses_mat: [n x 4 x 4] each row is the pose in 4x4 matrix format
-    """
-    poses = assert_2d_array(poses, 7)
-    poses_mat = np.zeros((poses.shape[0], 4, 4))
-    poses_mat[:, 0:3, 0:3] = quaternions_to_rot_matrices(poses[:, 3:])
-    poses_mat[:, 0:3, 3] = poses[:, 0:3]
-    poses_mat[:, 3, 3] = 1
-    return poses_mat
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def get_relative_4x4_poses(abs_poses: np.ndarray, delta: int = 1) -> np.ndarray:
-    """Returns the relative poses between the absolute poses
-    Args:
-        abs_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
-        delta: the delta between the poses
-    Returns:
-        rel_poses: [n x 4 x 4] each row is the pose in 4x4 matrix format
-    """
-    ## Absolute  poses --> relative  poses
-    rel_poses = []
-    for i in range(0, abs_poses.shape[0] - 1, delta):
-        pose_t0 = abs_poses[i]
-        pose_t1 = abs_poses[i + delta]
-        out = np.matmul(np.linalg.inv(pose_t0), pose_t1)
-        rel_poses.append(out)
-    return np.array(rel_poses)
 
 
 # --------------------------------------------------------------------------------------------------------------------

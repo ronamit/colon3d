@@ -12,7 +12,7 @@ from colon3d.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, set_rand_seed, to_str
 from colon3d.util.rotations_util import get_random_rot_quat
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
-from colon3d.util.transforms_util import compose_poses
+from colon3d.util.pose_transforms import compose_poses
 from colon3d.visuals.plots_2d import save_frames_with_tracks, save_video_with_tracks
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -20,7 +20,7 @@ from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str, print_if
 from colon3d.util.rotations_util import get_identity_quaternion
 from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
-from colon3d.util.transforms_util import (
+from colon3d.util.pose_transforms import (
     compose_poses,
     transform_points_world_to_cam,
     unproject_image_normalized_coord_to_world,

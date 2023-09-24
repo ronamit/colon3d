@@ -53,7 +53,7 @@ def main():
             save_raw_outputs=False,
             depth_maps_source="none",
             egomotions_source="none",
-            depth_and_egomotion_method="none",
+            model_name="none",
             alg_fov_ratio=alg_fov_ratio,
             n_frames_lim=0,
             draw_interval=200,

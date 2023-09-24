@@ -123,7 +123,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_GTD",
+                model_path=models_base_path / "EndoSFM_GTD",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()
@@ -140,7 +140,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_GTD",
+                model_path=models_base_path / "EndoSFM_GTD",
                 alg_settings_override={"use_bundle_adjustment": True},
                 **common_args,
             ).run()
@@ -157,7 +157,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_tuned",
+                model_path=models_base_path / "EndoSFM_tuned",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()
@@ -174,7 +174,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_tuned",
+                model_path=models_base_path / "EndoSFM_tuned",
                 alg_settings_override={"use_bundle_adjustment": True},
                 **common_args,
             ).run()
@@ -190,7 +190,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_tuned",
+                model_path=models_base_path / "EndoSFM_tuned",
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
@@ -247,7 +247,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
+                model_path=models_base_path / "EndoSFM_orig",
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
@@ -262,7 +262,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="EndoSFM",
-                depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
+                model_path=models_base_path / "EndoSFM_orig",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()
@@ -293,7 +293,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="MonoDepth2",
-                depth_and_egomotion_model_path=models_base_path / "MonoDepth2_orig",
+                model_path=models_base_path / "MonoDepth2_orig",
                 **common_args,
             ).run()
         save_unified_results_table(base_results_path)
@@ -308,7 +308,7 @@ def main():
                 depth_maps_source="online_estimates",
                 egomotions_source="online_estimates",
                 depth_and_egomotion_method="MonoDepth2",
-                depth_and_egomotion_model_path=models_base_path / "MonoDepth2_orig",
+                model_path=models_base_path / "MonoDepth2_orig",
                 alg_settings_override={"use_bundle_adjustment": False},
                 **common_args,
             ).run()

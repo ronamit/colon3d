@@ -18,7 +18,7 @@ from colon3d.util.general_util import (
     save_video_from_func,
 )
 from colon3d.util.torch_util import np_func, to_default_type
-from colon3d.util.transforms_util import compose_poses, get_identity_pose, infer_egomotions
+from colon3d.util.pose_transforms import compose_poses, get_identity_pose, infer_egomotions
 from colon3d.visuals.plots_3d_scene import plot_3d_trajectories
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"  # for reading EXR files

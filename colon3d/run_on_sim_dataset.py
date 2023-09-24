@@ -76,7 +76,7 @@ def main():
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
-        "--depth_and_egomotion_model_path",
+        "--model_path",
         type=str,
         default="data_gcp/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
@@ -115,7 +115,7 @@ def main():
         save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
-        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
+        model_path=Path(args.model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
         n_scenes_lim=args.n_scenes_lim,
@@ -137,7 +137,7 @@ class SlamOnDatasetRunner:
     depth_maps_source: str = "none"
     egomotions_source: str = "none"
     depth_and_egomotion_method: str | None = None
-    depth_and_egomotion_model_path: str | Path | None = None
+    model_path: str | Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
     n_scenes_lim: int = 0
@@ -197,7 +197,7 @@ class SlamOnDatasetRunner:
 
                 # create the save folder
                 create_empty_folder(scene_save_path, save_overwrite=True)
-        
+
                 # run the SLAM algorithm on the current scene
                 _, scene_metrics_stats = run_slam_on_scene(
                     scene_path=scene_path,
@@ -207,16 +207,17 @@ class SlamOnDatasetRunner:
                     alg_fov_ratio=self.alg_fov_ratio,
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
-                    depth_and_egomotion_method=self.depth_and_egomotion_method,
-                    depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
+                    model_name=self.depth_and_egomotion_method,
+                    model_path=to_path(self.model_path),
                     alg_settings_override=self.alg_settings_override,
                     example_name=scene_name,
                     print_interval=self.print_interval,
                 )
                 print("-" * 20 + f"\nFinished running SLAM on scene {i_scene + 1} out of {n_scenes}\n" + "-" * 20)
                 return scene_metrics_stats
+
             # ------------------------------------------------------------------------
-            
+
             # run the SLAM algorithm on all scenes
             all_scene_metrics_stats = []
             for i_scene in range(n_scenes):

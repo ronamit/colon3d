@@ -31,14 +31,14 @@ def main():
         help="Path to save the results.",
     )
     parser.add_argument(
-        "--depth_and_egomotion_method",
+        "--model_name",
         type=str,
         default="MonoDepth2",
         choices=["EndoSFM", "MonoDepth2"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
-        "--depth_and_egomotion_model_path",
+        "-model_path",
         type=str,
         default="data_gcp/models/EndoSFM_tuned_v2",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
@@ -59,8 +59,8 @@ def main():
     print(f"args={args}")
     depth_examiner = DepthExaminer(
         dataset_path=Path(args.dataset_path),
-        depth_and_egomotion_method=args.depth_and_egomotion_method,
-        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
+        model_name=args.model_name,
+        model_path=Path(args.model_path),
         save_path=Path(args.save_path),
         n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
@@ -76,8 +76,8 @@ class DepthExaminer:
     def __init__(
         self,
         dataset_path: Path,
-        depth_and_egomotion_method: str,
-        depth_and_egomotion_model_path: Path,
+        model_name: str,
+        model_path: Path,
         save_path: Path,
         depth_calib_method: str = "none",
         n_scenes_lim: int = 0,
@@ -86,8 +86,8 @@ class DepthExaminer:
         frame_idx_to_show: int = 0,
     ):
         self.dataset_path = Path(dataset_path)
-        self.depth_and_egomotion_method = depth_and_egomotion_method
-        self.depth_and_egomotion_model_path = Path(depth_and_egomotion_model_path)
+        self.model_name = model_name
+        self.model_path = Path(model_path)
         self.save_path = Path(save_path)
         self.depth_calib_method = depth_calib_method
         self.n_scenes_lim = n_scenes_lim
@@ -135,8 +135,8 @@ class DepthExaminer:
                     scene_loader=scene_loader,
                     depth_maps_source="ground_truth",
                     egomotions_source="ground_truth",
-                    depth_and_egomotion_method=None,
-                    depth_and_egomotion_model_path=None,
+                    model_name=None,
+                    model_path=None,
                 )
                 # get the estimated depth loader
                 est_depth_loader = DepthAndEgoMotionLoader(
@@ -144,8 +144,8 @@ class DepthExaminer:
                     scene_loader=scene_loader,
                     depth_maps_source="online_estimates",
                     egomotions_source="online_estimates",
-                    depth_and_egomotion_method=self.depth_and_egomotion_method,
-                    depth_and_egomotion_model_path=self.depth_and_egomotion_model_path,
+                    model_name=self.model_name,
+                    model_path=self.model_path,
                 )
                 # calculate the depth statistics over all the frames in the scene
                 n_frames = scene_loader.n_frames
@@ -227,14 +227,12 @@ def compute_depths(
         # resize to the original image size
         depth_map_resized = resize_single_image(
             img=depth_map,
-            is_grayscale=True,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
         )
         # resize to the original image size
         depth_map = resize_single_image(
             img=depth_map,
-            is_grayscale=True,
             new_height=rgb_frame.shape[0],
             new_width=rgb_frame.shape[1],
         )

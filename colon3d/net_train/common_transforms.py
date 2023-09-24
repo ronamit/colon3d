@@ -15,8 +15,8 @@ def img_to_net_in_format(
     img_normalize_mean: float = 0.45,
     img_normalize_std: float = 0.225,
     add_batch_dim: bool = False,
-    net_in_height: int | None = None,
-    net_in_width: int | None = None,
+    feed_height: int | None = None,
+    feed_width: int | None = None,
 ) -> torch.Tensor:
     """Transform an single input image to the network input format.
     Args:
@@ -36,7 +36,6 @@ def img_to_net_in_format(
     else:
         raise ValueError("Invalid image dimension.")
 
-
     img = normalize_image_channels(img, img_normalize_mean, img_normalize_std) if normalize_values else img
 
     if add_batch_dim:
@@ -44,8 +43,8 @@ def img_to_net_in_format(
 
     img = resize_images_batch(
         imgs=img,
-        new_height=net_in_height,
-        new_width=net_in_width,
+        new_height=feed_height,
+        new_width=feed_width,
     )
 
     return img
@@ -80,5 +79,6 @@ def resize_tensor_image(img: torch.Tensor, new_height: int, new_width: int) -> t
     if add_dim:
         img = torch.squeeze(img, 0)
     return img
+
 
 # --------------------------------------------------------------------------------------------------------------------

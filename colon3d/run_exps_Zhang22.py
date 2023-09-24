@@ -111,7 +111,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_method="EndoSFM",
-    depth_and_egomotion_model_path=models_base_path/ "EndoSFM_orig",
+    model_path=models_base_path / "EndoSFM_orig",
     alg_settings_override=alg_settings_override_common,
     **common_args,
 ).run()
@@ -124,7 +124,7 @@ SlamOnDatasetRunner(
     depth_maps_source="online_estimates",
     egomotions_source="online_estimates",
     depth_and_egomotion_method="EndoSFM",
-    depth_and_egomotion_model_path=models_base_path / "EndoSFM_orig",
+    model_path=models_base_path / "EndoSFM_orig",
     alg_settings_override={"use_bundle_adjustment": False} | alg_settings_override_common,
     **common_args,
 ).run()

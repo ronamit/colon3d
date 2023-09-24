@@ -11,7 +11,7 @@ from colon3d.alg.keypoints_util import KeyPointsLog
 from colon3d.util.general_util import print_if
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.util.torch_util import concat_list_to_tensor, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
-from colon3d.util.transforms_util import project_world_to_image_normalized_coord
+from colon3d.util.pose_transforms import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 

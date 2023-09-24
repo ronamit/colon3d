@@ -92,10 +92,12 @@ def save_checkpoint(
 
 def save_model_info(
     save_dir_path: Path,
-    num_layers: int,
-    scene_metadata: dict,
-    overwrite: bool,
+    feed_height: int,
+    feed_width: int,
+    num_layers: int | None = None,
+    overwrite: bool = True,
     extra_info: dict | None = None,
+
 ):
     model_info_path = save_dir_path / "model_info.yaml"
     if model_info_path.exists() and not overwrite:
@@ -103,15 +105,9 @@ def save_model_info(
 
     # save an updated model_info.yaml file:
     model_info = {
-        "ResNet_layers": num_layers,
-        "frame_height": scene_metadata["frame_height"], # the height of the frames in the data we trained with
-        "frame_width": scene_metadata["frame_width"], # the width of the frames in the data we trained with
-        "fx": scene_metadata["fx"],
-        "fy": scene_metadata["fy"],
-        "cx": scene_metadata["cx"],
-        "cy": scene_metadata["cy"],
-        "distort_pram": scene_metadata["distort_pram"],
-        "fps": scene_metadata["fps"],
+        "num_layers": num_layers,
+        "feed_height": feed_height,
+        "feed_width": feed_width,
     }
     if extra_info is not None:
         model_info.update(extra_info)

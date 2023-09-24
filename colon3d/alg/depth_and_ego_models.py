@@ -34,26 +34,23 @@ class DepthModel:
 
         self.model_info = get_model_info(model_path)
 
-        # the dimensions of the output depth maps
-        self.depth_map_width = self.model_info["frame_width"]
-        self.depth_map_height = self.model_info["frame_height"]
+        # the dimensions of the input images to the network
+        self.feed_width = self.model_info["feed_width"]
+        self.feed_height = self.model_info["feed_height"]
+
+        # the dimensions of the output depth maps are the same as the input images
+        self.depth_map_width = self.model_info["feed_width"]
+        self.depth_map_height = self.model_info["feed_height"]
 
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.depth_calib_a = self.model_info["depth_calib_a"]
         self.depth_calib_b = self.model_info["depth_calib_b"]
         print(f"depth_calibrations: a={self.depth_calib_a}, b={self.depth_calib_b}")
-
-        # load the camera matrix corresponding to the depth maps:
-        self.depth_map_K = get_camera_matrix(self.model_info)
-
         self.device = get_device()
-
-        self.net_in_width = self.model_info["frame_width"]
-        self.net_in_height = self.model_info["frame_height"]
 
         # create the disparity\depth estimation network
         if method in {"EndoSFM", "EndoSFM_GTD"}:
-            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
+            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["num_layers"], pretrained=True)
             # load the Disparity network
             self.disp_net_path = model_path / "DispNet_best.pt"
             weights = torch.load(self.disp_net_path)
@@ -109,8 +106,8 @@ class DepthModel:
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
-            net_in_height=self.net_in_height,
-            net_in_width=self.net_in_width,
+            feed_height=self.feed_height,
+            feed_width=self.feed_width,
         )
 
         # estimate the disparity map
@@ -139,14 +136,13 @@ class DepthModel:
         else:
             raise ValueError(f"Unknown depth estimation method: {self.method}")
 
-
         # resize to the original image size
         depth_map = resize_single_image(
             img=depth_map,
             new_height=frame_height,
             new_width=frame_width,
         )
-    
+
         # use the depth calibration to get the depth in mm
         depth_map = self.depth_calib_a * depth_map + self.depth_calib_b
 
@@ -161,31 +157,29 @@ class DepthModel:
 
 
 class EgomotionModel:
-    def __init__(self, method: str, model_path: Path) -> None:
+    def __init__(self, model_name: str, model_path: Path) -> None:
         print(f"Loading egomotion model from {model_path}")
         assert model_path is not None, "model_path is None"
-        self.method = method
+        self.model_name = model_name
         self.model_info = get_model_info(model_path)
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.depth_calib_a = self.model_info["depth_calib_a"]
-        # the camera matrix corresponding to the depth maps.
-        self.depth_map_K = get_camera_matrix(self.model_info)
 
-        self.net_in_width = self.model_info["frame_width"]
-        self.net_in_height = self.model_info["frame_height"]
+        self.feed_width = self.model_info["feed_width"]
+        self.feed_height = self.model_info["feed_height"]
 
         # create the egomotion estimation network
-        if method in {"EndoSFM", "EndoSFM_GTD"}:
+        if model_name == "EndoSFM":
             pose_net_path = model_path / "PoseNet_best.pt"
-            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["ResNet_layers"], pretrained=True)
+            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["num_layers"], pretrained=True)
             weights = torch.load(pose_net_path)
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
             self.pose_net.eval()  # switch to evaluate mode
             self.dtype = self.pose_net.get_weight_dtype()
 
-        elif method == "MonoDepth2":
+        elif model_name == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
             pose_encoder_path = model_path / "pose_encoder.pth"
             pose_decoder_path = model_path / "pose.pth"
@@ -200,7 +194,7 @@ class EgomotionModel:
             self.dtype = self.pose_encoder.get_weight_dtype()
 
         else:
-            raise ValueError(f"Unknown egomotion estimation method: {method}")
+            raise ValueError(f"Unknown egomotion estimation method: {model_name}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -222,19 +216,19 @@ class EgomotionModel:
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
-            net_in_height=self.net_in_height,
-            net_in_width=self.net_in_width,
+            feed_height=self.feed_height,
+            feed_width=self.feed_width,
         )
         to_img = img_to_net_in_format(
             img=to_img,
             device=self.device,
             dtype=self.dtype,
             add_batch_dim=True,
-            net_in_height=self.net_in_height,
-            net_in_width=self.net_in_width,
+            feed_height=self.feed_height,
+            feed_width=self.feed_width,
         )
 
-        if self.method in {"EndoSFM", "EndoSFM_GTD"}:
+        if self.model_name == "EndoSFM":
             # note: if you want to use the ground truth depth maps, you need to change depth_maps_source to "ground_trutg"
             # "EndoSFM_GTD" is still and estimate, but it was trained with GT depth maps
             with torch.no_grad():
@@ -244,7 +238,7 @@ class EgomotionModel:
             translation = pose_out[:3]
             rotation_axis_angle = pose_out[3:]
 
-        elif self.method == "MonoDepth2":
+        elif self.model_name == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
             with torch.no_grad():
                 # concat the input images in axis 1 (channel dimension)
@@ -256,7 +250,7 @@ class EgomotionModel:
             translation = translation.squeeze(0)[0].squeeze(0)  # [3]
 
         else:
-            raise ValueError(f"Unknown egomotion estimation method: {self.method}")
+            raise ValueError(f"Unknown egomotion estimation method: {self.model_name}")
         # convert the axis-angle to quaternion
         rotation_quaternion = axis_angle_to_quaternion(rotation_axis_angle)
 

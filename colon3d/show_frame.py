@@ -11,7 +11,7 @@ from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close, save_rgb_image
 from colon3d.util.torch_util import np_func, to_default_type, to_numpy
-from colon3d.util.transforms_util import get_frame_point_cloud, transform_points_world_to_cam
+from colon3d.util.pose_transforms import get_frame_point_cloud, transform_points_world_to_cam
 from colon3d.visuals.create_3d_obj import plot_cam_and_point_cloud
 from colon3d.visuals.plots_2d import draw_track_box_on_frame
 
@@ -58,14 +58,14 @@ def main():
         help="The source of the egomotions",
     )
     parser.add_argument(
-        "--depth_and_egomotion_method",
+        "--model_name",
         type=str,
         default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
-        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
+        choices=["EndoSFM", "MonoDepth2"],
+        help="The name of the model to be used for the case of online estimation",
     )
     parser.add_argument(
-        "--depth_and_egomotion_model_path",
+        "--model_path",
         type=str,
         default="data_gcp/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
@@ -82,8 +82,8 @@ def main():
         scene_loader=scene_loader,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
-        depth_and_egomotion_method=args.depth_and_egomotion_method,
-        depth_and_egomotion_model_path=Path(args.depth_and_egomotion_model_path),
+        model_name=args.model_name,
+        model_path=Path(args.model_path),
     )
     detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)
     origin_scene_path = get_origin_scene_path(scene_path)

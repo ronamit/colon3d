@@ -61,14 +61,14 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
-        "--depth_and_egomotion_method",
+        "--model_name",
         type=str,
         default="EndoSFM",
         choices=["EndoSFM", "MonoDepth2"],
         help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
     )
     parser.add_argument(
-        "--depth_and_egomotion_model_path",
+        "--model_path",
         type=str,
         default="data_gcp/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
@@ -107,8 +107,8 @@ def main():
         save_raw_outputs=args.save_raw_outputs,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
-        depth_and_egomotion_method=args.depth_and_egomotion_method,
-        depth_and_egomotion_model_path=args.depth_and_egomotion_model_path,
+        model_name=args.model_name,
+        model_path=args.model_path,
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
         draw_interval=args.draw_interval,
@@ -128,8 +128,8 @@ class SlamRunner:
     save_raw_outputs: bool
     depth_maps_source: str
     egomotions_source: str
-    depth_and_egomotion_method: str | None = None
-    depth_and_egomotion_model_path: Path | None = None
+    model_name: str | None = None
+    model_path: Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
     draw_interval: int = 0
@@ -165,8 +165,8 @@ class SlamRunner:
                 scene_loader=scene_loader,
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
-                depth_and_egomotion_method=self.depth_and_egomotion_method,
-                depth_and_egomotion_model_path=to_path(self.depth_and_egomotion_model_path),
+                model_name=self.model_name,
+                model_path=to_path(self.model_path),
                 depth_lower_bound=alg_prm.depth_lower_bound,
                 depth_upper_bound=alg_prm.depth_upper_bound,
                 depth_default=alg_prm.depth_default,

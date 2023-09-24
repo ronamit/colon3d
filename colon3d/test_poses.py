@@ -6,7 +6,7 @@ from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
 from colon3d.util.torch_util import np_func, to_torch
-from colon3d.util.transforms_util import compose_poses, get_identity_pose, get_pose_delta
+from colon3d.util.pose_transforms import compose_poses, get_identity_pose, get_pose_delta
 
 scene_path = Path("data_gcp/datasets/ColonNav/Test/Scene_00000")
 

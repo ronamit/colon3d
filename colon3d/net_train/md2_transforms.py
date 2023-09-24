@@ -11,7 +11,11 @@ from colon3d.net_train.common_transforms import (
     resize_tensor_image,
 )
 from colon3d.util.general_util import replace_keys
+from colon3d.util.pose_transforms import compose_poses, get_pose, get_pose_delta
+from colon3d.util.rotations_util import axis_angle_to_quaternion, quaternion_to_axis_angle
 from colon3d.util.torch_util import get_device, to_torch
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 """
 The format of each data item that MonoDepth2 expects is a dictionary with the following keys:
@@ -22,7 +26,7 @@ The format of each data item that MonoDepth2 expects is a dictionary with the fo
         ("color_aug", <frame_id>, <scale>)      for augmented colour images,
         ("K", scale) or ("inv_K", scale)        for camera intrinsics,
         "stereo_T"                              for camera extrinsics, and [for stereo pairs only - we don't use this]
-        "depth_gt"                              for ground truth depth maps.
+        "depth_gt"                              ground truth depth maps of the target frame.
 
     <frame_id> is either:
         an integer (e.g. 0, -1, or 1) representing the temporal step relative to 'index', [we use 0=target, 1=ref]
@@ -40,16 +44,16 @@ The format of each data item that MonoDepth2 expects is a dictionary with the fo
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_transforms(n_scales: int):
-    train_trans = get_train_transform(n_scales=n_scales)
-    val_trans = get_validation_transform(n_scales=n_scales)
+def get_transforms(n_scales: int, feed_height: int, feed_width: int) -> (Compose, Compose):
+    train_trans = get_train_transform(n_scales=n_scales, feed_height=feed_height, feed_width=feed_width)
+    val_trans = get_validation_transform(n_scales=n_scales, feed_height=feed_height, feed_width=feed_width)
     return train_trans, val_trans
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_train_transform(n_scales: int):
+def get_train_transform(n_scales: int, feed_height: int, feed_width: int):
     """Training transform for MonoDepth2.
     Args:
         n_scales: number of scales the network expects
@@ -60,16 +64,17 @@ def get_train_transform(n_scales: int):
     # set data transforms
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, device=get_device()),
+        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
         ColorJitter(
             field_postfix="_aug",
             p=0.5,
         ),
-        RandomFlip(flip_x_p=0.5, flip_y_p=0.5),
+        RandomHorizontalFlip(flip_prob=0.5),
         RandomScaleCrop(max_scale=1.15),
         CreateScalesArray(n_scales=n_scales),
         AddInvIntrinsics(n_scales=n_scales),
         NormalizeImageChannels(),
+        AddRelativePose(),
     ]
     return Compose(transform_list)
 
@@ -77,7 +82,7 @@ def get_train_transform(n_scales: int):
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_validation_transform(n_scales: int):
+def get_validation_transform(n_scales: int, feed_height: int, feed_width: int):
     """Validation transform for MonoDepth2
     Args:
     n_scales: number of scales the network expects
@@ -86,7 +91,7 @@ def get_validation_transform(n_scales: int):
     """
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, device=get_device()),
+        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
         ColorJitter(
             field_postfix="_aug",
             p=0.0,
@@ -94,6 +99,7 @@ def get_validation_transform(n_scales: int):
         CreateScalesArray(n_scales=n_scales),
         NormalizeImageChannels(),
         AddInvIntrinsics(n_scales=n_scales),
+        AddRelativePose(),
     ]
     return Compose(transform_list)
 
@@ -105,8 +111,8 @@ class MonoDepth2Format:
     def __call__(self, sample: dict) -> dict:
         replace_keys(sample, old_key="target_img", new_key=("color", 0))
         replace_keys(sample, old_key="ref_img", new_key=("color", 1))
-        replace_keys(sample, old_key="target_depth", new_key="depth_gt")
-        replace_keys(sample, old_key="ref_depth", new_key="depth_gt_ref")
+        replace_keys(sample, old_key="target_depth", new_key=("depth_gt"))
+        replace_keys(sample, old_key="ref_depth", new_key=("ref_depth_gt"))
         replace_keys(sample, old_key="intrinsics_K", new_key="K")
 
         # Normalize the intrinsic matrix (as suggested in monodepth2/datasets/kitti_dataset.py)
@@ -130,7 +136,7 @@ def intrinsic_mat_to_4x4(K: torch.Tensor) -> torch.Tensor:
 def get_sample_image_keys(sample: dict, img_type="all") -> list:
     """Get the possible names of the images in the sample dict"""
     rgb_image_keys = ["color", "color_aug"]
-    depth_image_keys = ["depth_gt", "depth_gt_ref"]
+    depth_image_keys = ["depth_gt", "ref_depth_gt"]
     if img_type == "RGB":
         img_names = rgb_image_keys
     elif img_type == "depth":
@@ -156,9 +162,10 @@ def get_orig_im_size(sample: dict):
 
 
 class AllToTorch:
-    def __init__(self, device: torch.device, dtype: torch.dtype):
+    def __init__(self, device: torch.device, dtype: torch.dtype, feed_height: int, feed_width: int):
         self.device = device
         self.dtype = dtype
+        self.resizer = torchvision.transforms.Resize(size=(feed_height, feed_width), antialias=True)
 
     def __call__(self, sample: dict) -> dict:
         rgb_img_keys = get_sample_image_keys(sample, img_type="RGB")
@@ -168,41 +175,61 @@ class AllToTorch:
             if k in rgb_img_keys:
                 # transform to channels first (HWC to CHW format)
                 sample[k] = torch.permute(sample[k], (2, 0, 1))
+                # resize the image to the feed size (if needed)
+                sample[k] = self.resizer(sample[k])
+
             elif k in depth_img_keys:
                 # transform to channels first (HW to CHW format)
                 sample[k] = torch.unsqueeze(sample[k], dim=0)
+                # resize the image to the feed size (if needed)
+                sample[k] = self.resizer(sample[k])
+
         return sample
-
-
-
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-# Random horizontal flip transform
-class RandomFlip:
-    def __init__(self, flip_x_p=0.5, flip_y_p=0.5):
-        self.flip_x_p = flip_x_p
-        self.flip_y_p = flip_y_p
+class RandomHorizontalFlip:
+    """Randomly flips the images horizontally.
+    Note that we only use horizontal flipping, since it allows to adjust the pose accordingly by easy transformation.
+    """
+
+    def __init__(self, flip_prob=0.5):
+        self.flip_prob = flip_prob
+        self.device = get_device()
 
     def __call__(self, sample: dict):
-        im_height, im_width = get_orig_im_size(sample)
-        img_keys = get_sample_image_keys(sample)
-        # Note: we assume the images were converted by the ImgsToNetInput transform to be of size [..., H, W]
-        flip_x = random.random() < self.flip_x_p
-        flip_y = random.random() < self.flip_y_p
-        if flip_x:
-            for k in img_keys:
-                img = sample[k]
-                sample[k] = torch.flip(img, dims=[-1])
-            sample["K"][0, 2] = im_width - sample["K"][0, 2]
+        flip_x = random.random() < self.flip_prob
+        if not flip_x:
+            return sample
 
-            if flip_y:
-                for k in img_keys:
-                    img = sample[k]
-                    sample[k] = torch.flip(img, dims=[-2])
-                sample["K"][1, 2] = im_height  - sample["K"][1, 2]
+        img_keys = get_sample_image_keys(sample)
+        im_height, im_width = get_orig_im_size(sample)
+        # Note: we assume the images were converted by the ImgsToNetInput transform to be of size [..., H, W]
+
+        # flip the images
+        for k in img_keys:
+            img = sample[k]
+            sample[k] = torch.flip(img, dims=[-1])
+
+        # flip the x-coordinate of the camera center
+        sample["K"][0, 2] = im_width - sample["K"][0, 2]
+
+        # in case we have the ground-truth camera pose, we need to rotate the pose to fit the x-flipped image.
+        # i.e., we need to rotate the pose around the y-axis by 180 degrees
+        if "ref_abs_pose" in sample:
+            rot_axis = torch.tensor([0, 1, 0], device=self.device)
+            rot_angle = np.pi
+            rot_quat = axis_angle_to_quaternion(rot_axis_angle=rot_axis * rot_angle)
+            aug_pose = get_pose(rot_quat=rot_quat)
+            # apply the pose-augmentation to the reference pose and the target pose
+            # the pose format: (x,y,z,qw,qx,qy,qz)
+            ref_abs_pose = compose_poses(pose1=sample["ref_abs_pose"], pose2=aug_pose).reshape(7)
+            tgt_abs_pose = compose_poses(pose1=sample["tgt_abs_pose"], pose2=aug_pose).reshape(7)
+            sample["ref_abs_pose"] = ref_abs_pose
+            sample["tgt_abs_pose"] = tgt_abs_pose
+
         return sample
 
 
@@ -337,7 +364,8 @@ class CreateScalesArray:
         self.scale_factors = [2**i for i in range(self.n_scales)]
 
     def __call__(self, sample: dict) -> dict:
-        image_names = get_sample_image_keys(sample)
+        # Note that only the RGB images are scaled
+        image_names = get_sample_image_keys(sample, img_type="RGB")
         for i_scale in range(self.n_scales):
             for im_name in image_names:
                 img = sample[im_name]
@@ -372,3 +400,43 @@ class NormalizeImageChannels:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+
+class AddRelativePose:
+    """Extends the sample with the relative pose between the reference and target frames
+    (in case the ground-truth poses are available)
+    pose format: (x,y,z,qw,qx,qy,qz)
+    """
+
+    def __call__(self, sample):
+        if "ref_abs_pose" in sample and "tgt_abs_pose" in sample:
+            # get the relative pose
+            sample["tgt_to_ref_pose"] = get_pose_delta(
+                pose1=sample["tgt_abs_pose"],
+                pose2=sample["ref_abs_pose"],
+            ).reshape(7)
+            sample["ref_to_tgt_pose"] = get_pose_delta(
+                pose1=sample["ref_abs_pose"],
+                pose2=sample["tgt_abs_pose"],
+            ).reshape(7)
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def poses_to_md2_format(poses: torch.Tensor, dtype=torch.float32) -> torch.Tensor:
+    """Convert the poses from our format to the format used by EndoSFM"
+    The EndoSFM code works with  tx, ty, tz, rx, ry, rz  (translation and rotation in axis-angle format)
+    Our data in in the format:  x, y, z, qw, qx, qy, qz  (translation and rotation in quaternion format)
+    Args:
+        poses: the poses in our format [N x 7]
+    Returns:
+        translation [N x 3] and axis-angle rotation [N x 3]
+    """
+    translation = poses[:, :3].to(dtype=dtype)
+    axisangle = quaternion_to_axis_angle(poses[:, 3:]).to(dtype=dtype)
+    return translation, axisangle
+
+
+# --------------------------------------------------------------------------------------------------------------------

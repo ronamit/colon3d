@@ -6,9 +6,9 @@ import torch
 
 from colon3d.alg.depth_and_ego_models import DepthModel, EgomotionModel
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
+from colon3d.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
 from colon3d.util.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon3d.util.torch_util import get_default_dtype, get_device, to_default_type, to_torch
-from colon3d.util.transforms_util import transform_rectilinear_image_norm_coords_to_pixel
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -20,8 +20,8 @@ class DepthAndEgoMotionLoader:
         scene_loader: SceneLoader,
         depth_maps_source: str,
         egomotions_source: str,
-        depth_and_egomotion_method: str | None = None,
-        depth_and_egomotion_model_path: str | None = None,
+        model_name: str | None = None,
+        model_path: str | None = None,
         depth_lower_bound: float | None = None,
         depth_upper_bound: float | None = None,
         depth_default: float | None = None,
@@ -51,8 +51,8 @@ class DepthAndEgoMotionLoader:
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(
-                method=depth_and_egomotion_method,
-                model_path=depth_and_egomotion_model_path,
+                model_name=model_name,
+                model_path=model_path,
             )
 
         elif egomotions_source == "ground_truth":
@@ -67,8 +67,8 @@ class DepthAndEgoMotionLoader:
             self.depth_estimator = DepthModel(
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
-                method=depth_and_egomotion_method,
-                model_path=depth_and_egomotion_model_path,
+                method=model_name,
+                model_path=model_path,
             )
             print("Using online depth estimation")
 

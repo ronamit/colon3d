@@ -1,6 +1,6 @@
 import numpy as np
 
-from colon3d.util.transforms_util import (
+from colon3d.util.pose_transforms import (
     get_relative_4x4_poses,
     poses_to_4x4_matrices,
 )

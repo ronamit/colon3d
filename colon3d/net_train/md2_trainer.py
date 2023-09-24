@@ -10,13 +10,15 @@ from pathlib import Path
 import attrs
 import numpy as np
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as nnF
 import torch.optim
 import torch.utils.data
 from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
+from colon3d.net_train.loss_terms import compute_pose_loss_from_trans_and_rot
+from colon3d.net_train.md2_transforms import poses_to_md2_format
 from colon3d.util.general_util import create_folder_if_not_exists, to_str
 from colon3d.util.torch_util import get_device
 from monodepth2.layers import (
@@ -40,9 +42,9 @@ from monodepth2.utils import normalize_image, sec_to_hm_str
 class MonoDepth2Trainer:
     save_path: Path  # path to save the trained model
     train_loader: DataLoader  # training data loader
-    validation_loader: DataLoader  # validation data loader
-    img_height: int   # input image height
-    img_width: int   # input image width
+    val_loader: DataLoader  # validation data loader
+    feed_height: int  # input image height
+    feed_width: int  # input image width
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     n_scales: int = 4  # number of scales
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
@@ -60,6 +62,8 @@ class MonoDepth2Trainer:
     pose_model_input: str = "pairs"  # how many images the pose network gets # choices=["pairs", "all"]
     pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet"]
     load_weights_folder: str = None  # name of model to load
+    train_with_gt_depth: bool = False  # if set, will train with ground truth depth
+    train_with_gt_pose: bool = False  # if set, will train with ground truth pose
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
     log_frequency: int = 250  # number of batches between each tensorboard log
     save_frequency: int = 1  # number of epochs between each save
@@ -100,8 +104,8 @@ class MonoDepth2Trainer:
             file.write(str(self) + "\n")
 
         # checking height and width are multiples of 32
-        assert self.img_height % 32 == 0, "'height' must be a multiple of 32"
-        assert self.img_width % 32 == 0, "'width' must be a multiple of 32"
+        assert self.feed_height % 32 == 0, "'height' must be a multiple of 32"
+        assert self.feed_width % 32 == 0, "'width' must be a multiple of 32"
 
         self.models = {}
         self.parameters_to_train = []
@@ -172,11 +176,12 @@ class MonoDepth2Trainer:
         print("Training is using:\n  ", self.device)
 
         num_train_samples = len(self.train_loader.dataset)
-        num_val_samples = len(self.validation_loader.dataset)
+        num_val_samples = len(self.val_loader.dataset)
         self.batch_size = self.train_loader.batch_size
         self.num_total_steps = num_train_samples // self.batch_size * self.n_epochs
 
-        self.val_iter = iter(self.validation_loader)
+        self.val_iter = iter(self.val_loader)
+        print(f"There are {len(self.train_loader)} training items and {len(self.val_loader)} validation items.")
 
         self.writers = {}
         for mode in ["train", "val"]:
@@ -189,8 +194,8 @@ class MonoDepth2Trainer:
         self.backproject_depth = {}
         self.project_3d = {}
         for scale in self.scales:
-            h = self.img_height // (2**scale)
-            w = self.img_width // (2**scale)
+            h = self.feed_height // (2**scale)
+            w = self.feed_width // (2**scale)
 
             self.backproject_depth[scale] = BackprojectDepth(self.batch_size, h, w)
             self.backproject_depth[scale].to(self.device)
@@ -242,8 +247,54 @@ class MonoDepth2Trainer:
         for batch_idx, inputs in enumerate(self.train_loader):
             before_op_time = time.time()
 
+            # Process the batch to get the outputs and losses
             outputs, losses = self.process_batch(inputs)
 
+            # Add optional depth loss
+            if self.train_with_gt_depth:
+                # Get the ground truth depth map of the target frame (frame_id=0) at the full resolution
+                depth_gt = inputs["depth_gt"]
+                depth_loss = 0
+                for scale in self.scales:
+                    # Get the predicted depth map of the target frame (frame_id=0) that was interpolated to the full resolution from the predicted depth map at the current scale
+                    depth_pred = outputs[("depth", 0, scale)]
+                    depth_loss += nnF.smooth_l1_loss(depth_pred, depth_gt)
+                # normalize the depth loss by the number of scales
+                depth_loss /= len(self.scales)
+                # multiply the depth loss by a factor to match the scale of the other losses
+                depth_loss = depth_loss * 1e-2
+                losses["depth_loss"] = depth_loss
+                losses["loss"] += depth_loss
+
+            # Add optional pose loss
+            if self.train_with_gt_pose:
+                assert self.frame_ids == [0, 1], "we assume only 2 frames for now: 0=target and 1=reference"
+                # Get the ground truth pose change from target to reference frame
+                translation_gt, axisangle_gt = poses_to_md2_format(inputs["tgt_to_ref_pose"])
+                # Get the predicted pose change from reference to target frame
+                ref_frame_id = 1  # the reference frame is always 1 in our implementation
+                scale = 0  # pose is only predicted at "scale 0"
+                # The predicted translation and rotation from target to reference frame, each is [batch_size, num_frames_to_predict_for, 1, 3]:
+                translation_pred = outputs[("translation", scale, ref_frame_id)]
+                axisangle_pred = outputs[("axisangle", scale, ref_frame_id)]
+                # Get the pose change from target (frame_id=0) to reference (frame_id=1) frame
+                # note: according to https://github.com/nianticlabs/monodepth2/blob/b676244e5a1ca55564eb5d16ab521a48f823af31/trainer.py#L315C31-L315C40
+                # we need to take the ref_frame_id at dim=1
+                trans_pred = translation_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
+                rot_pred = axisangle_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
+                # Compute the pose loss
+                pose_loss = compute_pose_loss_from_trans_and_rot(
+                    trans_pred=trans_pred,
+                    trans_gt=translation_gt,
+                    rot_pred=rot_pred,
+                    rot_gt=axisangle_gt,
+                )
+                # multiply the pose loss by a factor  to match the scale of the other losses
+                pose_loss = pose_loss * 0.5
+                losses["pose_loss"] = pose_loss
+                losses["loss"] += pose_loss
+
+            # Take a gradient step
             self.model_optimizer.zero_grad()
             losses["loss"].backward()
             self.model_optimizer.step()
@@ -368,7 +419,7 @@ class MonoDepth2Trainer:
         """
         for scale in self.scales:
             disp = outputs[("disp", scale)]
-            disp = F.interpolate(disp, [self.img_height, self.img_width], mode="bilinear", align_corners=False)
+            disp = nnF.interpolate(disp, [self.feed_height, self.feed_width], mode="bilinear", align_corners=False)
             source_scale = 0
 
             _, depth = disp_to_depth(disp, self.min_depth, self.max_depth)
@@ -397,7 +448,7 @@ class MonoDepth2Trainer:
 
                 outputs[("sample", frame_id, scale)] = pix_coords
 
-                outputs[("color", frame_id, scale)] = F.grid_sample(
+                outputs[("color", frame_id, scale)] = nnF.grid_sample(
                     inputs[("color", frame_id, source_scale)],
                     outputs[("sample", frame_id, scale)],
                     padding_mode="border",
@@ -460,7 +511,7 @@ class MonoDepth2Trainer:
             elif self.predictive_mask:
                 # use the predicted mask
                 mask = outputs["predictive_mask"]["disp", scale]
-                mask = F.interpolate(mask, [self.img_height, self.img_width], mode="bilinear", align_corners=False)
+                mask = nnF.interpolate(mask, [self.feed_height, self.feed_width], mode="bilinear", align_corners=False)
                 reprojection_losses *= mask
 
                 # add a loss pushing mask to 1 (using nn.BCELoss for stability)
@@ -515,7 +566,7 @@ class MonoDepth2Trainer:
         depth_pred = outputs[("depth", 0, 0)]
         depth_pred = depth_pred.detach().squeeze(1)  # [B, 1, H, W] -> [B, H, W]
         depth_gt = inputs["depth_gt"].squeeze(1)  # [B, 1, H, W] -> [B, H, W]
- 
+
         mask = depth_gt > 0
 
         depth_gt = depth_gt[mask]
@@ -594,7 +645,7 @@ class MonoDepth2Trainer:
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with"""
         to_save = {k: to_str(v) for k, v in self.__getstate__().items()}
-        with ( self.log_path  / "opt.json").open("w") as f:
+        with (self.log_path / "opt.json").open("w") as f:
             json.dump(to_save, f, indent=2)
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -602,7 +653,7 @@ class MonoDepth2Trainer:
     def save_model(self):
         """Save model weights to disk"""
         # save the last model  to log_path and also save the weights to log_path/models/weights_{epoch}
-        save_folders = [ self.log_path , self.log_path / "models" / f"weights_{self.epoch}"]
+        save_folders = [self.log_path, self.log_path / "models" / f"weights_{self.epoch}"]
         for save_folder in save_folders:
             create_folder_if_not_exists(save_folder)
             for model_name, model in self.models.items():
@@ -610,8 +661,8 @@ class MonoDepth2Trainer:
                 to_save = model.state_dict()
                 if model_name == "encoder":
                     # save the sizes - these are needed at prediction time
-                    to_save["height"] = self.img_height
-                    to_save["width"] = self.img_width
+                    to_save["height"] = self.feed_height
+                    to_save["width"] = self.feed_width
                 torch.save(to_save, save_path)
             save_path = save_folder / "adam.pth"
             torch.save(self.model_optimizer.state_dict(), save_path)

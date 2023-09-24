@@ -20,17 +20,23 @@ class ScenesDataset(data.Dataset):
     def __init__(
         self,
         scenes_paths: list,
+        feed_height: int,
+        feed_width: int,
         transform: Compose | None = None,
         subsample_min: int = 1,
         subsample_max: int = 20,
         n_sample_lim: int = 0,
-        load_target_depth: bool = False,
+        load_gt_depth: bool = False,
+        load_gt_pose: bool = False,
         plot_example_ind: int | None = None,
     ):
         r"""Initialize the DatasetLoader class
         Args:
             scenes_paths (list): List of paths to the scenes
-            load_tgt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
+            feed_height (int): The height of the input images to the network
+            feed_width (int): The width of the input images to the network
+            load_gt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
+            load_gt_pose (bool): Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
             transforms: transforms to apply to each sample  (in order)
             subsample_min (int): Minimum subsample factor to set the frame number between frames in the example.
             subsample_max (int): Maximum subsample factor to set the frame number between frames in the example.
@@ -39,10 +45,13 @@ class ScenesDataset(data.Dataset):
             for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
         """
         self.scenes_paths = scenes_paths
+        self.feed_height = feed_height
+        self.feed_width = feed_width
         self.transform = transform
         self.subsample_min = subsample_min
         self.subsample_max = subsample_max
-        self.load_target_depth = load_target_depth
+        self.load_gt_depth = load_gt_depth
+        self.load_gt_pose = load_gt_pose
         self.plot_example_ind = plot_example_ind
         assert self.subsample_min <= self.subsample_max
         self.frame_paths_per_scene = []
@@ -65,10 +74,6 @@ class ScenesDataset(data.Dataset):
 
         self.subsample_min = min(self.subsample_min, min(n_frames_per_scene) - 1)
         self.subsample_max = min(self.subsample_max, min(n_frames_per_scene) - 1)
-        
-        scene_mata_data = self.get_scene_metadata()
-        self.img_height = scene_mata_data["frame_height"]
-        self.img_width = scene_mata_data["frame_width"]
 
         for i_scene, frames_paths in enumerate(frames_paths_per_scene):
             n_frames = len(frames_paths)
@@ -94,8 +99,8 @@ class ScenesDataset(data.Dataset):
         sample["target_frame_idx"] = target_frame_idx
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
-            metadata = yaml.load(file, Loader=yaml.FullLoader)
-            intrinsics_orig = get_camera_matrix(metadata)
+            scene_metadata = yaml.load(file, Loader=yaml.FullLoader)
+            intrinsics_orig = get_camera_matrix(scene_metadata)
 
         sample["intrinsics_K"] = to_torch(intrinsics_orig)
         # note that the intrinsics matrix might be changed later by the transform (as needed for some methods)
@@ -104,8 +109,7 @@ class ScenesDataset(data.Dataset):
         target_frame_ind = target_id["target_frame_idx"]
         target_frame_path = scene_frames_paths[target_frame_ind]
         # Load with PIL
-        sample["target_img"] = Image.open(target_frame_path)
-        assert sample["target_img"].size == (self.img_height, self.img_width)
+        sample["target_img"] = load_img_and_resize(target_frame_path, height=self.feed_height, width=self.feed_width)
 
         # randomly choose the subsample factor
         subsample_factor = torch.randint(self.subsample_min, self.subsample_max + 1, (1,)).item()
@@ -114,13 +118,21 @@ class ScenesDataset(data.Dataset):
         ref_frame_idx = target_frame_ind + subsample_factor
         sample["ref_img"] = Image.open(scene_frames_paths[ref_frame_idx])
 
-        if self.load_target_depth:
+        if self.load_gt_depth or self.load_gt_pose:
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
-                target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
-                sample["target_depth"] = target_depth
-                ref_depth = to_default_type(h5f["z_depth_map"][ref_frame_idx], num_type="float_m")
-                sample["ref_depth"] = ref_depth
-                
+                if self.load_gt_depth:
+                    # load the ground-truth depth map of the target frame and the reference frame
+                    target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
+                    sample["target_depth"] = target_depth
+                    ref_depth = to_default_type(h5f["z_depth_map"][ref_frame_idx], num_type="float_m")
+                    sample["ref_depth"] = ref_depth
+                if self.load_gt_pose:
+                    # load the ground-truth poses of the target frame and the reference frame
+                    target_pose = to_default_type(h5f["cam_poses"][target_frame_idx])
+                    ref_pose = to_default_type(h5f["cam_poses"][ref_frame_idx])
+                    sample["ref_abs_pose"] = ref_pose
+                    sample["tgt_abs_pose"] = target_pose
+
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
@@ -133,17 +145,17 @@ class ScenesDataset(data.Dataset):
         with (scene_path / "meta_data.yaml").open() as file:
             metadata = yaml.load(file, Loader=yaml.FullLoader)
         return metadata
-    
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_camera_matrix(metadata: dict) -> np.ndarray:
+def get_camera_matrix(scene_metadata: dict) -> np.ndarray:
     cam_K = np.zeros((3, 3), dtype=np.float32)
-    cam_K[0, 0] = metadata["fx"]
-    cam_K[1, 1] = metadata["fy"]
-    cam_K[0, 2] = metadata["cx"]
-    cam_K[1, 2] = metadata["cy"]
+    cam_K[0, 0] = scene_metadata["fx"]
+    cam_K[1, 1] = scene_metadata["fy"]
+    cam_K[0, 2] = scene_metadata["cx"]
+    cam_K[1, 2] = scene_metadata["cy"]
     cam_K[2, 2] = 1
     return cam_K
 
@@ -161,6 +173,22 @@ def get_scenes_dataset_random_split(dataset_path: Path, validation_ratio: float)
     val_scenes_paths = all_scenes_paths[n_train_scenes:]
     print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
     return train_scenes_paths, val_scenes_paths
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def load_img_and_resize(img_path: Path, height: int, width: int):
+    """Load an image and resize it".
+    Args:
+        img_path (str): Path to the image
+        new_size (tuple): The new size of the image (height, width)
+    Returns:
+        PIL.Image: The loaded and resized image
+    """
+    img = Image.open(img_path)
+    img = img.resize((width, height), Image.ANTIALIAS)
+    return img
 
 
 # ---------------------------------------------------------------------------------------------------------------------

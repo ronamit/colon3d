@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from scipy.spatial.transform import Rotation as spRotation
 from torch.nn.functional import normalize
 
 from colon3d.util.torch_util import assert_2d_tensor, to_default_type
@@ -130,6 +129,7 @@ def invert_rotation(quaternion: torch.Tensor) -> torch.Tensor:
     scaling = torch.tensor([1, -1, -1, -1], device=quaternion.device)
     return quaternion * scaling
 
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -232,7 +232,6 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
     return rot_quat
 
 
-
 # ----------------------------------------------------------------------
 def axis_angle_to_quaternion(rot_axis_angle: torch.Tensor) -> torch.Tensor:
     """Convert axis-angle representation to quaternion representation.
@@ -250,18 +249,81 @@ def axis_angle_to_quaternion(rot_axis_angle: torch.Tensor) -> torch.Tensor:
     if is_single_vec:
         rot_quat = rot_quat[0]
     return rot_quat
+
+
 # ----------------------------------------------------------------------
 
-def quaternions_to_rot_matrices(rot_quats: np.ndarray) ->  np.ndarray:
-    """ Transforms unit quaternions into a rotation matrix.
+
+def quaternions_to_rot_matrices(rot_quat: torch.Tensor) -> torch.Tensor:
+    """Transforms unit quaternions into a rotation matrix.
     Args:
-        rot_quats: [n x 4] unit quaternions (real part first).
+        rot_quat: [n x 4] unit quaternions (real part first).
     Returns:
-        rot_mats: [n x 3 x 3] rotation matrices.
+        rot_mat: [n x 3 x 3] rotation matrices.
+    Sources:
+        https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Quaternion-derived_rotation_matrix
     """
-    # convert to scipy rotation format (real part last)
-    rot_quats_real_last = np.roll(rot_quats, shift=-1, axis=1)
-    rot_mats = spRotation.from_quat(rot_quats_real_last).as_matrix()
-    return rot_mats
+    assert rot_quat.ndim == 2
+    assert rot_quat.shape[1] == 4
+    qw, qx, qy, qz = torch.unbind(rot_quat, dim=-1)
+    rot_mat = torch.stack(
+        [
+            # row 1
+            1 - 2 * (qy**2 + qz**2),
+            2 * (qx * qy - qz * qw),
+            2 * (qx * qz + qy * qw),
+            # row 2
+            2 * (qx * qy + qz * qw),
+            1 - 2 * (qx**2 + qz**2),
+            2 * (qy * qz - qx * qw),
+            # row 3
+            2 * (qx * qz - qy * qw),
+            2 * (qy * qz + qx * qw),
+            1 - 2 * (qx**2 + qy**2),
+        ],
+        dim=1,
+    ).reshape(-1, 3, 3)
+    return rot_mat
+
+
+# ----------------------------------------------------------------------
+
+
+def quaternion_to_axis_angle(rot_quat: torch.Tensor) -> torch.Tensor:
+    """Convert quaternion representation to axis-angle representation.
+    Args:
+        rot_quat (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz)
+    Returns:
+        rot_axis_angle (torch.Tensor): [n_vecs x 3] each row is a rotation vector (axis-angle representation)
+    """
+    is_single_vec = rot_quat.ndim == 1
+    if is_single_vec:
+        rot_quat = rot_quat.unsqueeze(0)
+    assert_2d_tensor(rot_quat, 4)
+    rot_quat = normalize_quaternions(rot_quat)
+    theta = 2 * torch.acos(rot_quat[:, 0:1])
+    vec = rot_quat[:, 1:] / torch.sin(theta / 2)
+    rot_axis_angle = theta * vec
+    return rot_axis_angle[0] if is_single_vec else rot_axis_angle
+
+
+# ----------------------------------------------------------------------
+
+
+def axis_angle_to_rot_mat(rot_axisangle: torch.Tensor) -> torch.Tensor:
+    """Convert  axis-angle representation to 3x3 rotation matrix.
+    Args:
+        rot_axisangle (torch.Tensor):  [n_vecs x 3] each row is a rotation vector (axis-angle representation)
+    Returns:
+        rot_mat(torch.Tensor): [n_vecs x 3 x 3] rotation matrices
+    """
+    is_single_vec = rot_axisangle.ndim == 1
+    if is_single_vec:
+        rot_axisangle = rot_axisangle.unsqueeze(0)
+    assert_2d_tensor(rot_axisangle, 3)
+    rot_quat = axis_angle_to_quaternion(rot_axisangle)
+    rot_mat = quaternions_to_rot_matrices(rot_quat)
+    return rot_mat[0] if is_single_vec else rot_mat
+
 
 # ----------------------------------------------------------------------

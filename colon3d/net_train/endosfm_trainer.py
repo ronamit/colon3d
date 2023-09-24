@@ -4,17 +4,20 @@ from pathlib import Path
 
 import attrs
 import torch
+import torch.nn.functional as nnF
 import torch.optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
+from colon3d.net_train.endosfm_transforms import poses_to_enfosfm_format
+from colon3d.net_train.loss_terms import compute_pose_loss
 from colon3d.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
 from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
-from endo_sfm.utils import save_checkpoint, save_model_info
+from endo_sfm.utils import save_checkpoint
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -22,12 +25,13 @@ from endo_sfm.utils import save_checkpoint, save_model_info
 class EndoSFMTrainer:
     save_path: Path = None  # Path to save checkpoints and training outputs
     train_loader: torch.utils.data.DataLoader = None  # Loader for training set
-    validation_loader: torch.utils.data.DataLoader = None  # Loader for validation set
+    val_loader: torch.utils.data.DataLoader = None  # Loader for validation set
     pretrained_disp: str = ""  # path to pre-trained DispNet model (disparity=1/depth),
     # if empty then training from scratch
     pretrained_pose: str = ""  # path to pre-trained PoseNet model, if empty then training from scratch
     with_pretrain: bool = True  # in case training from scratch -  do we use ImageNet pretrained weights or not
     train_with_gt_depth: bool = False  # if True, train with ground truth depth (supervised training)
+    train_with_gt_pose: bool = False  # if True, train with ground truth pose (supervised training)
     n_epochs: int = 100  # number of epochs to train
     learning_rate: float = 1e-4  # initial learning rate
     momentum: float = 0.9  # momentum for sgd, alpha parameter for adam
@@ -55,10 +59,11 @@ class EndoSFMTrainer:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
+        self.losses_names = ["photo_loss", "smooth_loss", "geometry_consistency_loss"]
         if self.train_with_gt_depth:
-            self.losses_names = ["depth_loss", "photo_loss", "smooth_loss", "geometry_consistency_loss"]
-        else:
-            self.losses_names = ["photo_loss", "smooth_loss", "geometry_consistency_loss"]
+            self.losses_names += ["depth_loss"]
+        if self.train_with_gt_pose:
+            self.losses_names += ["pose_loss"]
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
@@ -91,14 +96,6 @@ class EndoSFMTrainer:
             # get the metadata of some scene (we assume that all scenes have the same metadata)
             train_set = self.train_loader.dataset
             scene_metadata = train_set.get_scene_metadata()
-
-            # save model_info file
-            save_model_info(
-                save_dir_path=self.save_path,
-                scene_metadata=scene_metadata,
-                num_layers=self.num_layers,
-                overwrite=self.save_overwrite,
-            )
 
             # create model
             print("=> creating model")
@@ -166,7 +163,7 @@ class EndoSFMTrainer:
                 print(f" * Avg Loss : {train_loss:.3f}")
 
                 # evaluate on validation set
-                errors, error_names = self.validate_with_gt(self.validation_loader, disp_net, output_writers)
+                errors, error_names = self.validate_with_gt(self.val_loader, disp_net, output_writers)
 
                 error_string = ", ".join(
                     f"{name} : {error:.3f}" for name, error in zip(error_names, errors, strict=True)
@@ -245,20 +242,44 @@ class EndoSFMTrainer:
 
             loss_terms = {loss_name: 0 for loss_name in self.losses_names}
             loss_weights = {"photo_loss": w1, "smooth_loss": w2, "geometry_consistency_loss": w3}
+
+            # Compute the supervised depth loss if needed
             if self.train_with_gt_depth:
-                # load ground truth depth
-                target_gt_depth = batch["target_depth"].to(device)
+                # load ground truth depth of the target and reference images
+                tgt_gt_depth = batch["target_depth"].to(device)
                 ref_gt_depth = batch["ref_depth"].to(device)
                 # add a supervised loss term for training the depth nerwork
                 loss_weights["depth_loss"] = 1
-                target_depth_loss = torch.mean(torch.abs(target_gt_depth - tgt_depth[0]))
-                ref_depth_loss = torch.mean(torch.abs(target_gt_depth - ref_depths[0][0]))
-                loss_terms["depth_loss"] = target_depth_loss + ref_depth_loss
-                #  use ground truth depth for the next loss items
-                # we use a list of length 1 - only the original image size (scale 0) is used.
-                tgt_depth = [target_gt_depth]
-                ref_depths = [[ref_gt_depth]]  # only 1 ref image is used in our case
+                target_depth_loss = nnF.smooth_l1_loss(tgt_depth[0], tgt_gt_depth)
+                ref_depth_loss = nnF.smooth_l1_loss(ref_depths[0][0], ref_gt_depth)
+                depth_loss = target_depth_loss + ref_depth_loss
+                # multiply the depth loss by a factor to match the scale of the other losses
+                depth_loss = depth_loss * 0.1
+                loss_terms["depth_loss"] = depth_loss
 
+            # Compute the supervised pose loss if needed
+            if self.train_with_gt_pose:
+                # get ground truth pose change
+                tgt_to_ref_pose_gt = batch["tgt_to_ref_pose"].to(device)  # [batch_size, 7]
+                ref_to_tgt_pose_gt = batch["ref_to_tgt_pose"].to(device)  # [batch_size, 7]
+                # convert the GT pose changes to axis-angle format
+                tgt_to_ref_pose_gt = poses_to_enfosfm_format(tgt_to_ref_pose_gt)  # [batch_size, 6]
+                ref_to_tgt_pose_gt = poses_to_enfosfm_format(ref_to_tgt_pose_gt)  # [batch_size, 6]
+                # the estimated pose changes  are in axis-angle format
+                tgt_to_ref_pose_pred = poses[0]  # [batch_size, 6]
+                ref_to_tgt_pose_pred = poses_inv[0]  # [batch_size, 6]
+
+                # add a supervised loss term for training the pose network
+                loss_weights["pose_loss"] = 1
+                pose_loss1 = compute_pose_loss(pose_pred=tgt_to_ref_pose_pred, pose_gt=tgt_to_ref_pose_gt)
+                pose_loss2 = compute_pose_loss(pose_pred=ref_to_tgt_pose_pred, pose_gt=ref_to_tgt_pose_gt)
+                pose_loss = (pose_loss1 + pose_loss2) / 2
+                # multiply the pose loss by a factor to match the scale of the other losses
+                pose_loss = pose_loss * 0.5
+                loss_terms["pose_loss"] = pose_loss
+
+
+            # compute the photometric and geometry consistency losses
             loss_terms["photo_loss"], loss_terms["geometry_consistency_loss"] = compute_photo_and_geometry_loss(
                 tgt_img,
                 ref_imgs,
@@ -300,7 +321,9 @@ class EndoSFMTrainer:
             end = time.time()
 
             if i % self.print_freq == 0:
-                print(f"Train: Epoch {i_epoch}, Batch: {i}/{n_batches} batch-time {batch_time}, data-time {data_time}, Loss {losses}")
+                print(
+                    f"Train: Epoch {i_epoch}, Batch: {i}/{n_batches} batch-time {batch_time}, data-time {data_time}, Loss {losses}",
+                )
 
             n_iter += 1
 

@@ -40,7 +40,7 @@ def get_default_dtype(package="torch", num_type=None):
         if num_type in ["float", "float_m"]:
             return np.float64
         if num_type == "float_m":
-        # the precision for depth maps
+            # the precision for depth maps
             return np.float32
         if num_type == "int":
             return np.int64
@@ -140,7 +140,10 @@ def assert_2d_tensor(t: torch.Tensor, dim2: int):
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
     assert is_finite(t), "Tensor should be finite."
     return t
+
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def assert_2d_array(t: np.ndarray, dim2: int):
     if t.ndim == 1:
@@ -149,6 +152,8 @@ def assert_2d_array(t: np.ndarray, dim2: int):
     assert t.shape[1] == dim2, f"Tensor should be [n x {dim2}]."
     assert is_finite(t), "Tensor should be finite."
     return t
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -211,7 +216,9 @@ def resize_single_image(
     resized_img = resized_img.squeeze(0)  # remove batch dimension
     return resized_img
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def resize_images_batch(
     imgs: torch.Tensor,
