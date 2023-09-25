@@ -454,8 +454,12 @@ def poses_to_md2_format(poses: torch.Tensor, dtype=torch.float32) -> torch.Tenso
     Returns:
         translation [N x 3] and axis-angle rotation [N x 3]
     """
+    # check that all poses are valid (finite)
+    assert torch.isfinite(poses).all(), "Poses should be finite."
     translation = poses[:, :3].to(dtype=dtype)
     axisangle = quaternion_to_axis_angle(poses[:, 3:]).to(dtype=dtype)
+    assert torch.isfinite(translation).all(), "Translation should be finite."
+    assert torch.isfinite(axisangle).all(), "Axis-angle should be finite."
     return translation, axisangle
 
 

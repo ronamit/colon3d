@@ -53,7 +53,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/DEBUG",
+        default="data_gcp/models/MonoDepth2_GTPD",
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -62,7 +62,7 @@ def main():
         default=20,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=8, type=int, help="number of data loading workers")
+    parser.add_argument("--n_workers", default=1, type=int, help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.")
     parser.add_argument(
         "--batch_size",
         default=32,
@@ -167,11 +167,11 @@ def main():
 
     if args.debug_mode:
         print("Running in debug mode!!!!")
-        n_sample_lim = 1 + args.batch_size  # limit the number of samples per epoch (must be more than the batch size)
+        n_sample_lim = 100  # limit the number of samples per epoch (must be more than the batch size)
         n_epochs = 1  # limit the number of epochs
         path_to_save_model = path_to_save_model / "debug"
         n_scenes_lim = 1
-        n_workers = 0  # easier to debug with 1 worker
+        n_workers = 0  # for easier debugging - use only the main process.
 
     # dataset split
     dataset_path = Path(args.dataset_path)

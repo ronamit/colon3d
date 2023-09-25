@@ -288,23 +288,40 @@ def quaternions_to_rot_matrices(rot_quat: torch.Tensor) -> torch.Tensor:
 
 # ----------------------------------------------------------------------
 
-
-def quaternion_to_axis_angle(rot_quat: torch.Tensor) -> torch.Tensor:
-    """Convert quaternion representation to axis-angle representation.
-    Args:
-        rot_quat (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz)
-    Returns:
-        rot_axis_angle (torch.Tensor): [n_vecs x 3] each row is a rotation vector (axis-angle representation)
+def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     """
-    is_single_vec = rot_quat.ndim == 1
+    Convert rotations given as quaternions to axis/angle.
+
+    Args:
+        quaternions: quaternions with real part first,
+            as tensor of shape (..., 4).
+
+    Returns:
+        Rotations given as a vector in axis angle form, as a tensor
+            of shape (..., 3), where the magnitude is the angle
+            turned anticlockwise in radians around the vector's
+            direction.
+    Source: https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html#axis_angle_to_quaternion
+    """
+    is_single_vec = quaternions.ndim == 1
     if is_single_vec:
-        rot_quat = rot_quat.unsqueeze(0)
-    assert_2d_tensor(rot_quat, 4)
-    rot_quat = normalize_quaternions(rot_quat)
-    theta = 2 * torch.acos(rot_quat[:, 0:1])
-    vec = rot_quat[:, 1:] / torch.sin(theta / 2)
-    rot_axis_angle = theta * vec
-    return rot_axis_angle[0] if is_single_vec else rot_axis_angle
+        quaternions = quaternions.unsqueeze(0)
+    norms = torch.norm(quaternions[..., 1:], p=2, dim=-1, keepdim=True)
+    half_angles = torch.atan2(norms, quaternions[..., :1])
+    angles = 2 * half_angles
+    eps = 1e-6
+    small_angles = angles.abs() < eps
+    sin_half_angles_over_angles = torch.empty_like(angles)
+    sin_half_angles_over_angles[~small_angles] = (
+        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
+    )
+    # for x small, sin(x/2) is about x/2 - (x/2)^3/6
+    # so sin(x/2)/x is about 1/2 - (x*x)/48
+    sin_half_angles_over_angles[small_angles] = (
+        0.5 - (angles[small_angles] * angles[small_angles]) / 48
+    )
+    axis_angle = quaternions[..., 1:] / sin_half_angles_over_angles
+    return axis_angle[0] if is_single_vec else axis_angle
 
 
 # ----------------------------------------------------------------------

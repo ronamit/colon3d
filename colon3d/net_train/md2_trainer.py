@@ -181,8 +181,6 @@ class MonoDepth2Trainer:
         self.num_total_steps = num_train_samples // self.batch_size * self.n_epochs
 
         self.val_iter = iter(self.val_loader)
-        print(f"There are {len(self.train_loader)} training items and {len(self.val_loader)} validation items.")
-
         self.writers = {}
         for mode in ["train", "val"]:
             self.writers[mode] = SummaryWriter(self.log_path / mode)

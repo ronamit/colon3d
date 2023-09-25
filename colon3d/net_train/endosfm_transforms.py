@@ -249,9 +249,12 @@ def poses_to_enfosfm_format(poses: torch.Tensor, dtype=torch.float32) -> torch.T
         poses: the poses in the EndoSFM format [N x 6] (tx, ty, tz, rx, ry, rz)
     """
     n = poses.shape[0]
+    assert poses.shape[1] == 7, "Invalid poses"
+    assert torch.isfinite(poses).all(), "Invalid poses"
     poses_new = torch.zeros((n, 6), dtype=dtype, device=poses.device)
     poses_new[:, :3] = poses[:, :3]
     poses_new[:, 3:] = quaternion_to_axis_angle(poses[:, 3:])
+    assert torch.isfinite(poses_new).all(), "Invalid poses"
     return poses_new
 
 
