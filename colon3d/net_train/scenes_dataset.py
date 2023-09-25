@@ -116,6 +116,7 @@ class ScenesDataset(data.Dataset):
 
         # load the reference frame
         ref_frame_idx = target_frame_ind + subsample_factor
+        sample["ref_frame_idx"] = ref_frame_idx
         sample["ref_img"] = Image.open(scene_frames_paths[ref_frame_idx])
 
         if self.load_gt_depth or self.load_gt_pose:

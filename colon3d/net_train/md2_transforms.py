@@ -65,6 +65,7 @@ def get_train_transform(n_scales: int, feed_height: int, feed_width: int):
     transform_list = [
         MonoDepth2Format(),
         AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
+        SwitchTargetAndRef(prob=0.5),
         ColorJitter(
             field_postfix="_aug",
             p=0.5,
@@ -274,6 +275,25 @@ class RandomScaleCrop:
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+class SwitchTargetAndRef:
+    """Randomly switches the target and reference images.
+    I.e. we reverse the time axis.
+    Note that we also need to switch the ground-truth depth maps and the camera poses accordingly.
+    """
+    def __init__(self, prob: float = 0.5):
+        self.prob = prob
+    
+    def __call__(self, sample: dict) -> dict:
+        if random.random() < self.prob:
+            sample["target_frame_idx"], sample["ref_frame_idx"] = sample["ref_frame_idx"], sample["target_frame_idx"]
+            sample["color", 0], sample["color", 1] = sample["color", 1], sample["color", 0]
+            sample["depth_gt"], sample["ref_depth_gt"] = sample["ref_depth_gt"], sample["depth_gt"]
+            if "ref_abs_pose" in sample:
+                sample["ref_abs_pose"], sample["tgt_abs_pose"] = sample["tgt_abs_pose"], sample["ref_abs_pose"]
+        return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 
 # Color jittering transform
 class ColorJitter:
