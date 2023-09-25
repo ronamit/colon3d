@@ -112,11 +112,19 @@ def main():
         default=True,
         help="If True, then use a small dataset and 1 epoch for debugging",
     )
+    parser.add_argument(
+        "--empty_cache",
+        type=bool_arg,
+        default=True,
+        help="If True, then empty the cache after each epoch (to avoid cuda out of memory error)",
+    )
     args = parser.parse_args()
     print(f"args={args}")
     n_workers = args.n_workers
     # Set multiprocessing start method to spawn (to avoid error in DataLoader):
     torch.multiprocessing.set_start_method("spawn")
+    if args.empty_cache:
+        torch.cuda.empty_cache()
 
     rand_seed = 0  # random seed for reproducibility
     set_rand_seed(rand_seed)
