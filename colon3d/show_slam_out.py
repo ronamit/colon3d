@@ -70,7 +70,7 @@ def save_slam_plots(
     detections_tracker = slam_out["detections_tracker"]
     online_logger = slam_out["online_logger"]
     # Get the online estimated camera poses
-    est_cam_poses = to_torch(online_logger.cam_pose_estimates)
+    est_cam_poses = to_torch(online_logger.cam_pose_estimates, device="default")
     tracks_ids = tracks_p3d_inds.keys()
     #  List of the estimated 3D locations of each track's KPs (in the world system):
     online_est_track_cam_loc = slam_out["online_est_track_world_loc"]

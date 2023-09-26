@@ -83,35 +83,44 @@ def to_numpy(x, num_type=None, dtype=None):
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 def to_device(x: torch.Tensor, device: torch.device):
     """Move a tensor to a device.
     Sources:
         * https://discuss.pytorch.org/t/should-we-set-non-blocking-to-true/38234/3
     """
-    # check if the tensor is already on the device
-    if x.device == device:
-        return x
-    return x.to(device, non_blocking=True)
+    if not x.is_cuda:
+        return x.to(device, non_blocking=True)
+    return x.to(device)
+
 
 # --------------------------------------------------------------------------------------------------------------------
 
-def to_torch(x, num_type=None, dtype=None, device=None):
-    """Covert various types to torch tensors.
-    """
+
+def to_torch(x, num_type=None, dtype=None, device: None | torch.device | str = None):
+    """Covert various types to torch tensors."""
     if dtype is None:
         dtype = get_default_dtype("torch", num_type)
-    device = device or get_device()
-    if isinstance(x, torch.Tensor):
-        return to_device(x.to(dtype), device)
-    if isinstance(x, np.ndarray):
-        return to_device(torch.from_numpy(x).to(dtype), device)
-    if isinstance(x, PIL.Image.Image):
-        return to_device(torch.from_numpy(np.array(x)).to(dtype), device)
+    # If dict or list - Recursively convert to torch tensors and keep the same structure.
     if isinstance(x, dict):
         return {k: to_torch(v) for k, v in x.items()}
     if isinstance(x, list):
         return [to_torch(v) for v in x]
-    return x  # all other types - do nothing
+    # If torch tensor - Convert to the desired type.
+    if isinstance(x, torch.Tensor):
+        x = x.to(dtype)
+    if isinstance(x, np.ndarray):
+        x = torch.from_numpy(x).to(dtype)
+    if isinstance(x, PIL.Image.Image):
+        x = torch.from_numpy(np.array(x)).to(dtype)
+    if isinstance(x, int | float):
+        x = torch.tensor(x).to(dtype)
+    # If device is specified - Move to the device.
+    if device == "default":
+        device = get_device()
+    if device is not None:
+        x = to_device(x, device)
+    return x
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -119,7 +128,7 @@ def to_torch(x, num_type=None, dtype=None, device=None):
 
 def concat_list_to_tensor(x, num_type=None, device=None):
     # to prevent warning from torch - first convert to numpy array
-    return to_torch(np.array(x), num_type, device)
+    return to_torch(np.array(x), num_type=num_type, device=device)
 
 
 # --------------------------------------------------------------------------------------------------------------------

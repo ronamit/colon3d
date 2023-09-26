@@ -6,14 +6,14 @@ import torchvision
 import torchvision.transforms.functional as TF
 from torchvision.transforms import Compose
 
+from colon3d.alg.depth_and_ego_models import normalize_image_channels
 from colon3d.net_train.common_transforms import (
-    normalize_image_channels,
     resize_tensor_image,
 )
 from colon3d.util.general_util import replace_keys
 from colon3d.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon3d.util.rotations_util import axis_angle_to_quaternion, quaternion_to_axis_angle
-from colon3d.util.torch_util import get_device, to_torch
+from colon3d.util.torch_util import get_device, to_device, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ def get_train_transform(n_scales: int, feed_height: int, feed_width: int):
     # set data transforms
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
+        AllToTorch(dtype=torch.float32, feed_height=feed_height, feed_width=feed_width),
         SwitchTargetAndRef(prob=0.5),
         ColorJitter(
             field_postfix="_aug",
@@ -76,6 +76,7 @@ def get_train_transform(n_scales: int, feed_height: int, feed_width: int):
         AddInvIntrinsics(n_scales=n_scales),
         NormalizeImageChannels(),
         AddRelativePose(),
+        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -92,7 +93,7 @@ def get_validation_transform(n_scales: int, feed_height: int, feed_width: int):
     """
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
+        AllToTorch(dtype=torch.float32, feed_height=feed_height, feed_width=feed_width),
         ColorJitter(
             field_postfix="_aug",
             p=0.0,
@@ -101,6 +102,7 @@ def get_validation_transform(n_scales: int, feed_height: int, feed_width: int):
         NormalizeImageChannels(),
         AddInvIntrinsics(n_scales=n_scales),
         AddRelativePose(),
+        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -121,6 +123,7 @@ class MonoDepth2Format:
         sample["K"][0, :] /= target_img.width
         sample["K"][1, :] /= target_img.height
         sample["K"] = intrinsic_mat_to_4x4(sample["K"])
+
         return sample
 
 
@@ -163,12 +166,13 @@ def get_orig_im_size(sample: dict):
 
 
 class AllToTorch:
-    def __init__(self, device: torch.device, dtype: torch.dtype, feed_height: int, feed_width: int):
-        self.device = device
+    def __init__(self, dtype: torch.dtype, feed_height: int, feed_width: int):
+        self.device = torch.device("cpu") # we use the CPU to allow for multi-processing
         self.dtype = dtype
         self.resizer = torchvision.transforms.Resize(size=(feed_height, feed_width), antialias=True)
 
     def __call__(self, sample: dict) -> dict:
+        
         rgb_img_keys = get_sample_image_keys(sample, img_type="RGB")
         depth_img_keys = get_sample_image_keys(sample, img_type="depth")
         for k, v in sample.items():
@@ -198,7 +202,7 @@ class RandomHorizontalFlip:
 
     def __init__(self, flip_prob=0.5):
         self.flip_prob = flip_prob
-        self.device = get_device()
+        self.device = torch.device("cpu") # we use the CPU to allow for multi-processing
 
     def __call__(self, sample: dict):
         flip_x = random.random() < self.flip_prob
@@ -223,7 +227,7 @@ class RandomHorizontalFlip:
             rot_axis = torch.tensor([0, 1, 0], device=self.device)
             rot_angle = np.pi
             rot_quat = axis_angle_to_quaternion(axis_angle=rot_axis * rot_angle)
-            aug_pose = get_pose(rot_quat=rot_quat)
+            aug_pose = get_pose(rot_quat=rot_quat, device = self.device)
             # apply the pose-augmentation to the reference pose and the target pose
             # the pose format: (x,y,z,qw,qx,qy,qz)
             ref_abs_pose = compose_poses(pose1=sample["ref_abs_pose"], pose2=aug_pose).reshape(7)
@@ -463,4 +467,18 @@ def poses_to_md2_format(poses: torch.Tensor, dtype=torch.float32) -> torch.Tenso
     return translation, axisangle
 
 
+# --------------------------------------------------------------------------------------------------------------------
+
+
+class AllToGPU:
+    def __init__(self, device: torch.device | None = None):
+        if device is None:
+            device = get_device()
+        self.device = device
+
+    def __call__(self, sample: dict):
+        # set([v.is_cuda for v in sample.values() if isinstance(v, torch.Tensor)])
+        for k, v in sample.items():
+            sample[k] = to_device(v, device=self.device)
+        return sample
 # --------------------------------------------------------------------------------------------------------------------

@@ -65,7 +65,7 @@ class MonoDepth2Trainer:
     train_with_gt_depth: bool = False  # if set, will train with ground truth depth
     train_with_gt_pose: bool = False  # if set, will train with ground truth pose
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
-    log_frequency: int = 250  # number of batches between each tensorboard log
+    log_frequency: int = 10  # number of batches between each tensorboard log
     save_frequency: int = 1  # number of epochs between each save
     disable_median_scaling: bool = False  # if set disables median scaling in evaluation
     pred_depth_scale_factor: float = 1  # if set multiplies predictions by this number

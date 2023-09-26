@@ -20,15 +20,15 @@ from colon3d.util.torch_util import (
     assert_2d_tensor,
     assert_same_sample_num,
     get_default_dtype,
-    get_device,
     np_func,
+    to_device,
     to_numpy,
 )
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | None = None) -> torch.Tensor:
+def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | None = None, device: torch.device | None = None) -> torch.Tensor:
     """returns a pose transform.
     Args:
         trans_vec: [3] (units: mm) translation vector
@@ -37,11 +37,11 @@ def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | Non
         pose: [7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
     if trans_vec is None:
-        trans_vec = torch.zeros(3, device=get_device(), dtype=get_default_dtype())
+        trans_vec = torch.zeros(3, dtype=get_default_dtype())
     if rot_quat is None:
         rot_quat = get_identity_quaternion()
-    return torch.cat((trans_vec, rot_quat), dim=0).to(get_default_dtype()).to(get_device())
-
+    pose = torch.cat((trans_vec, rot_quat), dim=0).to(get_default_dtype())
+    return to_device(pose, device)
 
 # -------------------------------------------------------------------------------------------------------------------
 

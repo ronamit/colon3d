@@ -5,8 +5,8 @@ import h5py
 from colon3d.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon3d.alg.tracks_loader import DetectionsTracker
 from colon3d.util.data_util import SceneLoader, get_origin_scene_path
-from colon3d.util.torch_util import np_func, to_torch
 from colon3d.util.pose_transforms import compose_poses, get_identity_pose, get_pose_delta
+from colon3d.util.torch_util import np_func, to_torch
 
 scene_path = Path("data_gcp/datasets/ColonNav/Test/Scene_00000")
 
@@ -33,7 +33,7 @@ print(cum_pose)
 origin_scene_path = get_origin_scene_path(scene_path)
 with h5py.File(origin_scene_path / "gt_3d_data.h5", "r") as h5f:
     gt_cam_poses = h5f["cam_poses"][:]
-    gt_egomotions = to_torch(h5f["egomotions"][:])
+    gt_egomotions = to_torch(h5f["egomotions"][:], device="default")
 
 
 # find the delta pose between first and last frame

@@ -6,12 +6,15 @@ import torchvision
 from torchvision.transforms import Compose
 from torchvision.transforms.functional import crop
 
-from colon3d.net_train.common_transforms import normalize_image_channels
+from colon3d.alg.depth_and_ego_models import normalize_image_channels
 from colon3d.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon3d.util.rotations_util import axis_angle_to_quaternion, quaternion_to_axis_angle
-from colon3d.util.torch_util import get_device, to_torch
+from colon3d.util.torch_util import get_device, to_device, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
+"""
+Note: make sure the tensors are on the CPU before applying the transforms.
+"""
 
 
 def get_transforms(feed_height: int, feed_width: int) -> (Compose, Compose):
@@ -27,12 +30,13 @@ def get_train_transform(feed_height: int, feed_width: int) -> Compose:
     """Training transform for EndoSFM"""
     # set data transforms
     transform_list = [
-        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
+        AllToTorch(dtype=torch.float32, feed_height=feed_height, feed_width=feed_width),
         RandomHorizontalFlip(),
         RandomScaleCrop(max_scale=1.15),
         NormalizeImageChannels(),
         AddInvIntrinsics(),
         AddRelativePose(),
+        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -43,10 +47,11 @@ def get_train_transform(feed_height: int, feed_width: int) -> Compose:
 def get_validation_transform(feed_height: int, feed_width: int) -> Compose:
     """Validation transform for EndoSFM"""
     transform_list = [
-        AllToTorch(dtype=torch.float32, device=get_device(), feed_height=feed_height, feed_width=feed_width),
+        AllToTorch(dtype=torch.float32, feed_height=feed_height, feed_width=feed_width),
         NormalizeImageChannels(),
         AddInvIntrinsics(),
         AddRelativePose(),
+        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -83,12 +88,13 @@ def get_orig_im_size(sample: dict):
 
 
 class AllToTorch:
-    def __init__(self, device: torch.device, dtype: torch.dtype, feed_height: int, feed_width: int):
-        self.device = device
+    def __init__(self, dtype: torch.dtype, feed_height: int, feed_width: int):
+        self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
         self.resizer = torchvision.transforms.Resize(size=(feed_height, feed_width), antialias=True)
 
     def __call__(self, sample: dict) -> dict:
+
         rgb_img_keys = get_sample_image_keys(sample, img_type="RGB")
         depth_img_keys = get_sample_image_keys(sample, img_type="depth")
         for k, v in sample.items():
@@ -110,6 +116,21 @@ class AllToTorch:
 # --------------------------------------------------------------------------------------------------------------------
 
 
+class AllToGPU:
+    def __init__(self, device: torch.device | None = None):
+        if device is None:
+            device = get_device()
+        self.device = device
+
+    def __call__(self, sample: dict):
+        for k, v in sample.items():
+            sample[k] = to_device(v, device=self.device)
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
 class RandomHorizontalFlip:
     """Randomly flips the images horizontally.
     Note that we only use horizontal flipping, since it allows to adjust the pose accordingly by easy transformation.
@@ -117,7 +138,7 @@ class RandomHorizontalFlip:
 
     def __init__(self, flip_prob=0.5):
         self.flip_prob = flip_prob
-        self.device = get_device()
+        self.device = torch.device("cpu") # we use the CPU to allow for multi-processing
 
     def __call__(self, sample: dict):
         flip_x = random.random() < self.flip_prob
@@ -139,7 +160,7 @@ class RandomHorizontalFlip:
         # in case we have the ground-truth camera pose, we need to rotate the pose to fit the x-flipped image.
         # i.e., we need to rotate the pose around the y-axis by 180 degrees
         if "ref_abs_pose" in sample:
-            rot_axis = torch.tensor([0, 1, 0], device=self.device)
+            rot_axis = torch.tensor([0, 1, 0])
             rot_angle = np.pi
             rot_quat = axis_angle_to_quaternion(axis_angle=rot_axis * rot_angle)
             aug_pose = get_pose(rot_quat=rot_quat)
@@ -231,8 +252,14 @@ class AddRelativePose:
     def __call__(self, sample):
         if "ref_abs_pose" in sample and "tgt_abs_pose" in sample:
             # get the relative pose
-            sample["tgt_to_ref_pose"] = get_pose_delta(pose1=sample["tgt_abs_pose"], pose2=sample["ref_abs_pose"]).reshape(7)
-            sample["ref_to_tgt_pose"] =  get_pose_delta(pose1=sample["ref_abs_pose"], pose2=sample["tgt_abs_pose"]).reshape(7)
+            sample["tgt_to_ref_pose"] = get_pose_delta(
+                pose1=sample["tgt_abs_pose"],
+                pose2=sample["ref_abs_pose"],
+            ).reshape(7)
+            sample["ref_to_tgt_pose"] = get_pose_delta(
+                pose1=sample["ref_abs_pose"],
+                pose2=sample["tgt_abs_pose"],
+            ).reshape(7)
         return sample
 
 
@@ -258,6 +285,4 @@ def poses_to_enfosfm_format(poses: torch.Tensor, dtype=torch.float32) -> torch.T
     return poses_new
 
 
-
 # --------------------------------------------------------------------------------------------------------------------
-

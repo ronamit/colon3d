@@ -102,7 +102,7 @@ class DepthAndEgoMotionLoader:
         self.depth_maps_path = self.orig_scene_path / depth_maps_file_name
         # load the depth maps
         with h5py.File(self.depth_maps_path.resolve(), "r") as h5f:
-            self.depth_maps_buffer = to_torch(h5f["z_depth_map"][:], num_type="float_m")  # load all into memory
+            self.depth_maps_buffer = to_torch(h5f["z_depth_map"][:], num_type="float_m", device="default")  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))
 
@@ -165,7 +165,7 @@ class DepthAndEgoMotionLoader:
         elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
             egomotion = self.egomotions_buffer[buffer_idx]
-            egomotion = to_torch(egomotion)
+            egomotion = to_torch(egomotion, device="default")
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
 
@@ -175,7 +175,7 @@ class DepthAndEgoMotionLoader:
                 from_img=prev_rgb_frame,
                 to_img=cur_rgb_frame,
             )
-            egomotion = to_torch(egomotion)
+            egomotion = to_torch(egomotion, device="default")
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
 
