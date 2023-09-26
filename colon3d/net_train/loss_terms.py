@@ -30,13 +30,14 @@ def compute_pose_loss_from_trans_and_rot(
     rot_mat_pred = axis_angle_to_rot_mat(rot_pred).reshape(-1, 9)
     rot_mat_gt = axis_angle_to_rot_mat(rot_gt).reshape(-1, 9)
     # Compute the translation and rotation losses
-    trans_loss = nnF.smooth_l1_loss(trans_pred, trans_gt, reduction="none").sum(dim=-1)
-    rot_loss = nnF.smooth_l1_loss(rot_mat_pred, rot_mat_gt, reduction="none").sum(dim=-1)
+    trans_loss = nnF.l1_loss(trans_pred, trans_gt, reduction="none").sum(dim=-1)
+    rot_loss = nnF.l1_loss(rot_mat_pred, rot_mat_gt, reduction="none").sum(dim=-1)
     # Average over batch:
     trans_loss_avg = trans_loss.mean()
     rot_loss_avg = rot_loss.mean()
     # Combine the translation and rotation losses, and scale the rotation loss to be in the same scale as the translation loss
     pose_loss = trans_loss_avg + rot_loss_avg * rot_loss_scale
+    assert pose_loss.isfinite().all(), f"Pose loss is not finite: {pose_loss}"
     return pose_loss
 
 

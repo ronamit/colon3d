@@ -256,13 +256,14 @@ class MonoDepth2Trainer:
                 for scale in self.scales:
                     # Get the predicted depth map of the target frame (frame_id=0) that was interpolated to the full resolution from the predicted depth map at the current scale
                     depth_pred = outputs[("depth", 0, scale)]
-                    depth_loss += nnF.smooth_l1_loss(depth_pred, depth_gt)
+                    depth_loss += nnF.l1_loss(depth_pred, depth_gt)
                 # normalize the depth loss by the number of scales
                 depth_loss /= len(self.scales)
                 # multiply the depth loss by a factor to match the scale of the other losses
                 depth_loss = depth_loss * 1e-2
                 losses["depth_loss"] = depth_loss
                 losses["loss"] += depth_loss
+                assert losses["loss"].isfinite().all(), f"Loss is not finite: {losses['loss']}"
 
             # Add optional pose loss
             if self.train_with_gt_pose:
@@ -361,6 +362,7 @@ class MonoDepth2Trainer:
                     axisangle, translation = self.models["pose"](pose_inputs)
                     outputs[("axisangle", 0, f_i)] = axisangle
                     outputs[("translation", 0, f_i)] = translation
+                    assert torch.isfinite(axisangle).all(), "axisangle is not finite"
 
                     # Invert the matrix if the frame id is negative
                     outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(

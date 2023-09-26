@@ -33,7 +33,7 @@ conda config --set solver libmamba
 * Install [PyTorch](https://pytorch.org/get-started/locally/) (tested with 2.0.1, pip version, CUDA 11.7) e.g. with
 
 ```bash
-conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+pip3 install torch torchvision torchaudio
 ```
 
 * Install  additional packages:

@@ -250,9 +250,10 @@ class EndoSFMTrainer:
                 ref_gt_depth = batch["ref_depth"].to(device)
                 # add a supervised loss term for training the depth nerwork
                 loss_weights["depth_loss"] = 1
-                target_depth_loss = nnF.smooth_l1_loss(tgt_depth[0], tgt_gt_depth)
-                ref_depth_loss = nnF.smooth_l1_loss(ref_depths[0][0], ref_gt_depth)
+                target_depth_loss = nnF.l1_loss(tgt_depth[0], tgt_gt_depth)
+                ref_depth_loss = nnF.l1_loss(ref_depths[0][0], ref_gt_depth)
                 depth_loss = target_depth_loss + ref_depth_loss
+                assert depth_loss.isfinite(), f"depth_loss is not finite: {depth_loss}"
                 # multiply the depth loss by a factor to match the scale of the other losses
                 depth_loss = depth_loss * 0.1
                 loss_terms["depth_loss"] = depth_loss

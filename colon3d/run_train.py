@@ -19,6 +19,8 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda 
 If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
 """
 
+# turn on anamoly detection for debugging:
+torch.autograd.set_detect_anomaly(True)
 
 # -------------------------------------------------------------------------------------------------------------------
 def main():
@@ -109,7 +111,7 @@ def main():
     parser.add_argument(
         "--debug_mode",
         type=bool_arg,
-        default=True,
+        default=False,
         help="If True, then use a small dataset and 1 epoch for debugging",
     )
     parser.add_argument(
