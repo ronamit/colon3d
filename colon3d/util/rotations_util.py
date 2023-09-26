@@ -223,13 +223,18 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
         n_vecs (int): number of random rotation vectors to generate
     Returns:
         rot_quat (np.ndarray): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz).
+    Source
+        https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html
     """
+    # generate random rotation angles
     angle_std_rad = np.deg2rad(angle_std_deg)
     angle_err = rng.standard_normal(size=(n_vecs, 1)) * angle_std_rad
-    err_dir = rng.random(size=(n_vecs, 3))
+    # generate random rotation axis
+    err_dir = 1e-10 + rng.random(size=(n_vecs, 3))
     err_dir /= np.linalg.norm(err_dir, axis=1, keepdims=True)
     rot_quat = np.concatenate([np.cos(angle_err / 2), np.sin(angle_err / 2) * err_dir], axis=1)
     return rot_quat
+
 
 # ----------------------------------------------------------------------
 
