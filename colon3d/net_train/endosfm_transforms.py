@@ -141,7 +141,7 @@ class RandomHorizontalFlip:
         if "ref_abs_pose" in sample:
             rot_axis = torch.tensor([0, 1, 0], device=self.device)
             rot_angle = np.pi
-            rot_quat = axis_angle_to_quaternion(rot_axis_angle=rot_axis * rot_angle)
+            rot_quat = axis_angle_to_quaternion(axis_angle=rot_axis * rot_angle)
             aug_pose = get_pose(rot_quat=rot_quat)
             # apply the pose-augmentation to the reference pose and the target pose
             # the pose format: (x,y,z,qw,qx,qy,qz)
