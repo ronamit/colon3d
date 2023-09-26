@@ -82,15 +82,19 @@ def to_numpy(x, num_type=None, dtype=None):
 
 
 def to_torch(x, num_type=None, dtype=None, device=None):
+    """Covert various types to torch tensors.
+    Sources:
+        * https://discuss.pytorch.org/t/should-we-set-non-blocking-to-true/38234/3
+    """
     if dtype is None:
         dtype = get_default_dtype("torch", num_type)
     device = device or get_device()
     if isinstance(x, torch.Tensor):
-        return x.to(dtype).to(device)
+        return x.to(dtype).to(device, non_blocking=True)
     if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).to(dtype).to(device)
+        return torch.from_numpy(x).to(dtype).to(device, non_blocking=True)
     if isinstance(x, PIL.Image.Image):
-        return torch.from_numpy(np.array(x)).to(dtype).to(device)
+        return torch.from_numpy(np.array(x)).to(dtype).to(device, non_blocking=True)
     if isinstance(x, dict):
         return {k: to_torch(v) for k, v in x.items()}
     if isinstance(x, list):
