@@ -22,6 +22,7 @@ If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4
 # turn on anamoly detection for debugging:
 torch.autograd.set_detect_anomaly(True)
 
+
 # -------------------------------------------------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgsHelpFormatter)
@@ -64,7 +65,12 @@ def main():
         default=20,
         help="Number of epochs to train.",
     )
-    parser.add_argument("--n_workers", default=1, type=int, help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.")
+    parser.add_argument(
+        "--n_workers",
+        default=0,
+        type=int,
+        help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.",
+    )
     parser.add_argument(
         "--batch_size",
         default=32,
@@ -123,6 +129,9 @@ def main():
     args = parser.parse_args()
     print(f"args={args}")
     n_workers = args.n_workers
+    assert (
+        n_workers == 0
+    ), "The current implementation is not thread-safe, so use n_workers=0 to run in the main process."
     # Set multiprocessing start method to spawn (to avoid error in DataLoader):
     torch.multiprocessing.set_start_method("spawn")
     if args.empty_cache:
