@@ -34,7 +34,7 @@ def get_default_dtype(package="torch", num_type=None):
     num_type = num_type or "float"
     if package == "torch":
         if num_type == "float":
-            return torch.float32
+            return torch.float64
         if num_type == "float_m":
             return torch.float32
         if num_type == "int":
@@ -42,11 +42,11 @@ def get_default_dtype(package="torch", num_type=None):
         raise ValueError(f"Unknown num_type: {num_type}")
     if package == "numpy":
         if num_type == "float":
-            return np.float32
+            return np.float64
         if num_type == "float_m":
             return np.float32
         if num_type == "int":
-            return np.int64
+            return np.int32
         raise ValueError(f"Unknown num_type: {num_type}")
     raise ValueError(f"Unknown package: {package}")
 
@@ -83,21 +83,30 @@ def to_numpy(x, num_type=None, dtype=None):
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def to_device(x: torch.Tensor, device: torch.device):
+    """Move a tensor to a device.
+    Sources:
+        * https://discuss.pytorch.org/t/should-we-set-non-blocking-to-true/38234/3
+    """
+    # check if the tensor is already on the device
+    if x.device == device:
+        return x
+    return x.to(device, non_blocking=True)
+
+# --------------------------------------------------------------------------------------------------------------------
 
 def to_torch(x, num_type=None, dtype=None, device=None):
     """Covert various types to torch tensors.
-    Sources:
-        * https://discuss.pytorch.org/t/should-we-set-non-blocking-to-true/38234/3
     """
     if dtype is None:
         dtype = get_default_dtype("torch", num_type)
     device = device or get_device()
     if isinstance(x, torch.Tensor):
-        return x.to(dtype).to(device, non_blocking=True)
+        return to_device(x.to(dtype), device)
     if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).to(dtype).to(device, non_blocking=True)
+        return to_device(torch.from_numpy(x).to(dtype), device)
     if isinstance(x, PIL.Image.Image):
-        return torch.from_numpy(np.array(x)).to(dtype).to(device, non_blocking=True)
+        return to_device(torch.from_numpy(np.array(x)).to(dtype), device)
     if isinstance(x, dict):
         return {k: to_torch(v) for k, v in x.items()}
     if isinstance(x, list):
