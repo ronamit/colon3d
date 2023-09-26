@@ -231,24 +231,41 @@ def get_random_rot_quat(rng: np.random.Generator, angle_std_deg: float, n_vecs: 
     rot_quat = np.concatenate([np.cos(angle_err / 2), np.sin(angle_err / 2) * err_dir], axis=1)
     return rot_quat
 
-
 # ----------------------------------------------------------------------
-def axis_angle_to_quaternion(rot_axis_angle: torch.Tensor) -> torch.Tensor:
-    """Convert axis-angle representation to quaternion representation.
-    Args:
-        rot_axis_angle (torch.Tensor): [n_vecs x 3] each row is a rotation vector (axis-angle representation)
-    Returns:
-        rot_quat (torch.Tensor): [n_vecs x 4] each row is a unit-quaternion of the rotation in the format (q0, qx, qy, qz)
+
+
+def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
     """
-    is_single_vec = rot_axis_angle.ndim == 1
-    if is_single_vec:
-        rot_axis_angle = rot_axis_angle.unsqueeze(0)
-    theta = torch.norm(rot_axis_angle, dim=1, keepdim=True)
-    vec = rot_axis_angle / theta
-    rot_quat = torch.cat([torch.cos(theta / 2), torch.sin(theta / 2) * vec], dim=1)
-    if is_single_vec:
-        rot_quat = rot_quat[0]
-    return rot_quat
+    Convert rotations given as axis/angle to quaternions.
+
+    Args:
+        axis_angle: Rotations given as a vector in axis angle form,
+            as a tensor of shape (..., 3), where the magnitude is
+            the angle turned anticlockwise in radians around the
+            vector's direction.
+
+    Returns:
+        quaternions with real part first, as tensor of shape (..., 4).
+    Notes:
+        Small angles are handled by using a Taylor expansion (to avoid numerical errors)
+    Source:
+        https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html#axis_angle_to_quaternion
+    """
+    angles = torch.norm(axis_angle, p=2, dim=-1, keepdim=True)
+    half_angles = angles * 0.5
+    eps = 1e-6
+    small_angles = angles.abs() < eps
+    sin_half_angles_over_angles = torch.empty_like(angles)
+    sin_half_angles_over_angles[~small_angles] = torch.sin(half_angles[~small_angles]) / angles[~small_angles]
+    # for x small, sin(x/2) is about x/2 - (x/2)^3/6
+    # so sin(x/2)/x is about 1/2 - (x*x)/48
+    sin_half_angles_over_angles[small_angles] = 0.5 - (angles[small_angles] * angles[small_angles]) / 48
+    # concatenate the real part of the quaternion (cosine of the half angle) with the imaginary part
+    quaternions = torch.cat(
+        [torch.cos(half_angles), axis_angle * sin_half_angles_over_angles],
+        dim=-1,
+    )
+    return quaternions
 
 
 # ----------------------------------------------------------------------
@@ -288,6 +305,7 @@ def quaternions_to_rot_matrices(rot_quat: torch.Tensor) -> torch.Tensor:
 
 # ----------------------------------------------------------------------
 
+
 def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     """
     Convert rotations given as quaternions to axis/angle.
@@ -303,25 +321,18 @@ def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
             direction.
     Source: https://pytorch3d.readthedocs.io/en/latest/_modules/pytorch3d/transforms/rotation_conversions.html#axis_angle_to_quaternion
     """
-    is_single_vec = quaternions.ndim == 1
-    if is_single_vec:
-        quaternions = quaternions.unsqueeze(0)
     norms = torch.norm(quaternions[..., 1:], p=2, dim=-1, keepdim=True)
     half_angles = torch.atan2(norms, quaternions[..., :1])
     angles = 2 * half_angles
     eps = 1e-6
     small_angles = angles.abs() < eps
     sin_half_angles_over_angles = torch.empty_like(angles)
-    sin_half_angles_over_angles[~small_angles] = (
-        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
-    )
+    sin_half_angles_over_angles[~small_angles] = torch.sin(half_angles[~small_angles]) / angles[~small_angles]
     # for x small, sin(x/2) is about x/2 - (x/2)^3/6
     # so sin(x/2)/x is about 1/2 - (x*x)/48
-    sin_half_angles_over_angles[small_angles] = (
-        0.5 - (angles[small_angles] * angles[small_angles]) / 48
-    )
+    sin_half_angles_over_angles[small_angles] = 0.5 - (angles[small_angles] * angles[small_angles]) / 48
     axis_angle = quaternions[..., 1:] / sin_half_angles_over_angles
-    return axis_angle[0] if is_single_vec else axis_angle
+    return axis_angle
 
 
 # ----------------------------------------------------------------------
