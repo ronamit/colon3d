@@ -263,7 +263,7 @@ class MonoDepth2Trainer:
                 depth_loss = depth_loss * 1e-2
                 losses["depth_loss"] = depth_loss
                 losses["loss"] += depth_loss
-                assert losses["loss"].isfinite().all(), f"Loss is not finite: {losses['loss']}"
+                assert depth_loss.isfinite().all(), f"depth_loss is not finite: {depth_loss}"
 
             # Add optional pose loss
             if self.train_with_gt_pose:
@@ -274,13 +274,13 @@ class MonoDepth2Trainer:
                 ref_frame_id = 1  # the reference frame is always 1 in our implementation
                 scale = 0  # pose is only predicted at "scale 0"
                 # The predicted translation and rotation from target to reference frame, each is [batch_size, num_frames_to_predict_for, 1, 3]:
-                translation_pred = outputs[("translation", scale, ref_frame_id)]
-                axisangle_pred = outputs[("axisangle", scale, ref_frame_id)]
+                trans_pred = outputs[("translation", scale, ref_frame_id)]
+                rot_pred = outputs[("axisangle", scale, ref_frame_id)]
                 # Get the pose change from target (frame_id=0) to reference (frame_id=1) frame
                 # note: according to https://github.com/nianticlabs/monodepth2/blob/b676244e5a1ca55564eb5d16ab521a48f823af31/trainer.py#L315C31-L315C40
                 # we need to take the ref_frame_id at dim=1
-                trans_pred = translation_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
-                rot_pred = axisangle_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
+                trans_pred = trans_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
+                rot_pred = rot_pred[:, ref_frame_id, 0, :]  # [batch_size, 3] (axis-angle representation)
                 # Compute the pose loss
                 pose_loss = compute_pose_loss_from_trans_and_rot(
                     trans_pred=trans_pred,
@@ -306,10 +306,8 @@ class MonoDepth2Trainer:
 
             if early_phase or late_phase:
                 self.log_time(batch_idx, duration, losses["loss"].cpu().data)
-
                 if "depth_gt" in inputs:
                     self.compute_depth_losses(inputs, outputs, losses)
-
                 self.log("train", inputs, outputs, losses)
                 self.val()
             self.step += 1

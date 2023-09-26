@@ -243,6 +243,7 @@ def main():
         shuffle=True,
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
+        pin_memory=True, # faster data transfer to GPU
     )
     # validation loader
     val_loader = torch.utils.data.DataLoader(
@@ -251,6 +252,7 @@ def main():
         shuffle=False,
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
+        pin_memory=True, # faster data transfer to GPU
     )
 
     # Run training:
