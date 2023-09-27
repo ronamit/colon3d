@@ -42,7 +42,7 @@ def main():
     parser.add_argument(
         "--method",
         type=str,
-        default="MonoDepth2_GTPD",
+        default="EndoSFM_GTPD",
         help="Method to use for depth and egomotion estimation. "
         "Options: MonoDepth2 (self-supervised) | MonoDepth2_GTD (uses ground-truth depth labels) | MonoDepth2_GTPD (uses ground-truth depth + pose labels)"
         "| EndoSFM (self-supervised) | EndoSFM_GTD (uses ground-truth depth labels) | EndoSFM_GTPD (uses ground-truth depth + pose labels).",
@@ -56,7 +56,7 @@ def main():
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/MonoDepth2_GTPD",
+        default="data_gcp/models/EndoSFM_GTPD",
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -67,7 +67,7 @@ def main():
     )
     parser.add_argument(
         "--n_workers",
-        default=0,
+        default=4,
         type=int,
         help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.",
     )
@@ -129,9 +129,6 @@ def main():
     args = parser.parse_args()
     print(f"args={args}")
     n_workers = args.n_workers
-    assert (
-        n_workers == 0
-    ), "The current implementation is not thread-safe, so use n_workers=0 to run in the main process."
     # Set multiprocessing start method to spawn (to avoid error in DataLoader):
     torch.multiprocessing.set_start_method("spawn")
     if args.empty_cache:

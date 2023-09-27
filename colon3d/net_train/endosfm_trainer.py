@@ -10,7 +10,7 @@ import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.net_train.endosfm_transforms import poses_to_enfosfm_format
-from colon3d.net_train.loss_terms import compute_pose_loss
+from colon3d.net_train.loss_terms import compute_pose_losses
 from colon3d.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
@@ -23,12 +23,10 @@ from endo_sfm.utils import save_checkpoint
 # ---------------------------------------------------------------------------------------------------------------------
 @attrs.define
 class EndoSFMTrainer:
-    save_path: Path = None  # Path to save checkpoints and training outputs
-    train_loader: torch.utils.data.DataLoader = None  # Loader for training set
-    val_loader: torch.utils.data.DataLoader = None  # Loader for validation set
-    pretrained_disp: str = ""  # path to pre-trained DispNet model (disparity=1/depth),
-    # if empty then training from scratch
-    pretrained_pose: str = ""  # path to pre-trained PoseNet model, if empty then training from scratch
+    save_path: Path  # Path to save checkpoints and training outputs
+    train_loader: torch.utils.data.DataLoader  # Loader for training set
+    val_loader: torch.utils.data.DataLoader  # Loader for validation set
+    pretrained_model_path: str = ""  # path to pre-trained model
     with_pretrain: bool = True  # in case training from scratch -  do we use ImageNet pretrained weights or not
     train_with_gt_depth: bool = False  # if True, train with ground truth depth (supervised training)
     train_with_gt_pose: bool = False  # if True, train with ground truth pose (supervised training)
@@ -56,6 +54,8 @@ class EndoSFMTrainer:
     save_overwrite: bool = True  # overwrite save path if already exists
     ########  fields that will be set later ######
     losses_names: list = None  # list of losses names
+    pretrained_disp: str = ""  # path to pre-trained DispNet model (disparity=1/depth)
+    pretrained_pose: str = ""  # path to pre-trained PoseNet model
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
@@ -63,7 +63,11 @@ class EndoSFMTrainer:
         if self.train_with_gt_depth:
             self.losses_names += ["depth_loss"]
         if self.train_with_gt_pose:
-            self.losses_names += ["pose_loss"]
+            self.losses_names += ["trans_loss", "rot_loss"]
+
+        if self.pretrained_model_path:
+            self.pretrained_disp = self.pretrained_model_path / "DispNet_best.pt"
+            self.pretrained_pose = self.pretrained_model_path / "PoseNet_best.pt"
 
     # ---------------------------------------------------------------------------------------------------------------------
     def run(self):
@@ -271,14 +275,15 @@ class EndoSFMTrainer:
                 ref_to_tgt_pose_pred = poses_inv[0]  # [batch_size, 6]
 
                 # add a supervised loss term for training the pose network
-                loss_weights["pose_loss"] = 1
-                pose_loss1 = compute_pose_loss(pose_pred=tgt_to_ref_pose_pred, pose_gt=tgt_to_ref_pose_gt)
-                pose_loss2 = compute_pose_loss(pose_pred=ref_to_tgt_pose_pred, pose_gt=ref_to_tgt_pose_gt)
-                pose_loss = (pose_loss1 + pose_loss2) / 2
-                # multiply the pose loss by a factor to match the scale of the other losses
-                pose_loss = pose_loss * 0.5
-                loss_terms["pose_loss"] = pose_loss
 
+                trans_loss1, rot_loss1 = compute_pose_losses(pose_pred=tgt_to_ref_pose_pred, pose_gt=tgt_to_ref_pose_gt)
+                trans_loss2, rot_loss2 = compute_pose_losses(pose_pred=ref_to_tgt_pose_pred, pose_gt=ref_to_tgt_pose_gt)
+                trans_loss = (trans_loss1 + trans_loss2) / 2
+                rot_loss = (rot_loss1 + rot_loss2) / 2
+                loss_weights["trans_loss"] = 1
+                loss_terms["trans_loss"] = trans_loss
+                loss_weights["rot_loss"] = 1
+                loss_terms["rot_loss"] = rot_loss
 
             # compute the photometric and geometry consistency losses
             loss_terms["photo_loss"], loss_terms["geometry_consistency_loss"] = compute_photo_and_geometry_loss(

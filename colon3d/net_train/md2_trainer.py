@@ -17,8 +17,9 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from colon3d.net_train.loss_terms import compute_pose_loss_from_trans_and_rot
+from colon3d.net_train.loss_terms import compute_pose_loss_aux
 from colon3d.net_train.md2_transforms import poses_to_md2_format
+from colon3d.net_train.train_utils import DatasetMeta
 from colon3d.util.general_util import create_folder_if_not_exists, to_str
 from colon3d.util.torch_util import get_device
 from monodepth2.layers import (
@@ -43,8 +44,6 @@ class MonoDepth2Trainer:
     save_path: Path  # path to save the trained model
     train_loader: DataLoader  # training data loader
     val_loader: DataLoader  # validation data loader
-    feed_height: int  # input image height
-    feed_width: int  # input image width
     num_layers: int = 18  # number of resnet layers # choices=[18, 34, 50, 101, 152]
     n_scales: int = 4  # number of scales
     disparity_smoothness: float = 1e-3  # disparity smoothness weight
@@ -61,9 +60,7 @@ class MonoDepth2Trainer:
     weights_init: str = "pretrained"  # pretrained or scratch # choices=["pretrained", "scratch"]
     pose_model_input: str = "pairs"  # how many images the pose network gets # choices=["pairs", "all"]
     pose_model_type: str = "separate_resnet"  # normal or shared # choices=["posecnn", "separate_resnet"]
-    load_weights_folder: str = None  # name of model to load
-    train_with_gt_depth: bool = False  # if set, will train with ground truth depth
-    train_with_gt_pose: bool = False  # if set, will train with ground truth pose
+    pretrained_model_path: str = None  # name of model to load
     models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
     log_frequency: int = 10  # number of batches between each tensorboard log
     save_frequency: int = 1  # number of epochs between each save
@@ -78,9 +75,7 @@ class MonoDepth2Trainer:
     models: dict = attrs.field(init=False)
     parameters_to_train: list = attrs.field(init=False)
     device: torch.device = attrs.field(init=False)
-    frame_ids: list = attrs.field(init=False)
-    num_input_frames: int = attrs.field(init=False)
-    num_pose_frames: int = attrs.field(init=False)
+    num_input_images: int = attrs.field(init=False)  # frame ids within each sample (target = 0, reference = 1, 2, ...)
     model_optimizer: optim.Optimizer = attrs.field(init=False)
     model_lr_scheduler: optim.lr_scheduler = attrs.field(init=False)
     num_total_steps: int = attrs.field(init=False)
@@ -90,6 +85,12 @@ class MonoDepth2Trainer:
     backproject_depth: dict = attrs.field(init=False)
     project_3d: dict = attrs.field(init=False)
     depth_metric_names: list = attrs.field(init=False)
+    train_dataset_meta: DatasetMeta = attrs.field(init=False)
+    feed_height: int = attrs.field(init=False)  # height of the input image
+    feed_width: int = attrs.field(init=False)  # width of the input image
+    train_with_gt_depth: bool = attrs.field(init=False)  # if set, will train with ground truth depth
+    train_with_gt_pose: bool = attrs.field(init=False)  # if set, will train with ground truth pose
+    frame_ids: list = attrs.field(init=False)
     epoch: int = 0
     step: int = 0
     start_time: float = 0
@@ -99,26 +100,29 @@ class MonoDepth2Trainer:
         self.save_path = Path(self.save_path)
         create_folder_if_not_exists(self.save_path)
         self.log_path = self.save_path
-        # save params
-        with (self.save_path / "params.txt").open("w") as file:
-            file.write(str(self) + "\n")
+        self.train_dataset_meta = self.train_loader.dataset.dataset_meta
+        self.feed_height = self.train_dataset_meta.feed_height  # height of the input image
+        self.feed_width = self.train_dataset_meta.feed_width  # width of the input image
+        self.train_with_gt_depth = self.train_dataset_meta.load_gt_depth  # if set, will train with ground truth depth
+        self.train_with_gt_pose = self.train_dataset_meta.load_gt_pose  # if set, will train with ground truth pose
+        self.num_input_images = (
+            self.train_dataset_meta.num_input_images
+        )  # number of frames in each sample (target + reference frames)
+        self.models = {}
+        self.parameters_to_train = []
+        self.device = get_device()
+        self.n_scales = len(self.scales)
+        self.frame_ids = list(range(self.num_input_images))
 
         # checking height and width are multiples of 32
         assert self.feed_height % 32 == 0, "'height' must be a multiple of 32"
         assert self.feed_width % 32 == 0, "'width' must be a multiple of 32"
 
-        self.models = {}
-        self.parameters_to_train = []
+        # save params
+        with (self.save_path / "params.txt").open("w") as file:
+            file.write(str(self) + "\n")
 
-        self.device = get_device()
-
-        self.n_scales = len(self.scales)
-        self.frame_ids = [0, 1]  # in our implementation we only use 2 frames (target, reference)
-        self.num_input_frames = len(self.frame_ids)
-        self.num_pose_frames = 2 if self.pose_model_input == "pairs" else self.num_input_frames
-
-        assert self.frame_ids[0] == 0, "frame_ids must start with 0"
-
+        # Init models
         self.models["encoder"] = ResnetEncoder(self.num_layers, self.weights_init == "pretrained")
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
@@ -131,7 +135,7 @@ class MonoDepth2Trainer:
             self.models["pose_encoder"] = ResnetEncoder(
                 self.num_layers,
                 self.weights_init == "pretrained",
-                num_input_images=self.num_pose_frames,
+                num_input_images=self.num_input_images,
             )
             self.models["pose_encoder"].to(self.device)
             self.parameters_to_train += list(self.models["pose_encoder"].parameters())
@@ -143,10 +147,10 @@ class MonoDepth2Trainer:
             )
 
         elif self.pose_model_type == "shared":
-            self.models["pose"] = PoseDecoder(self.models["encoder"].num_ch_enc, self.num_pose_frames)
+            self.models["pose"] = PoseDecoder(self.models["encoder"].num_ch_enc, self.num_input_images)
 
         elif self.pose_model_type == "posecnn":
-            self.models["pose"] = PoseCNN(self.num_input_frames if self.pose_model_input == "all" else 2)
+            self.models["pose"] = PoseCNN(self.num_input_images if self.pose_model_input == "all" else 2)
 
         self.models["pose"].to(self.device)
         self.parameters_to_train += list(self.models["pose"].parameters())
@@ -169,7 +173,7 @@ class MonoDepth2Trainer:
         self.model_optimizer = optim.Adam(self.parameters_to_train, self.learning_rate)
         self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.model_optimizer, self.scheduler_step_size, 0.1)
 
-        if self.load_weights_folder is not None:
+        if self.pretrained_model_path is not None:
             self.load_model()
 
         print("Models and tensorboard events files are saved to:\n  ", self.log_path)
@@ -246,52 +250,60 @@ class MonoDepth2Trainer:
             before_op_time = time.time()
 
             # Process the batch to get the outputs and losses
+            # outputs fields:
+            # ("disp", s) : predicted disparity (1/depth) at scale s.
+            # ("translation", 0, i) : predicted translation from target (frame_id=0) to reference frame i.
+            # ("axisangle", 0, i) : predicted axis-angle rotation from target (frame_id=0) to reference frame i.
             outputs, losses = self.process_batch(inputs)
 
-            # Add optional depth loss
+            # Add optional depth loss (for the predicted depth of the target frame vs. the ground truth depth)
             if self.train_with_gt_depth:
-                # Get the ground truth depth map of the target frame (frame_id=0) at the full resolution
-                depth_gt = inputs["depth_gt"]
-                depth_loss = 0
-                for scale in self.scales:
-                    # Get the predicted depth map of the target frame (frame_id=0) that was interpolated to the full resolution from the predicted depth map at the current scale
-                    depth_pred = outputs[("depth", 0, scale)]
-                    depth_loss += nnF.l1_loss(depth_pred, depth_gt)
-                # normalize the depth loss by the number of scales
-                depth_loss /= len(self.scales)
+                # Get the ground truth depth map of the target frame at the full resolution
+                depth_gt = inputs[("depth_gt", 0)]
+                # Get the predicted disparity map  of the target frame at the full resolution
+                disp_pred = outputs[("disp", 0)]
+                # Convert the predicted disparity to depth
+                _, depth_pred = disp_to_depth(disp_pred, self.min_depth, self.max_depth)
+                # Compute the depth loss
+                depth_loss = nnF.l1_loss(depth_pred, depth_gt)
                 # multiply the depth loss by a factor to match the scale of the other losses
-                depth_loss = depth_loss * 1e-2
+                depth_loss = depth_loss * 0.5
                 losses["depth_loss"] = depth_loss
                 losses["loss"] += depth_loss
                 assert depth_loss.isfinite().all(), f"depth_loss is not finite: {depth_loss}"
 
-            # Add optional pose loss
+            # Add optional pose loss (GT relative pose from target to reference frame vs. predicted)
             if self.train_with_gt_pose:
-                assert self.frame_ids == [0, 1], "we assume only 2 frames for now: 0=target and 1=reference"
-                # Get the ground truth pose change from target to reference frame
-                translation_gt, axisangle_gt = poses_to_md2_format(inputs["tgt_to_ref_pose"])
-                # Get the predicted pose change from reference to target frame
-                ref_frame_id = 1  # the reference frame is always 1 in our implementation
-                scale = 0  # pose is only predicted at "scale 0"
-                # The predicted translation and rotation from target to reference frame, each is [batch_size, num_frames_to_predict_for, 1, 3]:
-                trans_pred = outputs[("translation", scale, ref_frame_id)]
-                rot_pred = outputs[("axisangle", scale, ref_frame_id)]
-                # Get the pose change from target (frame_id=0) to reference (frame_id=1) frame
-                # note: according to https://github.com/nianticlabs/monodepth2/blob/b676244e5a1ca55564eb5d16ab521a48f823af31/trainer.py#L315C31-L315C40
-                # we need to take the ref_frame_id at dim=1
-                trans_pred = trans_pred[:, ref_frame_id, 0, :]  # [batch_size, 3]
-                rot_pred = rot_pred[:, ref_frame_id, 0, :]  # [batch_size, 3] (axis-angle representation)
-                # Compute the pose loss
-                pose_loss = compute_pose_loss_from_trans_and_rot(
-                    trans_pred=trans_pred,
-                    trans_gt=translation_gt,
-                    rot_pred=rot_pred,
-                    rot_gt=axisangle_gt,
-                )
-                # multiply the pose loss by a factor  to match the scale of the other losses
-                pose_loss = pose_loss * 0.5
-                losses["pose_loss"] = pose_loss
-                losses["loss"] += pose_loss
+                trans_loss_tot = 0
+                rot_loss_tot = 0
+                # Go over all the reference frames (1,2,..) and sum the pose loss
+                for i, frame_id in enumerate(self.frame_ids[1:]):
+                    # Get the ground truth pose change from target to reference frame
+                    translation_gt, axisangle_gt = poses_to_md2_format(inputs[("tgt_to_ref_pose", i)])
+                    # Get the predicted pose change from reference to target frame
+                    trans_pred = outputs[("translation", 0, frame_id)]
+                    rot_pred = outputs[("axisangle", 0, frame_id)]
+                    trans_pred = trans_pred[:, i, 0, :]  # [batch_size, 3]
+                    rot_pred = rot_pred[:, i, 0, :]  # [batch_size, 3] (axis-angle representation)
+
+                    # Compute the pose losses:
+                    trans_loss, rot_loss = compute_pose_loss_aux(
+                        trans_pred=trans_pred,
+                        trans_gt=translation_gt,
+                        rot_pred=rot_pred,
+                        rot_gt=axisangle_gt,
+                    )
+                    trans_loss_tot += trans_loss
+                    rot_loss_tot += rot_loss
+                n_ref_frames = len(self.frame_ids) - 1
+                trans_loss = trans_loss_tot / n_ref_frames
+                rot_loss = rot_loss_tot / n_ref_frames
+                # multiply the pose losses by a factor to match the scale of the other losses
+                trans_loss *= 10
+                rot_loss *= 100
+                losses["trans_loss"] = trans_loss
+                losses["rot_loss"] = rot_loss
+                losses["loss"] += trans_loss + rot_loss
 
             # Take a gradient step
             self.model_optimizer.zero_grad()
@@ -305,7 +317,7 @@ class MonoDepth2Trainer:
             late_phase = self.step % 2000 == 0
 
             if early_phase or late_phase:
-                self.log_time(batch_idx, duration, losses["loss"].cpu().data)
+                self.log_time(batch_idx, duration, losses["loss"].cpu().data, losses)
                 if "depth_gt" in inputs:
                     self.compute_depth_losses(inputs, outputs, losses)
                 self.log("train", inputs, outputs, losses)
@@ -316,12 +328,17 @@ class MonoDepth2Trainer:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def process_batch(self, inputs):
-        """Pass a minibatch through the network and generate images and losses"""
+        """Pass a minibatch through the network and generate images and losses.
+        outputs fields:
+        # ("disp", s) : predicted disparity (1/depth) at scale s.
+        # ("translation", 0, i) : predicted translation from target (frame_id=0) to reference frame i.
+        # ("axisangle", 0, i) : predicted axis-angle rotation from target (frame_id=0) to reference frame i.
+        """
         for key, ipt in inputs.items():
             inputs[key] = ipt.to(self.device)
 
-        # In MonoDepth v2 we only feed the image with frame_id 0 through the depth encoder
-        input_imgs = inputs[("color_aug", 0, 0)]
+        # In MonoDepth v2 we only feed the image with frame_id 0 (target) through the depth encoder
+        input_imgs = inputs[("color", 0, 0)]
         features = self.models["encoder"](input_imgs)
         outputs = self.models["depth"](features)
 
@@ -340,50 +357,20 @@ class MonoDepth2Trainer:
     def predict_poses(self, inputs):
         """Predict poses between input frames for monocular sequences."""
         outputs = {}
-        if self.num_pose_frames == 2:
-            # In this setting, we compute the pose to each source frame via a
-            # separate forward pass through the pose network.
 
-            # select what features the pose network takes as input
-            pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in self.frame_ids}
+        # Here we input all frames to the pose net (and predict all poses) together
+        if self.pose_model_type in ["separate_resnet", "posecnn"]:
+            pose_inputs = torch.cat([inputs[("color", i, 0)] for i in self.frame_ids], 1)
 
-            for f_i in self.frame_ids[1:]:
-                if f_i != "s":
-                    # To maintain ordering we always pass frames in temporal order
-                    pose_inputs = [pose_feats[f_i], pose_feats[0]] if f_i < 0 else [pose_feats[0], pose_feats[f_i]]
+            if self.pose_model_type == "separate_resnet":
+                pose_inputs = [self.models["pose_encoder"](pose_inputs)]
 
-                    if self.pose_model_type == "separate_resnet":
-                        pose_inputs = [self.models["pose_encoder"](torch.cat(pose_inputs, 1))]
-                    elif self.pose_model_type == "posecnn":
-                        pose_inputs = torch.cat(pose_inputs, 1)
+        axisangle, translation = self.models["pose"](pose_inputs)
 
-                    axisangle, translation = self.models["pose"](pose_inputs)
-                    outputs[("axisangle", 0, f_i)] = axisangle
-                    outputs[("translation", 0, f_i)] = translation
-                    assert torch.isfinite(axisangle).all(), "axisangle is not finite"
-
-                    # Invert the matrix if the frame id is negative
-                    outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(
-                        axisangle[:, 0],
-                        translation[:, 0],
-                        invert=(f_i < 0),
-                    )
-
-        else:
-            # Here we input all frames to the pose net (and predict all poses) together
-            if self.pose_model_type in ["separate_resnet", "posecnn"]:
-                pose_inputs = torch.cat([inputs[("color_aug", i, 0)] for i in self.frame_ids if i != "s"], 1)
-
-                if self.pose_model_type == "separate_resnet":
-                    pose_inputs = [self.models["pose_encoder"](pose_inputs)]
-
-            axisangle, translation = self.models["pose"](pose_inputs)
-
-            for i, f_i in enumerate(self.frame_ids[1:]):
-                if f_i != "s":
-                    outputs[("axisangle", 0, f_i)] = axisangle
-                    outputs[("translation", 0, f_i)] = translation
-                    outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(axisangle[:, i], translation[:, i])
+        for i, f_i in enumerate(self.frame_ids[1:]):
+            outputs[("axisangle", 0, f_i)] = axisangle
+            outputs[("translation", 0, f_i)] = translation
+            outputs[("cam_T_cam", 0, f_i)] = transformation_from_parameters(axisangle[:, i], translation[:, i])
 
         return outputs
 
@@ -579,23 +566,16 @@ class MonoDepth2Trainer:
         for i, metric in enumerate(self.depth_metric_names):
             losses[metric] = np.array(depth_errors[i].cpu())
 
-    def log_time(self, batch_idx, duration, loss):
+    def log_time(self, batch_idx, duration, loss: torch.Tensor, losses: dict):
         """Print a logging statement to the terminal"""
         samples_per_sec = self.batch_size / duration
         time_sofar = time.time() - self.start_time
         training_time_left = (self.num_total_steps / self.step - 1.0) * time_sofar if self.step > 0 else 0
-        print_string = (
-            "epoch {:>3} | batch {:>6} | examples/s: {:5.1f}" + " | loss: {:.5f} | time elapsed: {} | time left: {}"
-        )
         print(
-            print_string.format(
-                self.epoch,
-                batch_idx,
-                samples_per_sec,
-                loss,
-                sec_to_hm_str(time_sofar),
-                sec_to_hm_str(training_time_left),
-            ),
+            f"epoch {self.epoch:>3} | batch {batch_idx:>6} | examples/s: {samples_per_sec:5.1f}"
+            f" | loss: {loss:.5f}"
+            f" | time elapsed: {sec_to_hm_str(time_sofar)} | time left: { sec_to_hm_str(training_time_left)}\n",
+            "losses: " + " | ".join([f"{k}: {v.item():.5f}" for k, v in losses.items()]),
         )
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -669,14 +649,14 @@ class MonoDepth2Trainer:
 
     def load_model(self):
         """Load model(s) from disk"""
-        self.load_weights_folder = Path(self.load_weights_folder)
+        self.pretrained_model_path = Path(self.pretrained_model_path)
 
-        assert self.load_weights_folder.is_dir(), f"Cannot find folder {self.load_weights_folder}"
-        print(f"loading model from folder {self.load_weights_folder}")
+        assert self.pretrained_model_path.is_dir(), f"Cannot find folder {self.pretrained_model_path}"
+        print(f"loading model from folder {self.pretrained_model_path}")
 
         for n in self.models_to_load:
             print(f"Loading {n} weights...")
-            path = self.load_weights_folder / f"{n}.pth"
+            path = self.pretrained_model_path / f"{n}.pth"
             model_dict = self.models[n].state_dict()
             pretrained_dict = torch.load(path)
             pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
@@ -684,10 +664,11 @@ class MonoDepth2Trainer:
             self.models[n].load_state_dict(model_dict)
 
         # loading adam state
-        optimizer_load_path = self.load_weights_folder / "adam.pth"
+        optimizer_load_path = self.pretrained_model_path / "adam.pth"
         if optimizer_load_path.is_file():
             print("Loading Adam weights")
             optimizer_dict = torch.load(optimizer_load_path)
             self.model_optimizer.load_state_dict(optimizer_dict)
         else:
             print("Cannot find Adam weights so Adam is randomly initialized")
+    # ---------------------------------------------------------------------------------------------------------------------
