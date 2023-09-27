@@ -67,7 +67,7 @@ def main():
     )
     parser.add_argument(
         "--n_workers",
-        default=4,
+        default=0,
         type=int,
         help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.",
     )
