@@ -12,10 +12,12 @@ from torchvision import models
 
 # --------------------------------------------------------------------------------------------------------------------
 
+
 class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
     """
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def __init__(self, block, layers, num_input_images=1):
@@ -37,7 +39,9 @@ class ResNetMultiImageInput(models.ResNet):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 def resnet_multi_image_input(num_layers: int, pretrained: bool = False, num_input_images=1):
     """Constructs a ResNet model.
@@ -60,10 +64,13 @@ def resnet_multi_image_input(num_layers: int, pretrained: bool = False, num_inpu
         model.load_state_dict(loaded)
     return model
 
+
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder"""
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def __init__(self, num_layers, pretrained, num_input_images=1):
@@ -82,6 +89,7 @@ class ResnetEncoder(nn.Module):
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def forward(self, input_image):
@@ -99,9 +107,11 @@ class ResnetEncoder(nn.Module):
         self.features.append(self.encoder.layer4(self.features[-1]))
 
         return self.features
-# --------------------------------------------------------------------------------------------------------------------
+
+    # --------------------------------------------------------------------------------------------------------------------
 
     def get_weight_dtype(self):
         return self.encoder.conv1.weight.dtype
-    
+
+
 # --------------------------------------------------------------------------------------------------------------------

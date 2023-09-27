@@ -9,14 +9,13 @@ from colon3d.util.rotations_util import axis_angle_to_rot_mat
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def compute_pose_loss_from_trans_and_rot(
+def compute_pose_loss_aux(
     trans_pred: torch.Tensor,
     trans_gt: torch.Tensor,
     rot_pred: torch.Tensor,
     rot_gt: torch.Tensor,
-    rot_loss_scale: float = 1e3,
 ) -> torch.Tensor:
-    """ Compute the pose loss between two poses, defined as the smooth L1 distance between the poses in the a 4x4 matrix format.
+    """Compute the pose loss between two poses, defined as the smooth L1 distance between the poses in the a 4x4 matrix format.
     Args:
         trans_pred: the predicted translation [N x 3]
         trans_gt: the ground-truth translation [N x 3]
@@ -33,18 +32,15 @@ def compute_pose_loss_from_trans_and_rot(
     trans_loss = nnF.l1_loss(trans_pred, trans_gt, reduction="none").sum(dim=-1)
     rot_loss = nnF.l1_loss(rot_mat_pred, rot_mat_gt, reduction="none").sum(dim=-1)
     # Average over batch:
-    trans_loss_avg = trans_loss.mean()
-    rot_loss_avg = rot_loss.mean()
-    # Combine the translation and rotation losses, and scale the rotation loss to be in the same scale as the translation loss
-    pose_loss = trans_loss_avg + rot_loss_avg * rot_loss_scale
-    assert pose_loss.isfinite().all(), f"Pose loss is not finite: {pose_loss}"
-    return pose_loss
+    trans_loss = trans_loss.mean()
+    rot_loss = rot_loss.mean()
+    return trans_loss, rot_loss
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def compute_pose_loss(pose_pred: torch.Tensor, pose_gt: torch.Tensor, rot_loss_scale: float = 1e3) -> torch.Tensor:
+def compute_pose_losses(pose_pred: torch.Tensor, pose_gt: torch.Tensor, rot_loss_scale: float = 1e3) -> torch.Tensor:
     """
     Compute the pose loss between two poses, defined as the smooth L1 distance between the poses in the a 4x4 matrix format.
     Args:
@@ -53,14 +49,14 @@ def compute_pose_loss(pose_pred: torch.Tensor, pose_gt: torch.Tensor, rot_loss_s
     Returns:
         pose_loss: the pose loss [N x 1]
     """
-    pose_loss = compute_pose_loss_from_trans_and_rot(
+    trans_loss, rot_loss = compute_pose_loss_aux(
         trans_pred=pose_pred[:, :3],
         trans_gt=pose_gt[:, :3],
         rot_pred=pose_pred[:, 3:],
         rot_gt=pose_gt[:, 3:],
         rot_loss_scale=rot_loss_scale,
     )
-    return pose_loss
+    return trans_loss, rot_loss
 
 
 # --------------------------------------------------------------------------------------------------------------------

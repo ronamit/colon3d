@@ -6,10 +6,10 @@ import torch
 import yaml
 
 from colon3d.examine_depths import DepthExaminer
-from colon3d.net_train import endosfm_transforms, md2_transforms
 from colon3d.net_train.endosfm_trainer import EndoSFMTrainer
 from colon3d.net_train.md2_trainer import MonoDepth2Trainer
 from colon3d.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
+from colon3d.net_train.train_utils import get_default_model_info, get_method_info
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
 from endo_sfm.utils import save_model_info
 
@@ -50,8 +50,8 @@ def main():
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
-        default="data_gcp/models/MonoDepth2_orig",  # MonoDepth2_orig | EndoSFM_orig
-        help="Path to the pretrained model.",
+        default="",
+        help="Path to the pretrained model. If empty string then use the default ImageNet pretrained weights.",
     )
     parser.add_argument(
         "--path_to_save_model",
@@ -86,7 +86,7 @@ def main():
     parser.add_argument(
         "--subsample_max",
         type=int,
-        default=5,
+        default=2,
         help="Maximum subsample factor for generating training examples.",
     )
     parser.add_argument(
@@ -141,29 +141,22 @@ def main():
     set_rand_seed(rand_seed)
     dataset_path = Path(args.dataset_path)
     path_to_save_model = Path(args.path_to_save_model)
-    pretrained_model_path = Path(args.pretrained_model_path)
     method = args.method
 
-    # load pretrained model info:
-    pretrained_model_info_path = pretrained_model_path / "model_info.yaml"
-    with pretrained_model_info_path.open("r") as f:
-        pretrained_model_info = yaml.load(f, Loader=yaml.FullLoader)
-    # the input image size:
-    feed_height = pretrained_model_info["feed_height"]
-    feed_width = pretrained_model_info["feed_width"]
-
-    if method in {"EndoSFM", "EndoSFM_GTD", "EndoSFM_GTPD"}:
-        model_name = "EndoSFM"
-    elif method in {"MonoDepth2", "MonoDepth2_GTD", "MonoDepth2_GTPD"}:
-        model_name = "MonoDepth2"
+    model_name, load_gt_depth, load_gt_pose = get_method_info(method)
+    if args.pretrained_model_path != "":
+        pretrained_model_path = Path(args.pretrained_model_path)
+        # load pretrained model info:
+        model_info_path = pretrained_model_path / "model_info.yaml"
+        with model_info_path.open("r") as f:
+            model_info = yaml.load(f, Loader=yaml.FullLoader)
     else:
-        raise ValueError(f"Unknown method: {method}")
+        model_info = get_default_model_info(model_name)
+        pretrained_model_path = None
 
-    # methods that use ground-truth depth labels:
-    load_gt_depth = method in {"EndoSFM_GTD", "EndoSFM_GTPD", "MonoDepth2_GTD", "MonoDepth2_GTPD"}
-
-    # methods that use ground-truth pose labels:
-    load_gt_pose = method in {"EndoSFM_GTPD", "MonoDepth2_GTPD"}
+    # the input image size:
+    feed_height = model_info["feed_height"]
+    feed_width = model_info["feed_width"]
 
     # The parameters for generating the training samples:
     # for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
@@ -193,28 +186,13 @@ def main():
         validation_ratio=args.validation_ratio,
     )
 
-    # set data transforms
-    if model_name == "EndoSFM":
-        train_transform, val_transform = endosfm_transforms.get_transforms(
-            feed_height=feed_height,
-            feed_width=feed_width,
-        )
-    elif model_name == "MonoDepth2":
-        n_scales_md2 = 4
-        train_transform, val_transform = md2_transforms.get_transforms(
-            n_scales=n_scales_md2,
-            feed_height=feed_height,
-            feed_width=feed_width,
-        )
-    else:
-        raise ValueError(f"Unknown method: {method}")
-
     # training set
     train_set = ScenesDataset(
         scenes_paths=train_scenes_paths,
         feed_height=feed_height,
         feed_width=feed_width,
-        transform=train_transform,
+        model_name=model_name,
+        dataset_type="train",
         subsample_min=args.subsample_min,
         subsample_max=args.subsample_max,
         n_sample_lim=n_sample_lim,
@@ -227,7 +205,8 @@ def main():
         scenes_paths=val_scenes_paths,
         feed_height=feed_height,
         feed_width=feed_width,
-        transform=val_transform,
+        model_name=model_name,
+        dataset_type="val",
         subsample_min=1,
         subsample_max=1,
         n_sample_lim=n_sample_lim,
@@ -259,10 +238,7 @@ def main():
             save_path=path_to_save_model,
             train_loader=train_loader,
             val_loader=val_loader,
-            pretrained_disp=pretrained_model_path / "DispNet_best.pt",
-            pretrained_pose=pretrained_model_path / "PoseNet_best.pt",
-            train_with_gt_depth=load_gt_depth,
-            train_with_gt_pose=load_gt_pose,
+            pretrained_model_path=pretrained_model_path,
             n_epochs=n_epochs,
             save_overwrite=args.overwrite_model,
         )
@@ -271,12 +247,8 @@ def main():
             save_path=path_to_save_model,
             train_loader=train_loader,
             val_loader=val_loader,
-            feed_height=feed_height,
-            feed_width=feed_width,
             n_scales=4,
-            load_weights_folder=pretrained_model_path,
-            train_with_gt_depth=load_gt_depth,
-            train_with_gt_pose=load_gt_pose,
+            pretrained_model_path=pretrained_model_path,
             save_overwrite=args.overwrite_model,
             n_epochs=n_epochs,
         )

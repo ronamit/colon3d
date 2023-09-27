@@ -1,0 +1,216 @@
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+class RandomScaleCrop:
+    """Randomly zooms images up to 15% and crop them to keep same size as before."""
+
+    def __init__(self, max_scale=1.15):
+        self.max_scale = max_scale
+
+    def __call__(self, sample: dict) -> dict:
+        # Note: we assume the images were converted by the ImgsToNetInput transform to be of size [..., H, W]
+
+        # draw the scaling factor
+        assert self.max_scale >= 1
+        zoom_factor = 1 + np.random.rand() * (self.max_scale - 1)
+
+        # draw the offset ratio
+        x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
+
+        for k in images_keys:
+            img = sample[k]
+            in_h, in_w = img.shape[-2:]
+
+            scaled_h, scaled_w = int(in_h * zoom_factor), int(in_w * zoom_factor)
+            offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
+            offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
+            # increase the size of the image to be able to crop the same size as before
+            scaled_image = torchvision.transforms.Resize((scaled_h, scaled_w), antialias=True)(img)
+            cropped_image = TF.crop(img=scaled_image, top=offset_y, left=offset_x, height=in_h, width=in_w)
+            sample[k] = cropped_image
+
+        sample["K"][0, :] *= zoom_factor
+        sample["K"][1, :] *= zoom_factor
+        sample["K"][0, 2] -= offset_x
+        sample["K"][1, 2] -= offset_y
+        return sample
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+# def get_sample_image_keys(sample: dict, img_type="all") -> list:
+#     """Get the possible names of the images in the sample dict"""
+#     rgb_image_keys = ["color", "color_aug"]
+#     depth_image_keys = ["depth_gt"]
+#     if img_type == "RGB":
+#         img_names = rgb_image_keys
+#     elif img_type == "depth":
+#         img_names = depth_image_keys
+#     elif img_type == "all":
+#         img_names = rgb_image_keys + depth_image_keys
+#     else:
+#         raise ValueError(f"Invalid image type: {img_type}")
+#     img_keys = [k for k in sample if k in img_names or isinstance(k, tuple) and k[0] in img_names]
+#     return img_keys
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class SwitchTargetAndRef:
+    """Randomly switches the target and reference images.
+    I.e. we reverse the time axis.
+    Note that we also need to switch the ground-truth depth maps and the camera poses accordingly.
+    """
+
+    def __init__(self, prob: float = 0.5):
+        self.prob = prob
+
+    def __call__(self, sample: dict) -> dict:
+        if random.random() < self.prob:
+            sample["target_frame_idx"], sample["ref_frame_idx"] = sample["ref_frame_idx"], sample["target_frame_idx"]
+            sample["color", 0], sample["color", 1] = sample["color", 1], sample["color", 0]
+            sample["depth_gt"], sample["ref_depth_gt"] = sample["ref_depth_gt"], sample["depth_gt"]
+            if "ref_abs_pose" in sample:
+                sample["ref_abs_pose"], sample["tgt_abs_pose"] = sample["tgt_abs_pose"], sample["ref_abs_pose"]
+        return sample
+
+    
+# ---------------------------------------------------------------------------------------------------------------------
+
+import torchvision.transforms.functional as TF
+
+# Color jittering transform
+class ColorJitter:
+    def __init__(
+        self,
+        field_postfix: str,
+        p=0.5,
+        brightness=(0.8, 1.2),
+        contrast=(0.8, 1.2),
+        saturation=(0.8, 1.2),
+        hue=(-0.1, 0.1),
+    ):
+        # based on monodepth2/datasets/mono_dataset.py
+        # note that they apply this after the scaling transform
+        self.field_postfix = field_postfix
+        self.p = p
+        self.color_jitter = torchvision.transforms.ColorJitter(
+            brightness=brightness,
+            contrast=contrast,
+            saturation=saturation,
+            hue=hue,
+        )
+
+    def __call__(self, sample: dict) -> dict:
+        rgb_im_names = get_sample_image_keys(sample, img_type="RGB")
+        # We create the color_mapping mapping in advance and apply the same augmentation to all
+        # images in this item. This ensures that all images input to the pose network receive the
+        # same augmentation.
+        (
+            _,
+            brightness_factor,
+            contrast_factor,
+            saturation_factor,
+            hue_factor,
+        ) = torchvision.transforms.ColorJitter.get_params(
+            brightness=self.color_jitter.brightness,
+            contrast=self.color_jitter.contrast,
+            saturation=self.color_jitter.saturation,
+            hue=self.color_jitter.hue,
+        )
+        do_augment = random.random() < self.p
+        for im_name in rgb_im_names:
+            img = sample[im_name]
+            if do_augment:
+                img = TF.adjust_brightness(img, brightness_factor)
+                img = TF.adjust_contrast(img, contrast_factor)
+                img = TF.adjust_saturation(img, saturation_factor)
+                img = TF.adjust_hue(img, hue_factor)
+            new_name = (im_name[0] + self.field_postfix, *im_name[1:])
+            sample[new_name] = img
+        return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+class RandomScaleCrop:
+    """Randomly zooms images up to 15% and crop them to keep same size as before."""
+
+    def __init__(self, max_scale=1.15):
+        self.max_scale = max_scale
+
+    def __call__(self, sample: dict) -> dict:
+        images_keys = get_sample_image_keys(sample)
+
+        # draw the scaling factor
+        zoom_factor = 1 + np.random.rand() * (self.max_scale - 1)
+
+        # draw the offset ratio
+        x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
+
+        for k in images_keys:
+            img = sample[k]
+            in_h, in_w = img.shape[-2:]
+
+            scaled_h, scaled_w = int(in_h * zoom_factor), int(in_w * zoom_factor)
+            offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
+            offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
+
+            # increase the size of the image to be able to crop the same size as before
+            scaled_image = torchvision.transforms.Resize((scaled_h, scaled_w), antialias=True)(img)
+            cropped_image = crop(img=scaled_image, top=offset_y, left=offset_x, height=in_h, width=in_w)
+            sample[k] = cropped_image
+
+        sample["intrinsics_K"][0, :] *= zoom_factor
+        sample["intrinsics_K"][1, :] *= zoom_factor
+        sample["intrinsics_K"][0, 2] -= offset_x
+        sample["intrinsics_K"][1, 2] -= offset_y
+
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+class RandomScaleCrop:
+    """Randomly zooms images up to 15% and crop them to keep same size as before."""
+
+    def __init__(self, max_scale=1.15):
+        self.max_scale = max_scale
+
+    def __call__(self, sample: dict) -> dict:
+        images_keys = get_sample_image_keys(sample)
+
+        # draw the scaling factor
+        zoom_factor = 1 + np.random.rand() * (self.max_scale - 1)
+
+        # draw the offset ratio
+        x_offset_ratio, y_offset_ratio = np.random.uniform(0, 1, 2)
+
+        for k in images_keys:
+            img = sample[k]
+            in_h, in_w = img.shape[-2:]
+
+            scaled_h, scaled_w = int(in_h * zoom_factor), int(in_w * zoom_factor)
+            offset_y = np.round(y_offset_ratio * (scaled_h - in_h)).astype(int)
+            offset_x = np.round(x_offset_ratio * (scaled_w - in_w)).astype(int)
+
+            # increase the size of the image to be able to crop the same size as before
+            scaled_image = torchvision.transforms.Resize((scaled_h, scaled_w), antialias=True)(img)
+            cropped_image = crop(img=scaled_image, top=offset_y, left=offset_x, height=in_h, width=in_w)
+            sample[k] = cropped_image
+
+        sample["intrinsics_K"][0, :] *= zoom_factor
+        sample["intrinsics_K"][1, :] *= zoom_factor
+        sample["intrinsics_K"][0, 2] -= offset_x
+        sample["intrinsics_K"][1, 2] -= offset_y
+
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+

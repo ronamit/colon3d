@@ -7,8 +7,9 @@ import torch
 import yaml
 from PIL import Image
 from torch.utils import data
-from torchvision.transforms import Compose
 
+from colon3d.net_train import endosfm_transforms, md2_transforms
+from colon3d.net_train.train_utils import DatasetMeta
 from colon3d.util.data_util import get_all_scenes_paths_in_dir
 from colon3d.util.torch_util import to_default_type, to_torch
 
@@ -22,9 +23,11 @@ class ScenesDataset(data.Dataset):
         scenes_paths: list,
         feed_height: int,
         feed_width: int,
-        transform: Compose | None = None,
+        model_name: str,
+        dataset_type: str,
         subsample_min: int = 1,
-        subsample_max: int = 20,
+        subsample_max: int = 3,
+        ref_frame_shifts_base: tuple = (-1, 1),
         n_sample_lim: int = 0,
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
@@ -47,9 +50,14 @@ class ScenesDataset(data.Dataset):
         self.scenes_paths = scenes_paths
         self.feed_height = feed_height
         self.feed_width = feed_width
-        self.transform = transform
+        self.model_name = model_name
+        self.dataset_type = dataset_type
         self.subsample_min = subsample_min
         self.subsample_max = subsample_max
+        self.ref_frame_shifts_base = ref_frame_shifts_base
+        self.num_input_images = (
+            len(ref_frame_shifts_base) + 1
+        )  # number of frames in each sample (target + reference frames)
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
         self.plot_example_ind = plot_example_ind
@@ -82,6 +90,37 @@ class ScenesDataset(data.Dataset):
             for i_frame in range(n_frames - self.subsample_max):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
 
+        self.dataset_meta = DatasetMeta(
+            feed_height=self.feed_height,
+            feed_width=self.feed_width,
+            load_gt_depth=self.load_gt_depth,
+            load_gt_pose=self.load_gt_pose,
+            num_input_images=self.num_input_images,
+        )
+
+        # set data transforms
+        if model_name == "EndoSFM":
+            if dataset_type == "train":
+                self.transform = endosfm_transforms.get_train_transform(dataset_meta=self.dataset_meta)
+            elif dataset_type == "val":
+                self.transform = endosfm_transforms.get_val_transform(dataset_meta=self.dataset_meta)
+            else:
+                raise ValueError(f"Unknown dataset type: {dataset_type}")
+
+        elif model_name == "MonoDepth2":
+            n_scales_md2 = 4
+            if dataset_type == "train":
+                self.transform = md2_transforms.get_train_transform(
+                    dataset_meta=self.dataset_meta,
+                    n_scales=n_scales_md2,
+                )
+            elif dataset_type == "val":
+                self.transform = md2_transforms.get_val_transform(dataset_meta=self.dataset_meta, n_scales=n_scales_md2)
+            else:
+                raise ValueError(f"Unknown dataset type: {dataset_type}")
+        else:
+            raise ValueError(f"Unknown method: {model_name}")
+
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __len__(self):
@@ -96,44 +135,46 @@ class ScenesDataset(data.Dataset):
         target_frame_idx = target_id["target_frame_idx"]
         scene_path = self.scenes_paths[scene_index]
         scene_frames_paths = self.frame_paths_per_scene[scene_index]
-        sample["target_frame_idx"] = target_frame_idx
+
+        # "frame_inds" = list of the indices of the frames in the example
+        # The first frame is always the target frame, the rest are the reference frames
+        frame_inds = [target_frame_idx]
+        frame_shifts = [0]
+
+        # Add the reference frames indices
+        for ref_shift_base in self.ref_frame_shifts_base:
+            # randomly choose the subsample factor
+            subsample_factor = torch.randint(self.subsample_min, self.subsample_max + 1, (1,)).item()
+            # load the reference frame
+            shift = subsample_factor * ref_shift_base
+            ref_frame_idx = target_frame_idx + shift
+            frame_inds.append(ref_frame_idx)
+            frame_shifts.append(shift)
+
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
             scene_metadata = yaml.load(file, Loader=yaml.FullLoader)
             intrinsics_orig = get_camera_matrix(scene_metadata)
 
-        sample["intrinsics_K"] = to_torch(intrinsics_orig)
-        # note that the intrinsics matrix might be changed later by the transform (as needed for some methods)
+        sample["K"] = to_torch(intrinsics_orig)
 
-        # load the target frame
-        target_frame_ind = target_id["target_frame_idx"]
-        target_frame_path = scene_frames_paths[target_frame_ind]
-        # Load with PIL
-        sample["target_img"] = load_img_and_resize(target_frame_path, height=self.feed_height, width=self.feed_width)
+        # load the RGB images
+        for i, frame_idx in enumerate(frame_inds):
+            frame_path = scene_frames_paths[frame_idx]
+            # Load with PIL
+            sample[("color", i)] = load_img_and_resize(frame_path, height=self.feed_height, width=self.feed_width)
 
-        # randomly choose the subsample factor
-        subsample_factor = torch.randint(self.subsample_min, self.subsample_max + 1, (1,)).item()
-
-        # load the reference frame
-        ref_frame_idx = target_frame_ind + subsample_factor
-        sample["ref_frame_idx"] = ref_frame_idx
-        sample["ref_img"] = Image.open(scene_frames_paths[ref_frame_idx])
-
+        # load the ground-truth depth map and the ground-truth pose
         if self.load_gt_depth or self.load_gt_pose:
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
                 if self.load_gt_depth:
-                    # load the ground-truth depth map of the target frame and the reference frame
-                    target_depth = to_default_type(h5f["z_depth_map"][target_frame_idx], num_type="float_m")
-                    sample["target_depth"] = target_depth
-                    ref_depth = to_default_type(h5f["z_depth_map"][ref_frame_idx], num_type="float_m")
-                    sample["ref_depth"] = ref_depth
+                    for i, frame_idx in enumerate(frame_inds):
+                        depth_gt = to_default_type(h5f["z_depth_map"][frame_idx], num_type="float_m")
+                        sample[("depth_gt", i)] = depth_gt
                 if self.load_gt_pose:
-                    # load the ground-truth poses of the target frame and the reference frame
-                    target_pose = to_default_type(h5f["cam_poses"][target_frame_idx])
-                    ref_pose = to_default_type(h5f["cam_poses"][ref_frame_idx])
-                    sample["ref_abs_pose"] = ref_pose
-                    sample["tgt_abs_pose"] = target_pose
-
+                    for i, frame_idx in enumerate(frame_inds):
+                        abs_pose = to_default_type(h5f["cam_poses"][frame_idx])
+                        sample[("abs_pose", i)] = abs_pose
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
