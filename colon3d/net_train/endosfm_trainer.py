@@ -330,7 +330,7 @@ class EndoSFMTrainer:
 
             if i % self.print_freq == 0:
                 print(
-                    f"Train: Epoch {i_epoch}, Batch: {i}/{n_batches} batch-time {batch_time}, data-time {data_time}, Loss {losses}",
+                    f"Train: Epoch {i_epoch}/{self.n_epochs}, Batch: {i}/{n_batches}, Loss {losses}, batch-time {batch_time}, data-time {data_time},",
                 )
 
             n_iter += 1
