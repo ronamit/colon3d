@@ -92,26 +92,34 @@ def save_checkpoint(
 
 def save_model_info(
     save_dir_path: Path,
+    model_name: str,
+    num_input_images: int,
     feed_height: int,
     feed_width: int,
     num_layers: int | None = None,
+    depth_calib: dict | None = None,
+    model_description: str = "",
     overwrite: bool = True,
-    extra_info: dict | None = None,
-
 ):
     model_info_path = save_dir_path / "model_info.yaml"
     if model_info_path.exists() and not overwrite:
         print(f"Model info file {model_info_path} already exists, skipping")
+        return
 
+    if depth_calib is None:
+        depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
     # save an updated model_info.yaml file:
     model_info = {
-        "num_layers": num_layers,
+        "model_name": model_name,
+        "num_input_images": num_input_images,
         "feed_height": feed_height,
         "feed_width": feed_width,
+        "num_layers": num_layers,
+        "depth_calib": depth_calib,
+        "model_description": model_description,
     }
-    if extra_info is not None:
-        model_info.update(extra_info)
-        save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info)
+    
+    save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info)
 
 
 # ---------------------------------------------------------------------------------------------------------------------

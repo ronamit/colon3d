@@ -9,7 +9,7 @@ from colon3d.examine_depths import DepthExaminer
 from colon3d.net_train.endosfm_trainer import EndoSFMTrainer
 from colon3d.net_train.md2_trainer import MonoDepth2Trainer
 from colon3d.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon3d.net_train.train_utils import get_default_model_info, get_method_info
+from colon3d.net_train.train_utils import get_default_model_info
 from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
 from endo_sfm.utils import save_model_info
 
@@ -40,18 +40,32 @@ def main():
     )
 
     parser.add_argument(
-        "--method",
+        "--model_name",
         type=str,
-        default="EndoSFM_GTPD",
-        help="Method to use for depth and egomotion estimation. "
-        "Options: MonoDepth2 (self-supervised) | MonoDepth2_GTD (uses ground-truth depth labels) | MonoDepth2_GTPD (uses ground-truth depth + pose labels)"
-        "| EndoSFM (self-supervised) | EndoSFM_GTD (uses ground-truth depth labels) | EndoSFM_GTPD (uses ground-truth depth + pose labels).",
+        default="MonoDepth2",
+        choices=["MonoDepth2", "EndoSFM"],
+        help="Name of the model to train.",
+    )
+    parser.add_argument(
+        "--num_input_images",
+        type=int,
+        default=3,
+        help="Number of input images to the network. Must be at least 2, target frame at time i and reference frame at time i-1."
+        "For n > 2, the input images are the target frame at time i and the n-1 reference frames at times i-1, i-2, ..., i-(n-1).",
+    )
+    parser.add_argument(
+        "--train_method",
+        type=str,
+        default="GT_pose_and_depth",
+        choices=["GT_pose_and_depth", "GT_depth_only", "self_supervised"],
+        help="Method to use for training.",
     )
     parser.add_argument(
         "--pretrained_model_path",
         type=str,
         default="",
-        help="Path to the pretrained model. If empty string then use the default ImageNet pretrained weights.",
+        help="Path to the pretrained model. If empty string then use the default ImageNet pretrained weights."
+        "Note that the pretrained model must be compatible with the model_name and num_input_images.",
     )
     parser.add_argument(
         "--path_to_save_model",
@@ -76,18 +90,6 @@ def main():
         default=32,
         type=int,
         help="mini-batch size, decrease this if out of memory",
-    )
-    parser.add_argument(
-        "--subsample_min",
-        type=int,
-        default=1,
-        help="Minimum subsample factor for generating training examples.",
-    )
-    parser.add_argument(
-        "--subsample_max",
-        type=int,
-        default=2,
-        help="Maximum subsample factor for generating training examples.",
     )
     parser.add_argument(
         "--overwrite_model",
@@ -122,6 +124,10 @@ def main():
     )
 
     args = parser.parse_args()
+    train_method = args.train_method
+    num_input_images = args.num_input_images
+    model_name = args.model_name
+
     print(f"args={args}")
     n_workers = args.n_workers
     torch.cuda.empty_cache()
@@ -130,16 +136,21 @@ def main():
     set_rand_seed(rand_seed)
     dataset_path = Path(args.dataset_path)
     path_to_save_model = Path(args.path_to_save_model)
-    method = args.method
 
-    model_name, load_gt_depth, load_gt_pose = get_method_info(method)
+    load_gt_depth = train_method in {"GT_pose_and_depth", "GT_depth_only"}
+    load_gt_pose = train_method in {"GT_pose_and_depth"}
+
     if args.pretrained_model_path != "":
         pretrained_model_path = Path(args.pretrained_model_path)
         # load pretrained model info:
         model_info_path = pretrained_model_path / "model_info.yaml"
         with model_info_path.open("r") as f:
             model_info = yaml.load(f, Loader=yaml.FullLoader)
+        assert (
+            num_input_images == model_info["num_input_images"]
+        ), "num_input_images must be the same as the pretrained model"
     else:
+        # Train from scratch (pretrained on ImageNet)
         model_info = get_default_model_info(model_name)
         pretrained_model_path = None
 
@@ -148,12 +159,6 @@ def main():
     feed_width = model_info["feed_width"]
 
     # The parameters for generating the training samples:
-    # for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
-    subsample_min = args.subsample_min
-    subsample_max = args.subsample_max
-
-
-
     n_epochs = args.n_epochs
     n_sample_lim = 0  # if 0 then use all the samples in the dataset
     n_scenes_lim = 0  # if 0 then use all the scenes in the dataset for depth examination
@@ -181,8 +186,7 @@ def main():
         feed_width=feed_width,
         model_name=model_name,
         dataset_type="train",
-        subsample_min=args.subsample_min,
-        subsample_max=args.subsample_max,
+        num_input_images=num_input_images,
         n_sample_lim=n_sample_lim,
         load_gt_depth=load_gt_depth,
         load_gt_pose=load_gt_pose,
@@ -195,8 +199,7 @@ def main():
         feed_width=feed_width,
         model_name=model_name,
         dataset_type="val",
-        subsample_min=1,
-        subsample_max=1,
+        num_input_images=num_input_images,
         n_sample_lim=n_sample_lim,
         load_gt_depth=True,
         load_gt_pose=True,
@@ -245,22 +248,23 @@ def main():
             n_epochs=n_epochs,
         )
     else:
-        raise ValueError(f"Unknown method: {method}")
+        raise ValueError(f"Unknown method: {model_name}")
     train_runner.run()
 
     # --------------------------------------------------------------------------------------------------------------------
     # Save model info:
     # set no depth calibration (depth = net_out) and then run the depth examination to calibrate the depth scale:
-    depth_calib = {"depth_calib_type": "none", "depth_calib_a": 1, "depth_calib_b": 0}
-
-    model_description = f"Method: {method}, pretrained model: {pretrained_model_path}, n_epochs: {n_epochs}, subsample_min: {subsample_min}, subsample_max: {subsample_max}, dataset_path: {dataset_path}"
+    model_description = f"The model was trained on:  pretrained_model_path: {pretrained_model_path}, n_epochs: {n_epochs}, dataset_path: {dataset_path}, train_method: {train_method}"
     save_model_info(
         save_dir_path=path_to_save_model,
+        model_name=model_name,
+        num_input_images=num_input_images,
         feed_height=feed_height,
         feed_width=feed_width,
         num_layers=train_runner.num_layers,
+        depth_calib=None,
+        model_description=model_description,
         overwrite=True,
-        extra_info={"model_description": model_description, "depth_calib": depth_calib},
     )
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -269,7 +273,7 @@ def main():
         dataset_path=dataset_path,
         model_name=model_name,
         model_path=path_to_save_model,
-        save_path= path_to_save_model / "depth_exam_pre_calib",
+        save_path=path_to_save_model / "depth_exam_pre_calib",
         depth_calib_method=args.depth_calib_method,
         n_scenes_lim=n_scenes_lim,
         save_overwrite=args.overwrite_depth_exam,

@@ -27,23 +27,3 @@ def get_default_model_info(model_name: str) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-
-def get_method_info(method: str) -> str:
-    if method in {"EndoSFM", "EndoSFM_GTD", "EndoSFM_GTPD"}:
-        model_name = "EndoSFM"
-    elif method in {"MonoDepth2", "MonoDepth2_GTD", "MonoDepth2_GTPD"}:
-        model_name = "MonoDepth2"
-    else:
-        raise ValueError(f"Unknown method: {method}")
-
-    # methods that use ground-truth depth labels:
-    load_gt_depth = method in {"EndoSFM_GTD", "EndoSFM_GTPD", "MonoDepth2_GTD", "MonoDepth2_GTPD"}
-
-    # methods that use ground-truth pose labels:
-    load_gt_pose = method in {"EndoSFM_GTPD", "MonoDepth2_GTPD"}
-
-    return model_name, load_gt_depth, load_gt_pose
-
-
-# ---------------------------------------------------------------------------------------------------------------------

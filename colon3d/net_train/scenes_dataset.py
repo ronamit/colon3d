@@ -3,7 +3,6 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-import torch
 import yaml
 from PIL import Image
 from torch.utils import data
@@ -25,9 +24,7 @@ class ScenesDataset(data.Dataset):
         feed_width: int,
         model_name: str,
         dataset_type: str,
-        subsample_min: int = 1,
-        subsample_max: int = 3,
-        ref_frame_shifts_base: tuple = (-1, 1),
+        num_input_images: int,
         n_sample_lim: int = 0,
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
@@ -41,29 +38,24 @@ class ScenesDataset(data.Dataset):
             load_gt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
             load_gt_pose (bool): Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
             transforms: transforms to apply to each sample  (in order)
-            subsample_min (int): Minimum subsample factor to set the frame number between frames in the example.
-            subsample_max (int): Maximum subsample factor to set the frame number between frames in the example.
+            num_input_images (int): number of frames in each sample (target + reference frames)
             n_sample_lim (int): Limit the number of samples to load (for debugging) if 0 then no limit
-        Notes:
-            for each training example, we randomly a subsample factor to set the frame number between frames in the example (to get wider range of baselines \ ego-motions between the frames)
         """
         self.scenes_paths = scenes_paths
         self.feed_height = feed_height
         self.feed_width = feed_width
         self.model_name = model_name
         self.dataset_type = dataset_type
-        self.subsample_min = subsample_min
-        self.subsample_max = subsample_max
-        self.ref_frame_shifts_base = ref_frame_shifts_base
-        self.num_input_images = (
-            len(ref_frame_shifts_base) + 1
-        )  # number of frames in each sample (target + reference frames)
+        self.num_input_images = num_input_images
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
         self.plot_example_ind = plot_example_ind
-        assert self.subsample_min <= self.subsample_max
         self.frame_paths_per_scene = []
         self.target_ids = []
+
+        # Set the reference frames shifts:
+        self.ref_frame_shifts = list(range(-1, -num_input_images, -1))
+
         # go over all the scenes in the dataset
         frames_paths_per_scene = []
         n_frames_per_scene = []
@@ -80,14 +72,12 @@ class ScenesDataset(data.Dataset):
             frames_paths_per_scene.append(frames_paths)
             n_frames_per_scene.append(len(frames_paths))
 
-        self.subsample_min = min(self.subsample_min, min(n_frames_per_scene) - 1)
-        self.subsample_max = min(self.subsample_max, min(n_frames_per_scene) - 1)
-
         for i_scene, frames_paths in enumerate(frames_paths_per_scene):
             n_frames = len(frames_paths)
             assert n_frames > 0
             # set the scene index and the target frame index for each sample (later we will set the reference frames indices)
-            for i_frame in range(n_frames - self.subsample_max):
+            start_frame = num_input_images - 1 # the first frame that can be a target frame (since we need to have enough reference frames before it)
+            for i_frame in range(start_frame, n_frames):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
 
         self.dataset_meta = DatasetMeta(
@@ -142,14 +132,11 @@ class ScenesDataset(data.Dataset):
         frame_shifts = [0]
 
         # Add the reference frames indices
-        for ref_shift_base in self.ref_frame_shifts_base:
-            # randomly choose the subsample factor
-            subsample_factor = torch.randint(self.subsample_min, self.subsample_max + 1, (1,)).item()
+        for ref_shift in self.ref_frame_shifts:
             # load the reference frame
-            shift = subsample_factor * ref_shift_base
-            ref_frame_idx = target_frame_idx + shift
+            ref_frame_idx = target_frame_idx + ref_shift
             frame_inds.append(ref_frame_idx)
-            frame_shifts.append(shift)
+            frame_shifts.append(ref_shift)
 
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
