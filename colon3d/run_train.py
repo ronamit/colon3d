@@ -67,7 +67,7 @@ def main():
     )
     parser.add_argument(
         "--n_workers",
-        default=10,
+        default=9,
         type=int,
         help="number of data loading workers.",
     )

@@ -575,9 +575,8 @@ class MonoDepth2Trainer:
         time_sofar = time.time() - self.start_time
         training_time_left = (self.num_total_steps / self.step - 1.0) * time_sofar if self.step > 0 else 0
         print(
-            f"epoch {self.epoch:>3} | batch {batch_idx:>6} | examples/s: {samples_per_sec:5.1f}"
-            f" | loss: {loss:.5f}"
-            f" | time elapsed: {sec_to_hm_str(time_sofar)} | time left: { sec_to_hm_str(training_time_left)}\n",
+            f"epoch {self.epoch:>3} | batch {batch_idx:>6} | loss: {loss:.5f}"
+            f"| examples/s: {samples_per_sec:5.1f}  | time elapsed: {sec_to_hm_str(time_sofar)} | time left: { sec_to_hm_str(training_time_left)}\n",
             "Losses: " + ", ".join([f"{k}: {v.item():.5f}" for k, v in losses.items()]),
         )
 
@@ -674,4 +673,5 @@ class MonoDepth2Trainer:
             self.model_optimizer.load_state_dict(optimizer_dict)
         else:
             print("Cannot find Adam weights so Adam is randomly initialized")
+
     # ---------------------------------------------------------------------------------------------------------------------
