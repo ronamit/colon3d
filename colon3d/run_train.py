@@ -67,9 +67,9 @@ def main():
     )
     parser.add_argument(
         "--n_workers",
-        default=0,
+        default=10,
         type=int,
-        help="number of data loading worker. The current implementation is not thread-safe, so use n_workers=0 to run in the main process.",
+        help="number of data loading workers.",
     )
     parser.add_argument(
         "--batch_size",
@@ -120,19 +120,11 @@ def main():
         default=True,
         help="If True, then use a small dataset and 1 epoch for debugging",
     )
-    parser.add_argument(
-        "--empty_cache",
-        type=bool_arg,
-        default=True,
-        help="If True, then empty the cache after each epoch (to avoid cuda out of memory error)",
-    )
+
     args = parser.parse_args()
     print(f"args={args}")
     n_workers = args.n_workers
-    # Set multiprocessing start method to spawn (to avoid error in DataLoader):
-    torch.multiprocessing.set_start_method("spawn")
-    if args.empty_cache:
-        torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
 
     rand_seed = 0  # random seed for reproducibility
     set_rand_seed(rand_seed)
@@ -172,7 +164,6 @@ def main():
         n_epochs = 1  # limit the number of epochs
         path_to_save_model = path_to_save_model / "debug"
         n_scenes_lim = 1
-        n_workers = 0  # for easier debugging - use only the main process.
 
     # dataset split
     dataset_path = Path(args.dataset_path)
@@ -219,6 +210,8 @@ def main():
         shuffle=True,
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
+        pin_memory=True,
+        persistent_workers=True,
     )
     # validation loader
     val_loader = torch.utils.data.DataLoader(
@@ -227,6 +220,8 @@ def main():
         shuffle=False,
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
+        pin_memory=True,
+        persistent_workers=True,
     )
 
     # Run training:

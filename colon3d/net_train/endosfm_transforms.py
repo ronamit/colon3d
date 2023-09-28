@@ -4,7 +4,6 @@ from torchvision.transforms import Compose
 from colon3d.net_train.shared_transforms import (
     AddInvIntrinsics,
     AddRelativePose,
-    AllToGPU,
     AllToTorch,
     NormalizeImageChannels,
     RandomHorizontalFlip,
@@ -30,7 +29,6 @@ def get_train_transform(dataset_meta: DatasetMeta) -> Compose:
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(),
         AddRelativePose(dataset_meta=dataset_meta),
-        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -45,7 +43,6 @@ def get_val_transform(dataset_meta: DatasetMeta) -> Compose:
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(),
         AddRelativePose(dataset_meta=dataset_meta),
-        AllToGPU(),
     ]
     return Compose(transform_list)
 

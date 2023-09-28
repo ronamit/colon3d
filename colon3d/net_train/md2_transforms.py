@@ -5,7 +5,6 @@ from torchvision.transforms import Compose
 from colon3d.net_train.shared_transforms import (
     AddInvIntrinsics,
     AddRelativePose,
-    AllToGPU,
     AllToTorch,
     NormalizeImageChannels,
     RandomHorizontalFlip,
@@ -62,7 +61,6 @@ def get_train_transform(n_scales: int, dataset_meta: DatasetMeta):
         AddInvIntrinsics(n_scales=n_scales),
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddRelativePose(dataset_meta=dataset_meta),
-        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -84,7 +82,6 @@ def get_val_transform(dataset_meta: DatasetMeta, n_scales: int):
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(n_scales=n_scales),
         AddRelativePose(dataset_meta=dataset_meta),
-        AllToGPU(),
     ]
     return Compose(transform_list)
 
@@ -99,7 +96,6 @@ class MonoDepth2Format:
         sample["K"][0, :] /= target_img.width
         sample["K"][1, :] /= target_img.height
         sample["K"] = intrinsic_mat_to_4x4(sample["K"])
-
         return sample
 
 

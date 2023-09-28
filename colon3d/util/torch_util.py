@@ -89,9 +89,7 @@ def to_device(x: torch.Tensor, device: torch.device):
     Sources:
         * https://discuss.pytorch.org/t/should-we-set-non-blocking-to-true/38234/3
     """
-    if not x.is_cuda:
-        return x.to(device, non_blocking=True)
-    return x.to(device)
+    return x.to(device, non_blocking=True)
 
 
 # --------------------------------------------------------------------------------------------------------------------

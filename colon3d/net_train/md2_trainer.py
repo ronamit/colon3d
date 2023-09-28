@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader
 
 from colon3d.net_train.loss_terms import compute_pose_loss_aux
 from colon3d.net_train.md2_transforms import poses_to_md2_format
+from colon3d.net_train.shared_transforms import sample_to_gpu
 from colon3d.net_train.train_utils import DatasetMeta
 from colon3d.util.general_util import create_folder_if_not_exists, to_str
 from colon3d.util.torch_util import get_device
@@ -246,8 +247,9 @@ class MonoDepth2Trainer:
         print("Training")
         self.set_train()
 
-        for batch_idx, inputs in enumerate(self.train_loader):
+        for batch_idx, inputs_cpu in enumerate(self.train_loader):
             before_op_time = time.time()
+            inputs = sample_to_gpu(inputs_cpu, self.device)
 
             # Process the batch to get the outputs and losses
             # outputs fields:
@@ -384,6 +386,7 @@ class MonoDepth2Trainer:
         except StopIteration:
             self.val_iter = iter(self.val_loader)
             inputs = next(self.val_iter)
+        inputs = sample_to_gpu(inputs, self.device)
 
         with torch.no_grad():
             outputs, losses = self.process_batch(inputs)
@@ -575,7 +578,7 @@ class MonoDepth2Trainer:
             f"epoch {self.epoch:>3} | batch {batch_idx:>6} | examples/s: {samples_per_sec:5.1f}"
             f" | loss: {loss:.5f}"
             f" | time elapsed: {sec_to_hm_str(time_sofar)} | time left: { sec_to_hm_str(training_time_left)}\n",
-            "losses: " + " | ".join([f"{k}: {v.item():.5f}" for k, v in losses.items()]),
+            "Losses: " + ", ".join([f"{k}: {v.item():.5f}" for k, v in losses.items()]),
         )
 
     # ---------------------------------------------------------------------------------------------------------------------

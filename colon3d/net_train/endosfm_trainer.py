@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.net_train.endosfm_transforms import poses_to_enfosfm_format
 from colon3d.net_train.loss_terms import compute_pose_losses
+from colon3d.net_train.shared_transforms import sample_to_gpu
 from colon3d.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
@@ -231,7 +232,8 @@ class EndoSFMTrainer:
         n_batches = len(train_loader)
 
         # loop over batches
-        for i, batch in enumerate(train_loader):
+        for i, batch_cpu in enumerate(train_loader):
+            batch = sample_to_gpu(batch_cpu, device=device)
             log_losses = i > 0 and n_iter % self.print_freq == 0
 
             data_time.update(time.time() - end)  # measure data loading time
@@ -349,7 +351,8 @@ class EndoSFMTrainer:
         disp_net.eval()
 
         end = time.time()
-        for i, batch in enumerate(val_loader):
+        for i, batch_cpu in enumerate(val_loader):
+            batch = sample_to_gpu(batch_cpu, device=device)
             tgt_img = batch["target_img"].to(device)
             gt_depth = batch["target_depth"].to(device)
 
