@@ -14,6 +14,10 @@ from endo_sfm.models_def.resnet_encoder import ResnetEncoder
 
 
 class PoseDecoder(nn.Module):
+    r"""
+    Predict pose (6-DoF) change from the reference frame (i) to the target \ source frame (i+1)
+    """
+
     def __init__(self, num_ch_enc, num_input_features=1, num_frames_to_predict_for=1, stride=1):
         super().__init__()
 

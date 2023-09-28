@@ -42,7 +42,7 @@ def main():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="MonoDepth2",
+        default="EndoSFM",
         choices=["MonoDepth2", "EndoSFM"],
         help="Name of the model to train.",
     )
@@ -169,6 +169,7 @@ def main():
         n_epochs = 1  # limit the number of epochs
         path_to_save_model = path_to_save_model / "debug"
         n_scenes_lim = 1
+        n_workers = 0  # for debugging
 
     # dataset split
     dataset_path = Path(args.dataset_path)
@@ -214,7 +215,7 @@ def main():
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=n_workers > 0,
     )
     # validation loader
     val_loader = torch.utils.data.DataLoader(
@@ -224,7 +225,7 @@ def main():
         num_workers=n_workers,
         drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=n_workers > 0,
     )
 
     # Run training:

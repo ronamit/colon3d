@@ -103,8 +103,8 @@ def compute_photo_and_geometry_loss(
     intrinsics,
     tgt_depth,
     ref_depths,
-    poses,
-    poses_inv,
+    pred_poses,
+    pred_poses_inv,
     max_scales,
     with_ssim,
     with_mask,
@@ -125,7 +125,7 @@ def compute_photo_and_geometry_loss(
     geometry_loss = 0
 
     num_scales = min(len(tgt_depth), max_scales)
-    for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, poses, poses_inv, strict=True):
+    for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, pred_poses, pred_poses_inv, strict=True):
         for s in range(num_scales):
             # # downsample img
             # b, _, h, w = tgt_depth[s].size()

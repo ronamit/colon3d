@@ -106,9 +106,8 @@ class MonoDepth2Trainer:
         self.feed_width = self.train_dataset_meta.feed_width  # width of the input image
         self.train_with_gt_depth = self.train_dataset_meta.load_gt_depth  # if set, will train with ground truth depth
         self.train_with_gt_pose = self.train_dataset_meta.load_gt_pose  # if set, will train with ground truth pose
-        self.num_input_images = (
-            self.train_dataset_meta.num_input_images
-        )  # number of frames in each sample (target + reference frames)
+        # number of frames in each sample (target + reference frames):
+        self.num_input_images = self.train_dataset_meta.num_input_images
         self.models = {}
         self.parameters_to_train = []
         self.device = get_device()
@@ -357,7 +356,13 @@ class MonoDepth2Trainer:
     # ---------------------------------------------------------------------------------------------------------------------
 
     def predict_poses(self, inputs):
-        """Predict poses between input frames for monocular sequences."""
+        """Predict poses between input frames for monocular sequences.
+        We predict the pose chamge from the target (frame_id=0) to each reference frame (frame_id=1,2,...).
+        Outputs:
+        # ("translation", 0, i) : predicted translation from target (frame_id=0) to reference frame i.
+        # ("axisangle", 0, i) : predicted axis-angle rotation from target (frame_id=0) to reference frame i.
+        # ("cam_T_cam", 0, i) : predicted 4x4 pose transformation from target (frame_id=0) to reference frame i.
+        """
         outputs = {}
 
         # Here we input all frames to the pose net (and predict all poses) together
