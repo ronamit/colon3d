@@ -42,8 +42,9 @@ def val_to_yaml_format(v):
 # ----------------------------------------------------------------------------------------------------------------------
 def save_dict_to_yaml(save_path: Path, dict_to_save: dict):
     save_dict_strs = {k: val_to_yaml_format(v) for k, v in dict_to_save.items()}
-    with save_path.open("w") as f:
-        yaml.dump(save_dict_strs, f)
+    # Save (with overwriting) the dict as a yaml file
+    with save_path.open("w") as file:
+        yaml.dump(save_dict_strs, file, default_flow_style=False)
     print(f"Saved dict to {save_path}")
 
 

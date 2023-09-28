@@ -577,7 +577,7 @@ class MonoDepth2Trainer:
         print(
             f"epoch {self.epoch:>3} | batch {batch_idx:>6} | loss: {loss:.5f}"
             f"| examples/s: {samples_per_sec:5.1f}  | time elapsed: {sec_to_hm_str(time_sofar)} | time left: { sec_to_hm_str(training_time_left)}\n",
-            "Losses: " + ", ".join([f"{k}: {v.item():.5f}" for k, v in losses.items() if k != "loss"]),
+            ">" + ", ".join([f"{k}: {v.item():.5f}" for k, v in losses.items() if k != "loss"]),
         )
 
     # ---------------------------------------------------------------------------------------------------------------------

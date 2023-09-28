@@ -152,7 +152,7 @@ def main():
     subsample_min = args.subsample_min
     subsample_max = args.subsample_max
 
-    path_to_save_depth_exam = path_to_save_model / "depth_exam"
+
 
     n_epochs = args.n_epochs
     n_sample_lim = 0  # if 0 then use all the samples in the dataset
@@ -269,7 +269,7 @@ def main():
         dataset_path=dataset_path,
         model_name=model_name,
         model_path=path_to_save_model,
-        save_path=path_to_save_depth_exam,
+        save_path= path_to_save_model / "depth_exam_pre_calib",
         depth_calib_method=args.depth_calib_method,
         n_scenes_lim=n_scenes_lim,
         save_overwrite=args.overwrite_depth_exam,
@@ -283,7 +283,7 @@ def main():
         # update the model info file with the new depth_calib value:
         with info_model_path.open("r") as f:
             model_info = yaml.load(f, Loader=yaml.FullLoader)
-            model_info.update(depth_calib)
+            model_info["depth_calib"] = depth_calib
         save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
         print(
             f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
@@ -296,7 +296,7 @@ def main():
         model_name=model_name,
         model_path=path_to_save_model,
         depth_calib_method="none",
-        save_path=path_to_save_depth_exam / "after_update",
+        save_path=path_to_save_model / "depth_exam_post_calib",
         n_scenes_lim=5,
         n_frames_lim=5,
         save_overwrite=args.overwrite_depth_exam,
