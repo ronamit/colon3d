@@ -397,8 +397,8 @@ class EndoSFMTrainer:
         end = time.time()
         for i, batch_cpu in enumerate(val_loader):
             batch = sample_to_gpu(batch_cpu, device=device)
-            tgt_img = batch["target_img"].to(device)
-            gt_depth = batch["target_depth"].to(device)
+            tgt_img = batch[("color", 0)].to(device)
+            gt_depth = batch[("depth_gt", 0)].to(device)
 
             # compute output
             output_disp = disp_net(tgt_img)
