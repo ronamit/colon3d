@@ -9,9 +9,8 @@ from colon3d.examine_depths import DepthExaminer
 from colon3d.net_train.endosfm_trainer import EndoSFMTrainer
 from colon3d.net_train.md2_trainer import MonoDepth2Trainer
 from colon3d.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon3d.net_train.train_utils import get_default_model_info
-from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, save_dict_to_yaml, set_rand_seed
-from endo_sfm.utils import save_model_info
+from colon3d.net_train.train_utils import ModelInfo, get_default_model_info, save_model_info
+from colon3d.util.general_util import ArgsHelpFormatter, bool_arg, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
@@ -47,11 +46,10 @@ def main():
         help="Name of the model to train.",
     )
     parser.add_argument(
-        "--num_input_images",
+        "--n_ref_imgs",
         type=int,
-        default=3,
-        help="Number of input images to the network. Must be at least 2, target frame at time i and reference frame at time i-1."
-        "For n > 2, the input images are the target frame at time i and the n-1 reference frames at times i-1, i-2, ..., i-(n-1).",
+        default=2,
+        help="Number of reference images. Must be at least 1. If the target is at frame t, then the reference frames are at frames  t - n_ref_imgs, ..., t - 1",
     )
     parser.add_argument(
         "--train_method",
@@ -65,12 +63,12 @@ def main():
         type=str,
         default="",
         help="Path to the pretrained model. If empty string then use the default ImageNet pretrained weights."
-        "Note that the pretrained model must be compatible with the model_name and num_input_images.",
+        "Note that a loaded pretrained model must be compatible with the model_name and n_ref_imgs.",
     )
     parser.add_argument(
         "--path_to_save_model",
         type=str,
-        default="data_gcp/models/EndoSFM_GTPD",
+        default="data_gcp/models/TEMP",
         help="Path to save the trained model.",
     )
     parser.add_argument(
@@ -125,7 +123,7 @@ def main():
 
     args = parser.parse_args()
     train_method = args.train_method
-    num_input_images = args.num_input_images
+    n_ref_imgs = args.n_ref_imgs
     model_name = args.model_name
 
     print(f"args={args}")
@@ -146,9 +144,7 @@ def main():
         model_info_path = pretrained_model_path / "model_info.yaml"
         with model_info_path.open("r") as f:
             model_info = yaml.load(f, Loader=yaml.FullLoader)
-        assert (
-            num_input_images == model_info["num_input_images"]
-        ), "num_input_images must be the same as the pretrained model"
+        assert n_ref_imgs == model_info["n_ref_imgs"], "n_ref_imgs must be the same as the pretrained model"
     else:
         # Train from scratch (pretrained on ImageNet)
         model_info = get_default_model_info(model_name)
@@ -187,7 +183,7 @@ def main():
         feed_width=feed_width,
         model_name=model_name,
         dataset_type="train",
-        num_input_images=num_input_images,
+        n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=load_gt_depth,
         load_gt_pose=load_gt_pose,
@@ -200,7 +196,7 @@ def main():
         feed_width=feed_width,
         model_name=model_name,
         dataset_type="val",
-        num_input_images=num_input_images,
+        n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=True,
         load_gt_pose=True,
@@ -256,16 +252,17 @@ def main():
     # Save model info:
     # set no depth calibration (depth = net_out) and then run the depth examination to calibrate the depth scale:
     model_description = f"The model was trained on:  pretrained_model_path: {pretrained_model_path}, n_epochs: {n_epochs}, dataset_path: {dataset_path}, train_method: {train_method}"
-    save_model_info(
-        save_dir_path=path_to_save_model,
+    model_info = ModelInfo(
         model_name=model_name,
-        num_input_images=num_input_images,
+        n_ref_imgs=n_ref_imgs,
         feed_height=feed_height,
         feed_width=feed_width,
         num_layers=train_runner.num_layers,
-        depth_calib=None,
         model_description=model_description,
-        overwrite=True,
+    )
+    save_model_info(
+        save_dir_path=path_to_save_model,
+        model_info=model_info,
     )
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -286,10 +283,13 @@ def main():
         # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
         info_model_path = path_to_save_model / "model_info.yaml"
         # update the model info file with the new depth_calib value:
-        with info_model_path.open("r") as f:
-            model_info = yaml.load(f, Loader=yaml.FullLoader)
-            model_info["depth_calib"] = depth_calib
-        save_dict_to_yaml(save_path=info_model_path, dict_to_save=model_info)
+        model_info.depth_calib_type = depth_calib["type"]
+        model_info.depth_calib_a = depth_calib["a"]
+        model_info.depth_calib_b = depth_calib["b"]
+        save_model_info(
+            save_dir_path=path_to_save_model,
+            model_info=model_info,
+        )
         print(
             f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
         )

@@ -10,13 +10,13 @@ import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
 
 from colon3d.net_train.endosfm_transforms import poses_to_enfosfm_format
-from colon3d.net_train.loss_terms import compute_pose_losses
+from colon3d.net_train.loss_terms import compute_pose_loss
 from colon3d.net_train.shared_transforms import sample_to_gpu
 from colon3d.net_train.train_utils import DatasetMeta
 from colon3d.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon3d.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
-from endo_sfm.loss_functions import compute_photo_and_geometry_loss, compute_smooth_loss
+from endo_sfm.loss_functions import compute_pairwise_loss, compute_smooth_loss
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
 from endo_sfm.utils import save_checkpoint
@@ -41,7 +41,6 @@ class EndoSFMTrainer:
     log_full: str = "progress_log_full.csv"  # csv where to save per-gradient descent train stats
     log_output: bool = False  # will log dispnet outputs at validation step
     num_layers: int = 18  # number of ResNet layers for depth and pose networks
-    num_scales: int = 1  # the number of scales
     photo_loss_weight: float = 1  # weight for photometric loss
     smooth_loss_weight: float = 0.1  # weight for disparity smoothness loss
     geometry_consistency_weight: float = 0.5  # weight for depth consistency loss
@@ -58,7 +57,9 @@ class EndoSFMTrainer:
     feed_width: int = attrs.field(init=False)  # width of the input image
     train_with_gt_depth: bool = attrs.field(init=False)  # if set, will train with ground truth depth
     train_with_gt_pose: bool = attrs.field(init=False)  # if set, will train with ground truth pose
-    num_input_images: int = attrs.field(init=False)  # frame ids within each sample (target = 0, reference = 1, 2, ...)
+    n_ref_imgs: int = attrs.field(init=False)  # frame ids within each sample (target = 0, reference = 1, 2, ...)
+    all_frame_shifts: list = attrs.field(init=False)  # list of all frame shifts (target = 0, reference = 1, 2, ...)
+    ref_frame_shifts: list = attrs.field(init=False)  # list of reference frame shifts (1, 2, ...)
     losses_names: list = None  # list of losses names
     pretrained_disp: str = ""  # path to pre-trained DispNet model (disparity=1/depth)
     pretrained_pose: str = ""  # path to pre-trained PoseNet model
@@ -71,7 +72,9 @@ class EndoSFMTrainer:
         self.train_with_gt_depth = self.train_dataset_meta.load_gt_depth  # if set, will train with ground truth depth
         self.train_with_gt_pose = self.train_dataset_meta.load_gt_pose  # if set, will train with ground truth pose
         # number of frames in each sample (target + reference frames):
-        self.num_input_images = self.train_dataset_meta.num_input_images
+        self.n_ref_imgs = self.train_dataset_meta.n_ref_imgs
+        self.all_frame_shifts = self.train_dataset_meta.all_frame_shifts
+        self.ref_frame_shifts = self.train_dataset_meta.ref_frame_shifts
         self.losses_names = ["photo_loss", "smooth_loss", "geometry_consistency_loss"]
         if self.train_with_gt_depth:
             self.losses_names += ["depth_loss"]
@@ -114,10 +117,19 @@ class EndoSFMTrainer:
             train_set = self.train_loader.dataset
             scene_metadata = train_set.get_scene_metadata()
 
-            # create model
+            # create model, use ImageNet pretrained weights (before maybe loading pre-trained weights)
             print("=> creating model")
-            disp_net = DispResNet(self.num_layers, pretrained=self.with_pretrain).to(device)
-            pose_net = PoseResNet(self.num_layers, pretrained=self.with_pretrain).to(device)
+            # The disparity network gets as input an RGB image and outputs a disparity map
+            disp_net = DispResNet(self.num_layers, pretrained=True).to(device)
+            # The pose network gets as the target RGB image and a reference RGB images and outputs the pose change from the target to each reference frame
+            pose_net = PoseResNet(
+                num_input_images=1 + self.n_ref_imgs,
+                num_frames_to_predict_for=self.n_ref_imgs,
+                num_layers=self.num_layers,
+                pretrained=True,
+            ).to(
+                device,
+            )
 
             # load parameters
             if self.pretrained_disp:
@@ -220,13 +232,13 @@ class EndoSFMTrainer:
 
     def run_epoch(
         self,
-        i_epoch,
+        i_epoch: int,
         save_path: Path,
-        train_loader,
-        disp_net,
-        pose_net,
-        optimizer,
-        train_writer,
+        train_loader: torch.utils.data.DataLoader,
+        disp_net: DispResNet,
+        pose_net: PoseResNet,
+        optimizer: torch.optim.Optimizer,
+        train_writer: SummaryWriter,
         n_iter: int,
     ):
         """Train for one epoch on the training set"""
@@ -249,21 +261,19 @@ class EndoSFMTrainer:
             data_time.update(time.time() - end)  # measure data loading time
             log_losses = i > 0 and n_iter % self.print_freq == 0
             # RGB of the target image (index 0) and reference images (index 1, 2, ...)
-            rgb_imgs = [batch[("color", i)] for i in range(1, self.num_input_images)]
+            rgb_imgs = torch.stack([batch[("color", shift)] for shift in self.all_frame_shifts])
             tgt_img = rgb_imgs[0]
-            ref_imgs = rgb_imgs[1:]
+            # List of RGB  reference images (index 1, 2, ...)
+            ref_imgs = [batch[("color", shift)] for shift in self.ref_frame_shifts]
             intrinsics_K = batch["K"]
 
-            # Get the disparity predictions: num_input_images x [batch_size, height, width]
-            pred_disps = [disp_net(img) for img in rgb_imgs]
-            pred_depths = [1 / d for d in pred_disps]
+            # Get the disparity predictions: n_images x [batch_size, height, width]
+            scale = 0  # we only use the first scale (full resolution)
+            pred_depths = [1 / disp_net(img)[scale] for img in rgb_imgs]  # n_ref_imgs x [batch_size, height, width]
 
-            # Get the predicted pose change from reference to target frame: num_input_images x [batch_size, 6]
-            # Note: the first pose is target to target, i.e. the identity pose (no change)
-            #  Predict pose (6-DoF) change from the reference frame (i-k, k=1,2,...) to the target \ source frame (i)
-            pred_poses = [pose_net(tgt_img, img) for img in rgb_imgs]
-            #  Predict the inverse pose (6-DoF) changes
-            pred_inv_poses = [pose_net(img, tgt_img) for img in rgb_imgs]
+            # Get the predicted pose change from target to each reference frame: [batch_size, n_ref_imgs, 6] (translation & axis-angle)
+            pred_poses = pose_net(tgt_img, ref_imgs)
+            #  note: we don't predict the inv poses like the original EndoSFM, since we modify the PoseNet to get several refrerence frames
 
             loss_terms = {loss_name: 0 for loss_name in self.losses_names}
             loss_weights = {"photo_loss": w1, "smooth_loss": w2, "geometry_consistency_loss": w3}
@@ -271,11 +281,13 @@ class EndoSFMTrainer:
             # Compute the supervised depth loss if needed
             if self.train_with_gt_depth:
                 depth_loss = 0
-                for frame_id in range(self.num_input_images):
-                    depth_gt = batch[("depth", frame_id)]
+                # go over all  images (target and references)
+                n_imgs = len(self.all_frame_shifts)
+                for i_img, shift in enumerate(self.all_frame_shifts):
+                    depth_gt = batch[("depth_gt", shift)]
                     # add a supervised loss term for training the depth network
-                    depth_loss += nnF.l1_loss(pred_depths[frame_id], depth_gt)
-                depth_loss /= self.num_input_images
+                    depth_loss += nnF.l1_loss(pred_depths[i_img], depth_gt)
+                depth_loss /= n_imgs
                 loss_weights["depth_loss"] = 1
                 assert depth_loss.isfinite(), f"depth_loss is not finite: {depth_loss}"
                 # multiply the depth loss by a factor to match the scale of the other losses
@@ -284,45 +296,58 @@ class EndoSFMTrainer:
 
             # Compute the supervised pose loss if needed
             if self.train_with_gt_pose:
-                # Go over all the reference frames
-                for frame_id in range(self.num_input_images):
-                    # convert the GT pose changes to axis-angle format
-                    tgt_to_ref_pose_gt = poses_to_enfosfm_format(batch[("tgt_to_ref_pose", frame_id)])  # [batch_size, 6]
-                    ref_to_tgt_pose_gt = poses_to_enfosfm_format(batch[("ref_to_tgt_pose", frame_id)]) # [batch_size, 6]
-                    # the estimated pose changes  are in axis-angle format
-                    ref_to_tgt_pose_pred = pred_poses[frame_id] # [batch_size, 6]
-                    tgt_to_ref_pose_pred = pred_inv_poses[frame_id]  # [batch_size, 6]
-
-                # add a supervised loss term for training the pose network
-
-                trans_loss1, rot_loss1 = compute_pose_losses(pose_pred=tgt_to_ref_pose_pred, pose_gt=tgt_to_ref_pose_gt)
-                trans_loss2, rot_loss2 = compute_pose_losses(pose_pred=ref_to_tgt_pose_pred, pose_gt=ref_to_tgt_pose_gt)
-                trans_loss = (trans_loss1 + trans_loss2) / 2
-                rot_loss = (rot_loss1 + rot_loss2) / 2
+                trans_loss = 0
+                rot_loss = 0
+                for i_ref, shift in enumerate(self.ref_frame_shifts):
+                    # Get the ground-truth pose change from reference to target frame  [batch_size, ,7] (translation & quaternion)
+                    tgt_to_ref_pose_gt = batch[("tgt_to_ref_pose", shift)]
+                    tgt_to_ref_pose_gt = poses_to_enfosfm_format(tgt_to_ref_pose_gt)  # [batch_size, 6] (translation & axis-angle)
+                    # the estimated pose changes are in axis-angle format
+                    tgt_to_ref_pose_pred = pred_poses[:, i_ref, :]  # [batch_size, 6] (translation & axis-angle)
+                    # add a supervised loss term for training the pose network
+                    trans_loss_curr, rot_loss_curr = compute_pose_loss(
+                        trans_pred=tgt_to_ref_pose_pred[:, :3],
+                        trans_gt=tgt_to_ref_pose_gt[:, :3],
+                        rot_pred=tgt_to_ref_pose_pred[:, 3:],
+                        rot_gt=tgt_to_ref_pose_gt[:, 3:],
+                    )
+                    trans_loss += trans_loss_curr
+                    rot_loss += rot_loss_curr
                 loss_weights["trans_loss"] = 1
                 loss_terms["trans_loss"] = trans_loss
                 loss_weights["rot_loss"] = 1
                 loss_terms["rot_loss"] = rot_loss
 
             # compute the photometric and geometry consistency losses
-            tgt_depth = pred_depths[0]
-            ref_depths = pred_depths[1:]
-            loss_terms["photo_loss"], loss_terms["geometry_consistency_loss"] = compute_photo_and_geometry_loss(
-                tgt_img,
-                ref_imgs,
-                intrinsics_K,
-                tgt_depth,
-                ref_depths,
-                pred_poses,
-                pred_inv_poses,
-                self.num_scales,
-                self.with_ssim,
-                self.with_mask,
-                self.with_auto_mask,
-                self.padding_mode,
+            photo_loss = 0
+            geometry_loss = 0
+            # Depth prediction of the target image (index 0):
+            tgt_depth_pred = pred_depths[0]
+            # List of depth predictions of the reference images (index 1, 2, ...):
+            ref_depths_pred = [pred_depths[i] for i in range(1, self.n_ref_imgs + 1)]
+            for i_ref in range(self.n_ref_imgs):
+                photo_loss_curr, geometry_loss_curr = compute_pairwise_loss(
+                    tgt_img=tgt_img,
+                    ref_img=ref_imgs[i_ref],
+                    tgt_depth_pred=tgt_depth_pred,
+                    ref_depth_pred=ref_depths_pred[i_ref],
+                    pose=pred_poses[:, i_ref, :],
+                    intrinsics_K=intrinsics_K,
+                    with_ssim=self.with_ssim,
+                    with_mask=self.with_mask,
+                    with_auto_mask=self.with_auto_mask,
+                    padding_mode=self.padding_mode,
+                )
+                photo_loss += photo_loss_curr
+                geometry_loss += geometry_loss_curr
+            loss_terms["photo_loss"] = photo_loss
+            loss_terms["geometry_consistency_loss"] = geometry_loss
+            loss_terms["smooth_loss"] = compute_smooth_loss(
+                tgt_depth_pred=tgt_depth_pred,
+                tgt_img=tgt_img,
+                ref_depths_pred=ref_depths_pred,
+                ref_imgs=ref_imgs,
             )
-
-            loss_terms["smooth_loss"] = compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs)
 
             loss = sum(loss_terms[loss_name] * loss_weights[loss_name] for loss_name in self.losses_names)
 
@@ -391,7 +416,6 @@ class EndoSFMTrainer:
                 print(f"valid: Time {batch_time} Abs Error {errors.val[0]:.4f} ({errors.avg[0]:.4f})")
 
         return errors.avg, error_names
-
 
 
 # ---------------------------------------------------------------------------------------------------------------------

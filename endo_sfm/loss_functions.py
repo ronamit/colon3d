@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 from colon3d.util.torch_util import get_device
@@ -8,6 +7,7 @@ from endo_sfm.inverse_warp import inverse_warp2
 device = get_device()
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 class SSIM(nn.Module):
     """Layer to compute the SSIM loss between a pair of images"""
@@ -97,101 +97,16 @@ def brightness_equator(source, target):
     return transfered_image
 
 
-def compute_photo_and_geometry_loss(
-    tgt_img,
-    ref_imgs,
-    intrinsics,
-    tgt_depth,
-    ref_depths,
-    pred_poses,
-    pred_poses_inv,
-    max_scales,
-    with_ssim,
-    with_mask,
-    with_auto_mask,
-    padding_mode,
-):
-    """Compute photo and geometry loss between a pair of (consecutive) images.
-    Args:
-        tgt_img: target image
-        ref_imgs: reference images
-        intrinsics: camera intrinsics
-        tgt_depth: target depth frames
-        ref_depths: reference depth frames
-        poses: 6DoF pose parameters from target to source -- [B, 6]
-
-    """
-    photo_loss = 0
-    geometry_loss = 0
-
-    num_scales = min(len(tgt_depth), max_scales)
-    for ref_img, ref_depth, pose, pose_inv in zip(ref_imgs, ref_depths, pred_poses, pred_poses_inv, strict=True):
-        for s in range(num_scales):
-            # # downsample img
-            # b, _, h, w = tgt_depth[s].size()
-            # downscale = tgt_img.size(2)/h
-            # if s == 0:
-            #     tgt_img_scaled = tgt_img
-            #     ref_img_scaled = ref_img
-            # else:
-            #     tgt_img_scaled = F.interpolate(tgt_img, (h, w), mode='area')
-            #     ref_img_scaled = F.interpolate(ref_img, (h, w), mode='area')
-            # intrinsic_scaled = torch.cat((intrinsics[:, 0:2]/downscale, intrinsics[:, 2:]), dim=1)
-            # tgt_depth_scaled = tgt_depth[s]
-            # ref_depth_scaled = ref_depth[s]
-            
-            # TODO: Ron - why they didn't use the code above?
-
-            # upsample depth
-            b, _, h, w = tgt_img.size()
-            tgt_img_scaled = tgt_img
-            ref_img_scaled = ref_img
-            intrinsic_scaled = intrinsics
-            if s == 0:
-                tgt_depth_scaled = tgt_depth[s]
-                ref_depth_scaled = ref_depth[s]
-            else:
-                tgt_depth_scaled = F.interpolate(tgt_depth[s], (h, w), mode="nearest")
-                ref_depth_scaled = F.interpolate(ref_depth[s], (h, w), mode="nearest")
-
-            photo_loss1, geometry_loss1 = compute_pairwise_loss(
-                tgt_img_scaled,
-                ref_img_scaled,
-                tgt_depth_scaled,
-                ref_depth_scaled,
-                pose,
-                intrinsic_scaled,
-                with_ssim,
-                with_mask,
-                with_auto_mask,
-                padding_mode,
-            )
-            photo_loss2, geometry_loss2 = compute_pairwise_loss(
-                ref_img_scaled,
-                tgt_img_scaled,
-                ref_depth_scaled,
-                tgt_depth_scaled,
-                pose_inv,
-                intrinsic_scaled,
-                with_ssim,
-                with_mask,
-                with_auto_mask,
-                padding_mode,
-            )
-
-            photo_loss += photo_loss1 + photo_loss2
-            geometry_loss += geometry_loss1 + geometry_loss2
-
-    return photo_loss, geometry_loss
+# --------------------------------------------------------------------------------------------------------------------
 
 
 def compute_pairwise_loss(
     tgt_img,
     ref_img,
-    tgt_depth,
-    ref_depth,
+    tgt_depth_pred,
+    ref_depth_pred,
     pose,
-    intrinsic,
+    intrinsics_K,
     with_ssim,
     with_mask,
     with_auto_mask,
@@ -199,22 +114,14 @@ def compute_pairwise_loss(
 ):
     ref_img_warped, valid_mask, projected_depth, computed_depth = inverse_warp2(
         ref_img,
-        tgt_depth,
-        ref_depth,
+        tgt_depth_pred,
+        ref_depth_pred,
         pose,
-        intrinsic,
+        intrinsics_K,
         padding_mode,
     )
 
-    # torch.save(ref_img_warped, "ref_im_warped.pt")
-
-    # print("ref_image_warped",ref_img_warped.shape)
-
     ref_img_warped2 = brightness_equator(ref_img_warped, tgt_img)
-
-    # torch.save(ref_img_warped2, "ref_im_warped2.pt")
-
-    # torch.save(tgt_img, "target_image.pt")
 
     diff_img = (tgt_img - ref_img_warped2).abs().clamp(0, 1)
 
@@ -241,6 +148,9 @@ def compute_pairwise_loss(
     return reconstruction_loss, geometry_consistency_loss
 
 
+# --------------------------------------------------------------------------------------------------------------------
+
+
 # compute mean value given a binary mask
 def mean_on_mask(diff, valid_mask):
     mask = valid_mask.expand_as(diff)
@@ -248,32 +158,40 @@ def mean_on_mask(diff, valid_mask):
     return mean_value
 
 
-def compute_smooth_loss(tgt_depth, tgt_img, ref_depths, ref_imgs):
-    def get_smooth_loss(disp, img):
-        """Computes the smoothness loss for a disparity image
-        The color image is used for edge-aware smoothness
-        """
+# --------------------------------------------------------------------------------------------------------------------
 
-        # normalize
-        mean_disp = disp.mean(2, True).mean(3, True)
-        norm_disp = disp / (mean_disp + 1e-7)
-        disp = norm_disp
 
-        grad_disp_x = torch.abs(disp[:, :, :, :-1] - disp[:, :, :, 1:])
-        grad_disp_y = torch.abs(disp[:, :, :-1, :] - disp[:, :, 1:, :])
+def get_smooth_loss(disp, img):
+    """Computes the smoothness loss for a disparity image
+    The color image is used for edge-aware smoothness
+    """
 
-        grad_img_x = torch.mean(torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:]), 1, keepdim=True)
-        grad_img_y = torch.mean(torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :]), 1, keepdim=True)
+    # normalize
+    mean_disp = disp.mean(2, True).mean(3, True)
+    norm_disp = disp / (mean_disp + 1e-7)
+    disp = norm_disp
 
-        grad_disp_x *= torch.exp(-grad_img_x)
-        grad_disp_y *= torch.exp(-grad_img_y)
+    grad_disp_x = torch.abs(disp[:, :, :, :-1] - disp[:, :, :, 1:])
+    grad_disp_y = torch.abs(disp[:, :, :-1, :] - disp[:, :, 1:, :])
 
-        return grad_disp_x.mean() + grad_disp_y.mean()
+    grad_img_x = torch.mean(torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:]), 1, keepdim=True)
+    grad_img_y = torch.mean(torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :]), 1, keepdim=True)
 
-    loss = get_smooth_loss(tgt_depth[0], tgt_img)
+    grad_disp_x *= torch.exp(-grad_img_x)
+    grad_disp_y *= torch.exp(-grad_img_y)
 
-    for ref_depth, ref_img in zip(ref_depths, ref_imgs, strict=True):
-        loss += get_smooth_loss(ref_depth[0], ref_img)
+    return grad_disp_x.mean() + grad_disp_y.mean()
+
+
+# --------------------------------------------------------------------------------------------------------------------
+def compute_smooth_loss(tgt_depth_pred, tgt_img, ref_depths_pred, ref_imgs):
+    # compute the smoothness loss for all the frames (on the original scale)
+    loss = get_smooth_loss(tgt_depth_pred, tgt_img)
+
+    for ref_depth, ref_img in zip(ref_depths_pred, ref_imgs, strict=True):
+        loss += get_smooth_loss(ref_depth, ref_img)
 
     return loss
 
+
+# --------------------------------------------------------------------------------------------------------------------

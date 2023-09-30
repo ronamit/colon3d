@@ -24,7 +24,7 @@ class ScenesDataset(data.Dataset):
         feed_width: int,
         model_name: str,
         dataset_type: str,
-        num_input_images: int,
+        n_ref_imgs: int,
         n_sample_lim: int = 0,
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
@@ -38,7 +38,7 @@ class ScenesDataset(data.Dataset):
             load_gt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
             load_gt_pose (bool): Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
             transforms: transforms to apply to each sample  (in order)
-            num_input_images (int): number of frames in each sample (target + reference frames)
+            n_ref_imgs (int): number of reference frames to use (each sample will have n_ref_imgs frames + 1 target frame)
             n_sample_lim (int): Limit the number of samples to load (for debugging) if 0 then no limit
         """
         self.scenes_paths = scenes_paths
@@ -46,15 +46,16 @@ class ScenesDataset(data.Dataset):
         self.feed_width = feed_width
         self.model_name = model_name
         self.dataset_type = dataset_type
-        self.num_input_images = num_input_images
+        self.n_ref_imgs = n_ref_imgs
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
         self.plot_example_ind = plot_example_ind
         self.frame_paths_per_scene = []
         self.target_ids = []
 
-        # Set the reference frames shifts:
-        self.ref_frame_shifts = list(range(-1, -num_input_images, -1))
+        # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
+        self.ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
+        self.all_frame_shifts = [0, *self.ref_frame_shifts]  # Add the target frame index
 
         # go over all the scenes in the dataset
         frames_paths_per_scene = []
@@ -76,7 +77,7 @@ class ScenesDataset(data.Dataset):
             n_frames = len(frames_paths)
             assert n_frames > 0
             # set the scene index and the target frame index for each sample (later we will set the reference frames indices)
-            start_frame = num_input_images - 1 # the first frame that can be a target frame (since we need to have enough reference frames before it)
+            start_frame = n_ref_imgs  # the first frame that can be a target frame (since we need to have enough reference frames before it)
             for i_frame in range(start_frame, n_frames):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
 
@@ -85,7 +86,9 @@ class ScenesDataset(data.Dataset):
             feed_width=self.feed_width,
             load_gt_depth=self.load_gt_depth,
             load_gt_pose=self.load_gt_pose,
-            num_input_images=self.num_input_images,
+            n_ref_imgs=self.n_ref_imgs,
+            ref_frame_shifts=self.ref_frame_shifts,
+            all_frame_shifts=self.all_frame_shifts,
         )
 
         # set data transforms
@@ -126,18 +129,6 @@ class ScenesDataset(data.Dataset):
         scene_path = self.scenes_paths[scene_index]
         scene_frames_paths = self.frame_paths_per_scene[scene_index]
 
-        # "frame_inds" = list of the indices of the frames in the example
-        # The first frame is always the target frame, the rest are the reference frames
-        frame_inds = [target_frame_idx]
-        frame_shifts = [0]
-
-        # Add the reference frames indices
-        for ref_shift in self.ref_frame_shifts:
-            # load the reference frame
-            ref_frame_idx = target_frame_idx + ref_shift
-            frame_inds.append(ref_frame_idx)
-            frame_shifts.append(ref_shift)
-
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
             scene_metadata = yaml.load(file, Loader=yaml.FullLoader)
@@ -146,22 +137,22 @@ class ScenesDataset(data.Dataset):
         sample["K"] = to_torch(intrinsics_orig)
 
         # load the RGB images
-        for i, frame_idx in enumerate(frame_inds):
-            frame_path = scene_frames_paths[frame_idx]
+        for shift in self.all_frame_shifts:
+            frame_path = scene_frames_paths[target_frame_idx + shift]
             # Load with PIL
-            sample[("color", i)] = load_img_and_resize(frame_path, height=self.feed_height, width=self.feed_width)
+            sample[("color", shift)] = load_img_and_resize(frame_path, height=self.feed_height, width=self.feed_width)
 
         # load the ground-truth depth map and the ground-truth pose
         if self.load_gt_depth or self.load_gt_pose:
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
-                if self.load_gt_depth:
-                    for i, frame_idx in enumerate(frame_inds):
+                for shift in self.all_frame_shifts:
+                    frame_idx = target_frame_idx + shift
+                    if self.load_gt_depth:
                         depth_gt = to_default_type(h5f["z_depth_map"][frame_idx], num_type="float_m")
-                        sample[("depth_gt", i)] = depth_gt
-                if self.load_gt_pose:
-                    for i, frame_idx in enumerate(frame_inds):
+                        sample[("depth_gt", shift)] = depth_gt
+                    if self.load_gt_pose:
                         abs_pose = to_default_type(h5f["cam_poses"][frame_idx])
-                        sample[("abs_pose", i)] = abs_pose
+                        sample[("abs_pose", shift)] = abs_pose
         # apply the transform
         if self.transform:
             sample = self.transform(sample)

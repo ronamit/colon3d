@@ -19,7 +19,7 @@ class AllToTorch:
         self.dtype = dtype
         self.feed_height = dataset_meta.feed_height
         self.feed_width = dataset_meta.feed_width
-        self.num_input_images = dataset_meta.num_input_images
+        self.all_frame_shifts = dataset_meta.all_frame_shifts
         self.resizer = torchvision.transforms.Resize(
             size=(self.feed_height, self.feed_width),
             antialias=True,
@@ -27,8 +27,8 @@ class AllToTorch:
 
     def __call__(self, sample: dict) -> dict:
         # convert the images to torch tensors
-        for i in range(self.num_input_images):
-            k = ("color", i)
+        for shift in self.all_frame_shifts:
+            k = ("color", shift)
             sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
             # transform RGB images to channels first (HWC to CHW format)
             sample[k] = torch.permute(sample[k], (2, 0, 1))
@@ -36,8 +36,8 @@ class AllToTorch:
             sample[k] = self.resizer(sample[k])
 
         # convert the depth maps to torch tensors
-        for i in range(self.num_input_images):
-            k = ("depth_gt", i)
+        for shift in self.all_frame_shifts:
+            k = ("depth_gt", shift)
             if k in sample:
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
                 # transform to channels first (HW to CHW format, with C=1)
@@ -49,8 +49,8 @@ class AllToTorch:
         sample["K"] = to_torch(sample["K"], dtype=self.dtype, device=self.device)
 
         # convert the absolute camera poses to torch tensors
-        for i in range(self.num_input_images):
-            k = ("abs_pose", i)
+        for shift in self.all_frame_shifts:
+            k = ("abs_pose", shift)
             if k in sample:
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
         return sample
@@ -76,7 +76,7 @@ class RandomHorizontalFlip:
     def __init__(self, flip_prob: float, dataset_meta: DatasetMeta):
         self.flip_prob = flip_prob
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
-        self.num_input_images = dataset_meta.num_input_images
+        self.all_frames_shifts = dataset_meta.all_frame_shifts
         self.load_gt_pose = dataset_meta.load_gt_pose
 
     def __call__(self, sample: dict):
@@ -87,9 +87,9 @@ class RandomHorizontalFlip:
         # Note: we assume the images were converted by the ImgsToNetInput transform to be of size [..., H, W]
 
         # flip the images
-        for i in range(self.num_input_images):
-            sample[("color", i)] = torch.flip(sample[("color", i)], dims=[-1])
-            sample[("depth_gt", i)] = torch.flip(sample[("depth_gt", i)], dims=[-1])
+        for shift in self.all_frames_shifts:
+            sample[("color", shift)] = torch.flip(sample[("color", shift)], dims=[-1])
+            sample[("depth_gt", shift)] = torch.flip(sample[("depth_gt", shift)], dims=[-1])
 
         # flip the x-coordinate of the camera center
         sample["K"][0, 2] = im_width - sample["K"][0, 2]
@@ -101,10 +101,10 @@ class RandomHorizontalFlip:
             rot_angle = np.pi
             rot_quat = axis_angle_to_quaternion(axis_angle=rot_axis * rot_angle)
             aug_pose = get_pose(rot_quat=rot_quat, device=self.device)
-            for i in range(self.num_input_images):
+            for shift in self.all_frames_shifts:
                 # apply the pose-augmentation to the cam poses
                 # the pose format: (x,y,z,qw,qx,qy,qz)
-                sample[("abs_pose", i)] = compose_poses(pose1=sample[("abs_pose", i)], pose2=aug_pose).reshape(7)
+                sample[("abs_pose", shift)] = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose).reshape(7)
         return sample
 
 
@@ -133,11 +133,11 @@ class NormalizeImageChannels:
         # Normalize the image channels to the mean and std of the ImageNet dataset
         self.mean = mean
         self.std = std
-        self.num_input_images = dataset_meta.num_input_images
+        self.all_frames_shifts = dataset_meta.all_frame_shifts
 
     def __call__(self, sample: dict):
-        for i in range(self.num_input_images):
-            sample[("color", i)] = normalize_image_channels(sample[("color", i)], self.mean, self.std)
+        for shift in self.all_frames_shifts:
+            sample[("color", shift)] = normalize_image_channels(sample[("color", shift)], self.mean, self.std)
         return sample
 
 
@@ -152,21 +152,21 @@ class AddRelativePose:
 
     def __init__(self, dataset_meta: DatasetMeta):
         self.load_gt_pose = dataset_meta.load_gt_pose
-        self.num_input_images = dataset_meta.num_input_images
+        self.ref_frame_shifts = dataset_meta.ref_frame_shifts
 
     def __call__(self, sample):
         if self.load_gt_pose:
             # get the relative pose between the target and reference frames
-            for i in range(self.num_input_images):  # note: we start from 1 since the target frame has id 0
-                sample[("tgt_to_ref_pose", i)] = get_pose_delta(
-                    pose1=sample[("abs_pose", 0)],
-                    pose2=sample[("abs_pose", i)],
+            for shift in self.ref_frame_shifts:
+                sample[("tgt_to_ref_pose", shift)] = get_pose_delta(
+                    pose1=sample[("abs_pose", 0)],  # target frame
+                    pose2=sample[("abs_pose", shift)],  # reference frame
                 ).reshape(7)
-        # note: sample[("tgt_to_ref_pose", 0)] should be the identity pose
         return sample
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 def sample_to_gpu(sample: dict, device: torch.device | None = None) -> dict:
     """

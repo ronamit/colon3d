@@ -67,7 +67,7 @@ class DepthAndEgoMotionLoader:
             self.depth_estimator = DepthModel(
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
-                method=model_name,
+                model_name=model_name,
                 model_path=model_path,
             )
             print("Using online depth estimation")

@@ -42,6 +42,7 @@ def pixel2cam(depth, intrinsics_inv):
     cam_coords = (intrinsics_inv @ current_pixel_coords).reshape(b, 3, h, w)
     return cam_coords * depth.unsqueeze(1)
 
+# --------------------------------------------------------------------------------------------------------------------
 
 def cam2pixel(cam_coords, proj_c2p_rot, proj_c2p_tr):
     """Transform coordinates in the camera frame to the pixel frame.
@@ -69,6 +70,7 @@ def cam2pixel(cam_coords, proj_c2p_rot, proj_c2p_tr):
     pixel_coords = torch.stack([X_norm, Y_norm], dim=2)  # [B, H*W, 2]
     return pixel_coords.reshape(b, h, w, 2)
 
+# --------------------------------------------------------------------------------------------------------------------
 
 def euler2mat(angle):
     """Convert euler angles to rotation matrix.
@@ -101,6 +103,7 @@ def euler2mat(angle):
     rotMat = xmat @ ymat @ zmat
     return rotMat
 
+# --------------------------------------------------------------------------------------------------------------------
 
 def quat2mat(quat):
     """Convert quaternion coefficients to rotation matrix.
@@ -153,6 +156,7 @@ def pose_vec2mat(vec, rotation_mode="euler"):
     transform_mat = torch.cat([rot_mat, translation], dim=2)  # [B, 3, 4]
     return transform_mat
 
+# --------------------------------------------------------------------------------------------------------------------
 
 def inverse_warp(img, depth, pose, intrinsics, rotation_mode="euler", padding_mode="zeros"):
     """
@@ -188,6 +192,7 @@ def inverse_warp(img, depth, pose, intrinsics, rotation_mode="euler", padding_mo
 
     return projected_img, valid_points
 
+# --------------------------------------------------------------------------------------------------------------------
 
 def cam2pixel2(cam_coords, proj_c2p_rot, proj_c2p_tr, padding_mode):
     """Transform coordinates in the camera frame to the pixel frame.

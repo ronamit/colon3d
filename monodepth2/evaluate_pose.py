@@ -72,7 +72,7 @@ def evaluate(opt):
     pose_encoder = ResnetEncoder(opt.num_layers, False, 2)
     pose_encoder.load_state_dict(torch.load(pose_encoder_path))
 
-    pose_decoder = PoseDecoder(pose_encoder.num_ch_enc, 1, 2)
+    pose_decoder = PoseDecoder(num_ch_enc=pose_encoder.num_ch_enc, num_frames_to_predict_for=1)
     pose_decoder.load_state_dict(torch.load(pose_decoder_path))
 
     pose_encoder.cuda()

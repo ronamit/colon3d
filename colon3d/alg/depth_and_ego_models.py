@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 
 import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
@@ -10,6 +9,7 @@ import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
 import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
 import monodepth2.utils as monodepth2_utils
+from colon3d.net_train.train_utils import load_model_model_info
 from colon3d.util.rotations_util import axis_angle_to_quaternion
 from colon3d.util.torch_util import get_device, resize_images_batch, resize_single_image, to_torch
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
@@ -81,32 +81,32 @@ class DepthModel:
     Note that we use a network that estimates the disparity and then convert it to depth by taking 1/disparity.
     """
 
-    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, method: str, model_path: Path) -> None:
-        self.method = method
+    def __init__(self, depth_lower_bound: float, depth_upper_bound: float, model_name: str, model_path: Path) -> None:
+        self.model_name = model_name
         assert model_path is not None, "model_path is None"
         print(f"Loading depth model from {model_path}")
         self.depth_lower_bound = 0 if depth_lower_bound is None else depth_lower_bound
         self.depth_upper_bound = depth_upper_bound
 
-        self.model_info = get_model_info(model_path)
+        self.model_info = load_model_model_info(model_path)
 
         # the dimensions of the input images to the network
-        self.feed_width = self.model_info["feed_width"]
-        self.feed_height = self.model_info["feed_height"]
+        self.feed_width = self.model_info.feed_width
+        self.feed_height = self.model_info.feed_height
 
         # the dimensions of the output depth maps are the same as the input images
-        self.depth_map_width = self.model_info["feed_width"]
-        self.depth_map_height = self.model_info["feed_height"]
-
+        self.depth_map_width = self.model_info.feed_width
+        self.depth_map_height = self.model_info.feed_height
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.depth_calib_a = self.model_info["depth_calib_a"]
-        self.depth_calib_b = self.model_info["depth_calib_b"]
+        self.depth_calib_a = self.model_info.depth_calib_a
+        self.depth_calib_b = self.model_info.depth_calib_b
+        self.depth_calib_type = self.model_info.depth_calib_type
         print(f"depth_calibrations: a={self.depth_calib_a}, b={self.depth_calib_b}")
         self.device = get_device()
 
         # create the disparity\depth estimation network
-        if method in {"EndoSFM", "EndoSFM_GTD"}:
-            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info["num_layers"], pretrained=True)
+        if model_name == "EndoSFM":
+            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info.num_layers, pretrained=True)
             # load the Disparity network
             self.disp_net_path = model_path / "DispNet_best.pt"
             weights = torch.load(self.disp_net_path)
@@ -115,11 +115,16 @@ class DepthModel:
             self.disp_net.eval()  # switch to evaluate mode
             self.dtype = self.disp_net.get_weight_dtype()
 
-        elif method == "MonoDepth2":  # source: https://github.com/nianticlabs/monodepth2
+        elif model_name == "MonoDepth2":
             monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
             encoder_path = model_path / "encoder.pth"
             depth_decoder_path = model_path / "depth.pth"
-            self.encoder = monodepth2_networks.resnet_encoder.ResnetEncoder(18, False)
+            # Get the ResNet-18 model for the depth encoder (ImageNet pre-trained), note the DeptNet gets 1 image as input
+            self.encoder = monodepth2_networks.resnet_encoder.ResnetEncoder(
+                num_layers=self.model_info.num_layers,
+                pretrained=True,
+                num_input_images=1,
+            )
             self.depth_decoder = monodepth2_depth_decoder.DepthDecoder(
                 num_ch_enc=self.encoder.num_ch_enc,
                 scales=range(4),
@@ -136,7 +141,7 @@ class DepthModel:
             self.dtype = self.encoder.get_weight_dtype()
 
         else:
-            raise ValueError(f"Unknown depth estimation method: {method}")
+            raise ValueError(f"Unknown depth estimation method: {model_name}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -167,7 +172,7 @@ class DepthModel:
         )
 
         # estimate the disparity map
-        if self.method in {"EndoSFM", "EndoSFM_GTD"}:
+        if self.model_name == "EndoSFM":
             with torch.no_grad():
                 disparity_map = self.disp_net(img)  # [N x 1 x H x W]
                 # remove the n_sample and n_channels dimension
@@ -175,7 +180,7 @@ class DepthModel:
                 # convert the disparity to depth
                 depth_map = 1 / disparity_map
 
-        elif self.method == "MonoDepth2":
+        elif self.model_name == "MonoDepth2":
             # based on monodepth2/evaluate_depth.py
             with torch.no_grad():
                 encoded = self.encoder(img)
@@ -190,7 +195,7 @@ class DepthModel:
                     max_depth=self.depth_upper_bound,
                 )
         else:
-            raise ValueError(f"Unknown depth estimation method: {self.method}")
+            raise ValueError(f"Unknown depth estimation method: {self.model_name}")
 
         # resize to the original image size
         depth_map = resize_single_image(
@@ -217,18 +222,24 @@ class EgomotionModel:
         print(f"Loading egomotion model from {model_path}")
         assert model_path is not None, "model_path is None"
         self.model_name = model_name
-        self.model_info = get_model_info(model_path)
+        self.model_info = load_model_model_info(model_path)
+        self.n_ref_imgs = self.model_info.n_ref_imgs
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.depth_calib_a = self.model_info["depth_calib_a"]
-
-        self.feed_width = self.model_info["feed_width"]
-        self.feed_height = self.model_info["feed_height"]
+        self.depth_calib = self.model_info.depth_calib
+        self.feed_width = self.model_info.feed_width
+        self.feed_height = self.model_info.feed_height
 
         # create the egomotion estimation network
         if model_name == "EndoSFM":
             pose_net_path = model_path / "PoseNet_best.pt"
-            self.pose_net = endo_sfm_PoseResNet(num_layers=self.model_info["num_layers"], pretrained=True)
+            # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
+            self.pose_net = endo_sfm_PoseResNet(
+                num_input_images=1 + self.n_ref_imgs,
+                num_frames_to_predict_for=self.n_ref_imgs,
+                num_layers=self.model_info.num_layers,
+                pretrained=True,
+            )
             weights = torch.load(pose_net_path)
             self.pose_net.load_state_dict(weights["state_dict"], strict=False)
             self.pose_net.to(self.device)
@@ -239,9 +250,23 @@ class EgomotionModel:
             # based on monodepth2/evaluate_pose.py
             pose_encoder_path = model_path / "pose_encoder.pth"
             pose_decoder_path = model_path / "pose.pth"
-            self.pose_encoder = monodepth2_resnet_encoder.ResnetEncoder(18, False, 2)
+            # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
+            # the pose network gets the target image and the reference images as input and outputs the 6DoF pose parameters from target to reference images
+            self.pose_encoder = monodepth2_resnet_encoder.ResnetEncoder(
+                num_layers=self.model_info.num_layers,
+                pretrained=True,
+                num_input_images=self.n_ref_imgs + 1,
+            )
+            self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(
+                num_ch_enc=self.pose_encoder.num_ch_enc,
+                num_frames_to_predict_for=self.n_ref_imgs,
+            )
             self.pose_encoder.load_state_dict(torch.load(pose_encoder_path))
-            self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(self.pose_encoder.num_ch_enc, 1, 2)
+            # Get the pose decoder: 6DoF pose parameters from target to reference images
+            self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(
+                num_ch_enc=self.pose_encoder.num_ch_enc,
+                num_frames_to_predict_for=self.n_ref_imgs,
+            )
             self.pose_decoder.load_state_dict(torch.load(pose_decoder_path))
             self.pose_encoder.to(self.device)
             self.pose_decoder.to(self.device)
@@ -317,36 +342,6 @@ class EgomotionModel:
         return egomotion
 
     # --------------------------------------------------------------------------------------------------------------------
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def get_model_info(model_dir_path: Path):
-    model_info_path = model_dir_path / "model_info.yaml"
-    assert model_info_path.is_file(), f"Model info file not found at {model_info_path}"
-    with model_info_path.open("r") as f:
-        model_info = yaml.load(f, Loader=yaml.FullLoader)
-    if "depth_calib_type" not in model_info:
-        print("depth_calib not found in model info, using default 'none'")
-        model_info["depth_calib_type"] = "none"
-        model_info["depth_calib_a"] = 1
-        model_info["depth_calib_b"] = 0
-
-    return model_info
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def get_camera_matrix(model_info: dict) -> np.ndarray:
-    fx = model_info["fx"]
-    fy = model_info["fy"]
-    cx = model_info["cx"]
-    cy = model_info["cy"]
-    distort_pram = model_info["distort_pram"]
-    assert distort_pram is None, "we assume no distortion"
-    return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float32)
 
 
 # --------------------------------------------------------------------------------------------------------------------

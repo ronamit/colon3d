@@ -9,9 +9,9 @@ from colon3d.alg.alg_settings import AlgorithmParam
 from colon3d.alg.constraints_terms import SoftConstraints
 from colon3d.alg.keypoints_util import KeyPointsLog
 from colon3d.util.general_util import print_if
+from colon3d.util.pose_transforms import project_world_to_image_normalized_coord
 from colon3d.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions
 from colon3d.util.torch_util import concat_list_to_tensor, get_device, get_val, is_finite, pseudo_huber_loss_on_x_sqr
-from colon3d.util.pose_transforms import project_world_to_image_normalized_coord
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
@@ -169,7 +169,7 @@ def run_bundle_adjust(
     alg_prm: AlgorithmParam,
     fps: float,
     scene_metadata: dict,
-    verbose: int =2,
+    verbose: int = 2,
     print_now: bool = False,
 ):
     """
@@ -228,7 +228,10 @@ def run_bundle_adjust(
     points_3d_opt = torch.as_tensor(points_3d[p3d_opt_flag]).requires_grad_()
     n_cam_poses_opt = cam_poses_opt.shape[0]
     n_points_3d_opt = points_3d_opt.shape[0]
-    print_if(print_now, f"Optimizing cam-pose of {n_cam_poses_opt} frames, and {n_points_3d_opt} 3D-points, using {n_kp_used} keypoints.")
+    print_if(
+        print_now,
+        f"Optimizing cam-pose of {n_cam_poses_opt} frames, and {n_points_3d_opt} 3D-points, using {n_kp_used} keypoints.",
+    )
 
     # Set constraints on the optimization
     constraints = {}
@@ -291,7 +294,10 @@ def run_bundle_adjust(
         is_kp_invalid = (reproject_dists_sqr > kp_reproject_err_threshold**2) & (kp_type_u == -1)
         is_kp_invalid = is_kp_invalid.cpu().numpy()
         print_if(print_now, f"Total final cost: {get_val(tot_cost):1.6g}")
-        print_if(print_now, "Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]))
+        print_if(
+            print_now,
+            "Cost components: " + ", ".join([f"{k}={get_val(v):1.6g}" for k, v in cost_components.items()]),
+        )
 
     # Discard the invalid keypoints
     n_invalid_kps = is_kp_invalid.sum()

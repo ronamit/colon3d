@@ -6,10 +6,9 @@ from colon3d.util.rotations_util import axis_angle_to_rot_mat
 # --------------------------------------------------------------------------------------------------------------------
 
 
-# --------------------------------------------------------------------------------------------------------------------
 
 
-def compute_pose_loss_aux(
+def compute_pose_loss(
     trans_pred: torch.Tensor,
     trans_gt: torch.Tensor,
     rot_pred: torch.Tensor,
@@ -34,28 +33,6 @@ def compute_pose_loss_aux(
     # Average over batch:
     trans_loss = trans_loss.mean()
     rot_loss = rot_loss.mean()
-    return trans_loss, rot_loss
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def compute_pose_losses(pose_pred: torch.Tensor, pose_gt: torch.Tensor, rot_loss_scale: float = 1e3) -> torch.Tensor:
-    """
-    Compute the pose loss between two poses, defined as the smooth L1 distance between the poses in the a 4x4 matrix format.
-    Args:
-        pose_pred: the predicted pose [N x 6] in a format for translation and rotation in axis-angle format  (tx, ty, tz, rx, ry, rz)
-        pose_gt: the ground-truth pose [N x 6] in a format for translation and rotation in axis-angle format  (tx, ty, tz, rx, ry, rz)
-    Returns:
-        pose_loss: the pose loss [N x 1]
-    """
-    trans_loss, rot_loss = compute_pose_loss_aux(
-        trans_pred=pose_pred[:, :3],
-        trans_gt=pose_gt[:, :3],
-        rot_pred=pose_pred[:, 3:],
-        rot_gt=pose_gt[:, 3:],
-        rot_loss_scale=rot_loss_scale,
-    )
     return trans_loss, rot_loss
 
 
