@@ -226,7 +226,6 @@ class EgomotionModel:
         self.n_ref_imgs = self.model_info.n_ref_imgs
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.depth_calib = self.model_info.depth_calib
         self.feed_width = self.model_info.feed_width
         self.feed_height = self.model_info.feed_height
 
