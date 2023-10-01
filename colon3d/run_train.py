@@ -161,8 +161,8 @@ def main():
 
     if args.debug_mode:
         print("Running in debug mode!!!!")
-        n_sample_lim = 100  # limit the number of samples per epoch (must be more than the batch size)
-        n_epochs = 1  # limit the number of epochs
+        n_sample_lim = 5
+        n_epochs = 1
         path_to_save_model = path_to_save_model / "debug"
         n_scenes_lim = 1
         n_workers = 0  # for debugging
@@ -283,9 +283,9 @@ def main():
         # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
         info_model_path = path_to_save_model / "model_info.yaml"
         # update the model info file with the new depth_calib value:
-        model_info.depth_calib_type = depth_calib["type"]
-        model_info.depth_calib_a = depth_calib["a"]
-        model_info.depth_calib_b = depth_calib["b"]
+        model_info.depth_calib_type = depth_calib["depth_calib_type"]
+        model_info.depth_calib_a = depth_calib["depth_calib_a"]
+        model_info.depth_calib_b = depth_calib["depth_calib_b"]
         save_model_info(
             save_dir_path=path_to_save_model,
             model_info=model_info,
