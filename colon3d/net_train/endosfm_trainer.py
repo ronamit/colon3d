@@ -149,7 +149,7 @@ class EndoSFMTrainer:
                 {"params": disp_net.parameters(), "lr": self.learning_rate},
                 {"params": pose_net.parameters(), "lr": self.learning_rate},
             ]
-            optimizer = torch.optim.Adam(optim_params, betas=(self.momentum, self.beta), weight_decay=self.weight_decay)
+            optimizer = torch.optim.AdamW(optim_params, betas=(self.momentum, self.beta), weight_decay=self.weight_decay)
 
             with (self.save_path / self.log_summary).open("w") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")

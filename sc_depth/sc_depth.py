@@ -22,7 +22,7 @@ class SC_Depth(LightningModule):
             {"params": self.depth_net.parameters(), "lr": self.hparams.hparams.lr},
             {"params": self.pose_net.parameters(), "lr": self.hparams.hparams.lr},
         ]
-        optimizer = torch.optim.Adam(optim_params)
+        optimizer = torch.optim.AdamW(optim_params)
         return [optimizer]
 
     def training_step(self, batch, batch_idx):

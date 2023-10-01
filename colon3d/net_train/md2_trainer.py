@@ -167,7 +167,7 @@ class MonoDepth2Trainer:
             self.models["predictive_mask"].to(self.device)
             self.parameters_to_train += list(self.models["predictive_mask"].parameters())
 
-        self.model_optimizer = optim.Adam(self.parameters_to_train, self.learning_rate)
+        self.model_optimizer = optim.AdamW(self.parameters_to_train, self.learning_rate)
         self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.model_optimizer, self.scheduler_step_size, 0.1)
 
         if self.pretrained_model_path is not None:
