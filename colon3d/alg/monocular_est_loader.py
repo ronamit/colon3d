@@ -1,3 +1,4 @@
+import queue
 from pathlib import Path
 
 import h5py
@@ -20,7 +21,6 @@ class DepthAndEgoMotionLoader:
         scene_loader: SceneLoader,
         depth_maps_source: str,
         egomotions_source: str,
-        model_name: str | None = None,
         model_path: str | None = None,
         depth_lower_bound: float | None = None,
         depth_upper_bound: float | None = None,
@@ -51,23 +51,27 @@ class DepthAndEgoMotionLoader:
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(
-                model_name=model_name,
                 model_path=model_path,
             )
-
+            # # number of reference images to use as input to the egomotion estimator:
+            self.n_ref_imgs = self.egomotion_estimator.n_ref_imgs
+            
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
             self.init_loaded_egomotions("gt_3d_data.h5")
+            self.n_ref_imgs = 0  # no need for reference images
 
         elif egomotions_source == "loaded_estimates":
             print("Using loaded estimated egomotions")
             self.init_loaded_egomotions("est_depth_and_egomotion.h5")
+            self.n_ref_imgs = 0  # no need for reference images
+        else:
+            raise ValueError(f"Unknown egomotions source: {egomotions_source}")
 
         if depth_maps_source == "online_estimates":
             self.depth_estimator = DepthModel(
                 depth_lower_bound=self.depth_lower_bound,
                 depth_upper_bound=self.depth_upper_bound,
-                model_name=model_name,
                 model_path=model_path,
             )
             print("Using online depth estimation")
@@ -102,7 +106,11 @@ class DepthAndEgoMotionLoader:
         self.depth_maps_path = self.orig_scene_path / depth_maps_file_name
         # load the depth maps
         with h5py.File(self.depth_maps_path.resolve(), "r") as h5f:
-            self.depth_maps_buffer = to_torch(h5f["z_depth_map"][:], num_type="float_m", device="default")  # load all into memory
+            self.depth_maps_buffer = to_torch(
+                h5f["z_depth_map"][:],
+                num_type="float_m",
+                device="default",
+            )  # load all into memory
         n_frames = self.depth_maps_buffer.shape[0]
         self.depth_maps_buffer_frame_inds = list(range(n_frames))
 
@@ -141,7 +149,7 @@ class DepthAndEgoMotionLoader:
         self,
         curr_frame_idx: int,
         cur_rgb_frame: np.ndarray | None = None,
-        prev_rgb_frame: np.ndarray | None = None,
+        prev_rgb_frames: queue.Queue[np.ndarray] | None = None,
     ) -> torch.Tensor:
         """Get the egomotion at a given frame.
         The egomotion is the pose change from the previous frame to the current frame, defined in the previous frame system.
@@ -150,18 +158,24 @@ class DepthAndEgoMotionLoader:
         The quaternion (q0, qx, qy, qz) represents the rotation.
         Args:
             curr_frame_idx: the current frame index,
-            prev_frame: the previous RGB frame,
             curr_frame: the current RGB frame,
+            prev_frames: the previous RGB frames (in a queue with max length of n_ref_imgs),
         Returns:
             egomotion: the egomotion (units: mm, mm, mm, -, -, -, -)
         Notes: we assume process_new_frame was called before this function on this frame index.
         """
         dtype = get_default_dtype()
-        if self.egomotions_source == "none" or curr_frame_idx == 0:
+        n_ref_imgs = self.n_ref_imgs
+        n_prev_rgb_frames = prev_rgb_frames.qsize()
+
+        # By default, the egomotion is the identity (no motion)
+        # In case we haven't seen yet enough frames to feed the PoseNet, we output the identity egomotion.
+        if self.egomotions_source == "none" or n_prev_rgb_frames < n_ref_imgs:
             # default value = identity egomotion (no motion)
             egomotion = torch.zeros((7), dtype=dtype, device=self.device)
             egomotion[3:] = get_identity_quaternion()
 
+        # In case we use pre-computed egomotions, we just load the egomotion from the buffer
         elif self.egomotions_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.egomotions_buffer_frame_inds.index(curr_frame_idx)
             egomotion = self.egomotions_buffer[buffer_idx]
@@ -169,11 +183,11 @@ class DepthAndEgoMotionLoader:
             # normalize the quaternion (in case it is not normalized)
             egomotion[3:] = normalize_quaternions(egomotion[3:])
 
+        # In case we estimate the egomotion online, we use the egomotion estimator
         elif self.egomotions_source == "online_estimates":
-            assert cur_rgb_frame is not None and prev_rgb_frame is not None
             egomotion = self.egomotion_estimator.estimate_egomotion(
-                from_img=prev_rgb_frame,
-                to_img=cur_rgb_frame,
+                cur_rgb_frame=cur_rgb_frame,
+                prev_rgb_frames=prev_rgb_frames,
             )
             egomotion = to_torch(egomotion, device="default")
             # normalize the quaternion (in case it is not normalized)

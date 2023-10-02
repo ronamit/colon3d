@@ -68,16 +68,9 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
-        "--model_name",
-        type=str,
-        default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2"],
-        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
-    )
-    parser.add_argument(
         "--model_path",
         type=str,
-        default="data_gcp/models/EndoSFM_orig",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD
+        default="data_gcp/models/TEMP/debug",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -114,7 +107,6 @@ def main():
         save_raw_outputs_path=args.save_raw_outputs_path,
         depth_maps_source=args.depth_maps_source,
         egomotions_source=args.egomotions_source,
-        model_name=args.model_name,
         model_path=Path(args.model_path),
         alg_fov_ratio=args.alg_fov_ratio,
         n_frames_lim=args.n_frames_lim,
@@ -133,7 +125,6 @@ class SlamOnSimSceneRunner:
     save_raw_outputs_path: bool
     depth_maps_source: str
     egomotions_source: str
-    model_name: str
     model_path: Path
     alg_fov_ratio: float
     n_frames_lim: int
@@ -162,7 +153,6 @@ class SlamOnSimSceneRunner:
                 alg_fov_ratio=self.alg_fov_ratio,
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
-                model_name=self.model_name,
                 model_path=self.model_path,
                 alg_settings_override=self.alg_settings_override,
                 draw_interval=self.draw_interval,
@@ -181,7 +171,6 @@ def run_slam_on_scene(
     alg_fov_ratio: float,
     depth_maps_source: str,
     egomotions_source: str,
-    model_name: str,
     model_path: Path | None = None,
     alg_settings_override: dict | None = None,
     draw_interval: int = 0,
@@ -212,7 +201,6 @@ def run_slam_on_scene(
         scene_loader=scene_loader,
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
-        model_name=model_name,
         model_path=model_path,
         depth_lower_bound=alg_prm.depth_lower_bound,
         depth_upper_bound=alg_prm.depth_upper_bound,

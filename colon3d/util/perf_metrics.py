@@ -8,14 +8,14 @@ from colon3d.sim_import.simulate_tracks import TargetsInfo
 from colon3d.util.data_util import SceneLoader
 from colon3d.util.general_util import save_plot_and_close
 from colon3d.util.perf_metrics_SimCol import calc_sim_col_metrics
-from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
-from colon3d.util.torch_util import np_func, to_numpy
 from colon3d.util.pose_transforms import (
     compose_poses,
     find_rigid_registration,
     get_pose_delta,
     transform_tracks_points_to_cam_frame,
 )
+from colon3d.util.rotations_util import get_rotation_angles, normalize_quaternions
+from colon3d.util.torch_util import np_func, to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 """"

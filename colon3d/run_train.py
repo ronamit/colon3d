@@ -269,7 +269,6 @@ def main():
     # Run depth examination to calibrate the depth scale:
     depth_examiner = DepthExaminer(
         dataset_path=dataset_path,
-        model_name=model_name,
         model_path=path_to_save_model,
         save_path=path_to_save_model / "depth_exam_pre_calib",
         depth_calib_method=args.depth_calib_method,
@@ -298,7 +297,6 @@ def main():
     # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
     depth_examiner = DepthExaminer(
         dataset_path=dataset_path,
-        model_name=model_name,
         model_path=path_to_save_model,
         depth_calib_method="none",
         save_path=path_to_save_model / "depth_exam_post_calib",

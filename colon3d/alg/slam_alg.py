@@ -1,3 +1,4 @@
+import queue
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -18,13 +19,13 @@ from colon3d.alg.tracks_loader import (
 )
 from colon3d.util.data_util import RadialImageCropper, SceneLoader
 from colon3d.util.general_util import convert_sec_to_str, get_time_now_str, print_if
-from colon3d.util.rotations_util import get_identity_quaternion
-from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
 from colon3d.util.pose_transforms import (
     compose_poses,
     transform_points_world_to_cam,
     unproject_image_normalized_coord_to_world,
 )
+from colon3d.util.rotations_util import get_identity_quaternion
+from colon3d.util.torch_util import get_default_dtype, get_device, to_numpy
 from colon3d.visuals.plots_2d import draw_kp_on_img, draw_matches
 
 torch.set_default_dtype(get_default_dtype())
@@ -48,6 +49,7 @@ class SlamAlgRunner:
         self.scene_loader = scene_loader
         self.detections_tracker = detections_tracker
         self.depth_and_ego_estimator = depth_and_ego_estimator
+        self.n_ref_imgs = self.depth_and_ego_estimator.n_ref_imgs
         self.save_path = save_path
         self.draw_interval = draw_interval
         self.print_interval = print_interval
@@ -121,8 +123,8 @@ class SlamAlgRunner:
         self.tracks_p3d_inds = {}  # maps a track_id to its associated 3D world points index
         self.n_world_points = 0  # number of 3D world points identified so far
         self.online_logger = AnalysisLogger(self.alg_prm)
-        # saves data about the previous frame:
-        self.prev_rgb_frame = None
+        # a buffer that saves the last n_ref_imgs frames (for use in the Depth & Egomotion estimators in case of online-estimation)
+        self.prev_rgb_frames = queue.Queue(maxsize=self.n_ref_imgs)
         self.prev_depth_frame = None
         self.descriptors_A = None
         self.salient_KPs_A = None
@@ -253,7 +255,7 @@ class SlamAlgRunner:
             curr_egomotion_est = depth_and_ego_estimator.get_egomotions_at_frame(
                 curr_frame_idx=i_frame,
                 cur_rgb_frame=cur_rgb_frame,
-                prev_rgb_frame=self.prev_rgb_frame,
+                prev_rgb_frames=self.prev_rgb_frames,
             )
             # Get the estimated cam pose for the current frame (w.r.t. the world system)
             #  Pose_i^{world} = Pose_{i-1}^{world} @ Egomotion_{i}
@@ -457,7 +459,11 @@ class SlamAlgRunner:
         # ----- update variables for the next frame
         self.salient_KPs_A = salient_KPs_B
         self.descriptors_A = descriptors_B
-        self.prev_rgb_frame = cur_rgb_frame
+        # Add the current frame to the previous frames buffer (and remove the oldest frame if needed)
+        if self.prev_rgb_frames.full():
+            self.prev_rgb_frames.get()
+        self.prev_rgb_frames.put(cur_rgb_frame)
+
         self.prev_depth_frame = depth_frame
         self.track_KPs_A = track_KPs_B
         self.tracks_in_frameA = tracks_in_frameB

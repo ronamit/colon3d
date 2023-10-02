@@ -31,13 +31,6 @@ def main():
         help="Path to save the results.",
     )
     parser.add_argument(
-        "--model_name",
-        type=str,
-        default="MonoDepth2",
-        choices=["EndoSFM", "MonoDepth2"],
-        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
-    )
-    parser.add_argument(
         "-model_path",
         type=str,
         default="data_gcp/models/EndoSFM_tuned_v2",
@@ -59,7 +52,6 @@ def main():
     print(f"args={args}")
     depth_examiner = DepthExaminer(
         dataset_path=Path(args.dataset_path),
-        model_name=args.model_name,
         model_path=Path(args.model_path),
         save_path=Path(args.save_path),
         n_scenes_lim=args.n_scenes_lim,
@@ -76,7 +68,6 @@ class DepthExaminer:
     def __init__(
         self,
         dataset_path: Path,
-        model_name: str,
         model_path: Path,
         save_path: Path,
         depth_calib_method: str = "none",
@@ -86,7 +77,6 @@ class DepthExaminer:
         frame_idx_to_show: int = 0,
     ):
         self.dataset_path = Path(dataset_path)
-        self.model_name = model_name
         self.model_path = Path(model_path)
         self.save_path = Path(save_path)
         self.depth_calib_method = depth_calib_method
@@ -135,7 +125,6 @@ class DepthExaminer:
                     scene_loader=scene_loader,
                     depth_maps_source="ground_truth",
                     egomotions_source="ground_truth",
-                    model_name=None,
                     model_path=None,
                 )
                 # get the estimated depth loader
@@ -144,7 +133,6 @@ class DepthExaminer:
                     scene_loader=scene_loader,
                     depth_maps_source="online_estimates",
                     egomotions_source="online_estimates",
-                    model_name=self.model_name,
                     model_path=self.model_path,
                 )
                 # calculate the depth statistics over all the frames in the scene

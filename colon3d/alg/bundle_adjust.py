@@ -216,9 +216,9 @@ def run_bundle_adjust(
 
     kp_frame_idx_u = concat_list_to_tensor([kp_id[0] for kp_id in kp_opt_ids], num_type="int")
     kp_p3d_idx_u = concat_list_to_tensor([kp_log.get_kp_p3d_idx(kp_id) for kp_id in kp_opt_ids], num_type="int")
-    kp_nrm_u = concat_list_to_tensor([kp_log.get_kp_norm_coord(kp_id) for kp_id in kp_opt_ids])
+    kp_nrm_u = concat_list_to_tensor([kp_log.get_kp_norm_coord(kp_id) for kp_id in kp_opt_ids]).to(device)
     n_kp_used = kp_nrm_u.shape[0]
-    kp_type_u = concat_list_to_tensor([kp_log.get_kp_type(kp_id) for kp_id in kp_opt_ids], num_type="int")
+    kp_type_u = concat_list_to_tensor([kp_log.get_kp_type(kp_id) for kp_id in kp_opt_ids], num_type="int").to(device)
     kp_weights_u = torch.ones(n_kp_used, device=device)
     kp_weights_u[kp_type_u == -1] = alg_prm.w_salient_kp
     kp_weights_u[kp_type_u != -1] = alg_prm.w_track_kp

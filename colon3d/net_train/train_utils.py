@@ -31,7 +31,9 @@ def get_default_model_info(model_name: str) -> dict:
         }
     raise ValueError(f"Unknown model name: {model_name}")
 
+
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 @dataclass
 class ModelInfo:
@@ -45,7 +47,9 @@ class ModelInfo:
     depth_calib_b: float = 0.0
     model_description: str = ""
 
+
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 def save_model_info(
     save_dir_path: Path,
@@ -54,12 +58,14 @@ def save_model_info(
 ):
     model_info_path = save_dir_path / "model_info.yaml"
     if model_info_path.exists() and not overwrite:
-        print(f"Model info file {model_info_path} already exists, skipping")
-        return
+        print(f"Model info file {model_info_path} already exists, overwriting")
+        model_info_path.unlink()
 
     model_info_dict = model_info.__dict__
 
     save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info_dict)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 

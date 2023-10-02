@@ -28,7 +28,11 @@ from colon3d.util.torch_util import (
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | None = None, device: torch.device | None = None) -> torch.Tensor:
+def get_pose(
+    trans_vec: torch.Tensor | None = None,
+    rot_quat: torch.Tensor | None = None,
+    device: torch.device | None = None,
+) -> torch.Tensor:
     """returns a pose transform.
     Args:
         trans_vec: [3] (units: mm) translation vector
@@ -42,6 +46,7 @@ def get_pose(trans_vec: torch.Tensor | None = None, rot_quat: torch.Tensor | Non
         rot_quat = get_identity_quaternion()
     pose = torch.cat((trans_vec, rot_quat), dim=0).to(get_default_dtype())
     return to_device(pose, device)
+
 
 # -------------------------------------------------------------------------------------------------------------------
 
@@ -325,6 +330,11 @@ def compose_poses(
     Returns:
         pose_tot: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
+    is_single_vec = pose1.ndim == 1 and pose2.ndim == 1
+    if is_single_vec:
+        pose1 = pose1.unsqueeze(0)
+        pose2 = pose2.unsqueeze(0)
+
     pose1 = assert_2d_tensor(pose1, 7)
     pose2 = assert_2d_tensor(pose2, 7)
     assert_same_sample_num((pose1, pose2))
@@ -340,13 +350,13 @@ def compose_poses(
     # get R2 @ R1
     rot_tot = compose_rotations(rot1=rot1, rot2=rot2)  #   [n x 4]
     pose_tot = torch.cat((trans_tot, rot_tot), dim=1)
-    return pose_tot
+    return pose_tot[0] if is_single_vec else pose_tot
 
 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def get_inverse_pose(
+def invert_pose_motion(
     pose: torch.Tensor,
 ) -> torch.Tensor:
     """Returns the inverse pose of a given pose. (both are given in the same coordinate system)
@@ -356,6 +366,9 @@ def get_inverse_pose(
     Returns:
         inv_pose: [n x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy , qz) is the unit-quaternion of the rotation.
     """
+    is_single_vec = pose.ndim == 1
+    if is_single_vec:
+        pose = pose.unsqueeze(0)
     pose = assert_2d_tensor(pose, 7)
     trans = pose[:, 0:3]  # [n x 3]
     rot = pose[:, 3:7]  # [n x 4]
@@ -363,8 +376,8 @@ def get_inverse_pose(
     inv_rot = invert_rotation(rot)  # [n x 4]
     # get -R^{-1} @ t
     inv_loc = rotate_points(points3d=-trans, rot_vecs=inv_rot)  # [n x 3]
-    inv_pose = torch.cat((inv_loc, inv_rot), dim=1)
-    return inv_pose
+    inv_pose = torch.cat((inv_loc, inv_rot), dim=-1)
+    return inv_pose[0] if is_single_vec else inv_pose
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -386,16 +399,21 @@ def get_pose_delta(
     Returns:
         pose_delta: [n_points x 7] each row is (x, y, z, q0, qx, qy, qz) where (x, y, z) is the translation [mm] and (q0, qx, qy, qz) is the unit-quaternion of the rotation.
     """
+    is_single_vec =  pose1.ndim == 1 and pose2.ndim == 1
+    if is_single_vec:
+        pose1 = pose1.unsqueeze(0)
+        pose2 = pose2.unsqueeze(0)
+
     pose1 = assert_2d_tensor(pose1, 7)
     pose2 = assert_2d_tensor(pose2, 7)
     assert_same_sample_num((pose1, pose2))
 
     # get (Pose1)^(-1) = [R1^{-1} | -R1^{-1} @ t1]
-    inv_pose1 = get_inverse_pose(pose=pose1)  # [n_points x 7]
+    inv_pose1 = invert_pose_motion(pose=pose1)  # [n_points x 7]
     # get Pose2 @ (Pose1)^(-1) = [R2 @ (R1)^(-1) | t2 - R2 @ (R1)^(-1) @ t1]
     pose_delta = compose_poses(pose1=inv_pose1, pose2=pose2)  # [n_points x 7]
 
-    return pose_delta
+    return pose_delta[0] if is_single_vec else pose_delta
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -462,7 +480,7 @@ def infer_egomotions(cam_poses: torch.Tensor):
     cam_poses = assert_2d_tensor(cam_poses, 7)
     prev_poses = cam_poses[:-1, :]  # [n-1 x 7]
     cur_poses = cam_poses[1:, :]  # [n-1 x 7]
-    inv_prev_poses = get_inverse_pose(prev_poses)  # [n-1 x 7]
+    inv_prev_poses = invert_pose_motion(prev_poses)  # [n-1 x 7]
 
     # set the first egomotion to be NaN:
     egomotions = torch.ones_like(cam_poses) * np.nan  # [n x 7]
