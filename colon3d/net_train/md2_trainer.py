@@ -33,7 +33,7 @@ from monodepth2.layers import (
     transformation_from_parameters,
 )
 from monodepth2.networks.depth_decoder import DepthDecoder
-from monodepth2.networks.pose_decoder import PoseDecoder
+from monodepth2.networks.pose_net import PoseNet
 from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
 
@@ -55,10 +55,9 @@ class MonoDepth2Trainer:
     scheduler_step_size: int = 15  # step size of the scheduler
     avg_reprojection: bool = False  # if set, uses average reprojection loss
     disable_automasking: bool = False  # if set, doesn't do auto-masking
-    predictive_mask: bool = False  # if set, uses a predictive masking scheme as in Zhou et al
     no_ssim: bool = False  # if set, disables ssim in the loss
     pretrained_model_path: str = None  # name of model to load
-    models_to_load: tuple = ("encoder", "depth", "pose_encoder", "pose")  # models to load
+    models_to_load: tuple = ("encoder", "depth", "pose")  # models to load
     log_frequency: int = 10  # number of batches between each tensorboard log
     save_frequency: int = 1  # number of epochs between each save
     disable_median_scaling: bool = False  # if set disables median scaling in evaluation
@@ -89,11 +88,12 @@ class MonoDepth2Trainer:
     train_with_gt_pose: bool = attrs.field(init=False)  # if set, will train with ground truth pose
     # The time shifts of the reference frames w.r.t. the target frame:
     ref_frame_shifts: list = attrs.field(init=False)
-    # The time shifts of all the reference + target frames w.r.t. the target frame:
-    all_frame_shifts: list = attrs.field(init=False)
     epoch: int = 0
     step: int = 0
     start_time: float = 0
+    depth_encoder: ResnetEncoder = attrs.field(init=False)
+    depth_decoder: DepthDecoder = attrs.field(init=False)
+    pose_net: PoseNet = attrs.field(init=False)
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
@@ -106,7 +106,6 @@ class MonoDepth2Trainer:
         self.train_with_gt_depth = self.train_dataset_meta.load_gt_depth  # if set, will train with ground truth depth
         self.train_with_gt_pose = self.train_dataset_meta.load_gt_pose  # if set, will train with ground truth pose
         self.ref_frame_shifts = self.train_dataset_meta.ref_frame_shifts
-        self.all_frame_shifts = self.train_dataset_meta.all_frame_shifts
         # number of frames in each sample (target + reference frames):
         self.n_ref_imgs = self.train_dataset_meta.n_ref_imgs
         assert self.n_ref_imgs > 0, "n_ref_imgs must be > 0"
@@ -125,53 +124,29 @@ class MonoDepth2Trainer:
 
         ### Init models (with ImageNet pre-trained weights)
         # Depth encoder: gets one RGB image and outputs a feature map
-        self.models["encoder"] = ResnetEncoder(num_layers=self.num_layers, pretrained=True, num_input_images=1).to(
+        self.depth_encoder = ResnetEncoder(num_layers=self.num_layers, pretrained=True, num_input_images=1).to(
             self.device,
         )
-        self.parameters_to_train += list(self.models["encoder"].parameters())
-        num_ch_depth_encoder = self.models["encoder"].num_ch_enc
+        self.parameters_to_train += list(self.depth_encoder.parameters())
+        num_ch_depth_encoder = self.depth_encoder.num_ch_enc
         # Depth decoder: gets the feature map from the encoder and outputs a disparity map
-        self.models["depth"] = DepthDecoder(
+        self.depth_decoder = DepthDecoder(
             num_ch_enc=num_ch_depth_encoder,
             scales=self.scales,
             num_output_channels=1,
         ).to(self.device)
-        self.parameters_to_train += list(self.models["depth"].parameters())
-        # Pose encoder: gets the RGB images of the target and reference frames and outputs a feature map
-        self.models["pose_encoder"] = ResnetEncoder(
-            num_layers=self.num_layers,
-            pretrained=True,
-            num_input_images=self.n_ref_imgs + 1,
-        ).to(self.device)
-        self.parameters_to_train += list(self.models["pose_encoder"].parameters())
-        num_ch_depth_encoder = self.models["pose_encoder"].num_ch_enc
-        # Pose decoder: gets the feature map from the pose encoder and outputs a pose change for each reference frames.
-        self.models["pose"] = PoseDecoder(
-            num_ch_enc=num_ch_depth_encoder,
-            num_frames_to_predict_for=self.n_ref_imgs,
-        ).to(self.device)
-        self.parameters_to_train += list(self.models["pose"].parameters())
+        self.parameters_to_train += list(self.depth_decoder.parameters())
 
-        if self.predictive_mask:
-            assert (
-                self.disable_automasking
-            ), "When using predictive_mask, please disable automasking with --disable_automasking"
-
-            # Our implementation of the predictive masking baseline has the the same architecture
-            # as our depth decoder. We predict a separate mask for each source frame.
-            self.models["predictive_mask"] = DepthDecoder(
-                self.models["encoder"].num_ch_enc,
-                self.scales,
-                num_output_channels=self.n_ref_imgs,
-            )
-            self.models["predictive_mask"].to(self.device)
-            self.parameters_to_train += list(self.models["predictive_mask"].parameters())
+        # Pose network: gets the RGB images of the target and reference frames and outputs the relative pose change from target to reference frames.
+        self.pose_net = PoseNet(n_ref_imgs=self.n_ref_imgs, num_layers=self.num_layers).to(self.device)
+        self.parameters_to_train += list(self.pose_net.parameters())
 
         self.model_optimizer = optim.AdamW(self.parameters_to_train, self.learning_rate)
         self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.model_optimizer, self.scheduler_step_size, 0.1)
 
         if self.pretrained_model_path is not None:
-            self.load_model()
+            models = {"encoder": self.depth_encoder, "depth": self.depth_decoder, "pose": self.pose_net}
+            self.load_model(models)
 
         print("Models and tensorboard events files are saved to:\n  ", self.log_path)
         print("Training is using:\n  ", self.device)
@@ -334,11 +309,8 @@ class MonoDepth2Trainer:
 
         # In MonoDepth v2 we only feed the image with frame_id 0 (target) through the depth encoder
         input_imgs = inputs[("color", 0, 0)]
-        features = self.models["encoder"](input_imgs)
-        outputs = self.models["depth"](features)
-
-        if self.predictive_mask:
-            outputs["predictive_mask"] = self.models["predictive_mask"](features)
+        features = self.depth_encoder(input_imgs)
+        outputs = self.depth_decoder(features)
 
         outputs.update(self.predict_poses(inputs))
 
@@ -359,23 +331,19 @@ class MonoDepth2Trainer:
         """
         outputs = {}
 
-        #  we input all frames to the PoseNet to predict the relative pose between the target frame (frame_id=0) and each reference frame (frame_id=1,2,...)
-        # All the input images are concatenated along the channel dimension:
-        # [batch_size, 3, height, width] -> [batch_size, 3 * (n_ref_imgs + 1), height, width]
-        net_input = torch.cat([inputs[("color", shift, 0)] for shift in self.all_frame_shifts], 1)
-        # Get the pose encoded features
-        encoded_feat = [self.models["pose_encoder"](net_input)]
-        # Get the pose decoder outputs
-        axisangle_all, translation_all = self.models["pose"](encoded_feat)
+        #  we input all frames to the PoseNet to predict the relative pose between the target frame (frame_id=0) and each reference frame (shifts: -n_ref_imgs, ..., -1)
+
+        # Get the pose change from target (frame_id=0) to each reference frame
+        ref_imgs = [inputs[("color", shift, 0)] for shift in self.ref_frame_shifts]
+        tgt_img = inputs[("color", 0, 0)]
+        axisangle_all, translation_all = self.pose_net(ref_imgs=ref_imgs,  tgt_img=tgt_img)
 
         for i_ref, shift in enumerate(self.ref_frame_shifts):
-            outputs[("axisangle", 0, shift)] = axisangle_all[
-                :,
-                i_ref,
-                0,
-                :,
-            ]  # [batch_size, 3] (axis-angle representation)
-            outputs[("translation", 0, shift)] = translation_all[:, i_ref, 0, :]  # [batch_size, 3] (translation vector)
+            # Save the predicted pose change from target (frame_id=0) to reference frame i.
+            # Output rotation [batch_size, 3] (axis-angle representation)
+            outputs[("axisangle", 0, shift)] = axisangle_all[:,i_ref,0,:]
+            # Output translation [batch_size, 3]
+            outputs[("translation", 0, shift)] = translation_all[:, i_ref, 0, :]
             outputs[("cam_T_cam", 0, shift)] = transformation_from_parameters(
                 axisangle_all[:, i_ref],
                 translation_all[:, i_ref],
@@ -489,14 +457,6 @@ class MonoDepth2Trainer:
                 else:
                     # save both images, and do min all at once below
                     identity_reprojection_loss = identity_reprojection_losses
-            elif self.predictive_mask:
-                # use the predicted mask
-                mask = outputs["predictive_mask"]["disp", scale]
-                mask = nnF.interpolate(mask, [self.feed_height, self.feed_width], mode="bilinear", align_corners=False)
-                reprojection_losses *= mask
-                # add a loss pushing mask to 1 (using nn.BCELoss for stability)
-                weighting_loss = 0.2 * nn.BCELoss()(mask, torch.ones(mask.shape).cuda())
-                loss += weighting_loss.mean()
 
             if self.avg_reprojection:
                 reprojection_loss = reprojection_losses.mean(1, keepdim=True)
@@ -582,7 +542,7 @@ class MonoDepth2Trainer:
 
         for j in range(min(4, self.batch_size)):  # write a maxmimum of four images
             for s in self.scales:
-                for shift in self.all_frame_shifts:
+                for shift in [*self.ref_frame_shifts, 0]:
                     writer.add_image(
                         f"color_{shift}_{s}/{j}",
                         inputs[("color", shift, s)][j].data,
@@ -594,23 +554,12 @@ class MonoDepth2Trainer:
                             outputs[("color", shift, s)][j].data,
                             self.step,
                         )
-
                 writer.add_image(f"disp_{s}/{j}", normalize_image(outputs[("disp", s)][j]), self.step)
-
-                if self.predictive_mask:
-                    for i_ref, shift in enumerate(self.ref_frame_shifts):
-                        writer.add_image(
-                            f"predictive_mask_{shift}_{s}/{j}",
-                            outputs["predictive_mask"][("disp", s)][j, i_ref][None, ...],
-                            self.step,
-                        )
-
-                elif not self.disable_automasking:
-                    writer.add_image(
-                        f"automask_{s}/{j}",
-                        outputs[f"identity_selection/{s}"][j][None, ...],
-                        self.step,
-                    )
+                writer.add_image(
+                    f"automask_{s}/{j}",
+                    outputs[f"identity_selection/{s}"][j][None, ...],
+                    self.step,
+                )
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -641,21 +590,21 @@ class MonoDepth2Trainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def load_model(self):
+    def load_model(self, models):
         """Load model(s) from disk"""
         self.pretrained_model_path = Path(self.pretrained_model_path)
 
         assert self.pretrained_model_path.is_dir(), f"Cannot find folder {self.pretrained_model_path}"
         print(f"loading model from folder {self.pretrained_model_path}")
 
-        for n in self.models_to_load:
-            print(f"Loading {n} weights...")
-            path = self.pretrained_model_path / f"{n}.pth"
-            model_dict = self.models[n].state_dict()
+        for name in self.models_to_load:
+            print(f"Loading {name} weights...")
+            path = self.pretrained_model_path / f"{name}.pth"
+            model_state = models[name].state_dict()
             pretrained_dict = torch.load(path)
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-            model_dict.update(pretrained_dict)
-            self.models[n].load_state_dict(model_dict)
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_state}
+            model_state.update(pretrained_dict)
+            models[name].load_state_dict(model_state)
 
         # loading adam state
         optimizer_load_path = self.pretrained_model_path / "adam.pth"

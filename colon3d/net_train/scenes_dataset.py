@@ -55,7 +55,6 @@ class ScenesDataset(data.Dataset):
 
         # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
         self.ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
-        self.all_frame_shifts = [0, *self.ref_frame_shifts]  # Add the target frame index
 
         # go over all the scenes in the dataset
         frames_paths_per_scene = []
@@ -88,7 +87,6 @@ class ScenesDataset(data.Dataset):
             load_gt_pose=self.load_gt_pose,
             n_ref_imgs=self.n_ref_imgs,
             ref_frame_shifts=self.ref_frame_shifts,
-            all_frame_shifts=self.all_frame_shifts,
         )
 
         # set data transforms
@@ -137,7 +135,7 @@ class ScenesDataset(data.Dataset):
         sample["K"] = to_torch(intrinsics_orig)
 
         # load the RGB images
-        for shift in self.all_frame_shifts:
+        for shift in [*self.ref_frame_shifts, 0]:
             frame_path = scene_frames_paths[target_frame_idx + shift]
             # Load with PIL
             sample[("color", shift)] = load_img_and_resize(frame_path, height=self.feed_height, width=self.feed_width)
@@ -145,7 +143,7 @@ class ScenesDataset(data.Dataset):
         # load the ground-truth depth map and the ground-truth pose
         if self.load_gt_depth or self.load_gt_pose:
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
-                for shift in self.all_frame_shifts:
+                for shift in [*self.ref_frame_shifts, 0]:
                     frame_idx = target_frame_idx + shift
                     if self.load_gt_depth:
                         depth_gt = to_default_type(h5f["z_depth_map"][frame_idx], num_type="float_m")

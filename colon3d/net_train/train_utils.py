@@ -16,7 +16,6 @@ class DatasetMeta:
     load_gt_pose: bool  # Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
     n_ref_imgs: int  # number of reference frames to use (each sample will have n_ref_imgs frames + 1 target frame)
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    all_frame_shifts: list[int]  # The time shifts of all the reference + target frames w.r.t. the target frame
 
 
 # ---------------------------------------------------------------------------------------------------------------------

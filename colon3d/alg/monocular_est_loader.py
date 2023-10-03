@@ -46,6 +46,7 @@ class DepthAndEgoMotionLoader:
         self.depth_upper_bound = depth_upper_bound if depth_upper_bound is not None else 2e3
         self.depth_default = depth_default
         self.device = get_device()
+        torch.cuda.empty_cache()
 
         # Initialize egomotions
         if egomotions_source == "online_estimates":

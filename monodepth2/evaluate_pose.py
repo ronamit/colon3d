@@ -5,6 +5,7 @@
 # available in the LICENSE file.
 
 import os
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -12,8 +13,7 @@ from torch.utils.data import DataLoader
 
 from monodepth2.datasets import KITTIOdomDataset
 from monodepth2.layers import transformation_from_parameters
-from monodepth2.networks.pose_decoder import PoseDecoder
-from monodepth2.networks.resnet_encoder import ResnetEncoder
+from monodepth2.networks.pose_net import PoseNet
 from monodepth2.options import GeneralOptions
 from monodepth2.utils import readlines
 
@@ -66,19 +66,11 @@ def evaluate(opt):
         drop_last=False,
     )
 
-    pose_encoder_path = os.path.join(opt.load_weights_folder, "pose_encoder.pth")
-    pose_decoder_path = os.path.join(opt.load_weights_folder, "pose.pth")
+    pose_net = PoseNet(n_ref_imgs=1, num_layers=opt.num_layers)
+    pose_net.load_state_dict(torch.load(Path(opt.load_weights_folder) / "pose.pth"))
 
-    pose_encoder = ResnetEncoder(opt.num_layers, False, 2)
-    pose_encoder.load_state_dict(torch.load(pose_encoder_path))
-
-    pose_decoder = PoseDecoder(num_ch_enc=pose_encoder.num_ch_enc, num_frames_to_predict_for=1)
-    pose_decoder.load_state_dict(torch.load(pose_decoder_path))
-
-    pose_encoder.cuda()
-    pose_encoder.eval()
-    pose_decoder.cuda()
-    pose_decoder.eval()
+    pose_net.cuda()
+    pose_net.eval()
 
     pred_poses = []
 
@@ -91,11 +83,10 @@ def evaluate(opt):
             for key, ipt in inputs.items():
                 inputs[key] = ipt.cuda()
 
-            all_color_aug = torch.cat([inputs[("color_aug", i, 0)] for i in opt.frame_ids], 1)
-
-            features = [pose_encoder(all_color_aug)]
-            axisangle, translation = pose_decoder(features)
-
+            axisangle, translation = pose_net(
+                ref_imgs=[inputs[("color_aug", 1, 1)]],
+                target_img=inputs["color_aug", 0, 0],
+            )
             pred_poses.append(transformation_from_parameters(axisangle[:, 0], translation[:, 0]).cpu().numpy())
 
     pred_poses = np.concatenate(pred_poses)
@@ -113,7 +104,7 @@ def evaluate(opt):
     ates = []
     num_frames = gt_xyzs.shape[0]
     track_length = 5
-    for i in range(0, num_frames - 1):
+    for i in range(num_frames - 1):
         local_xyzs = np.array(dump_xyz(pred_poses[i : i + track_length - 1]))
         gt_local_xyzs = np.array(dump_xyz(gt_local_poses[i : i + track_length - 1]))
 

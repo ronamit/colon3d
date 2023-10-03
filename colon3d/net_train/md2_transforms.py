@@ -118,13 +118,13 @@ class CreateScalesArray:
         self.resize = {}
         self.scale_factors = [2**i for i in range(self.n_scales)]
         self.n_ref_imgs = dataset_meta.n_ref_imgs
-        self.all_frame_shifts = dataset_meta.all_frame_shifts
+        self.ref_frame_shifts = dataset_meta.ref_frame_shifts
 
     def __call__(self, sample: dict) -> dict:
         # Note that only the RGB images are scaled
 
         for i_scale in range(self.n_scales):
-            for shift in self.all_frame_shifts:
+            for shift in [*self.ref_frame_shifts, 0]:
                 im_name = ("color", shift)
                 img = sample[im_name]
                 img_height, img_width = img.shape[-2:]

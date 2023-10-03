@@ -41,7 +41,7 @@ def main():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="EndoSFM",
+        default="MonoDepth2",
         choices=["MonoDepth2", "EndoSFM"],
         help="Name of the model to train.",
     )

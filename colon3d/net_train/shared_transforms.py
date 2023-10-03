@@ -19,11 +19,12 @@ class AllToTorch:
         self.dtype = dtype
         self.feed_height = dataset_meta.feed_height
         self.feed_width = dataset_meta.feed_width
-        self.all_frame_shifts = dataset_meta.all_frame_shifts
         self.resizer = torchvision.transforms.Resize(
             size=(self.feed_height, self.feed_width),
             antialias=True,
         )
+        # All the frame shifts that we need to load from the dataset (relative to the target frame)
+        self.all_frame_shifts = [*dataset_meta.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict) -> dict:
         # convert the images to torch tensors
@@ -76,7 +77,7 @@ class RandomHorizontalFlip:
     def __init__(self, flip_prob: float, dataset_meta: DatasetMeta):
         self.flip_prob = flip_prob
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
-        self.all_frames_shifts = dataset_meta.all_frame_shifts
+        self.all_frames_shifts = [*dataset_meta.ref_frame_shifts, 0]
         self.load_gt_pose = dataset_meta.load_gt_pose
 
     def __call__(self, sample: dict):
@@ -104,7 +105,9 @@ class RandomHorizontalFlip:
             for shift in self.all_frames_shifts:
                 # apply the pose-augmentation to the cam poses
                 # the pose format: (x,y,z,qw,qx,qy,qz)
-                sample[("abs_pose", shift)] = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose).reshape(7)
+                sample[("abs_pose", shift)] = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose).reshape(
+                    7,
+                )
         return sample
 
 
@@ -133,7 +136,7 @@ class NormalizeImageChannels:
         # Normalize the image channels to the mean and std of the ImageNet dataset
         self.mean = mean
         self.std = std
-        self.all_frames_shifts = dataset_meta.all_frame_shifts
+        self.all_frames_shifts = [*dataset_meta.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict):
         for shift in self.all_frames_shifts:

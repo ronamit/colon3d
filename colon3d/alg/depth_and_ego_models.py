@@ -7,8 +7,7 @@ import torch
 import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
 import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
-import monodepth2.networks.pose_decoder as monodepth2_pose_decoder
-import monodepth2.networks.resnet_encoder as monodepth2_resnet_encoder
+import monodepth2.networks.pose_net as monodepth2_pose_net
 import monodepth2.utils as monodepth2_utils
 from colon3d.net_train.train_utils import load_model_model_info
 from colon3d.util.pose_transforms import invert_pose_motion
@@ -249,31 +248,16 @@ class EgomotionModel:
 
         elif self.model_name == "MonoDepth2":
             # based on monodepth2/evaluate_pose.py
-            pose_encoder_path = model_path / "pose_encoder.pth"
-            pose_decoder_path = model_path / "pose.pth"
             # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
             # the pose network gets the target image and the reference images as input and outputs the 6DoF pose parameters from target to reference images
-            self.pose_encoder = monodepth2_resnet_encoder.ResnetEncoder(
+            self.pose_net = monodepth2_pose_net.PoseNet(
+                n_ref_imgs=self.n_ref_imgs,
                 num_layers=self.model_info.num_layers,
-                pretrained=True,
-                num_input_images=self.n_ref_imgs + 1,
             )
-            self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(
-                num_ch_enc=self.pose_encoder.num_ch_enc,
-                num_frames_to_predict_for=self.n_ref_imgs,
-            )
-            self.pose_encoder.load_state_dict(torch.load(pose_encoder_path))
-            # Get the pose decoder: 6DoF pose parameters from target to reference images
-            self.pose_decoder = monodepth2_pose_decoder.PoseDecoder(
-                num_ch_enc=self.pose_encoder.num_ch_enc,
-                num_frames_to_predict_for=self.n_ref_imgs,
-            )
-            self.pose_decoder.load_state_dict(torch.load(pose_decoder_path))
-            self.pose_encoder.to(self.device)
-            self.pose_decoder.to(self.device)
-            self.pose_encoder.eval()
-            self.pose_decoder.eval()
-            self.dtype = self.pose_encoder.get_weight_dtype()
+            self.pose_encoder.load_state_dict(torch.load(model_path / "pose.pth"))
+            self.pose_net.to(self.device)
+            self.pose_net.eval()
+            self.dtype = self.pose_net.get_weight_dtype()
 
         else:
             raise ValueError(f"Unknown egomotion estimation method: {self.model_name}")

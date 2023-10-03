@@ -92,13 +92,13 @@ class PoseResNet(nn.Module):
         """
         gets as input the target image (at index 0) and reference images (indices 1,2,..) and computes the pose change from the target to each reference frame.
         Args:
-            target_img: the target image (at index 0) (B,3,H,W)
-            ref_imgs: the reference images (indices 1,2,..) List of (B,3,H,W) tensors
+            target_img: the target image.(B,3,H,W)
+            ref_imgs: the reference images (shifts w.r.t. target frame: -n_ref_imgs, .., -1) List of (B,3,H,W) tensors
         Returns:
             pose: the pose change from the target to each reference frame (B,6)
         """
         # concatenate the target and reference images along the channel dimension
-        x = torch.cat([target_img, *ref_imgs], dim=1)  # (B, n_imgs*3, H, W)
+        x = torch.cat([*ref_imgs, target_img], dim=1)  # (B, n_imgs*3, H, W)
         features = self.encoder(x)
         pose = self.decoder([features])
         return pose
