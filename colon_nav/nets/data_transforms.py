@@ -23,7 +23,17 @@ def get_train_transform(dataset_meta: DatasetMeta):
         AddInvIntrinsics(),
     ]
     return Compose(transform_list)
+# ---------------------------------------------------------------------------------------------------------------------
 
+def get_val_transform(dataset_meta: DatasetMeta):
+    # set data transforms
+    transform_list = [
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
+        NormalizeImageChannels(dataset_meta=dataset_meta),
+        AddRelativePose(dataset_meta=dataset_meta),
+        AddInvIntrinsics(),
+    ]
+    return Compose(transform_list)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
