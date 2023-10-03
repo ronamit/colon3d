@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from colon_nav.sim_import.import_dataset import SimImporter
+from colon_nav.data_import.import_dataset import SimImporter
 from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg
 
 # -------------------------------------------------------------------------------------
@@ -12,14 +12,14 @@ def main():
     parser.add_argument(
         "--load_path",
         type=str,
-        default="data_gcp/raw_datasets/SimCol3D",
+        default="data_gcp/raw_datasets/Zhang22",
         help="Path to load raw dataset ",
     )
     parser.add_argument(
         "--save_path",
         type=str,
         help="The path to save the prepared dataset",
-        default="data/datasets/SimCol3D",
+        default="data_gcp/datasets/Zhang22",
     )
     parser.add_argument(
         "--save_overwrite",
@@ -56,17 +56,15 @@ def main():
     # --------------------------------------------------------------------------------------------------------------------
 
     with Tee(save_path / "log.txt"):  # save the prints to a file
-        for split_name in ["Train", "Test"]:
-            # Importing a raw dataset of scenes from the unity simulator:
-            SimImporter(
-                load_path=load_path,  # load both splits from the same path (scenes will be split according to text file)
-                save_path=save_path / split_name,
-                split_name=split_name,
-                limit_n_scenes=limit_n_scenes,
-                limit_n_frames=limit_n_frames,
-                save_overwrite=save_overwrite,
-                source_name="SimCol3D",
-            ).run()
+        # Importing a raw dataset of scenes from the unity simulator:
+        SimImporter(
+            load_path=load_path,  # load both splits from the same path (scenes will be split according to text file)
+            save_path=save_path,
+            limit_n_scenes=limit_n_scenes,
+            limit_n_frames=limit_n_frames,
+            save_overwrite=save_overwrite,
+            source_name="Zhang22",
+        ).run()
 
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import torch
 from timm.models.vision_transformer import _cfg
 from torch import nn
 
-from colon_nav.net_train import pvt_v2
+from colon_nav.nets import pvt_v2
 
 
 class RB(nn.Module):

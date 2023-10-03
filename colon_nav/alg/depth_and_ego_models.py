@@ -1,77 +1,21 @@
 import queue
 from pathlib import Path
 
-import numpy as np
-import torch
-
 import monodepth2.layers as monodepth2_layers
 import monodepth2.networks as monodepth2_networks
 import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
 import monodepth2.networks.pose_net as monodepth2_pose_net
 import monodepth2.utils as monodepth2_utils
-from colon_nav.net_train.train_utils import load_model_model_info
-from colon_nav.util.pose_transforms import invert_pose_motion
-from colon_nav.util.rotations_util import axis_angle_to_quaternion
-from colon_nav.util.torch_util import get_device, resize_images_batch, resize_single_image, to_torch
+import numpy as np
+import torch
 from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def normalize_image_channels(img: torch.Tensor, img_normalize_mean: float = 0.45, img_normalize_std: float = 0.225):
-    # normalize the values from [0,255] to [0, 1]
-    img = img / 255
-    # normalize the values to the mean and std of the ImageNet dataset
-    img = (img - img_normalize_mean) / img_normalize_std
-    return img
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def img_to_net_in_format(
-    img: np.ndarray | torch.Tensor,
-    device: torch.device,
-    dtype: torch.dtype,
-    normalize_values: bool = True,
-    img_normalize_mean: float = 0.45,
-    img_normalize_std: float = 0.225,
-    add_batch_dim: bool = False,
-    feed_height: int | None = None,
-    feed_width: int | None = None,
-) -> torch.Tensor:
-    """Transform an single input image to the network input format.
-    Args:
-        imgs: the input images [height x width x n_channels] or [height x width]
-    Returns:
-        imgs: the input images in the network format [1 x n_channels x new_width x new_width] or [1 x new_width x new_width]
-    """
-
-    # transform to torch tensor
-    img = to_torch(img, device=device).to(dtype)
-
-    # transform to channels first (HWC to CHW format)
-    if img.ndim == 3:  # color
-        img = torch.permute(img, (2, 0, 1))
-    elif img.ndim == 2:  # depth
-        img = torch.unsqueeze(img, 0)  # add channel dimension
-    else:
-        raise ValueError("Invalid image dimension.")
-
-    img = normalize_image_channels(img, img_normalize_mean, img_normalize_std) if normalize_values else img
-
-    if add_batch_dim:
-        img = img.unsqueeze(0)
-
-    img = resize_images_batch(
-        imgs=img,
-        new_height=feed_height,
-        new_width=feed_width,
-    )
-
-    return img
-
+from colon_nav.nets.data_transforms import img_to_net_in_format
+from colon_nav.nets.train_utils import load_model_model_info
+from colon_nav.util.pose_transforms import invert_pose_motion
+from colon_nav.util.rotations_util import axis_angle_to_quaternion
+from colon_nav.util.torch_util import get_device, resize_single_image
 
 # --------------------------------------------------------------------------------------------------------------------
 

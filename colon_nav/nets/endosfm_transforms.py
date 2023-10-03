@@ -1,14 +1,14 @@
 import torch
 from torchvision.transforms import Compose
 
-from colon_nav.net_train.shared_transforms import (
+from colon_nav.nets.data_transforms import (
     AddInvIntrinsics,
     AddRelativePose,
-    AllToTorch,
     NormalizeImageChannels,
     RandomHorizontalFlip,
+    ToTensors,
 )
-from colon_nav.net_train.train_utils import DatasetMeta
+from colon_nav.nets.train_utils import DatasetMeta
 from colon_nav.util.rotations_util import quaternion_to_axis_angle
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ def get_train_transform(dataset_meta: DatasetMeta) -> Compose:
     """Training transform for EndoSFM"""
     # set data transforms
     transform_list = [
-        AllToTorch(dtype=torch.float32, dataset_meta=dataset_meta),
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
         RandomHorizontalFlip(flip_prob=0.5, dataset_meta=dataset_meta),
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(),
@@ -39,7 +39,7 @@ def get_train_transform(dataset_meta: DatasetMeta) -> Compose:
 def get_val_transform(dataset_meta: DatasetMeta) -> Compose:
     """Validation transform for EndoSFM"""
     transform_list = [
-        AllToTorch(dtype=torch.float32, dataset_meta=dataset_meta),
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(),
         AddRelativePose(dataset_meta=dataset_meta),

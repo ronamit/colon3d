@@ -2,14 +2,8 @@ import numpy as np
 import torch
 from torchvision.transforms import Compose
 
-from colon_nav.net_train.shared_transforms import (
-    AddInvIntrinsics,
-    AddRelativePose,
-    AllToTorch,
-    NormalizeImageChannels,
-    RandomHorizontalFlip,
-)
-from colon_nav.net_train.train_utils import DatasetMeta
+from colon_nav.nets.data_transforms import AddRelativePose, NormalizeImageChannels, RandomHorizontalFlip, ToTensors
+from colon_nav.nets.train_utils import DatasetMeta
 from colon_nav.util.rotations_util import quaternion_to_axis_angle
 from colon_nav.util.torch_util import resize_tensor_image
 
@@ -55,7 +49,7 @@ def get_train_transform(n_scales: int, dataset_meta: DatasetMeta):
     # set data transforms
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, dataset_meta=dataset_meta),
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
         RandomHorizontalFlip(flip_prob=0.5, dataset_meta=dataset_meta),
         CreateScalesArray(n_scales=n_scales, dataset_meta=dataset_meta),
         AddInvIntrinsics(n_scales=n_scales),
@@ -77,7 +71,7 @@ def get_val_transform(dataset_meta: DatasetMeta, n_scales: int):
     """
     transform_list = [
         MonoDepth2Format(),
-        AllToTorch(dtype=torch.float32, dataset_meta=dataset_meta),
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
         CreateScalesArray(n_scales=n_scales, dataset_meta=dataset_meta),
         NormalizeImageChannels(dataset_meta=dataset_meta),
         AddInvIntrinsics(n_scales=n_scales),
@@ -170,3 +164,21 @@ def intrinsic_mat_to_4x4(K: torch.Tensor) -> torch.Tensor:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
+
+
+class AddInvIntrinsics:
+    """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
+
+    def __init__(self, n_scales: int = 0):
+        self.n_scales = n_scales
+
+    def __call__(self, sample):
+        sample["inv_K"] = torch.linalg.inv(sample["K"])
+        if self.n_scales is not None:
+            for i_scale in range(self.n_scales):
+                sample[("inv_K", i_scale)] = torch.linalg.pinv(sample["K", i_scale])
+        return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import numpy as np
 import yaml
 from numpy.random import default_rng
 
-from colon_nav.sim_import.simulate_tracks import create_tracks_per_frame, generate_targets
+from colon_nav.data_import.simulate_tracks import create_tracks_per_frame, generate_targets
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import ArgsHelpFormatter, create_empty_folder, set_rand_seed, to_str
 from colon_nav.util.rotations_util import get_random_rot_quat

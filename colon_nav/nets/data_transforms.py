@@ -3,17 +3,32 @@ import random
 import numpy as np
 import torch
 import torchvision
+from torchvision.transforms import Compose
 
-from colon_nav.alg.depth_and_ego_models import normalize_image_channels
-from colon_nav.net_train.train_utils import DatasetMeta
+from colon_nav.nets.train_utils import DatasetMeta
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
-from colon_nav.util.torch_util import get_device, to_device, to_torch
+from colon_nav.util.torch_util import get_device, resize_images_batch, to_device, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class AllToTorch:
+def get_train_transform(dataset_meta: DatasetMeta):
+    # set data transforms
+    transform_list = [
+        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
+        NormalizeImageChannels(dataset_meta=dataset_meta),
+        RandomHorizontalFlip(flip_prob=0.5, dataset_meta=dataset_meta),
+        AddRelativePose(dataset_meta=dataset_meta),
+        AddInvIntrinsics(),
+    ]
+    return Compose(transform_list)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class ToTensors:
     def __init__(self, dtype: torch.dtype, dataset_meta: DatasetMeta):
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
@@ -117,15 +132,20 @@ class RandomHorizontalFlip:
 class AddInvIntrinsics:
     """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
 
-    def __init__(self, n_scales: int = 0):
-        self.n_scales = n_scales
-
     def __call__(self, sample):
         sample["inv_K"] = torch.linalg.inv(sample["K"])
-        if self.n_scales is not None:
-            for i_scale in range(self.n_scales):
-                sample[("inv_K", i_scale)] = torch.linalg.pinv(sample["K", i_scale])
         return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def normalize_image_channels(img: torch.Tensor, img_normalize_mean: float = 0.45, img_normalize_std: float = 0.225):
+    # normalize the values from [0,255] to [0, 1]
+    img = img / 255
+    # normalize the values to the mean and std of the ImageNet dataset
+    img = (img - img_normalize_mean) / img_normalize_std
+    return img
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -181,6 +201,52 @@ def sample_to_gpu(sample: dict, device: torch.device | None = None) -> dict:
     for k, v in sample.items():
         sample[k] = to_device(v, device=device)
     return sample
+
+
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def img_to_net_in_format(
+    img: np.ndarray | torch.Tensor,
+    device: torch.device,
+    dtype: torch.dtype,
+    normalize_values: bool = True,
+    img_normalize_mean: float = 0.45,
+    img_normalize_std: float = 0.225,
+    add_batch_dim: bool = False,
+    feed_height: int | None = None,
+    feed_width: int | None = None,
+) -> torch.Tensor:
+    """Transform an single input image to the network input format.
+    Args:
+        imgs: the input images [height x width x n_channels] or [height x width]
+    Returns:
+        imgs: the input images in the network format [1 x n_channels x new_width x new_width] or [1 x new_width x new_width]
+    """
+
+    # transform to torch tensor
+    img = to_torch(img, device=device).to(dtype)
+
+    # transform to channels first (HWC to CHW format)
+    if img.ndim == 3:  # color
+        img = torch.permute(img, (2, 0, 1))
+    elif img.ndim == 2:  # depth
+        img = torch.unsqueeze(img, 0)  # add channel dimension
+    else:
+        raise ValueError("Invalid image dimension.")
+
+    img = normalize_image_channels(img, img_normalize_mean, img_normalize_std) if normalize_values else img
+
+    if add_batch_dim:
+        img = img.unsqueeze(0)
+
+    img = resize_images_batch(
+        imgs=img,
+        new_height=feed_height,
+        new_width=feed_width,
+    )
+
+    return img
 
 
 # ---------------------------------------------------------------------------------------------------------------------

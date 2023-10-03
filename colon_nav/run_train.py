@@ -6,10 +6,10 @@ import torch
 import yaml
 
 from colon_nav.examine_depths import DepthExaminer
-from colon_nav.net_train.endosfm_trainer import EndoSFMTrainer
-from colon_nav.net_train.md2_trainer import MonoDepth2Trainer
-from colon_nav.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.net_train.train_utils import ModelInfo, get_default_model_info, save_model_info
+from colon_nav.nets.endosfm_trainer import EndoSFMTrainer
+from colon_nav.nets.md2_trainer import MonoDepth2Trainer
+from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
+from colon_nav.nets.train_utils import ModelInfo, get_default_model_info, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error

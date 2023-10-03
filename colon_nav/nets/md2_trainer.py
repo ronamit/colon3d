@@ -13,16 +13,6 @@ import torch
 import torch.nn.functional as nnF
 import torch.optim
 import torch.utils.data
-from tensorboardX import SummaryWriter
-from torch import nn, optim
-from torch.utils.data import DataLoader
-
-from colon_nav.net_train.loss_terms import compute_pose_loss
-from colon_nav.net_train.md2_transforms import poses_to_md2_format
-from colon_nav.net_train.shared_transforms import sample_to_gpu
-from colon_nav.net_train.train_utils import DatasetMeta
-from colon_nav.util.general_util import create_folder_if_not_exists, to_str
-from colon_nav.util.torch_util import get_device
 from monodepth2.layers import (
     SSIM,
     BackprojectDepth,
@@ -36,6 +26,16 @@ from monodepth2.networks.depth_decoder import DepthDecoder
 from monodepth2.networks.pose_net import PoseNet
 from monodepth2.networks.resnet_encoder import ResnetEncoder
 from monodepth2.utils import normalize_image, sec_to_hm_str
+from tensorboardX import SummaryWriter
+from torch import nn, optim
+from torch.utils.data import DataLoader
+
+from colon_nav.nets.loss_terms import compute_pose_loss
+from colon_nav.nets.md2_transforms import poses_to_md2_format
+from colon_nav.nets.data_transforms import sample_to_gpu
+from colon_nav.nets.train_utils import DatasetMeta
+from colon_nav.util.general_util import create_folder_if_not_exists, to_str
+from colon_nav.util.torch_util import get_device
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -336,12 +336,12 @@ class MonoDepth2Trainer:
         # Get the pose change from target (frame_id=0) to each reference frame
         ref_imgs = [inputs[("color", shift, 0)] for shift in self.ref_frame_shifts]
         tgt_img = inputs[("color", 0, 0)]
-        axisangle_all, translation_all = self.pose_net(ref_imgs=ref_imgs,  tgt_img=tgt_img)
+        axisangle_all, translation_all = self.pose_net(ref_imgs=ref_imgs, tgt_img=tgt_img)
 
         for i_ref, shift in enumerate(self.ref_frame_shifts):
             # Save the predicted pose change from target (frame_id=0) to reference frame i.
             # Output rotation [batch_size, 3] (axis-angle representation)
-            outputs[("axisangle", 0, shift)] = axisangle_all[:,i_ref,0,:]
+            outputs[("axisangle", 0, shift)] = axisangle_all[:, i_ref, 0, :]
             # Output translation [batch_size, 3]
             outputs[("translation", 0, shift)] = translation_all[:, i_ref, 0, :]
             outputs[("cam_T_cam", 0, shift)] = transformation_from_parameters(

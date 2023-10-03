@@ -5,7 +5,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-from colon_nav.sim_import import loader_ColonNav, loader_SimCol3D, loader_Zhang22
+from colon_nav.data_import import loader_ColonNav, loader_SimCol3D, loader_Zhang22
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,

@@ -7,8 +7,8 @@ import yaml
 from PIL import Image
 from torch.utils import data
 
-from colon_nav.net_train import endosfm_transforms, md2_transforms
-from colon_nav.net_train.train_utils import DatasetMeta
+from colon_nav.nets import endosfm_transforms, md2_transforms
+from colon_nav.nets.train_utils import DatasetMeta
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.torch_util import to_default_type, to_torch
 

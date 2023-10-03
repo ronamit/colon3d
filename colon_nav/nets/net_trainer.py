@@ -1,7 +1,12 @@
-import attrs
 from pathlib import Path
-from torch.utils.data import DataLoader
 
+import attrs
+import torch
+from torch.utils.data import DataLoader
+from colon_nav.nets.train_utils import DatasetMeta
+
+from colon_nav.nets.fcb_former_model import FCBFormer
+from colon_nav.nets.resnet import resnet18, ResNet18_Weights, resnet50, ResNet50_Weights
 
 @attrs.define
 class NetTrainer:
@@ -9,18 +14,30 @@ class NetTrainer:
     train_loader: DataLoader  # training data loader
     val_loader: DataLoader  # validation data loader
     n_epochs: int # number of epochs to train
+    egomotion_model_name = attrs.attrib(default='resnet50', validator=attrs.validators.in_(['resnet18', 'resnet50']))
+    # parameters that will be set by __attrs_post_init__
+    depth_model: torch.nn.Module
+    egomotion_model: torch.nn.Module
+    train_dataset_meta: DatasetMeta = attrs.field(init=False)
 
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __attrs_post_init__(self):
         
-        
+        self.train_dataset_meta = self.train_loader.dataset.dataset_meta
+
         ### Initialize the depth model
+        self.depth_model = FCBFormer()
 
         
-        ### Initial thr egomotion model
-
+        ### Initial the egomotion model
+        if self.egomotion_model_name == 'resnet18':
+            self.egomotion_model = resnet18(weights= ResNet18_Weights.DEFAULT)
+        elif self.egomotion_model_name == 'resnet50':
+            self.egomotion_model = resnet50(weights= ResNet50_Weights.DEFAULT)
+        else:
+            raise NotImplementedError
 
         ### Initialize the optimizer
 
@@ -116,3 +133,6 @@ class NetTrainer:
         raise NotImplementedError
     
     # ---------------------------------------------------------------------------------------------------------------------
+
+
+
