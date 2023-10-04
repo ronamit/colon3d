@@ -245,6 +245,7 @@ def main():
         save_path=path_to_save_models,
         train_loader=train_loader,
         val_loader=val_loader,
+        model_info=model_info,
         depth_model_name=args.depth_model_name,
         egomotion_model_name=args.egomotion_model_name,
         load_depth_model_path=get_path(args.load_depth_model_path),

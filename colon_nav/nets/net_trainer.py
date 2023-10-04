@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from colon_nav.nets.fcb_former_model import FCBFormer
 from colon_nav.nets.resnet_model import get_resnet_model
-from colon_nav.nets.train_utils import TensorBoardLogger
+from colon_nav.nets.train_utils import ModelInfo, TensorBoardLogger
 from colon_nav.util.general_util import get_time_now_str
 
 
@@ -15,6 +15,7 @@ class NetTrainer:
         save_path: Path,  # path to save the trained model
         train_loader: DataLoader,  # training data loader
         val_loader: DataLoader,  # validation data loader
+        model_info: ModelInfo,  # model info
         depth_model_name: str = "fcb_former",  # name of the depth model
         egomotion_model_name: str = "resnet50",  # name of the egomotion model
         load_depth_model_path: Path | None = None,  # path to load a pretrained depth model
@@ -25,6 +26,7 @@ class NetTrainer:
         self.save_path = save_path
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.model_info = model_info
         self.n_epochs = n_epochs
         self.egomotion_model_name = egomotion_model_name
         self.run_name = run_name or get_time_now_str()
