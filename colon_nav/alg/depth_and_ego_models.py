@@ -12,7 +12,7 @@ from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
 from colon_nav.nets.data_transforms import img_to_net_in_format
-from colon_nav.nets.train_utils import load_model_model_info
+from colon_nav.nets.models_utils import load_model_model_info
 from colon_nav.util.pose_transforms import invert_pose_motion
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device, resize_single_image
@@ -37,11 +37,11 @@ class DepthModel:
 
         # the dimensions of the input images to the network
         self.feed_width = self.model_info.feed_width
-        self.feed_height = self.model_info.feed_height
+        self.feed_height = self.model_info.depth_model_feed_height
 
         # the dimensions of the output depth maps are the same as the input images
         self.depth_map_width = self.model_info.feed_width
-        self.depth_map_height = self.model_info.feed_height
+        self.depth_map_height = self.model_info.depth_model_feed_height
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.depth_calib_a = self.model_info.depth_calib_a
         self.depth_calib_b = self.model_info.depth_calib_b
@@ -171,9 +171,11 @@ class EgomotionModel:
         self.n_ref_imgs = self.model_info.n_ref_imgs
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
-        self.feed_width = self.model_info.feed_width
-        self.feed_height = self.model_info.feed_height
+        self.depth_model_feed_width = self.model_info.depth_model_feed_width
+        self.depth_model_feed_height = self.model_info.depth_model_feed_height
 
+        # TODO: use transform 
+        
         # create the egomotion estimation network
         if self.model_name == "EndoSFM":
             pose_net_path = model_path / "PoseNet_best.pt"

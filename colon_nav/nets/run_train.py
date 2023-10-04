@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from colon_nav.nets.models_utils import ModelInfo, save_model_info
+
 # from colon_nav.examine_depths import DepthExaminer
 from colon_nav.nets.net_trainer import NetTrainer
 from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.nets.train_utils import ModelInfo, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -38,12 +39,6 @@ def main():
         type=int,
         default=2,
         help="Number of reference images. Must be at least 1. If the target is at frame t, then the reference frames are at frames  t - n_ref_imgs, ..., t - 1",
-    )
-    parser.add_argument(
-        "--feed_img_size",
-        type=int,
-        default=475,
-        help="The size of the input images to the network (height and width).",
     )
 
     parser.add_argument(
@@ -160,8 +155,6 @@ def main():
         depth_model_name=args.depth_model_name,
         egomotion_model_name=args.egomotion_model_name,
         ref_frame_shifts=ref_frame_shifts,
-        feed_height=args.feed_img_size,
-        feed_width=args.feed_img_size,
         model_description=f"The training script args: {args}",
     )
     save_model_info(
@@ -196,11 +189,8 @@ def main():
     # training set
     train_set = ScenesDataset(
         scenes_paths=train_scenes_paths,
-        feed_height=model_info.feed_height,
-        feed_width=model_info.feed_width,
-        ref_frame_shifts=model_info.ref_frame_shifts,
+        model_info=model_info,
         dataset_type="train",
-        n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=load_gt_depth,
         load_gt_pose=load_gt_pose,
@@ -209,11 +199,8 @@ def main():
     # validation set
     validation_dataset = ScenesDataset(
         scenes_paths=val_scenes_paths,
-        feed_height=model_info.feed_height,
-        feed_width=model_info.feed_width,
-        ref_frame_shifts=model_info.ref_frame_shifts,
+        model_info=model_info,
         dataset_type="val",
-        n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=True,
         load_gt_pose=True,

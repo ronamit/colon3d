@@ -5,51 +5,90 @@ import torch
 import torchvision
 from torchvision.transforms import Compose
 
-from colon_nav.nets.train_utils import DatasetMeta
+from colon_nav.nets.models_utils import ModelInfo
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
-from colon_nav.util.torch_util import get_device, resize_images_batch, to_device, to_torch
+from colon_nav.util.torch_util import get_device, to_device, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_train_transform(dataset_meta: DatasetMeta):
+def get_train_transform(model_info: ModelInfo):
     # set data transforms
     transform_list = [
-        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
-        NormalizeImageChannels(dataset_meta=dataset_meta),
-        RandomHorizontalFlip(flip_prob=0.5, dataset_meta=dataset_meta),
-        AddRelativePose(dataset_meta=dataset_meta),
+        ToTensors(dtype=torch.float32, model_info=model_info),
+        NormalizeImageChannels(model_info=model_info),
+        RandomHorizontalFlip(flip_prob=0.5, model_info=model_info),
+        AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
-    ]
-    return Compose(transform_list)
-# ---------------------------------------------------------------------------------------------------------------------
-
-def get_val_transform(dataset_meta: DatasetMeta):
-    # set data transforms
-    transform_list = [
-        ToTensors(dtype=torch.float32, dataset_meta=dataset_meta),
-        NormalizeImageChannels(dataset_meta=dataset_meta),
-        AddRelativePose(dataset_meta=dataset_meta),
-        AddInvIntrinsics(),
+        CreateNetInputs(model_info=model_info),
     ]
     return Compose(transform_list)
 
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class ToTensors:
-    def __init__(self, dtype: torch.dtype, dataset_meta: DatasetMeta):
-        self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
-        self.dtype = dtype
-        self.feed_height = dataset_meta.feed_height
-        self.feed_width = dataset_meta.feed_width
-        self.resizer = torchvision.transforms.Resize(
-            size=(self.feed_height, self.feed_width),
+def get_val_transform(model_info: ModelInfo):
+    # set data transforms
+    transform_list = [
+        ToTensors(dtype=torch.float32, model_info=model_info),
+        NormalizeImageChannels(model_info=model_info),
+        AddRelativePose(model_info=model_info),
+        AddInvIntrinsics(),
+        CreateNetInputs(model_info=model_info),
+    ]
+    return Compose(transform_list)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class CreateNetInputs:
+    def __init__(self, model_info: ModelInfo):
+        self.model_info = model_info
+        self.depth_model_feed_height = model_info.depth_model_feed_height
+        self.depth_model_feed_width = model_info.depth_model_feed_width
+        self.ego_model_feed_height = model_info.ego_model_feed_height
+        self.ego_model_feed_width = model_info.ego_model_feed_width
+        self.ref_frame_shifts = model_info.ref_frame_shifts
+
+        self.depth_in_resizer = torchvision.transforms.Resize(
+            size=(self.depth_model_feed_height, self.depth_model_feed_height),
             antialias=True,
         )
+        self.ego_in_resizer = torchvision.transforms.Resize(
+            size=(self.ego_model_feed_height, self.ego_model_feed_height),
+            antialias=True,
+        )
+
+    def __call__(self, sample: dict) -> dict:
+        # create the input for the depth model:
+        sample["depth_model_in"] = self.depth_in_resizer(sample[("color", 0)])
+
+        # create the input for the egomotion model:
+
+        # all frame shifts - reference and target (relative to the target frame):
+        all_shifts = [*self.ref_frame_shifts,0]
+        all_imgs = [sample[("color", shift)] for shift in all_shifts]
+        # resize the images to the feed size (if needed)
+        all_imgs = [self.ego_in_resizer(img) for img in all_imgs]
+        # concatenate the images along the channel dimension:
+        sample["ego_model_in"] = torch.cat(all_imgs, dim=1)
+
+        return sample
+
+    # create input for the depth model:
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+class ToTensors:
+    def __init__(self, dtype: torch.dtype, model_info: ModelInfo):
+        self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
+        self.dtype = dtype
+
         # All the frame shifts that we need to load from the dataset (relative to the target frame)
-        self.all_frame_shifts = [*dataset_meta.ref_frame_shifts, 0]
+        self.all_frame_shifts = [*model_info.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict) -> dict:
         # convert the images to torch tensors
@@ -58,8 +97,6 @@ class ToTensors:
             sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
             # transform RGB images to channels first (HWC to CHW format)
             sample[k] = torch.permute(sample[k], (2, 0, 1))
-            # resize the RGB image to the feed size (if needed)
-            sample[k] = self.resizer(sample[k])
 
         # convert the depth maps to torch tensors
         for shift in self.all_frame_shifts:
@@ -68,9 +105,7 @@ class ToTensors:
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
                 # transform to channels first (HW to CHW format, with C=1)
                 sample[k] = torch.unsqueeze(sample[k], dim=0)
-                # resize the image to the feed size (if needed)
-                sample[k] = self.resizer(sample[k])
-
+                
         # convert the camera intrinsics to torch tensors
         sample["K"] = to_torch(sample["K"], dtype=self.dtype, device=self.device)
 
@@ -99,11 +134,10 @@ class RandomHorizontalFlip:
     Note that we only use horizontal flipping, since it allows to adjust the pose accordingly by easy transformation.
     """
 
-    def __init__(self, flip_prob: float, dataset_meta: DatasetMeta):
+    def __init__(self, flip_prob: float, model_info: ModelInfo):
         self.flip_prob = flip_prob
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
-        self.all_frames_shifts = [*dataset_meta.ref_frame_shifts, 0]
-        self.load_gt_pose = dataset_meta.load_gt_pose
+        self.all_frames_shifts = [*model_info.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict):
         flip_x = random.random() < self.flip_prob
@@ -122,7 +156,7 @@ class RandomHorizontalFlip:
 
         # in case we have the ground-truth camera pose, we need to rotate the pose to fit the x-flipped image.
         # i.e., we need to rotate the pose around the y-axis by 180 degrees
-        if self.load_gt_pose:
+        if ("abs_pose", 0) in sample:
             rot_axis = torch.tensor([0, 1, 0], device=self.device)
             rot_angle = np.pi
             rot_quat = axis_angle_to_quaternion(axis_angle=rot_axis * rot_angle)
@@ -143,7 +177,8 @@ class AddInvIntrinsics:
     """ " Extends the sample with the inverse camera intrinsics matrix (use this after scale in the transform chain)"""
 
     def __call__(self, sample):
-        sample["inv_K"] = torch.linalg.inv(sample["K"])
+        if "K" in sample:
+            sample["inv_K"] = torch.linalg.inv(sample["K"])
         return sample
 
 
@@ -162,11 +197,11 @@ def normalize_image_channels(img: torch.Tensor, img_normalize_mean: float = 0.45
 
 
 class NormalizeImageChannels:
-    def __init__(self, dataset_meta: DatasetMeta, mean: float = 0.45, std: float = 0.225):
+    def __init__(self, model_info: ModelInfo, mean: float = 0.45, std: float = 0.225):
         # Normalize the image channels to the mean and std of the ImageNet dataset
         self.mean = mean
         self.std = std
-        self.all_frames_shifts = [*dataset_meta.ref_frame_shifts, 0]
+        self.all_frames_shifts = [*model_info.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict):
         for shift in self.all_frames_shifts:
@@ -183,12 +218,11 @@ class AddRelativePose:
     pose format: (x,y,z,qw,qx,qy,qz)
     """
 
-    def __init__(self, dataset_meta: DatasetMeta):
-        self.load_gt_pose = dataset_meta.load_gt_pose
-        self.ref_frame_shifts = dataset_meta.ref_frame_shifts
+    def __init__(self, model_info: ModelInfo):
+        self.ref_frame_shifts = model_info.ref_frame_shifts
 
     def __call__(self, sample):
-        if self.load_gt_pose:
+        if ("abs_pose", 0) in sample:
             # get the relative pose between the target and reference frames
             for shift in self.ref_frame_shifts:
                 sample[("tgt_to_ref_pose", shift)] = get_pose_delta(
@@ -211,52 +245,6 @@ def sample_to_gpu(sample: dict, device: torch.device | None = None) -> dict:
     for k, v in sample.items():
         sample[k] = to_device(v, device=device)
     return sample
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def img_to_net_in_format(
-    img: np.ndarray | torch.Tensor,
-    device: torch.device,
-    dtype: torch.dtype,
-    normalize_values: bool = True,
-    img_normalize_mean: float = 0.45,
-    img_normalize_std: float = 0.225,
-    add_batch_dim: bool = False,
-    feed_height: int | None = None,
-    feed_width: int | None = None,
-) -> torch.Tensor:
-    """Transform an single input image to the network input format.
-    Args:
-        imgs: the input images [height x width x n_channels] or [height x width]
-    Returns:
-        imgs: the input images in the network format [1 x n_channels x new_width x new_width] or [1 x new_width x new_width]
-    """
-
-    # transform to torch tensor
-    img = to_torch(img, device=device).to(dtype)
-
-    # transform to channels first (HWC to CHW format)
-    if img.ndim == 3:  # color
-        img = torch.permute(img, (2, 0, 1))
-    elif img.ndim == 2:  # depth
-        img = torch.unsqueeze(img, 0)  # add channel dimension
-    else:
-        raise ValueError("Invalid image dimension.")
-
-    img = normalize_image_channels(img, img_normalize_mean, img_normalize_std) if normalize_values else img
-
-    if add_batch_dim:
-        img = img.unsqueeze(0)
-
-    img = resize_images_batch(
-        imgs=img,
-        new_height=feed_height,
-        new_width=feed_width,
-    )
-
-    return img
 
 
 # ---------------------------------------------------------------------------------------------------------------------

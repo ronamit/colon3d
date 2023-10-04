@@ -4,8 +4,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from colon_nav.nets.fcb_former_model import FCBFormer
-from colon_nav.nets.resnet_model import get_resnet_model
-from colon_nav.nets.train_utils import ModelInfo, TensorBoardLogger
+from colon_nav.nets.models_utils import ModelInfo, TensorBoardLogger
+from colon_nav.nets.resnet_model import get_resnet_egomotion_model
 from colon_nav.util.general_util import get_time_now_str
 
 
@@ -30,14 +30,12 @@ class NetTrainer:
         self.n_epochs = n_epochs
         self.egomotion_model_name = egomotion_model_name
         self.run_name = run_name or get_time_now_str()
-        self.train_dataset_meta = self.train_loader.dataset.dataset_meta
-
         ### Initialize the depth model
         if depth_model_name == "fcb_former":
             self.depth_model = FCBFormer()
         else:
             raise ValueError(f"Unknown depth model name: {depth_model_name}")
-        
+
         ### Load pretrained depth model
         if load_depth_model_path is not None:
             self.depth_model.load_state_dict(torch.load(load_depth_model_path))
@@ -45,7 +43,7 @@ class NetTrainer:
         ### Initial the egomotion model
         # TODO: change the input layer for our needs (n_channels=3*(n_ref + 1))
         # TODO: change the output layer for our needs
-        self.egomotion_model = get_resnet_model(self.egomotion_model_name)
+        self.egomotion_model = get_resnet_egomotion_model(model_info=model_info)
 
         ### Load pretrained egomotion model
         if load_egomotion_model_path is not None:

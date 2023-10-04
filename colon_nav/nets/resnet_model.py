@@ -8,7 +8,9 @@ from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights, conv1x1
 from torchvision.utils import _log_api_usage_once
 
-# -------------------------------------------------------------------------------------------------------------------
+from colon_nav.nets.models_utils import ModelInfo
+
+# -------------------------------------------------------‰------------------------------------------------------------
 
 
 class ResNet(nn.Module):
@@ -143,7 +145,11 @@ class ResNet(nn.Module):
 # -------------------------------------------------------------------------------------------------------------------
 
 
-def get_resnet_model(model_name: str) -> ResNet:
+def get_resnet_egomotion_model(model_info: ModelInfo) -> ResNet:
+    model_name = model_info.egomotion_model_name
+    ref_frame_shifts = model_info.ref_frame_shifts
+    n_ref_imgs = len(ref_frame_shifts)
+
     if model_name == "resnet18":
         weights = ResNet18_Weights.DEFAULT
         model = ResNet(block=BasicBlock, layers=[2, 2, 2, 2])
@@ -155,6 +161,9 @@ def get_resnet_model(model_name: str) -> ResNet:
 
     # Load ImageNet pretrained weights
     model.load_state_dict(weights.get_state_dict(progress=True))
+
+    # TODO: change the input layer for our needs (n_channels=3*(n_ref + 1))
+    # to keep the same numerical range -  divide the first conv layer weights by (n_ref + 1)
 
     return model
 

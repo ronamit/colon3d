@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 from pathlib import Path
 
+import attrs
 import torch
 import torchvision
 import yaml
@@ -12,29 +12,32 @@ from colon_nav.util.general_util import save_dict_to_yaml
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-@dataclass
-class DatasetMeta:
-    feed_height: int  # The height of the input images to the network
-    feed_width: int  # The width of the input images to the network
-    ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    load_gt_depth: bool  # Whether to add the depth map of the target frame to each sample (default: False)
-    load_gt_pose: bool  # Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-@dataclass
+@attrs.define
 class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    feed_height: int
-    feed_width: int
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
     model_description: str = ""
+    # Fields that will be initialized in post-init:
+    depth_model_feed_height: int = attrs.field(init=False)
+    depth_model_feed_width: int = attrs.field(init=False)
+    ego_model_feed_height: int = attrs.field(init=False)
+    ego_model_feed_width: int = attrs.field(init=False)
+
+    def __attrs_post_init__(self):
+        if self.depth_model_name == "fcb_former":
+            self.depth_model_feed_height = 352
+            self.depth_model_feed_width = 352
+        else:
+            raise ValueError(f"Unknown depth model name: {self.depth_model_name}")
+        if self.egomotion_model_name in ["resnet18", "resnet50"]:
+            self.ego_model_feed_height = 224
+            self.ego_model_feed_width = 224
+        else:
+            raise ValueError(f"Unknown egomotion model name: {self.egomotion_model_name}")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -50,7 +53,7 @@ def save_model_info(
         print(f"Model info file {model_info_path} already exists, overwriting")
         model_info_path.unlink()
 
-    model_info_dict = model_info.__dict__
+    model_info_dict = attrs.asdict(model_info)
 
     save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info_dict)
 
@@ -65,31 +68,6 @@ def load_model_model_info(path: Path) -> ModelInfo:
     with model_info_path.open("r") as f:
         model_info = yaml.load(f, Loader=yaml.FullLoader)
     return ModelInfo(**model_info)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def get_depth_model_input(batch: dict) -> dict:
-    # Get the target image:
-    tgt_img = batch[("color", 0)]
-    return tgt_img
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def get_egomotion_model_input(batch: dict, ref_frame_shifts: list[int]) -> dict:
-    # Get the target image:
-    tgt_img = batch[("color", 0)]
-
-    # Get the reference images:
-    ref_imgs = [batch[("color", i)] for i in ref_frame_shifts]
-
-    # Concatenate the reference and target images along the channel dimension:
-    imgs = [*ref_imgs, tgt_img]
-    imgs = torch.cat(imgs, dim=1)
-    return imgs
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -121,8 +99,8 @@ class TensorBoardLogger:
 
     def visualize_graph(self) -> None:
         sample = next(iter(self.val_loader))
-        depth_model_input = get_depth_model_input(sample)
-        ego_model_input = get_egomotion_model_input(sample, self.model_info.ref_frame_shifts)
+        depth_model_input = sample["depth_model_in"]
+        ego_model_input = sample["ego_model_in"]
         self.writer.add_graph(self.depth_model, depth_model_input)
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()

@@ -14,6 +14,7 @@ from torch import nn
 from colon_nav.nets import pvt_v2
 from colon_nav.util.general_util import create_folder_if_not_exists
 
+
 class RB(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -55,6 +56,7 @@ class FCB(nn.Module):
         if min_channel_mults is None:
             min_channel_mults = [1, 1, 2, 2, 4, 4]
         super().__init__()
+        self.in_resolution = in_resolution
 
         self.enc_blocks = nn.ModuleList(
             [nn.Conv2d(in_channels, min_level_channels, kernel_size=3, padding=1)],
@@ -63,7 +65,7 @@ class FCB(nn.Module):
         enc_block_chans = [min_level_channels]
         for level in range(n_levels_down):
             min_channel_mult = min_channel_mults[level]
-            for block in range(n_RBs):
+            for _ in range(n_RBs):
                 self.enc_blocks.append(
                     nn.Sequential(RB(ch, min_channel_mult * min_level_channels)),
                 )
@@ -149,7 +151,7 @@ class TB(nn.Module):
             )
 
         self.SFA = nn.ModuleList([])
-        for i in range(3):
+        for _ in range(3):
             self.SFA.append(nn.Sequential(RB(128, 64), RB(64, 64)))
 
     def get_pyramid(self, x):
@@ -176,11 +178,11 @@ class TB(nn.Module):
 
         l_i = pyramid_emph[-1]
         for i in range(2, -1, -1):
-            l = torch.cat((pyramid_emph[i], l_i), dim=1)
-            l = self.SFA[i](l)
-            l_i = l
+            h = torch.cat((pyramid_emph[i], l_i), dim=1)
+            h = self.SFA[i](h)
+            l_i = h
 
-        return l
+        return h
 
 
 class FCBFormer(nn.Module):

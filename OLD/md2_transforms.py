@@ -3,7 +3,7 @@ import torch
 from torchvision.transforms import Compose
 
 from colon_nav.nets.data_transforms import AddRelativePose, NormalizeImageChannels, RandomHorizontalFlip, ToTensors
-from colon_nav.nets.train_utils import DatasetMeta
+from colon_nav.nets.models_utils import DatasetMeta
 from colon_nav.util.rotations_util import quaternion_to_axis_angle
 from colon_nav.util.torch_util import resize_tensor_image
 

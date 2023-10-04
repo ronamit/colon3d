@@ -8,7 +8,7 @@ from PIL import Image
 from torch.utils import data
 
 from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
-from colon_nav.nets.train_utils import DatasetMeta
+from colon_nav.nets.models_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.torch_util import to_default_type, to_torch
 
@@ -20,11 +20,8 @@ class ScenesDataset(data.Dataset):
     def __init__(
         self,
         scenes_paths: list,
-        feed_height: int,
-        feed_width: int,
-        ref_frame_shifts: list[int],
+        model_info: ModelInfo,
         dataset_type: str,
-        n_ref_imgs: int,
         n_sample_lim: int = 0,
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
@@ -35,9 +32,6 @@ class ScenesDataset(data.Dataset):
         Args:
             scenes_paths (list): List of paths to the scenes
             n_scenes_lim (int): Limit the number of scenes to load (for debugging) if 0 then no limit
-            feed_height (int): The height of the input images to the network
-            feed_width (int): The width of the input images to the network
-            ref_frame_shifts (list[int]): The time shifts of the reference frames w.r.t. the target frame
             load_gt_depth (bool): Whether to add the depth map of the target frame to each sample (default: False)
             load_gt_pose (bool): Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
             transforms: transforms to apply to each sample  (in order)
@@ -46,16 +40,17 @@ class ScenesDataset(data.Dataset):
         self.scenes_paths = scenes_paths
         if n_scenes_lim > 0:
             self.scenes_paths = self.scenes_paths[:n_scenes_lim]
-        self.feed_height = feed_height
-        self.feed_width = feed_width
-        self.ref_frame_shifts = ref_frame_shifts
+        self.model_info = model_info
         self.dataset_type = dataset_type
-        self.n_ref_imgs = n_ref_imgs
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
         self.plot_example_ind = plot_example_ind
+        #  ref_frame_shifts (list[int]) The time shifts of the reference frames w.r.t. the target frame
+        self.ref_frame_shifts = model_info.ref_frame_shifts
         self.frame_paths_per_scene = []
         self.target_ids = []
+        # the first frame that can be a target (since we need to have enough reference frames before it)
+        min_tgt_frame_idx = -max(self.ref_frame_shifts)
 
         # go over all the scenes in the dataset
         frames_paths_per_scene = []
@@ -75,25 +70,16 @@ class ScenesDataset(data.Dataset):
 
         for i_scene, frames_paths in enumerate(frames_paths_per_scene):
             n_frames = len(frames_paths)
-            assert n_frames > 0
+            assert n_frames > 0, f"Scene {i_scene} has no frames"
             # set the scene index and the target frame index for each sample (later we will set the reference frames indices)
-            start_frame = n_ref_imgs  # the first frame that can be a target frame (since we need to have enough reference frames before it)
-            for i_frame in range(start_frame, n_frames):
+            for i_frame in range(min_tgt_frame_idx, n_frames):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
-
-        self.dataset_meta = DatasetMeta(
-            feed_height=self.feed_height,
-            feed_width=self.feed_width,
-            ref_frame_shifts=self.ref_frame_shifts,
-            load_gt_depth=self.load_gt_depth,
-            load_gt_pose=self.load_gt_pose,
-        )
 
         # Create transforms
         if self.dataset_type == "train":
-            self.transform = get_train_transform(self.dataset_meta)
+            self.transform = get_train_transform(model_info=model_info)
         elif self.dataset_type == "val":
-            self.transform = get_val_transform(self.dataset_meta)
+            self.transform = get_val_transform(model_info=model_info)
         else:
             raise ValueError(f"Unknown dataset type: {self.dataset_type}")
 
@@ -123,8 +109,7 @@ class ScenesDataset(data.Dataset):
         all_frames_shift = [*self.ref_frame_shifts, 0]
         for shift in all_frames_shift:
             frame_path = scene_frames_paths[target_frame_idx + shift]
-            # Load with PIL
-            sample[("color", shift)] = load_img_and_resize(frame_path, height=self.feed_height, width=self.feed_width)
+            sample[("color", shift)] = Image.open(frame_path)
 
         # load the ground-truth depth map and the ground-truth pose
         if self.load_gt_depth or self.load_gt_pose:
@@ -178,22 +163,6 @@ def get_scenes_dataset_random_split(dataset_path: Path, validation_ratio: float)
     val_scenes_paths = all_scenes_paths[n_train_scenes:]
     print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
     return train_scenes_paths, val_scenes_paths
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def load_img_and_resize(img_path: Path, height: int, width: int):
-    """Load an image and resize it".
-    Args:
-        img_path (str): Path to the image
-        new_size (tuple): The new size of the image (height, width)
-    Returns:
-        PIL.Image: The loaded and resized image
-    """
-    img = Image.open(img_path)
-    img = img.resize((width, height), Image.ANTIALIAS)
-    return img
 
 
 # ---------------------------------------------------------------------------------------------------------------------
