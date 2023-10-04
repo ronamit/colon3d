@@ -146,7 +146,15 @@ class ResNet(nn.Module):
 # -------------------------------------------------------------------------------------------------------------------
 
 
-def get_resnet_egomotion_model(model_info: ModelInfo) -> ResNet:
+def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> ResNet:
+    """ Get the ResNet egomotion model.
+    Args:
+        model_info: The model info object.
+        pretrained: If True, load the ImageNet pretrained weights.
+    Returns:
+        The ResNet egomotion model.
+    """
+
     model_name = model_info.egomotion_model_name
     ref_frame_shifts = model_info.ref_frame_shifts
     n_ref_imgs = len(ref_frame_shifts)
@@ -162,19 +170,21 @@ def get_resnet_egomotion_model(model_info: ModelInfo) -> ResNet:
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
+    if pretrained:
     # Load ImageNet pretrained weights
-    weights_dict = weights.get_state_dict(progress=True)
-    conv1_weights = weights_dict["conv1.weight"]  # [out_channels, in_channels, kernel_size, kernel_size]
+        weights_dict = weights.get_state_dict(progress=True)
+        conv1_weights = weights_dict["conv1.weight"]  # [out_channels, in_channels, kernel_size, kernel_size]
 
-    # We concatenate the RGB images along the channel dimension, so we need to duplicate the weights
-    #  along the input_channel dimension for n_input_imgs times:
-    conv1_weights = conv1_weights.repeat(1, n_input_imgs, 1, 1)
+        # We concatenate the RGB images along the channel dimension, so we need to duplicate the weights
+        #  along the input_channel dimension for n_input_imgs times:
+        conv1_weights = conv1_weights.repeat(1, n_input_imgs, 1, 1)
 
-    # Since we increased input_channel times n_input_imgs, we need to adjust the scale of the weights
-    weights_dict["conv1.weight"] = conv1_weights / n_input_imgs
+        # Since we increased input_channel times n_input_imgs, we need to adjust the scale of the weights
+        weights_dict["conv1.weight"] = conv1_weights / n_input_imgs
 
-    # Load the weights to the model
-    model.load_state_dict(weights_dict)    return model
+        # Load the weights to the model
+        model.load_state_dict(weights_dict)
+    return model
 
 
 # -------------------------------------------------------------------------------------------------------------------
