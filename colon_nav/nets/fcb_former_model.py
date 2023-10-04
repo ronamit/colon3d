@@ -3,14 +3,16 @@ Source: https://github.com/ESandML/FCBFormer/blob/main/Models/models.py
 
 """
 
+import urllib
 from functools import partial
+from pathlib import Path
 
 import torch
 from timm.models.vision_transformer import _cfg
 from torch import nn
 
 from colon_nav.nets import pvt_v2
-
+from colon_nav.util.general_util import create_folder_if_not_exists
 
 class RB(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -123,8 +125,12 @@ class TB(nn.Module):
             depths=[3, 4, 18, 3],
             sr_ratios=[8, 4, 2, 1],
         )
-
-        checkpoint = torch.load("pvt_v2_b3.pth")
+        model_path = Path("data/models/FCBFormer_Pretrained/pvt_v2_b3.pth")
+        model_url = "https://github.com/whai362/PVT/releases/download/v2/pvt_v2_b3.pth"
+        if not model_path.exists():
+            create_folder_if_not_exists(model_path.parent)
+            urllib.request.urlretrieve(model_url, model_path)
+        checkpoint = torch.load(model_path)
         backbone.default_cfg = _cfg()
         backbone.load_state_dict(checkpoint)
         self.backbone = torch.nn.Sequential(*list(backbone.children()))[:-1]

@@ -51,6 +51,7 @@ pip3 install torch torchvision torchaudio
 pip install -e .
 ```
 
+
 ## Optional install for faster 3D fuse plot
 
 * (optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*

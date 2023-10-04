@@ -421,6 +421,13 @@ def path_to_str(path: Path):
 
 
 # --------------------------------------------------------------------------------------------------------------------
+def get_path(s: str) -> Path | None:
+    if s == "" or s is None:
+        return None
+    return Path(s)
+
+
+# --------------------------------------------------------------------------------------------------------------------
 
 
 def get_most_common_values(array, num_values=5):
@@ -458,6 +465,8 @@ def to_str(a):
         return "[" + (", ".join([to_str(val) for val in a])) + "]"
     if isinstance(a, dict):
         return "{" + (", ".join([f"{key}:{to_str(val)}" for key, val in a.items()])) + "}"
+    if isinstance(a, tuple):
+        return "(" + (", ".join([to_str(val) for val in a])) + ")"
     if isinstance(a, np.ndarray):
         return np.array2string(a, separator=",", precision=2, suppress_small=True)
     if isinstance(a, float):

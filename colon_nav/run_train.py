@@ -2,24 +2,20 @@ import argparse
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
-import yaml
 
-from colon_nav.examine_depths import DepthExaminer
-from colon_nav.nets.endosfm_trainer import EndoSFMTrainer
-from colon_nav.nets.md2_trainer import MonoDepth2Trainer
+# from colon_nav.examine_depths import DepthExaminer
+from colon_nav.nets.net_trainer import NetTrainer
 from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.nets.train_utils import ModelInfo, get_default_model_info, save_model_info
-from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, set_rand_seed
+from colon_nav.nets.train_utils import ModelInfo, save_model_info
+from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
 """
 If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
 """
-
-# turn on anamoly detection for debugging:
-torch.autograd.set_detect_anomaly(True)
 
 
 # -------------------------------------------------------------------------------------------------------------------
@@ -29,21 +25,13 @@ def main():
         "--dataset_path",
         type=str,
         default="data_gcp/datasets/UnifiedTrain",
-        help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py.py ).",
+        help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py ).",
     )
     parser.add_argument(
         "--validation_ratio",
         type=float,
         default=0.1,
         help="ratio of the number of scenes in the validation set from entire training set scenes",
-    )
-
-    parser.add_argument(
-        "--model_name",
-        type=str,
-        default="MonoDepth2",
-        choices=["MonoDepth2", "EndoSFM"],
-        help="Name of the model to train.",
     )
     parser.add_argument(
         "--n_ref_imgs",
@@ -52,6 +40,13 @@ def main():
         help="Number of reference images. Must be at least 1. If the target is at frame t, then the reference frames are at frames  t - n_ref_imgs, ..., t - 1",
     )
     parser.add_argument(
+        "--feed_img_size",
+        type=int,
+        default=475,
+        help="The size of the input images to the network (height and width).",
+    )
+
+    parser.add_argument(
         "--train_method",
         type=str,
         default="GT_pose_and_depth",
@@ -59,17 +54,38 @@ def main():
         help="Method to use for training.",
     )
     parser.add_argument(
-        "--pretrained_model_path",
+        "--egomotion_model_name",
         type=str,
-        default="",
-        help="Path to the pretrained model. If empty string then use the default ImageNet pretrained weights."
-        "Note that a loaded pretrained model must be compatible with the model_name and n_ref_imgs.",
+        default="resnet50",
+        choices=["resnet18", "resnet50"],
+        help="Name of the egomotion model.",
     )
     parser.add_argument(
-        "--path_to_save_model",
+        "--depth_model_name",
+        type=str,
+        default="fcb_former",
+        choices=["fcb_former"],
+        help="Name of the depth model.",
+    )
+    parser.add_argument(
+        "--load_egomotion_model_path",
+        type=str,
+        default="",
+        help="Path to the pretrained egomotion model. If empty string then use the default ImageNet pretrained weights."
+        "Note that a loaded pretrained model must be compatible with the egomotion_model_name and n_ref_imgs.",
+    )
+    parser.add_argument(
+        "--load_depth_model_path",
+        type=str,
+        default="",
+        help="Path to the pretrained depth model. If empty string then use the default ImageNet pretrained weights."
+        "Note that a loaded pretrained model must be compatible with the depth_model_name and n_ref_imgs.",
+    )
+    parser.add_argument(
+        "--path_to_save_models",
         type=str,
         default="data_gcp/models/TEMP",
-        help="Path to save the trained model.",
+        help="Path to save the trained models.",
     )
     parser.add_argument(
         "--n_epochs",
@@ -124,7 +140,9 @@ def main():
     args = parser.parse_args()
     train_method = args.train_method
     n_ref_imgs = args.n_ref_imgs
-    model_name = args.model_name
+
+    # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
+    ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
 
     print(f"args={args}")
     n_workers = args.n_workers
@@ -133,26 +151,23 @@ def main():
     rand_seed = 0  # random seed for reproducibility
     set_rand_seed(rand_seed)
     dataset_path = Path(args.dataset_path)
-    path_to_save_model = Path(args.path_to_save_model)
+    path_to_save_models = Path(args.path_to_save_models)
 
     load_gt_depth = train_method in {"GT_pose_and_depth", "GT_depth_only"}
     load_gt_pose = train_method in {"GT_pose_and_depth"}
 
-    if args.pretrained_model_path != "":
-        pretrained_model_path = Path(args.pretrained_model_path)
-        # load pretrained model info:
-        model_info_path = pretrained_model_path / "model_info.yaml"
-        with model_info_path.open("r") as f:
-            model_info = yaml.load(f, Loader=yaml.FullLoader)
-        assert n_ref_imgs == model_info["n_ref_imgs"], "n_ref_imgs must be the same as the pretrained model"
-    else:
-        # Train from scratch (pretrained on ImageNet)
-        model_info = get_default_model_info(model_name)
-        pretrained_model_path = None
-
-    # the input image size:
-    feed_height = model_info["feed_height"]
-    feed_width = model_info["feed_width"]
+    model_info = ModelInfo(
+        depth_model_name=args.depth_model_name,
+        egomotion_model_name=args.egomotion_model_name,
+        ref_frame_shifts=ref_frame_shifts,
+        feed_height=args.feed_img_size,
+        feed_width=args.feed_img_size,
+        model_description=f"The training script args: {args}",
+    )
+    save_model_info(
+        save_dir_path=path_to_save_models,
+        model_info=model_info,
+    )
 
     # The parameters for generating the training samples:
     n_epochs = args.n_epochs
@@ -161,11 +176,12 @@ def main():
 
     if args.debug_mode:
         print("Running in debug mode!!!!")
-        n_sample_lim = 5
+        n_sample_lim = 30
         n_epochs = 1
-        path_to_save_model = path_to_save_model / "debug"
+        path_to_save_models = path_to_save_models / "_debug_"
         n_scenes_lim = 1
         n_workers = 0  # for debugging
+        torch.autograd.set_detect_anomaly(True)
 
     # dataset split
     dataset_path = Path(args.dataset_path)
@@ -176,30 +192,32 @@ def main():
         validation_ratio=args.validation_ratio,
     )
 
+    # Crate the datasets (suited for the model_info)
     # training set
     train_set = ScenesDataset(
         scenes_paths=train_scenes_paths,
-        feed_height=feed_height,
-        feed_width=feed_width,
-        model_name=model_name,
+        feed_height=model_info.feed_height,
+        feed_width=model_info.feed_width,
+        ref_frame_shifts=model_info.ref_frame_shifts,
         dataset_type="train",
         n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=load_gt_depth,
         load_gt_pose=load_gt_pose,
+        n_scenes_lim=n_scenes_lim,
     )
-
     # validation set
     validation_dataset = ScenesDataset(
         scenes_paths=val_scenes_paths,
-        feed_height=feed_height,
-        feed_width=feed_width,
-        model_name=model_name,
+        feed_height=model_info.feed_height,
+        feed_width=model_info.feed_width,
+        ref_frame_shifts=model_info.ref_frame_shifts,
         dataset_type="val",
         n_ref_imgs=n_ref_imgs,
         n_sample_lim=n_sample_lim,
         load_gt_depth=True,
         load_gt_pose=True,
+        n_scenes_lim=n_scenes_lim,
     )
 
     # data loaders
@@ -209,7 +227,6 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=n_workers,
-        drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
         pin_memory=True,
         persistent_workers=n_workers > 0,
     )
@@ -219,92 +236,64 @@ def main():
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=n_workers,
-        drop_last=True,  # to make sure that the batch size is the same for all batches - drop the last batch if it is smaller than the batch size
         pin_memory=True,
         persistent_workers=n_workers > 0,
     )
 
     # Run training:
-    if model_name == "EndoSFM":
-        train_runner = EndoSFMTrainer(
-            save_path=path_to_save_model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            pretrained_model_path=pretrained_model_path,
-            n_epochs=n_epochs,
-            save_overwrite=args.overwrite_model,
-        )
-    elif model_name == "MonoDepth2":
-        train_runner = MonoDepth2Trainer(
-            save_path=path_to_save_model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            n_scales=4,
-            pretrained_model_path=pretrained_model_path,
-            save_overwrite=args.overwrite_model,
-            n_epochs=n_epochs,
-        )
-    else:
-        raise ValueError(f"Unknown method: {model_name}")
-    train_runner.run()
-
-    # --------------------------------------------------------------------------------------------------------------------
-    # Save model info:
-    # set no depth calibration (depth = net_out) and then run the depth examination to calibrate the depth scale:
-    model_description = f"The model was trained on:  pretrained_model_path: {pretrained_model_path}, n_epochs: {n_epochs}, dataset_path: {dataset_path}, train_method: {train_method}"
-    model_info = ModelInfo(
-        model_name=model_name,
-        n_ref_imgs=n_ref_imgs,
-        feed_height=feed_height,
-        feed_width=feed_width,
-        num_layers=train_runner.num_layers,
-        model_description=model_description,
+    train_runner = NetTrainer(
+        save_path=path_to_save_models,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        depth_model_name=args.depth_model_name,
+        egomotion_model_name=args.egomotion_model_name,
+        load_depth_model_path=get_path(args.load_depth_model_path),
+        load_egomotion_model_path=get_path(args.load_egomotion_model_path),
+        n_epochs=n_epochs,
+        run_name="",
     )
-    save_model_info(
-        save_dir_path=path_to_save_model,
-        model_info=model_info,
-    )
+    train_runner.train()
 
-    # --------------------------------------------------------------------------------------------------------------------
-    # Run depth examination to calibrate the depth scale:
-    depth_examiner = DepthExaminer(
-        dataset_path=dataset_path,
-        model_path=path_to_save_model,
-        save_path=path_to_save_model / "depth_exam_pre_calib",
-        depth_calib_method=args.depth_calib_method,
-        n_scenes_lim=n_scenes_lim,
-        save_overwrite=args.overwrite_depth_exam,
-    )
-    depth_calib = depth_examiner.run()
+    # # --------------------------------------------------------------------------------------------------------------------
+    # # Run depth examination to calibrate the depth scale:
+    # depth_examiner = DepthExaminer(
+    #     dataset_path=dataset_path,
+    #     model_path=path_to_save_model,
+    #     save_path=path_to_save_model / "depth_exam_pre_calib",
+    #     depth_calib_method=args.depth_calib_method,
+    #     n_scenes_lim=n_scenes_lim,
+    #     save_overwrite=args.overwrite_depth_exam,
+    # )
+    # depth_calib = depth_examiner.run()
 
-    # --------------------------------------------------------------------------------------------------------------------
-    if args.update_depth_calib:
-        # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-        info_model_path = path_to_save_model / "model_info.yaml"
-        # update the model info file with the new depth_calib value:
-        model_info.depth_calib_type = depth_calib["depth_calib_type"]
-        model_info.depth_calib_a = depth_calib["depth_calib_a"]
-        model_info.depth_calib_b = depth_calib["depth_calib_b"]
-        save_model_info(
-            save_dir_path=path_to_save_model,
-            model_info=model_info,
-        )
-        print(
-            f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
-        )
+    # # --------------------------------------------------------------------------------------------------------------------
+    # if args.update_depth_calib:
+    #     # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
+    #     info_model_path = path_to_save_model / "model_info.yaml"
+    #     # update the model info file with the new depth_calib value:
+    #     model_info.depth_calib_type = depth_calib["depth_calib_type"]
+    #     model_info.depth_calib_a = depth_calib["depth_calib_a"]
+    #     model_info.depth_calib_b = depth_calib["depth_calib_b"]
+    #     save_model_info(
+    #         save_dir_path=path_to_save_model,
+    #         model_info=model_info,
+    #     )
+    #     print(
+    #         f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
+    #     )
 
-    # --------------------------------------------------------------------------------------------------------------------
-    # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
-    depth_examiner = DepthExaminer(
-        dataset_path=dataset_path,
-        model_path=path_to_save_model,
-        depth_calib_method="none",
-        save_path=path_to_save_model / "depth_exam_post_calib",
-        n_scenes_lim=5,
-        n_frames_lim=5,
-        save_overwrite=args.overwrite_depth_exam,
-    )
-    depth_calib = depth_examiner.run()
+    # # --------------------------------------------------------------------------------------------------------------------
+    # # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
+    # depth_examiner = DepthExaminer(
+    #     dataset_path=dataset_path,
+    #     model_path=path_to_save_model,
+    #     depth_calib_method="none",
+    #     save_path=path_to_save_model / "depth_exam_post_calib",
+    #     n_scenes_lim=5,
+    #     n_frames_lim=5,
+    #     save_overwrite=args.overwrite_depth_exam,
+    # )
+    # depth_calib = depth_examiner.run()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

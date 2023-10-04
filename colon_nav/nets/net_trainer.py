@@ -1,53 +1,81 @@
 from pathlib import Path
 
-import attrs
 import torch
 from torch.utils.data import DataLoader
 
 from colon_nav.nets.fcb_former_model import FCBFormer
-from colon_nav.nets.resnet import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
-from colon_nav.nets.train_utils import DatasetMeta
-from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
+from colon_nav.nets.resnet_model import get_resnet_model
+from colon_nav.nets.train_utils import TensorBoardLogger
+from colon_nav.util.general_util import get_time_now_str
 
-@attrs.define
+
 class NetTrainer:
-    save_path: Path  # path to save the trained model
-    train_loader: DataLoader  # training data loader
-    val_loader: DataLoader  # validation data loader
-    n_epochs: int  # number of epochs to train
-    egomotion_model_name = attrs.attrib(default="resnet50", validator=attrs.validators.in_(["resnet18", "resnet50"]))
-    # parameters that will be set by __attrs_post_init__
-    depth_model: torch.nn.Module
-    egomotion_model: torch.nn.Module
-    train_dataset_meta: DatasetMeta = attrs.field(init=False)
-
-    # ---------------------------------------------------------------------------------------------------------------------
-
-    def __attrs_post_init__(self):
+    def __init__(
+        self,
+        save_path: Path,  # path to save the trained model
+        train_loader: DataLoader,  # training data loader
+        val_loader: DataLoader,  # validation data loader
+        depth_model_name: str = "fcb_former",  # name of the depth model
+        egomotion_model_name: str = "resnet50",  # name of the egomotion model
+        load_depth_model_path: Path | None = None,  # path to load a pretrained depth model
+        load_egomotion_model_path: Path | None = None,  # path to load a pretrained egomotion model
+        n_epochs: int = 300,  # number of epochs to train
+        run_name: str = "",  # name of the run
+    ):
+        self.save_path = save_path
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.n_epochs = n_epochs
+        self.egomotion_model_name = egomotion_model_name
+        self.run_name = run_name or get_time_now_str()
         self.train_dataset_meta = self.train_loader.dataset.dataset_meta
 
         ### Initialize the depth model
-        self.depth_model = FCBFormer()
+        if depth_model_name == "fcb_former":
+            self.depth_model = FCBFormer()
+        else:
+            raise ValueError(f"Unknown depth model name: {depth_model_name}")
+        
+        ### Load pretrained depth model
+        if load_depth_model_path is not None:
+            self.depth_model.load_state_dict(torch.load(load_depth_model_path))
 
         ### Initial the egomotion model
-        if self.egomotion_model_name == "resnet18":
-            self.egomotion_model = resnet18(weights=ResNet18_Weights.DEFAULT)
-        elif self.egomotion_model_name == "resnet50":
-            self.egomotion_model = resnet50(weights=ResNet50_Weights.DEFAULT)
-        else:
-            raise NotImplementedError
+        # TODO: change the input layer for our needs (n_channels=3*(n_ref + 1))
+        # TODO: change the output layer for our needs
+        self.egomotion_model = get_resnet_model(self.egomotion_model_name)
+
+        ### Load pretrained egomotion model
+        if load_egomotion_model_path is not None:
+            self.egomotion_model.load_state_dict(torch.load(load_egomotion_model_path))
 
         ### Initialize the optimizer
+        depth_model_params = list(self.depth_model.parameters())
+        egomotion_model_params = list(self.egomotion_model.parameters())
+        self.optimizer = torch.optim.AdamW(lr=1e-4, params=depth_model_params + egomotion_model_params)
 
         ### Initialize the learning-rate scheduler
-
-        ### Initialize the loss function
-
-        ### Initialize the logger
+        # LR will be halved when the validation loss plateaus for 10 epochs
+        self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=self.optimizer,
+            mode="min",
+            factor=0.5,
+            patience=10,
+            verbose=True,
+        )
 
         ### Initialize the tensorboard writer
+        self.tb_logger = TensorBoardLogger(
+            log_dir=self.save_path / "logs" / self.run_name,
+            train_loader=self.train_loader,
+            val_loader=self.val_loader,
+            model_info=self.model_info,
+            depth_model=self.depth_model,
+            egomotion_model=self.egomotion_model,
+        )
 
         ### Initialize the checkpoint manager
+        # TODO: initialize the checkpoint manager
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -55,10 +83,12 @@ class NetTrainer:
         """Train the network."""
         for epoch in range(self.n_epochs):
             self.train_one_epoch(epoch)
-            self.validate(epoch)
-            self.scheduler.step()
+            val_loss = self.validate(epoch)
+            self.scheduler.step(metrics=val_loss)
             self.checkpoint_manager.step()
             self.logger.write("")
+
+            # TODO: plot example image grid + depth output + info to tensorboard - see https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html
 
     # ---------------------------------------------------------------------------------------------------------------------
 
