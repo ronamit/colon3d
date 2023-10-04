@@ -10,12 +10,13 @@ from torchvision.utils import _log_api_usage_once
 
 from colon_nav.nets.models_utils import ModelInfo
 
-# -------------------------------------------------------‰------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
 
 
 class ResNet(nn.Module):
     def __init__(
         self,
+        n_input_channels: int,
         block: type[BasicBlock | Bottleneck],
         layers: list[int],
         num_classes: int = 1000,
@@ -30,7 +31,7 @@ class ResNet(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
-
+        self.n_input_channels = n_input_channels
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -44,7 +45,7 @@ class ResNet(nn.Module):
             )
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(self.n_input_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -149,23 +150,31 @@ def get_resnet_egomotion_model(model_info: ModelInfo) -> ResNet:
     model_name = model_info.egomotion_model_name
     ref_frame_shifts = model_info.ref_frame_shifts
     n_ref_imgs = len(ref_frame_shifts)
+    n_input_imgs = n_ref_imgs + 1  #  reference frames & target frame
+    n_input_channels = 3 * n_input_imgs  # The RGB images are concatenated along the channel dimension
 
     if model_name == "resnet18":
         weights = ResNet18_Weights.DEFAULT
-        model = ResNet(block=BasicBlock, layers=[2, 2, 2, 2])
+        model = ResNet(n_input_channels=n_input_channels, block=BasicBlock, layers=[2, 2, 2, 2])
     elif model_name == "resnet50":
         weights = ResNet50_Weights.DEFAULT
-        model = ResNet(Bottleneck, [3, 4, 6, 3])
+        model = ResNet(n_input_channels=n_input_channels, block=Bottleneck, layers=[3, 4, 6, 3])
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
     # Load ImageNet pretrained weights
-    model.load_state_dict(weights.get_state_dict(progress=True))
+    weights_dict = weights.get_state_dict(progress=True)
+    conv1_weights = weights_dict["conv1.weight"]  # [out_channels, in_channels, kernel_size, kernel_size]
 
-    # TODO: change the input layer for our needs (n_channels=3*(n_ref + 1))
-    # to keep the same numerical range -  divide the first conv layer weights by (n_ref + 1)
+    # We concatenate the RGB images along the channel dimension, so we need to duplicate the weights
+    #  along the input_channel dimension for n_input_imgs times:
+    conv1_weights = conv1_weights.repeat(1, n_input_imgs, 1, 1)
 
-    return model
+    # Since we increased input_channel times n_input_imgs, we need to adjust the scale of the weights
+    weights_dict["conv1.weight"] = conv1_weights / n_input_imgs
+
+    # Load the weights to the model
+    model.load_state_dict(weights_dict)    return model
 
 
 # -------------------------------------------------------------------------------------------------------------------
