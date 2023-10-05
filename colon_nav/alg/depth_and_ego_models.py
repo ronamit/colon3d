@@ -49,6 +49,8 @@ class DepthModel:
         print(f"depth_calibrations: a={self.depth_calib_a}, b={self.depth_calib_b}")
         self.device = get_device()
 
+        # TODO: use @torch.compile on the models
+
         # create the disparity\depth estimation network
         if self.model_name == "EndoSFM":
             self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info.num_layers, pretrained=True)
@@ -174,8 +176,8 @@ class EgomotionModel:
         self.depth_model_feed_width = self.model_info.depth_model_feed_width
         self.depth_model_feed_height = self.model_info.depth_model_feed_height
 
-        # TODO: use transform 
-        
+        # TODO: use transform
+
         # create the egomotion estimation network
         if self.model_name == "EndoSFM":
             pose_net_path = model_path / "PoseNet_best.pt"

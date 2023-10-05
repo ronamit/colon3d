@@ -6,7 +6,7 @@ from colon_nav.util.torch_util import get_device
 # -------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
+@torch.compile
 def upper_log_barrier(
     val: torch.Tensor,
     upper_lim: torch.Tensor,
@@ -29,7 +29,7 @@ def upper_log_barrier(
 # -------------------------------------------------------------------------------------------------------------------
 
 
-@torch.jit.script  # disable this for debugging
+@torch.compile
 def lower_log_barrier(
     val: torch.Tensor,
     lower_lim: torch.Tensor,
