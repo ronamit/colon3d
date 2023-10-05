@@ -13,13 +13,13 @@ from colon_nav.nets.models_utils import ModelInfo
 # -------------------------------------------------------------------------------------------------------------------
 
 
-class ResNet(nn.Module):
+class EgomotionResNet(nn.Module):
     def __init__(
         self,
         n_input_channels: int,
         block: type[BasicBlock | Bottleneck],
         layers: list[int],
-        num_classes: int = 1000,
+        output_dim: int,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
@@ -54,7 +54,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, output_dim)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -136,7 +136,9 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-
+        # we got a 7-dimensional vector: 3 for translation, 4 for rotation
+        # Apply SoftMax on the last 4 elements of the output vector (the rotation unit-quaternion) to get l2-norm = 1
+        x[:, 3:] = torch.softmax(x[:, 3:], dim=1)
         return x
 
     def forward(self, x: Tensor) -> Tensor:
@@ -146,7 +148,7 @@ class ResNet(nn.Module):
 # -------------------------------------------------------------------------------------------------------------------
 
 
-def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> ResNet:
+def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> EgomotionResNet:
     """ Get the ResNet egomotion model.
     Args:
         model_info: The model info object.
@@ -161,12 +163,16 @@ def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> ResNet
     n_input_imgs = n_ref_imgs + 1  #  reference frames & target frame
     n_input_channels = 3 * n_input_imgs  # The RGB images are concatenated along the channel dimension
 
+    # The output of the network is a 7-dimensional vector: 3 for translation, 4 for rotation
+    # The rotation is represented by a unit quaternion (l2-norm = 1)
+    output_dim = 7
+
     if model_name == "resnet18":
         weights = ResNet18_Weights.DEFAULT
-        model = ResNet(n_input_channels=n_input_channels, block=BasicBlock, layers=[2, 2, 2, 2])
+        model = EgomotionResNet(n_input_channels=n_input_channels, output_dim=output_dim, block=BasicBlock, layers=[2, 2, 2, 2])
     elif model_name == "resnet50":
         weights = ResNet50_Weights.DEFAULT
-        model = ResNet(n_input_channels=n_input_channels, block=Bottleneck, layers=[3, 4, 6, 3])
+        model = EgomotionResNet(n_input_channels=n_input_channels, output_dim=output_dim, block=Bottleneck, layers=[3, 4, 6, 3])
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -182,8 +188,10 @@ def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> ResNet
         # Since we increased input_channel times n_input_imgs, we need to adjust the scale of the weights
         weights_dict["conv1.weight"] = conv1_weights / n_input_imgs
 
-        # Load the weights to the model
-        model.load_state_dict(weights_dict)
+        # Load the weights to the model (note that the output layer is not loaded)
+        # exclude the output later, since we have a different output dimension
+        weights_dict = {k: v for k, v in weights_dict.items() if k not in {"fc.weight", "fc.bias"}}
+        model.load_state_dict(weights_dict, strict=False)
     return model
 
 

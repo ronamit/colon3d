@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from colon_nav.nets.fcb_former_model import FCBFormer
-from colon_nav.nets.models_utils import ModelInfo, TensorBoardLogger
+from colon_nav.nets.models_utils import ModelInfo, TensorBoardWriter
 from colon_nav.nets.resnet_model import get_resnet_egomotion_model
 from colon_nav.util.general_util import get_time_now_str
 
@@ -41,8 +41,6 @@ class NetTrainer:
             self.depth_model.load_state_dict(torch.load(load_depth_model_path))
 
         ### Initial the egomotion model
-        # TODO: change the input layer for our needs (n_channels=3*(n_ref + 1))
-        # TODO: change the output layer for our needs
         self.egomotion_model = get_resnet_egomotion_model(model_info=model_info)
 
         ### Load pretrained egomotion model
@@ -65,7 +63,8 @@ class NetTrainer:
         )
 
         ### Initialize the tensorboard writer
-        self.tb_logger = TensorBoardLogger(
+        print(f"Saving tensorboard logs to {self.save_path / 'logs' / self.run_name}")
+        self.tb_writer = TensorBoardWriter(
             log_dir=self.save_path / "logs" / self.run_name,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
@@ -81,12 +80,12 @@ class NetTrainer:
 
     def train(self):
         """Train the network."""
+        self.global_step = 0
         for epoch in range(self.n_epochs):
             self.train_one_epoch(epoch)
             val_loss = self.validate(epoch)
-            self.scheduler.step(metrics=val_loss)
-            self.checkpoint_manager.step()
-            self.logger.write("")
+            self.lr_scheduler.step(metrics=val_loss)
+            # self.checkpoint_manager.step()
 
             # TODO: plot example image grid + depth output + info to tensorboard - see https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html
 
@@ -94,8 +93,7 @@ class NetTrainer:
 
     def train_one_epoch(self, epoch):
         """Train the network for one epoch."""
-        self.model.train()
-        self.logger.write(f"Training epoch {epoch}:")
+        print(f"Training epoch {epoch}:")
         for batch_idx, batch in enumerate(self.train_loader):
             self.train_one_batch(batch_idx, batch)
 
@@ -107,9 +105,9 @@ class NetTrainer:
         losses = self.compute_losses(batch)
         losses["loss"].backward()
         self.optimizer.step()
-        self.logger.write(f"  Batch {batch_idx}:")
-        self.logger.write_losses(losses, prefix="    ")
-        self.writer.add_scalar("train/loss", losses["loss"].item(), self.global_step)
+        print(f"  Batch {batch_idx}:")
+        print(losses, prefix="    ")
+        self.tb_writer.add_scalar("train/loss", losses["loss"].item(), self.global_step)
         self.global_step += 1
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -125,20 +123,19 @@ class NetTrainer:
     def validate(self, epoch):
         """Validate the network."""
         self.model.eval()
-        self.logger.write(f"Validation epoch {epoch}:")
+        print(f"Validation epoch {epoch}:")
         with torch.no_grad():
             for batch_idx, batch in enumerate(self.val_loader):
                 self.validate_one_batch(batch_idx, batch)
-        self.logger.write("")
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def validate_one_batch(self, batch_idx, batch):
         """Validate the network for one batch."""
         losses = self.compute_losses(batch)
-        self.logger.write(f"  Batch {batch_idx}:")
-        self.logger.write_losses(losses, prefix="    ")
-        self.writer.add_scalar("val/loss", losses["loss"].item(), self.global_step)
+        print(f"  Batch {batch_idx}:")
+        print(losses, prefix="    ")
+        self.tb_writer.add_scalar("val/loss", losses["loss"].item(), self.global_step)
 
     # ---------------------------------------------------------------------------------------------------------------------
 

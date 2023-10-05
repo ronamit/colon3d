@@ -170,9 +170,9 @@ def main():
     if args.debug_mode:
         print("Running in debug mode!!!!")
         n_sample_lim = 30
+        n_scenes_lim = 1
         n_epochs = 1
         path_to_save_models = path_to_save_models / "_debug_"
-        n_scenes_lim = 1
         n_workers = 0  # for debugging
         torch.autograd.set_detect_anomaly(True)
 

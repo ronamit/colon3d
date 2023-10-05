@@ -73,7 +73,7 @@ def load_model_model_info(path: Path) -> ModelInfo:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-class TensorBoardLogger:
+class TensorBoardWriter:
     def __init__(
         self,
         log_dir: Path,
@@ -82,6 +82,7 @@ class TensorBoardLogger:
         model_info: ModelInfo,
         depth_model: torch.nn.Module,
         egomotion_model: torch.nn.Module,
+        show_graph: bool = False,
     ) -> None:
         self.writer = SummaryWriter(log_dir=log_dir)
         self.train_loader = train_loader
@@ -91,7 +92,8 @@ class TensorBoardLogger:
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
-        self.visualize_graph()
+        if show_graph:
+            self.visualize_graph()
 
     def log_train_loss(self, epoch: int, loss: float, lr: float) -> None:
         self.writer.add_scalar("train/loss", loss, epoch)

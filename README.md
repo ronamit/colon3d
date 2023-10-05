@@ -1,4 +1,4 @@
-# Colon3D
+# colon_nav
 
 ## About
 
@@ -44,13 +44,12 @@ pip3 install -U torch torchvision torchaudio
 
 * Final step:
 
-  * Go to the project main dir (e.g. ~/repos/colon3d)
+  * Go to the project main dir (e.g. ~/repos/colon_nav)
   * Run
 
 ```bash
 pip install -e .
 ```
-
 
 ## Optional install for faster 3D fuse plot
 
@@ -97,33 +96,33 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 ## Code usage
 
 * Note that that the all the outputs that was used in the paper are provided in the cloud storage.
-* To run a script, activate the conda environment *(e.g., conda activate py_env)* and go to the main project dir (*e.g. ~/repos/colon3d)*. and run the script using python -m, for example:
+* To run a script, activate the conda environment *(e.g., conda activate py_env)* and go to the main project dir (*e.g. ~/repos/colon_nav)*. and run the script using python -m, for example:
 
 ```bash
-  python -m colon3d.sim_import.import_dataset --dataset_name "SimCol3D" --dataset_path "data/raw_datasets/SimCol3D" --save_path "data/datasets/SimCol3D"
+  python -m colon_nav.sim_import.import_dataset --dataset_name "SimCol3D" --dataset_path "data/raw_datasets/SimCol3D" --save_path "data/datasets/SimCol3D"
 ```
 
 * We outline below the main run scripts in the code. See the scripts for more details on the run options.
 
-** colon3d.sim_import.create_ColonNav: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
+** colon_nav.sim_import.create_ColonNav: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
 
-** colon3d.sim_import.create_SimCol3D:  Importing the SimCol3D dataset the format used by our code.
+** colon_nav.sim_import.create_SimCol3D:  Importing the SimCol3D dataset the format used by our code.
 
-** colon3d.sim_import.import_dataset : Importing the otr datasets into the format used by our code.
+** colon_nav.sim_import.import_dataset : Importing the otr datasets into the format used by our code.
 
-** colon3d.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
+** colon_nav.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
 
-** colon3d.run_train:  Train depth & egomotion estimators using training data.
+** colon_nav.nets.run_train:  Train depth & egomotion estimators using training data.
 
-* colon3d.run_on_scene: Run the algorithm on a single scene.
+* colon_nav.run_on_scene: Run the algorithm on a single scene.
 
-* colon3d.run_on_sim_scene: Run the algorithm on a single simulated scene (that have ground-truth camera pose data).
+* colon_nav.run_on_sim_scene: Run the algorithm on a single simulated scene (that have ground-truth camera pose data).
 
-* colon3d.run_on_sim_dataset: Run the algorithm on a dataset of simulated examples (that have ground-truth camera pose data).
+* colon_nav.run_on_sim_dataset: Run the algorithm on a dataset of simulated examples (that have ground-truth camera pose data).
 
 * Run all experiments on the ColonNav dataset (see file for more details).
 
-* olon3d.run_zhang_all: Run all experiments with the Zhang22 dataset
+* colon_nav.run_zhang_all: Run all experiments with the Zhang22 dataset
 
 ## References
 
