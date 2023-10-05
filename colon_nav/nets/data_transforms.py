@@ -74,8 +74,7 @@ class CreateNetInputs:
         # resize the images to the feed size (if needed)
         all_imgs = [self.ego_in_resizer(img) for img in all_imgs]
         # concatenate the images along the channel dimension:
-        sample["ego_model_in"] = torch.cat(all_imgs, dim=1)
-
+        sample["ego_model_in"] = torch.cat(all_imgs, dim=0) # shape: [C, H, W]
         return sample
 
     # create input for the depth model:

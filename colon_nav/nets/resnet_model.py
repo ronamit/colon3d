@@ -137,8 +137,9 @@ class EgomotionResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         # we got a 7-dimensional vector: 3 for translation, 4 for rotation
-        # Apply SoftMax on the last 4 elements of the output vector (the rotation unit-quaternion) to get l2-norm = 1
-        x[:, 3:] = torch.softmax(x[:, 3:], dim=1)
+        # We normalize the rotation vector to be a unit quaternion (l2-norm = 1)
+        eps = 1e-12
+        x[:, 3:] = x[:, 3:] / (torch.norm(x[:, 3:], dim=1, keepdim=True) + eps)
         return x
 
     def forward(self, x: Tensor) -> Tensor:

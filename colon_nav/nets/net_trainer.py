@@ -63,9 +63,8 @@ class NetTrainer:
         )
 
         ### Initialize the tensorboard writer
-        print(f"Saving tensorboard logs to {self.save_path / 'logs' / self.run_name}")
         self.tb_writer = TensorBoardWriter(
-            log_dir=self.save_path / "logs" / self.run_name,
+            log_dir=self.save_path / "runs" / self.run_name,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
             model_info=self.model_info,

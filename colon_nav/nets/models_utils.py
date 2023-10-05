@@ -82,13 +82,14 @@ class TensorBoardWriter:
         model_info: ModelInfo,
         depth_model: torch.nn.Module,
         egomotion_model: torch.nn.Module,
-        show_graph: bool = False,
+        show_graph: bool = True,
     ) -> None:
         self.writer = SummaryWriter(log_dir=log_dir)
         self.train_loader = train_loader
         self.val_loader = val_loader
         assert len(self.train_loader) > 0, "Training data loader is empty"
         assert len(self.val_loader) > 0, "Validation data loader is empty"
+        print(f"Saving tensorboard logs to {log_dir}")
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
