@@ -93,6 +93,7 @@ class TensorBoardWriter:
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
+        self.visualize_inputs()
         if show_graph:
             self.visualize_graph()
 
@@ -108,12 +109,13 @@ class TensorBoardWriter:
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()
 
-    def visualize_output(self, epoch: int) -> None:
-        # Sample a batch of data from the validation set
+    
+    def visualize_inputs(self) -> None:
         sample = next(iter(self.train_loader))
-        images = sample["color"]
-        img_grid = torchvision.utils.make_grid(images)
-        self.writer.add_image("val/input", img_grid, global_step=epoch)
+        # Take the RGB images from the first example in the batch
+        input_images = [sample[("color", shift)][0] for shift in self.model_info.ref_frame_shifts]
+        img_grid = torchvision.utils.make_grid(input_images)
+        self.writer.add_image("example_input", img_grid, global_step=0)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
