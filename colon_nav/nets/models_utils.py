@@ -17,6 +17,8 @@ class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
+    img_normalize_mean: float = 0.45  # used in "normalize_image_channels"
+    img_normalize_std: float = 0.225  #  used in "normalize_image_channels"
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
@@ -109,11 +111,15 @@ class TensorBoardWriter:
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()
 
-    
     def visualize_inputs(self) -> None:
         sample = next(iter(self.train_loader))
+        img_normalize_mean = self.model_info.img_normalize_mean
+        img_normalize_std = self.model_info.img_normalize_std
         # Take the RGB images from the first example in the batch
-        input_images = [sample[("color", shift)][0] for shift in self.model_info.ref_frame_shifts]
+        all_shifts = [*self.model_info.ref_frame_shifts, 0]
+        input_images = [sample[("color", shift)][0] for shift in all_shifts]
+        # Un-normalize the images:
+        input_images = [img * img_normalize_std + img_normalize_mean for img in input_images]
         img_grid = torchvision.utils.make_grid(input_images)
         self.writer.add_image("example_input", img_grid, global_step=0)
 

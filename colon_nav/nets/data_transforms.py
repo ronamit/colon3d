@@ -196,10 +196,10 @@ def normalize_image_channels(img: torch.Tensor, img_normalize_mean: float = 0.45
 
 
 class NormalizeImageChannels:
-    def __init__(self, model_info: ModelInfo, mean: float = 0.45, std: float = 0.225):
+    def __init__(self, model_info: ModelInfo):
         # Normalize the image channels to the mean and std of the ImageNet dataset
-        self.mean = mean
-        self.std = std
+        self.mean = model_info.img_normalize_mean
+        self.std = model_info.img_normalize_std
         self.all_frames_shifts = [*model_info.ref_frame_shifts, 0]
 
     def __call__(self, sample: dict):
