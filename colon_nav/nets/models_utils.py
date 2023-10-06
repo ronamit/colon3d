@@ -113,8 +113,9 @@ class TensorBoardWriter:
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()
 
-    def show_data(self) -> None:
-        sample = next(iter(self.train_loader))
+    def show_data(self, dataset_name="train") -> None:
+        data_loader = self.train_loader if dataset_name == "train" else self.val_loader
+        sample = next(iter(data_loader))
         ind = 0  # index of the sample in the batch
         img_normalize_mean = self.model_info.img_normalize_mean
         img_normalize_std = self.model_info.img_normalize_std
@@ -146,11 +147,11 @@ class TensorBoardWriter:
             self.writer.add_figure("GT depth images", fig)
 
         # Print the sample source info:
-        train_set = self.train_loader.dataset
-        scenes_paths = train_set.scenes_paths
+        dataset = data_loader.dataset
+        scenes_paths = dataset.scenes_paths
         scene_index = sample["scene_index"][ind]
         target_frame_index = sample["target_frame_idx"][ind]
-        fps = train_set.get_scene_metadata()["fps"]
+        fps = dataset.get_scene_metadata()["fps"]
         self.writer.add_text(
             "Sample source",
             f"Scene index: {scene_index}, target frame index: {target_frame_index}, Scene path: {scenes_paths[scene_index]}, target frame time: {to_str(target_frame_index/fps, precision=4)} [s]",
