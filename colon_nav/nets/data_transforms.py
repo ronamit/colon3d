@@ -116,7 +116,7 @@ class ToTensors:
 
 
         # String that lists the augmentations done on the sample:
-        sample["augments"] = ""
+        sample["augments"] = "Augmentations: "
 
         return sample
 

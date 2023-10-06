@@ -454,23 +454,23 @@ def get_most_common_values(array, num_values=5):
 # ------------------------------------------------------------
 
 
-def to_str(a):
+def to_str(a, precision=2):
     if isinstance(a, Path):
         return str(a.resolve())
     if isinstance(a, torch.Tensor):
-        return to_str(a.detach().cpu().numpy())
+        return to_str(a.detach().cpu().numpy(), precision)
     if isinstance(a, tuple):
-        return "(" + (", ".join([to_str(val) for val in a])) + ")"
+        return "(" + (", ".join([to_str(val, precision) for val in a])) + ")"
     if isinstance(a, list):
-        return "[" + (", ".join([to_str(val) for val in a])) + "]"
+        return "[" + (", ".join([to_str(val, precision) for val in a])) + "]"
     if isinstance(a, dict):
-        return "{" + (", ".join([f"{key}:{to_str(val)}" for key, val in a.items()])) + "}"
+        return "{" + (", ".join([f"{key}:{to_str(val, precision)}" for key, val in a.items()])) + "}"
     if isinstance(a, tuple):
-        return "(" + (", ".join([to_str(val) for val in a])) + ")"
+        return "(" + (", ".join([to_str(val, precision) for val in a])) + ")"
     if isinstance(a, np.ndarray):
-        return np.array2string(a, separator=",", precision=2, suppress_small=True)
+        return np.array2string(a, separator=",", precision=precision, suppress_small=True)
     if isinstance(a, float):
-        return f"{a:.2f}"
+        return f"{a:.{precision}f}"
     return str(a)
 
 
