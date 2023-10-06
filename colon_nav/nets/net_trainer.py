@@ -63,7 +63,7 @@ class NetTrainer:
         )
 
         ### Initialize the tensorboard writer
-        self.tb_writer = TensorBoardWriter(
+        self.logger = TensorBoardWriter(
             log_dir=Path("runs") / self.run_name,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
@@ -98,7 +98,7 @@ class NetTrainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def train_one_batch(self, batch_idx, batch):
+    def train_one_batch(self, batch_idx: int, batch):
         """Train the network for one batch."""
         self.optimizer.zero_grad()
         losses = self.compute_losses(batch)
@@ -106,7 +106,7 @@ class NetTrainer:
         self.optimizer.step()
         print(f"  Batch {batch_idx}:")
         print(losses, prefix="    ")
-        self.tb_writer.add_scalar("train/loss", losses["loss"].item(), self.global_step)
+        self.logger.writer.add_scalar("train/loss", losses["loss"].item(), self.global_step)
         self.global_step += 1
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -129,12 +129,12 @@ class NetTrainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def validate_one_batch(self, batch_idx, batch):
+    def validate_one_batch(self, batch_idx: int, batch):
         """Validate the network for one batch."""
         losses = self.compute_losses(batch)
         print(f"  Batch {batch_idx}:")
         print(losses, prefix="    ")
-        self.tb_writer.add_scalar("val/loss", losses["loss"].item(), self.global_step)
+        self.logger.writer("val/loss", losses["loss"].item(), self.global_step)
 
     # ---------------------------------------------------------------------------------------------------------------------
 

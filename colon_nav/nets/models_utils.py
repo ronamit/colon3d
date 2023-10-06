@@ -4,6 +4,7 @@ import attrs
 import torch
 import torchvision
 import yaml
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -84,7 +85,7 @@ class TensorBoardWriter:
         model_info: ModelInfo,
         depth_model: torch.nn.Module,
         egomotion_model: torch.nn.Module,
-        show_graph: bool = True,
+        show_graph: bool = False,
     ) -> None:
         self.writer = SummaryWriter(log_dir=log_dir)
         self.train_loader = train_loader
@@ -95,7 +96,7 @@ class TensorBoardWriter:
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
-        self.visualize_inputs()
+        self.show_data()
         if show_graph:
             self.visualize_graph()
 
@@ -111,17 +112,46 @@ class TensorBoardWriter:
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()
 
-    def visualize_inputs(self) -> None:
+    def show_data(self) -> None:
         sample = next(iter(self.train_loader))
         img_normalize_mean = self.model_info.img_normalize_mean
         img_normalize_std = self.model_info.img_normalize_std
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
+        n_ref_frames = len(self.model_info.ref_frame_shifts)
         input_images = [sample[("color", shift)][0] for shift in all_shifts]
         # Un-normalize the images:
         input_images = [img * img_normalize_std + img_normalize_mean for img in input_images]
         img_grid = torchvision.utils.make_grid(input_images)
-        self.writer.add_image("example_input", img_grid, global_step=0)
+        self.writer.add_image(f"RGB images: {n_ref_frames} reference + target", img_grid, global_step=0)
+
+        # show the GT depth, if available
+        if ("depth_gt", 0) in sample:
+            depth_gt_images = [sample[("depth_gt", shift)][0] for shift in all_shifts]
+            # create a heatmap subplot with scale, for each depth image
+            fig, axs = plt.subplots(1, len(depth_gt_images))
+            for i, img in enumerate(depth_gt_images):
+                axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest")
+                axs[i].set_title(f"Depth image {i}")
+                axs[i].axis("off")
+                fig.colorbar(
+                    axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest"),
+                    ax=axs[i],
+                    location="bottom",
+                )
+
+            fig.tight_layout()
+            self.writer.add_figure("GT depth images", fig)
+        # show the GT poses, if available,
+        if ("abs_pose", 0) in sample:
+            poses_gt = torch.stack([sample[("abs_pose", shift)][0] for shift in all_shifts])
+            self.writer.add_tensor(f"GT poses (for frame shifts: {all_shifts})", poses_gt, global_step=0)
+
+        # print the list of augmentation transforms done on the sample:
+        self.writer.add_text("Augmentation transforms", str(sample["augments"]), global_step=0)
+
+        # save updates to disk
+        self.writer.flush()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

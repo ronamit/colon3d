@@ -40,7 +40,6 @@ def main():
         default=2,
         help="Number of reference images. Must be at least 1. If the target is at frame t, then the reference frames are at frames  t - n_ref_imgs, ..., t - 1",
     )
-
     parser.add_argument(
         "--train_method",
         type=str,

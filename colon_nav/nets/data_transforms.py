@@ -113,6 +113,11 @@ class ToTensors:
             k = ("abs_pose", shift)
             if k in sample:
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
+
+
+        # String that lists the augmentations done on the sample:
+        sample["augments"] = ""
+
         return sample
 
 
@@ -166,6 +171,8 @@ class RandomHorizontalFlip:
                 sample[("abs_pose", shift)] = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose).reshape(
                     7,
                 )
+
+        sample["augments"] += " flip_x, "
         return sample
 
 
