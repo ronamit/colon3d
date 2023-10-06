@@ -130,6 +130,12 @@ def main():
         default=True,
         help="If True, then use a small dataset and 1 epoch for debugging",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Random seed for reproducibility, if 0 then use the current time as the seed.",
+    )
 
     args = parser.parse_args()
     train_method = args.train_method
@@ -142,8 +148,7 @@ def main():
     n_workers = args.n_workers
     torch.cuda.empty_cache()
 
-    rand_seed = 0  # random seed for reproducibility
-    set_rand_seed(rand_seed)
+    random_seed = set_rand_seed(args.seed)
     dataset_path = Path(args.dataset_path)
     path_to_save_models = Path(args.path_to_save_models)
 
@@ -155,6 +160,7 @@ def main():
         egomotion_model_name=args.egomotion_model_name,
         ref_frame_shifts=ref_frame_shifts,
         model_description=f"The training script args: {args}",
+        random_seed=random_seed,
     )
     save_model_info(
         save_dir_path=path_to_save_models,

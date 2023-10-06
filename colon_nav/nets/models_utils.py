@@ -24,6 +24,7 @@ class ModelInfo:
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
     model_description: str = ""
+    random_seed: int | None = None
     # Fields that will be initialized in post-init:
     depth_model_feed_height: int = attrs.field(init=False)
     depth_model_feed_width: int = attrs.field(init=False)

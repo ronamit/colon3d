@@ -1,4 +1,5 @@
 import argparse
+import random
 import shutil
 import subprocess
 import sys
@@ -101,11 +102,16 @@ def save_run_info(save_path: Path):
 
 
 def set_rand_seed(seed):
+    if seed == 0:
+        # use the current time as the seed
+        seed = int(datetime.now(tz=timezone.utc).timestamp())
     # Set random seed
-    torch.manual_seed(seed)
+    random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
     cudnn.deterministic = True
     cudnn.benchmark = False
+    return seed
 
 
 # --------------------------------------------------------------------------------------------------------------------
