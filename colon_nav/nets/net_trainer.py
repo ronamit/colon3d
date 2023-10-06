@@ -64,7 +64,7 @@ class NetTrainer:
 
         ### Initialize the tensorboard writer
         self.logger = TensorBoardWriter(
-            log_dir=Path("runs") / self.run_name,
+            log_dir=Path("_runs") / self.run_name,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
             model_info=self.model_info,

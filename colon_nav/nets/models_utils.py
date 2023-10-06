@@ -144,13 +144,25 @@ class TensorBoardWriter:
 
             fig.tight_layout()
             self.writer.add_figure("GT depth images", fig)
+
+        # Print the sample source info:
+        train_set = self.train_loader.dataset
+        scenes_paths = train_set.scenes_paths
+        scene_index = sample["scene_index"][ind]
+        target_frame_index = sample["target_frame_idx"][ind]
+        fps = train_set.get_scene_metadata()["fps"]
+        self.writer.add_text(
+            "Sample source",
+            f"Scene index: {scene_index}, target frame index: {target_frame_index}, Scene path: {scenes_paths[scene_index]}, target frame time: {to_str(target_frame_index/fps, precision=4)} [s]",
+            global_step=0,
+        )
         # show the GT poses, if available,
         if ("abs_pose", 0) in sample:
             text_string = ""
             for shift in all_shifts:
                 pose = sample[("abs_pose", shift)][ind]
                 text_string += f"Shift {shift}: translation: {to_str(pose[:3], precision=4)} [mm], rotation: {to_str(pose[3:], precision=4)} [unit-quaternion]<br>"
-            self.writer.add_text(f"GT poses (for frame shifts: {all_shifts})", text_string=text_string, global_step=0)
+            self.writer.add_text("GT poses", text_string=text_string, global_step=0)
 
         # print the list of augmentation transforms done on the sample:
         self.writer.add_text("Augmentation transforms", str(sample["augments"][ind]), global_step=0)

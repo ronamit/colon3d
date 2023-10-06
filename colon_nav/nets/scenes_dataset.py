@@ -97,6 +97,8 @@ class ScenesDataset(data.Dataset):
         target_frame_idx = target_id["target_frame_idx"]
         scene_path = self.scenes_paths[scene_index]
         scene_frames_paths = self.frame_paths_per_scene[scene_index]
+        sample["scene_index"] = scene_index # for debugging
+        sample["target_frame_idx"] = target_frame_idx # for debugging
 
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
