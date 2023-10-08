@@ -14,7 +14,7 @@ from colon_nav.util.general_util import (
     coord_to_cv2kp,
     create_empty_folder,
     load_rgb_image,
-    save_plot_and_close,
+    save_current_figure_and_close,
     save_rgb_image,
     save_video_from_frames_list,
     save_video_from_func,
@@ -222,7 +222,7 @@ def draw_kp_on_img(
         )
     display_image_in_actual_size(vis_frame)
     if save_path:
-        save_plot_and_close(save_path / f"{i_frame:06d}_kp.png")
+        save_current_figure_and_close(save_path / f"{i_frame:06d}_kp.png")
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -322,7 +322,7 @@ def draw_matches(
     plt.figure()
     display_image_in_actual_size(new_img)
     if save_path:
-        save_plot_and_close(save_path / f"{i_frameA:06d}_{i_frameB:06d}_match.png")
+        save_current_figure_and_close(save_path / f"{i_frameA:06d}_{i_frameB:06d}_match.png")
 
 
 # --------------------------------------------------------------------------------------------------------------------

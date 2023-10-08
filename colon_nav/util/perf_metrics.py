@@ -6,7 +6,7 @@ import numpy as np
 from colon_nav.alg.tracks_loader import DetectionsTracker, get_track_angle_from_cam_sys_loc
 from colon_nav.data_import.simulate_tracks import TargetsInfo
 from colon_nav.util.data_util import SceneLoader
-from colon_nav.util.general_util import save_plot_and_close
+from colon_nav.util.general_util import save_current_figure_and_close
 from colon_nav.util.perf_metrics_SimCol import calc_sim_col_metrics
 from colon_nav.util.pose_transforms import (
     compose_poses,
@@ -389,7 +389,7 @@ def plot_trajectory_metrics(metrics_per_frame: dict, save_path: Path):
         ax.set_title(metric_name)
         ax.grid(True)
     fig.tight_layout()
-    save_plot_and_close(save_path)
+    save_current_figure_and_close(save_path)
 
 
 # --------------------------------------------------------------------------------------------------------------------

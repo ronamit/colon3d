@@ -13,7 +13,7 @@ from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,
     create_empty_folder,
-    save_plot_and_close,
+    save_current_figure_and_close,
     save_video_from_frames_list,
 )
 from colon_nav.visuals.plots_2d import draw_alg_view_in_the_full_frame, draw_track_box_on_frame
@@ -128,7 +128,7 @@ class VideoModifier:
             plt.plot(self.is_in_view_orig)
             plt.xlabel("Frame index")
             plt.ylabel("Is track in alg. view")
-            save_plot_and_close(save_path / "orig_is_in_view.png")
+            save_current_figure_and_close(save_path / "orig_is_in_view.png")
 
         # # Extend the time of each out-of-view segment, by playing it forward and backward
         new_vid_frame_inds = []
@@ -202,7 +202,7 @@ class VideoModifier:
         plt.plot(new_vid_frame_inds)
         plt.xlabel("Frame index in the new video")
         plt.ylabel("Frame index in the original video")
-        save_plot_and_close(save_path / "new_vid_frame_inds.png")
+        save_current_figure_and_close(save_path / "new_vid_frame_inds.png")
 
         # Create new tracks file
         new_tracks_original = {"frame_idx": [], "track_id": [], "xmin": [], "ymin": [], "xmax": [], "ymax": []}

@@ -7,7 +7,13 @@ import yaml
 
 from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
-from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, save_plot_and_close
+from colon_nav.util.general_util import (
+    ArgsHelpFormatter,
+    Tee,
+    bool_arg,
+    create_empty_folder,
+    save_current_figure_and_close,
+)
 from colon_nav.util.torch_util import resize_single_image, to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -231,13 +237,13 @@ def compute_depths(
         fig_name = f"{scene_name}_depth_{fig_label}_{frame_idx}"
         plt.title(fig_name)
         plt.tight_layout()
-        save_plot_and_close(save_path / fig_name)
+        save_current_figure_and_close(save_path / fig_name)
 
         plt.figure()
         plt.imshow(rgb_frame)
         fig_name = f"{scene_name}_rgb_{frame_idx}"
         plt.title(fig_name)
-        save_plot_and_close(save_path / fig_name)
+        save_current_figure_and_close(save_path / fig_name)
 
     depth_map = to_numpy(depth_map, num_type="float_m")
     return depth_map

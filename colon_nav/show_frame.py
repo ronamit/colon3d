@@ -9,7 +9,12 @@ import numpy as np
 from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.alg.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
-from colon_nav.util.general_util import ArgsHelpFormatter, create_empty_folder, save_plot_and_close, save_rgb_image
+from colon_nav.util.general_util import (
+    ArgsHelpFormatter,
+    create_empty_folder,
+    save_current_figure_and_close,
+    save_rgb_image,
+)
 from colon_nav.util.pose_transforms import get_frame_point_cloud, transform_points_world_to_cam
 from colon_nav.util.torch_util import np_func, to_default_type, to_numpy
 from colon_nav.visuals.create_3d_obj import plot_cam_and_point_cloud
@@ -99,7 +104,7 @@ def main():
     plt.imshow(z_depth_frame, aspect="equal")
     plt.xlabel("x [pixels]")
     plt.ylabel("y [pixels]")
-    save_plot_and_close(save_path / f"{frame_name}_depth_{args.depth_maps_source}.png")
+    save_current_figure_and_close(save_path / f"{frame_name}_depth_{args.depth_maps_source}.png")
 
     fx = scene_loader.alg_cam_info.fx
     fy = scene_loader.alg_cam_info.fy

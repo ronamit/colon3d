@@ -7,7 +7,7 @@ import numpy as np
 
 from colon_nav.alg.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader
-from colon_nav.util.general_util import ArgsHelpFormatter, save_plot_and_close
+from colon_nav.util.general_util import ArgsHelpFormatter, save_current_figure_and_close
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -67,9 +67,11 @@ def main():
     plt.errorbar(out_of_view_avg_seg_time, avg_err_deg, yerr=err_confidence, fmt="o")
     plt.xlabel("Avg. out-of-view segment length [Sec]")
     plt.ylabel("Average error [Deg]")
-    plt.title(f"Average estimation error of the target angle before return to view. \n over {int(n_seg.mean())} segments (95% CI)")
+    plt.title(
+        f"Average estimation error of the target angle before return to view. \n over {int(n_seg.mean())} segments (95% CI)",
+    )
     plt.grid()
-    save_plot_and_close(save_path / "avg_err_per_scale.png")
+    save_current_figure_and_close(save_path / "avg_err_per_scale.png")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

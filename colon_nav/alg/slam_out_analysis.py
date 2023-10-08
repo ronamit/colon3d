@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from colon_nav.alg.alg_settings import AlgorithmParam
-from colon_nav.util.general_util import save_plot_and_close
+from colon_nav.util.general_util import save_current_figure_and_close
 from colon_nav.util.rotations_util import find_rotation_delta, get_rotation_angle
 from colon_nav.util.torch_util import np_func, to_numpy
 
@@ -94,7 +94,7 @@ class AnalysisLogger:
         )
         fig.suptitle("SLAM out per frame")
         fig.tight_layout()
-        save_plot_and_close(save_path / "slam_analysis.png")
+        save_current_figure_and_close(save_path / "slam_analysis.png")
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -120,7 +120,7 @@ def plot_z_dist_from_cam(tracks_ids, start_frame, stop_frame, online_est_track_c
     plt.title("Tracks (polyps) center KP estimated location in camera system")
     plt.legend()
     plt.grid(True)
-    save_plot_and_close(save_path / "polyps_z.png")
+    save_current_figure_and_close(save_path / "polyps_z.png")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

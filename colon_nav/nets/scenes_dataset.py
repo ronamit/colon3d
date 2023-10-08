@@ -10,7 +10,7 @@ from torch.utils import data
 from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
 from colon_nav.nets.training_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
-from colon_nav.util.general_util import save_plot_and_close
+from colon_nav.util.general_util import save_current_figure_and_close
 from colon_nav.util.torch_util import to_default_type, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -160,7 +160,7 @@ class ScenesDataset(data.Dataset):
                 location="bottom",
             )
         fig.tight_layout()
-        save_plot_and_close(Path("temp") / "sample.png")
+        save_current_figure_and_close(Path("temp") / "sample.png")
         raise ValueError("DEBUG")
 
     # ---------------------------------------------------------------------------------------------------------------------
