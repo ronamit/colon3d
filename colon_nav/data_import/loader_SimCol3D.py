@@ -70,9 +70,8 @@ def load_sim_raw(
         # Get scene metadata
         metadata_per_scene.append(get_scene_metadata(load_dataset_path / scene_path, fps_override))
 
-        # Get the RGB frames file paths (relative to input_data_path):
+        # Get the RGB frames file paths
         rgb_frames_paths = list((load_dataset_path / scene_path).glob("FrameBuffer*.png"))
-        rgb_frames_paths = [Path(scene_path) / p.name for p in rgb_frames_paths]
         rgb_frames_paths.sort()
         if limit_n_frames > 0:
             rgb_frames_paths = rgb_frames_paths[:limit_n_frames]
@@ -81,7 +80,6 @@ def load_sim_raw(
 
         # Get depth frames paths:
         depth_frames_paths = list((load_dataset_path / scene_path).glob("Depth_*.png"))
-        depth_frames_paths = [Path(scene_path) / p.name for p in depth_frames_paths]
         depth_frames_paths.sort()
         if limit_n_frames > 0:
             depth_frames_paths = depth_frames_paths[:limit_n_frames]
