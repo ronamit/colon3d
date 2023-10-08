@@ -31,15 +31,21 @@ def main():
     parser.add_argument(
         "--sim_name",
         type=str,
-        default="ColonNav",
+        default="SimCol3D",
         choices=["ColonNav", "SimCol3D"],
         help="The name of the simulator that generated the data.",
     )
     parser.add_argument(
         "--load_dataset_path",
         type=str,
-        default="data_gcp/raw_datasets/ColonNav",  #  ColonNav  | SimCol3D |
+        default="data_gcp/raw_datasets/SimCol3D",  #  ColonNav  | SimCol3D |
         help="The path to the folder with the raw simulated scenes to load.",
+    )
+    parser.add_argument(
+        "--save_dataset_path",
+        type=str,
+        default="data/datasets/SimCol3D",  #  ColonNav | SimCol3D |
+        help="The path to the folder where the processed dataset will be saved.",
     )
     parser.add_argument(
         "--splits",
@@ -47,12 +53,7 @@ def main():
         default="Train,Test",
         help="The splits subfolders to load and save (Train, Test, or both), separated by comma.",
     )
-    parser.add_argument(
-        "--save_dataset_path",
-        type=str,
-        default="data/datasets/ColonNav",  #  ColonNav | SimCol3D |
-        help="The path to the folder where the processed dataset will be saved.",
-    )
+
     parser.add_argument(
         "--limit_n_scenes",
         type=int,
@@ -86,15 +87,15 @@ def main():
     args = parser.parse_args()
     print(f"args={args}")
     sim_importer = SimImporter(
+        sim_name=args.sim_name,
         load_dataset_path=args.load_dataset_path,
-        splits=args.splits,
         save_dataset_path=args.save_dataset_path,
+        splits=args.splits,
         limit_n_scenes=args.limit_n_scenes,
         limit_n_frames=args.limit_n_frames,
         world_sys_to_first_cam=args.world_sys_to_first_cam,
         fps_override=args.fps_override,
         save_overwrite=args.save_overwrite,
-        source_name=args.sim_name,
     )
     save_scene_paths_per_split = sim_importer.run()
     print(f"Done importing the splits: {list(save_scene_paths_per_split.keys())}.")
@@ -107,6 +108,7 @@ class SimImporter:
     # --------------------------------------------------------------------------------------------------------------------
     def __init__(
         self,
+        sim_name: str,
         load_dataset_path: str,
         save_dataset_path: str,
         splits: str = "Train,Test",
@@ -115,7 +117,6 @@ class SimImporter:
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
-        source_name: str = "ColonNav",
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
         Args:
@@ -133,13 +134,13 @@ class SimImporter:
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
         self.save_overwrite = save_overwrite
-        self.source_name = source_name
+        self.sim_name = sim_name
         self.splits_list = splits.split(",")
         assert len(self.splits_list) > 0, "No splits were given"
         assert all(
             split_name in ["Train", "Test"] for split_name in self.splits_list
         ), f"Unknown split name in {self.splits_list}"
-        print(f"Data source: {self.source_name}, splits: {self.splits_list}")
+        print(f"Data source: {self.sim_name}, splits: {self.splits_list}")
         print("Raw dataset will be loaded from: ", self.load_dataset_path)
         print("Processed dataset will be saved to: ", self.save_dataset_path)
 
@@ -165,7 +166,7 @@ class SimImporter:
             return scenes_save_paths
 
         # Extract the data from the raw data folder
-        if self.source_name == "ColonNav":
+        if self.sim_name == "ColonNav":
             load_split_path = self.load_dataset_path / split_name
             (
                 scenes_names,
@@ -179,7 +180,7 @@ class SimImporter:
                 limit_n_frames=self.limit_n_frames,
                 fps_override=self.fps_override,
             )
-        elif self.source_name == "SimCol3D":
+        elif self.sim_name == "SimCol3D":
             (
                 scenes_names,
                 metadata_per_scene,
@@ -194,7 +195,7 @@ class SimImporter:
                 fps_override=self.fps_override,
             )
         else:
-            raise NotImplementedError(f"Unknown sim_name={self.source_name}")
+            raise NotImplementedError(f"Unknown sim_name={self.sim_name}")
 
         # save the camera poses and depth frames for each scene
         n_scenes = len(scenes_names)
@@ -234,18 +235,18 @@ class SimImporter:
             )
 
             # Get the GT depth frames and save them
-            if self.source_name == "ColonNav":
+            if self.sim_name == "ColonNav":
                 z_depth_frames = loader_ColonNav.get_ground_truth_depth(
                     depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                     metadata=metadata,
                 )
-            elif self.source_name == "SimCol3D":
+            elif self.sim_name == "SimCol3D":
                 z_depth_frames = loader_SimCol3D.get_ground_truth_depth(
                     depth_frames_paths=depth_frames_paths_per_scene[i_scene],
                     metadata=metadata,
                 )
             else:
-                raise NotImplementedError(f"Unknown sim_name={self.source_name}")
+                raise NotImplementedError(f"Unknown sim_name={self.sim_name}")
             # save depth video
             save_depth_video(
                 depth_frames=z_depth_frames,
