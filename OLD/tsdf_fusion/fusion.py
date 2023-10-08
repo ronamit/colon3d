@@ -1,18 +1,30 @@
 # Copyright (c) 2018 Andy Zeng
 
-import numpy as np
 
+"""Volumetric TSDF Fusion of RGB-D Images.
+## Optional install for faster 3D fuse plot
+
+* (optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
+* Install CUDA, and then:
+
+  ```bash
+  export PATH=/usr/local/cuda/bin:$PATH
+  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+  pip3 install pycuda --user
+  ```
+
+"""
+import numpy as np
 from numba import njit, prange
 from skimage import measure
 
 try:
     import pycuda.driver as cuda
-    import pycuda.autoinit
     from pycuda.compiler import SourceModule
 
     FUSION_GPU_MODE = 1
 except Exception as err:
-    print("Warning: {}".format(err))
+    print(f"Warning: {err}")
     print("Failed to import PyCUDA. Running fusion in CPU mode.")
     FUSION_GPU_MODE = 0
 
@@ -50,7 +62,7 @@ class TSDFVolume:
                 self._vol_dim[1],
                 self._vol_dim[2],
                 self._vol_dim[0] * self._vol_dim[1] * self._vol_dim[2],
-            )
+            ),
         )
 
         # Initialize pointers to voxel volume in CPU memory
@@ -145,7 +157,7 @@ class TSDFVolume:
           new_g = fmin(roundf((old_g*w_old+obs_weight*new_g)/w_new),255.0f);
           new_r = fmin(roundf((old_r*w_old+obs_weight*new_r)/w_new),255.0f);
           color_vol[voxel_idx] = new_b*256*256+new_g*256+new_r;
-        }"""
+        }""",
             )
 
             self._cuda_integrate = self._cuda_src_mod.get_function("integrate")
@@ -161,14 +173,17 @@ class TSDFVolume:
             self._n_gpu_loops = int(
                 np.ceil(
                     float(np.prod(self._vol_dim))
-                    / float(np.prod(self._max_gpu_grid_dim) * self._max_gpu_threads_per_block)
-                )
+                    / float(np.prod(self._max_gpu_grid_dim) * self._max_gpu_threads_per_block),
+                ),
             )
 
         else:
             # Get voxel grid coordinates
             xv, yv, zv = np.meshgrid(
-                range(self._vol_dim[0]), range(self._vol_dim[1]), range(self._vol_dim[2]), indexing="ij"
+                range(self._vol_dim[0]),
+                range(self._vol_dim[1]),
+                range(self._vol_dim[2]),
+                indexing="ij",
             )
             self.vox_coords = (
                 np.concatenate([xv.reshape(1, -1), yv.reshape(1, -1), zv.reshape(1, -1)], axis=0).astype(int).T
@@ -239,8 +254,9 @@ class TSDFVolume:
                     cuda.InOut(cam_pose.reshape(-1).astype(np.float32)),
                     cuda.InOut(
                         np.asarray(
-                            [gpu_loop_idx, self._voxel_size, im_h, im_w, self._trunc_margin, obs_weight], np.float32
-                        )
+                            [gpu_loop_idx, self._voxel_size, im_h, im_w, self._trunc_margin, obs_weight],
+                            np.float32,
+                        ),
                     ),
                     cuda.InOut(color_im.reshape(-1).astype(np.float32)),
                     cuda.InOut(depth_im.reshape(-1).astype(np.float32)),
@@ -361,7 +377,7 @@ def get_view_frustum(depth_im, cam_intr, cam_pose):
             * np.array([0, max_depth, max_depth, max_depth, max_depth])
             / cam_intr[1, 1],
             np.array([0, max_depth, max_depth, max_depth, max_depth]),
-        ]
+        ],
     )
     view_frust_pts = rigid_transform(view_frust_pts.T, cam_pose).T
     return view_frust_pts
@@ -401,7 +417,7 @@ def meshwrite(filename, verts, faces, norms, colors):
                 colors[i, 0],
                 colors[i, 1],
                 colors[i, 2],
-            )
+            ),
         )
 
     # Write face list
@@ -440,5 +456,5 @@ def pcwrite(filename, xyzrgb):
                 rgb[i, 0],
                 rgb[i, 1],
                 rgb[i, 2],
-            )
+            ),
         )

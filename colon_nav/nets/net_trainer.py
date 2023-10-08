@@ -4,8 +4,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from colon_nav.nets.fcb_former_model import FCBFormer
-from colon_nav.nets.models_utils import ModelInfo, TensorBoardWriter
 from colon_nav.nets.resnet_model import get_resnet_egomotion_model
+from colon_nav.nets.training_utils import ModelInfo, TensorBoardWriter
 from colon_nav.util.general_util import get_time_now_str
 
 

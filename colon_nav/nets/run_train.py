@@ -5,11 +5,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from colon_nav.nets.models_utils import ModelInfo, save_model_info
-
 # from colon_nav.examine_depths import DepthExaminer
 from colon_nav.nets.net_trainer import NetTrainer
 from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
+from colon_nav.nets.training_utils import ModelInfo, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -25,7 +24,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/UnifiedTrain",
+        default="data_gcp/datasets/ColonNav/Train",  # "data_gcp/datasets/UnifiedTrain", # "data_gcp/datasets/ColonNav/Train",
         help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py ).",
     )
     parser.add_argument(

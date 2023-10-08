@@ -5,7 +5,7 @@ import torch
 import torchvision
 from torchvision.transforms import Compose
 
-from colon_nav.nets.models_utils import ModelInfo
+from colon_nav.nets.training_utils import ModelInfo
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device, to_device, to_torch

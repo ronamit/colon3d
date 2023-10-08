@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights, conv1x1
 from torchvision.utils import _log_api_usage_once
 
-from colon_nav.nets.models_utils import ModelInfo
+from colon_nav.nets.training_utils import ModelInfo
 
 # -------------------------------------------------------------------------------------------------------------------
 

@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from colon_nav.nets.endosfm_transforms import poses_to_enfosfm_format
 from colon_nav.nets.loss_terms import compute_pose_loss
 from colon_nav.nets.data_transforms import sample_to_gpu
-from colon_nav.nets.models_utils import DatasetMeta
+from colon_nav.nets.training_utils import DatasetMeta
 from colon_nav.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon_nav.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter

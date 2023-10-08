@@ -8,8 +8,9 @@ from PIL import Image
 from torch.utils import data
 
 from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
-from colon_nav.nets.models_utils import ModelInfo
+from colon_nav.nets.training_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
+from colon_nav.util.general_util import save_plot_and_close
 from colon_nav.util.torch_util import to_default_type, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -90,15 +91,15 @@ class ScenesDataset(data.Dataset):
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def __getitem__(self, index: int) -> dict:
+    def __getitem__(self, index: int, debug: bool = True) -> dict:
         sample = {}
         target_id = self.target_ids[index]
         scene_index = target_id["scene_idx"]
         target_frame_idx = target_id["target_frame_idx"]
         scene_path = self.scenes_paths[scene_index]
         scene_frames_paths = self.frame_paths_per_scene[scene_index]
-        sample["scene_index"] = scene_index # for debugging
-        sample["target_frame_idx"] = target_frame_idx # for debugging
+        sample["scene_index"] = scene_index  # for debugging
+        sample["target_frame_idx"] = target_frame_idx  # for debugging
 
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
@@ -110,7 +111,8 @@ class ScenesDataset(data.Dataset):
         # load the RGB images
         all_frames_shift = [*self.ref_frame_shifts, 0]
         for shift in all_frames_shift:
-            frame_path = scene_frames_paths[target_frame_idx + shift]
+            frame_idx = target_frame_idx + shift
+            frame_path = scene_frames_paths[frame_idx]
             sample[("color", shift)] = Image.open(frame_path)
 
         # load the ground-truth depth map and the ground-truth pose
@@ -125,10 +127,41 @@ class ScenesDataset(data.Dataset):
                         abs_pose = to_default_type(h5f["cam_poses"][frame_idx])
                         sample[("abs_pose", shift)] = abs_pose
 
+        if debug:
+            self.debug_plot_sample(sample, all_frames_shift)
+
         # apply the transform
         if self.transform:
             sample = self.transform(sample)
         return sample
+
+    # ---------------------------------------------------------------------------------------------------------------------
+    def debug_plot_sample(self, sample: dict, all_frames_shift) -> None:
+        # DEBUG: plot the sampls
+        from matplotlib import pyplot as plt
+
+        rgb_imgs = [sample[("color", shift)] for shift in all_frames_shift]
+        depth_imgs = [sample[("depth_gt", shift)] for shift in all_frames_shift]
+
+        n_rows = 2
+        n_cols = len(all_frames_shift)
+        fig, axs = plt.subplots(n_rows, n_cols)
+        for i, img in enumerate(rgb_imgs):
+            axs[0, i].imshow(img)
+            axs[0, i].set_title(f"RGB image {i}")
+            axs[0, i].axis("off")
+        for i, img in enumerate(depth_imgs):
+            axs[1, i].imshow(img, cmap="hot", interpolation="nearest")
+            axs[1, i].set_title(f"Depth image {i}")
+            axs[1, i].axis("off")
+            fig.colorbar(
+                axs[1, i].imshow(img, cmap="hot", interpolation="nearest"),
+                ax=axs[1, i],
+                location="bottom",
+            )
+        fig.tight_layout()
+        save_plot_and_close(Path("temp") / "sample.png")
+        raise ValueError("DEBUG")
 
     # ---------------------------------------------------------------------------------------------------------------------
 

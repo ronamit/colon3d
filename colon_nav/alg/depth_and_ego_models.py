@@ -12,7 +12,7 @@ from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
 from colon_nav.nets.data_transforms import img_to_net_in_format
-from colon_nav.nets.models_utils import load_model_model_info
+from colon_nav.nets.training_utils import load_model_model_info
 from colon_nav.util.pose_transforms import invert_pose_motion
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device, resize_single_image

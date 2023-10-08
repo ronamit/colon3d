@@ -33,7 +33,7 @@ from torch.utils.data import DataLoader
 from colon_nav.nets.loss_terms import compute_pose_loss
 from colon_nav.nets.md2_transforms import poses_to_md2_format
 from colon_nav.nets.data_transforms import sample_to_gpu
-from colon_nav.nets.models_utils import DatasetMeta
+from colon_nav.nets.training_utils import DatasetMeta
 from colon_nav.util.general_util import create_folder_if_not_exists, to_str
 from colon_nav.util.torch_util import get_device
 

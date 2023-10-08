@@ -43,14 +43,14 @@ https://github.com/anitarau/simcol/blob/main/data_helpers/visualize_3D_data.py
 
 
 def load_sim_raw(
-    input_data_path: Path,
+    load_dataset_path: Path,
     split_name: str,
     limit_n_scenes: int,
     limit_n_frames: int,
     fps_override: float,
 ):
     # Get the train\test split from the misc folder:
-    split_file_path = input_data_path / "misc" / f"{split_name.lower()}_file.txt"
+    split_file_path = load_dataset_path / "misc" / f"{split_name.lower()}_file.txt"
     with split_file_path.open() as file:
         lines = file.readlines()
         scenes_paths = [Path(line.strip()) for line in lines]
@@ -68,10 +68,10 @@ def load_sim_raw(
         scene_path = scenes_paths[i_scene]
 
         # Get scene metadata
-        metadata_per_scene.append(get_scene_metadata(input_data_path / scene_path, fps_override))
+        metadata_per_scene.append(get_scene_metadata(load_dataset_path / scene_path, fps_override))
 
         # Get the RGB frames file paths (relative to input_data_path):
-        rgb_frames_paths = list((input_data_path / scene_path).glob("FrameBuffer*.png"))
+        rgb_frames_paths = list((load_dataset_path / scene_path).glob("FrameBuffer*.png"))
         rgb_frames_paths = [Path(scene_path) / p.name for p in rgb_frames_paths]
         rgb_frames_paths.sort()
         if limit_n_frames > 0:
@@ -80,7 +80,7 @@ def load_sim_raw(
         rgb_frames_paths_per_scene.append(rgb_frames_paths)
 
         # Get depth frames paths:
-        depth_frames_paths = list((input_data_path / scene_path).glob("Depth_*.png"))
+        depth_frames_paths = list((load_dataset_path / scene_path).glob("Depth_*.png"))
         depth_frames_paths = [Path(scene_path) / p.name for p in depth_frames_paths]
         depth_frames_paths.sort()
         if limit_n_frames > 0:
@@ -91,7 +91,7 @@ def load_sim_raw(
         # Get camera poses:
         cam_poses_per_scene.append(
             get_cam_poses(
-                scene_path=input_data_path / scene_path,
+                scene_path=load_dataset_path / scene_path,
                 limit_n_frames=limit_n_frames,
             ),
         )
@@ -214,7 +214,6 @@ def read_depth_file(depth_map_path: Path) -> np.ndarray:
 
 
 def get_ground_truth_depth(
-    input_data_path: Path,
     depth_frames_paths: list,
     metadata: dict,
 ):
@@ -224,7 +223,7 @@ def get_ground_truth_depth(
     frame_width = metadata["frame_width"]
     z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float32)
     for i_frame in range(n_frames):
-        depth_file_path = input_data_path / depth_frames_paths[i_frame]
+        depth_file_path = depth_frames_paths[i_frame]
         print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
         z_depth_mm = read_depth_file(depth_file_path)
         z_depth_frames[i_frame] = z_depth_mm

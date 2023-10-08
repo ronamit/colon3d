@@ -2,12 +2,12 @@
 
 ## About
 
-SLAM using monocular colonscopic videos.
+SLAM using monocular coloscopy videos.
 
 ## Setup
 
 * Install Conda \ MiniConda
-* (Recomended)
+* (Recommended)
 Switch to a faster conflict solver
 
 ```bash
@@ -51,17 +51,6 @@ pip3 install -U torch torchvision torchaudio
 pip install -e .
 ```
 
-## Optional install for faster 3D fuse plot
-
-* (optional: for faster surface fuse plot) NVIDIA GPU + [PyCUDA](https://documen.tician.de/pycuda/)*
-* Install CUDA, and then:
-
-  ```bash
-  export PATH=/usr/local/cuda/bin:$PATH
-  export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-  pip3 install pycuda --user
-  ```
-
 ## Downloading the data from the cloud
 
 Go to the main project dir and download the Data folder using google cloud CLI.
@@ -96,23 +85,26 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 ## Code usage
 
 * Note that that the all the outputs that was used in the paper are provided in the cloud storage.
-* To run a script, activate the conda environment *(e.g., conda activate py_env)* and go to the main project dir (*e.g. ~/repos/colon_nav)*. and run the script using python -m, for example:
-
-```bash
-  python -m colon_nav.sim_import.import_dataset --dataset_name "SimCol3D" --dataset_path "data/raw_datasets/SimCol3D" --save_path "data/datasets/SimCol3D"
-```
+* To run a script, activate the conda environment *(e.g., conda activate py_env)* and go to the main project dir (*e.g. ~/repos/colon_nav)*. and run the script using python -m, see examples below.
 
 * We outline below the main run scripts in the code. See the scripts for more details on the run options.
 
-** colon_nav.sim_import.create_ColonNav: Importing the ColonNav Unity simulator output into the format used by our code and creating cases with tracked targets.
+** colon_nav.data_import.import_dataset : Importing raw dataset to the format used by our code.
+Examples:
 
-** colon_nav.sim_import.create_SimCol3D:  Importing the SimCol3D dataset the format used by our code.
+```bash
+  python -m colon_nav.data_import.import_dataset  --sim_name "ColonNav" --load_dataset_path "data_gcp/raw_datasets/ColonNav" --save_dataset_path "data/datasets/ColonNav"
+```
 
-** colon_nav.sim_import.import_dataset : Importing the otr datasets into the format used by our code.
+```bash
+  python -m colon_nav.data_import.import_dataset  --sim_name "SimCol3D" --load_dataset_path "data_gcp/raw_datasets/SimCol3D" --save_dataset_path "data/datasets/SimCol3D"
+```
 
-** colon_nav.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
+* Create unified training dataset: # TODO: add script
 
-** colon_nav.nets.run_train:  Train depth & egomotion estimators using training data.
+* colon_nav.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
+
+* colon_nav.nets.run_train:  Train depth & egomotion estimators using training data.
 
 * colon_nav.run_on_scene: Run the algorithm on a single scene.
 
@@ -121,8 +113,6 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 * colon_nav.run_on_sim_dataset: Run the algorithm on a dataset of simulated examples (that have ground-truth camera pose data).
 
 * Run all experiments on the ColonNav dataset (see file for more details).
-
-* colon_nav.run_zhang_all: Run all experiments with the Zhang22 dataset
 
 ## References
 

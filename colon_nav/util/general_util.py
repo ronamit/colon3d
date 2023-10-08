@@ -226,7 +226,7 @@ def save_video_from_frames_list(save_path: Path, frames: list, fps: float):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
+def save_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path, save_plots: bool = True):
     n_frames = depth_frames.shape[0]
 
     def get_depth_frame(i):
@@ -234,6 +234,16 @@ def save_depth_video(depth_frames: np.ndarray, fps: float, save_path: Path):
         return heatmap
 
     save_video_from_func(save_path=save_path, make_frame=get_depth_frame, n_frames=n_frames, fps=fps)
+
+    if save_plots:
+        base_path = save_path.parent / "depth_plots"
+        create_empty_folder(base_path, save_overwrite=True)
+        # save the depth frames as plots
+        for i_frame in range(n_frames):
+            # plot the depth frame heatmap
+            plt.imshow(get_depth_frame(i_frame), cmap="hot", interpolation="nearest")
+            plt.axis("off")
+            save_plot_and_close(save_path=save_path.parent / f"depth_frame_{i_frame}.png", verbose=False)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -275,13 +285,14 @@ def coord_to_cv2kp(coord):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def save_plot_and_close(save_path):
+def save_plot_and_close(save_path, verbose=True):
     create_folder_if_not_exists(save_path.parent)
     plt.savefig(save_path)
     plt.cla()
     plt.clf()
     plt.close()
-    print(f"Plot saved to {save_path}")
+    if verbose:
+        print(f"Plot saved to {save_path}")
 
 
 # --------------------------------------------------------------------------------------------------------------------

@@ -20,6 +20,23 @@ If download fails, try to download each case folder separately.
 
 python -m colon3d.sim_import.import_dataset --sim_name "Zhang22"  --raw_sim_data_path PATH --path_to_save_data PATH
 
+
+
+
+        elif self.source_name == "Zhang22":
+            (
+                scenes_names,
+                metadata_per_scene,
+                rgb_frames_paths_per_scene,
+                cam_poses_per_scene,
+            ) = loader_Zhang22.load_sim_raw(
+                input_data_path=self.raw_sim_data_path,
+                limit_n_scenes=self.limit_n_scenes,
+                limit_n_frames=self.limit_n_frames,
+                fps_override=self.fps_override,
+                cam_to_load="left",  # "left" or "right" camera (we only use one camera)
+            )
+            depth_frames_paths_per_scene = None  # the Zhang22 dataset does not have GT depth frames
 """
 # --------------------------------------------------------------------------------------------------------------------
 

@@ -15,13 +15,25 @@ UNITY_TO_MM = 100  # multiply the loaded distance values by this factor to get m
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps_override: float):
-    """Load the raw data saved using Unity's Perception Package camera captures."""
+def load_sim_raw(load_base_path: Path, limit_n_scenes: int, limit_n_frames, fps_override: float):
+    """Load the raw data saved using Unity's Perception Package camera captures.
+    Args:
+        load_base_path: the path to the folder that contains the "Dataset*" folder
+        limit_n_scenes: limit the number of scenes to load (for debugging) if 0 then no limit
+        limit_n_frames: limit the number of frames to load (for debugging) if 0 then no limit
+        fps_override: override the FPS value in the metadata (if 0 then use the value in the metadata)
+    Returns:
+        scenes_names: list of scene names
+        metadata_per_scene: list of metadata per scene
+        rgb_frames_paths_per_scene: list of lists of the RGB frames paths per scene
+        cam_poses_per_scene: list of lists of the camera poses per scene
+        depth_frames_paths_per_scene: list of lists of the depth frames paths per scene
+    """
 
     # gather all the "capture" files
-    assert input_data_path.is_dir(), "The input path should be a directory"
-    paths = [p for p in input_data_path.glob("Dataset*") if p.is_dir()]
-    assert len(paths) == 1, f"there should be exactly one Dataset* sub-folder in input_data_path={input_data_path}"
+    assert load_base_path.is_dir(), "The input path should be a directory"
+    paths = [p for p in load_base_path.glob("Dataset*") if p.is_dir()]
+    assert len(paths) == 1, f"there should be exactly one Dataset* sub-folder in load_base_path={load_base_path}"
     metadata_dir_path = paths[0]
     print(f"Loading dataset metadata from {metadata_dir_path}")
     captures = []
@@ -36,7 +48,7 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
             captures += metadata["captures"]
         file_index += 1
 
-    # extract the data from the captures
+    ### extract the data from the captures ###
     scenes_names = []  # list of scene names
     rgb_frames_paths_per_scene = []  # list of lists
     depth_frames_paths_per_scene = []  # list of lists
@@ -51,9 +63,9 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
     n_scenes = 0
     for capture in captures:
         frame_idx += 1
-        rgb_file_path = capture["filename"]
+        rgb_file_path = load_base_path / capture["filename"]
         # check if we started a new scene (i.e. a new folder of RGB images)
-        rgb_dir_name = rgb_file_path.split("/")[-2]
+        rgb_dir_name = rgb_file_path.parent.name
         if rgb_dir_name not in seen_rgb_dirs:
             # we found a new scene
             scene_idx += 1
@@ -79,12 +91,12 @@ def load_sim_raw(input_data_path: Path, limit_n_scenes: int, limit_n_frames, fps
             # # in this case, just skip the current capture... until we reach the next scene
             continue
         # extract the current frame data
-        rgb_file_path = capture["filename"]
+        rgb_file_path = load_base_path / capture["filename"]
         raw_trans_per_scene[-1].append(np.array(capture["sensor"]["translation"]))
         raw_rot_per_scene[-1].append(np.array(capture["sensor"]["rotation"]))
         annotations = capture["annotations"]
         depth_annotation = next(a for a in annotations if a["@type"] == "type.unity.com/unity.solo.DepthAnnotation")
-        depth_file_path = depth_annotation["filename"]
+        depth_file_path = load_base_path / depth_annotation["filename"]
         # store the current frame data:
         rgb_frames_paths_per_scene[-1].append(rgb_file_path)
         depth_frames_paths_per_scene[-1].append(depth_file_path)
@@ -192,7 +204,6 @@ def get_cam_pose(cam_trans: np.ndarray, cam_rot: np.ndarray) -> np.ndarray:
 
 
 def get_ground_truth_depth(
-    input_data_path: Path,
     depth_frames_paths: list,
     metadata: dict,
 ):
@@ -202,7 +213,7 @@ def get_ground_truth_depth(
     frame_width = metadata["frame_width"]
     z_depth_frames = np.zeros((n_frames, frame_height, frame_width), dtype=np.float64)
     for i_frame in range(n_frames):
-        depth_file_path = input_data_path / depth_frames_paths[i_frame]
+        depth_file_path = depth_frames_paths[i_frame]
         print(f"Loading depth frame {i_frame}/{n_frames}", end="\r")
         # All 3 channels are the same (depth), so we only need to read one
         depth_img = cv2.imread(path_to_str(depth_file_path), cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)

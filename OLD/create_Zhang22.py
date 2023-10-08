@@ -58,8 +58,8 @@ def main():
     with Tee(save_path / "log.txt"):  # save the prints to a file
         # Importing a raw dataset of scenes from the unity simulator:
         SimImporter(
-            load_path=load_path,  # load both splits from the same path (scenes will be split according to text file)
-            save_path=save_path,
+            load_dataset_path=load_path,  # load both splits from the same path (scenes will be split according to text file)
+            save_dataset_path=save_path,
             limit_n_scenes=limit_n_scenes,
             limit_n_frames=limit_n_frames,
             save_overwrite=save_overwrite,
