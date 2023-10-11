@@ -206,7 +206,6 @@ def generate_cases_from_scene(
                 hf.create_dataset(
                     "z_depth_map",
                     data=to_default_type(est_depth_maps, num_type="float_m"),
-                    compression="gzip",
                 )
                 hf.create_dataset("egomotions", data=to_default_type(est_egomotions))
 

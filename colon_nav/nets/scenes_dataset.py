@@ -10,7 +10,7 @@ from torch.utils import data
 from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
 from colon_nav.nets.training_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
-from colon_nav.util.general_util import save_current_figure_and_close
+from colon_nav.util.general_util import save_rgb_and_depth_subplots
 from colon_nav.util.torch_util import to_default_type, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -121,12 +121,13 @@ class ScenesDataset(data.Dataset):
                 for shift in all_frames_shift:
                     frame_idx = target_frame_idx + shift
                     if self.load_gt_depth:
-                        depth_gt = to_default_type(h5f["z_depth_map"][frame_idx], num_type="float_m")
+                        depth_gt = h5f["z_depth_map"][frame_idx]
+                        depth_gt = to_default_type(depth_gt)
                         sample[("depth_gt", shift)] = depth_gt
                     if self.load_gt_pose:
-                        abs_pose = to_default_type(h5f["cam_poses"][frame_idx])
+                        abs_pose = h5f["cam_poses"][frame_idx]
+                        abs_pose = to_default_type(abs_pose)
                         sample[("abs_pose", shift)] = abs_pose
-
         if debug:
             self.debug_plot_sample(sample, all_frames_shift)
 
@@ -137,31 +138,17 @@ class ScenesDataset(data.Dataset):
 
     # ---------------------------------------------------------------------------------------------------------------------
     def debug_plot_sample(self, sample: dict, all_frames_shift) -> None:
-        # DEBUG: plot the sampls
-        from matplotlib import pyplot as plt
-
+        # DEBUG: plot the sample data
         rgb_imgs = [sample[("color", shift)] for shift in all_frames_shift]
         depth_imgs = [sample[("depth_gt", shift)] for shift in all_frames_shift]
-
-        n_rows = 2
-        n_cols = len(all_frames_shift)
-        fig, axs = plt.subplots(n_rows, n_cols)
-        for i, img in enumerate(rgb_imgs):
-            axs[0, i].imshow(img)
-            axs[0, i].set_title(f"RGB image {i}")
-            axs[0, i].axis("off")
-        for i, img in enumerate(depth_imgs):
-            axs[1, i].imshow(img, cmap="hot", interpolation="nearest")
-            axs[1, i].set_title(f"Depth image {i}")
-            axs[1, i].axis("off")
-            fig.colorbar(
-                axs[1, i].imshow(img, cmap="hot", interpolation="nearest"),
-                ax=axs[1, i],
-                location="bottom",
-            )
-        fig.tight_layout()
-        save_current_figure_and_close(Path("temp") / "sample.png")
-        raise ValueError("DEBUG")
+        save_path = Path("temp") / "sample.png"
+        save_rgb_and_depth_subplots(
+            rgb_imgs=rgb_imgs,
+            depth_imgs=depth_imgs,
+            frame_names=[f"Shift:{shift}" for shift in all_frames_shift],
+            save_path=save_path,
+        )
+        raise ValueError(f"Debugging: sample saved to {save_path}")
 
     # ---------------------------------------------------------------------------------------------------------------------
 

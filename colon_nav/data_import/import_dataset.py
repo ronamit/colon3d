@@ -14,6 +14,7 @@ from colon_nav.util.general_util import (
     load_rgb_image,
     save_depth_video,
     save_dict_to_yaml,
+    save_rgb_and_depth_subplots,
     save_rgb_image,
     save_video_from_func,
 )
@@ -84,6 +85,12 @@ def main():
         default=True,
         help="If True,the output folder will be overwritten if it already exists",
     )
+    parser.add_argument(
+        "--debug_mode",
+        type=bool_arg,
+        default=False,
+        help="If True, the script will run in debug mode",
+    )
     args = parser.parse_args()
     print(f"args={args}")
     sim_importer = SimImporter(
@@ -96,6 +103,7 @@ def main():
         world_sys_to_first_cam=args.world_sys_to_first_cam,
         fps_override=args.fps_override,
         save_overwrite=args.save_overwrite,
+        debug_mode=args.debug_mode,
     )
     save_scene_paths_per_split = sim_importer.run()
     print(f"Done importing the splits: {list(save_scene_paths_per_split.keys())}.")
@@ -117,6 +125,7 @@ class SimImporter:
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
         save_overwrite: bool = True,
+        debug_mode: bool = False,
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
         Args:
@@ -134,6 +143,7 @@ class SimImporter:
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
         self.save_overwrite = save_overwrite
+        self.debug_mode = debug_mode
         self.sim_name = sim_name
         self.splits_list = splits.split(",")
         assert len(self.splits_list) > 0, "No splits were given"
@@ -155,7 +165,7 @@ class SimImporter:
 
     # --------------------------------------------------------------------------------------------------------------------
 
-    def import_split(self, split_name: str):
+    def import_split(self, split_name):
         # The path to save this split of the dataset
         save_split_path = self.save_dataset_path / split_name
         is_created = create_empty_folder(save_split_path, save_overwrite=self.save_overwrite)
@@ -265,7 +275,6 @@ class SimImporter:
                     hf.create_dataset(
                         "z_depth_map",
                         data=to_default_type(z_depth_frames, num_type="float_m"),
-                        compression="gzip",
                     )
 
             # plot the camera trajectory
@@ -275,6 +284,17 @@ class SimImporter:
             )
 
         print(f"Done creating {n_scenes} scenes in {save_split_path}")
+
+        if self.debug_mode:
+            example_frame_idx = 55
+            shifts = [-2, -1, 0]
+            save_rgb_and_depth_subplots(
+                rgb_imgs=[load_rgb_image(load_rgb_frames_paths[example_frame_idx + shift]) for shift in shifts],
+                depth_imgs=[z_depth_frames[example_frame_idx + shift] for shift in shifts],
+                frame_names=[f"Shift: {shift}" for shift in shifts],
+                save_path=Path("temp") / "rgb_depth_example.png",
+            )
+            raise ValueError("DEBUG MODE")
         return scenes_save_paths
 
 
