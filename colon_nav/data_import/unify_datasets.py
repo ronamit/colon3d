@@ -37,3 +37,4 @@ for i_scene, load_scene_path in enumerate(scenes_path_to_load):
     print(f"copied scene {i_scene} of {len(scenes_path_to_load)}")
 
 print("done")
+# --------------------------------------------------------------------------------------------------------------------

@@ -10,7 +10,7 @@ from torch.utils import data
 from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
 from colon_nav.nets.training_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
-from colon_nav.util.general_util import save_current_figure_and_close
+from colon_nav.util.general_util import save_rgb_and_depth_subplots
 from colon_nav.util.torch_util import to_default_type, to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -48,33 +48,30 @@ class ScenesDataset(data.Dataset):
         self.plot_example_ind = plot_example_ind
         #  ref_frame_shifts (list[int]) The time shifts of the reference frames w.r.t. the target frame
         self.ref_frame_shifts = model_info.ref_frame_shifts
-        self.frame_paths_per_scene = []
+        # List of all target frames (each target frame is a dict with the scene index and the target frame index)
         self.target_ids = []
         # the first frame that can be a target (since we need to have enough reference frames before it)
         min_tgt_frame_idx = -max(self.ref_frame_shifts)
 
         # go over all the scenes in the dataset
-        frames_paths_per_scene = []
+        self.frames_paths_per_scene = []
         n_frames_per_scene = []
         for scene_path in self.scenes_paths:
-            frames_paths = [
-                frame_path
-                for frame_path in (scene_path / "RGB_Frames").iterdir()
-                if frame_path.is_file() and frame_path.name.endswith(".png")
-            ]
+            # Get the list of all the frames' paths in the scene, sorted by their index
+            frames_paths = list((scene_path / "RGB_Frames").glob("*.png"))
+            frames_paths.sort(key=lambda x: int(x.stem))
             if n_sample_lim > 0:
                 frames_paths = frames_paths[:n_sample_lim]
-            self.frame_paths_per_scene.append(frames_paths)
-            frames_paths.sort()
-            frames_paths_per_scene.append(frames_paths)
+            self.frames_paths_per_scene.append(frames_paths)
             n_frames_per_scene.append(len(frames_paths))
 
-        for i_scene, frames_paths in enumerate(frames_paths_per_scene):
+        for i_scene, frames_paths in enumerate(self.frames_paths_per_scene):
             n_frames = len(frames_paths)
             assert n_frames > 0, f"Scene {i_scene} has no frames"
             # set the scene index and the target frame index for each sample (later we will set the reference frames indices)
             for i_frame in range(min_tgt_frame_idx, n_frames):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
+                
 
         # Create transforms
         if self.dataset_type == "train":
@@ -97,7 +94,7 @@ class ScenesDataset(data.Dataset):
         scene_index = target_id["scene_idx"]
         target_frame_idx = target_id["target_frame_idx"]
         scene_path = self.scenes_paths[scene_index]
-        scene_frames_paths = self.frame_paths_per_scene[scene_index]
+        scene_frames_paths = self.frames_paths_per_scene[scene_index]
         sample["scene_index"] = scene_index  # for debugging
         sample["target_frame_idx"] = target_frame_idx  # for debugging
 
@@ -108,6 +105,7 @@ class ScenesDataset(data.Dataset):
 
         sample["K"] = to_torch(intrinsics_orig)
 
+    
         # load the RGB images
         all_frames_shift = [*self.ref_frame_shifts, 0]
         for shift in all_frames_shift:
@@ -121,12 +119,13 @@ class ScenesDataset(data.Dataset):
                 for shift in all_frames_shift:
                     frame_idx = target_frame_idx + shift
                     if self.load_gt_depth:
-                        depth_gt = to_default_type(h5f["z_depth_map"][frame_idx], num_type="float_m")
+                        depth_gt = h5f["z_depth_map"][frame_idx]
+                        depth_gt = to_default_type(depth_gt)
                         sample[("depth_gt", shift)] = depth_gt
                     if self.load_gt_pose:
-                        abs_pose = to_default_type(h5f["cam_poses"][frame_idx])
+                        abs_pose = h5f["cam_poses"][frame_idx]
+                        abs_pose = to_default_type(abs_pose)
                         sample[("abs_pose", shift)] = abs_pose
-
         if debug:
             self.debug_plot_sample(sample, all_frames_shift)
 
@@ -137,31 +136,17 @@ class ScenesDataset(data.Dataset):
 
     # ---------------------------------------------------------------------------------------------------------------------
     def debug_plot_sample(self, sample: dict, all_frames_shift) -> None:
-        # DEBUG: plot the sampls
-        from matplotlib import pyplot as plt
-
+        # DEBUG: plot the sample data
         rgb_imgs = [sample[("color", shift)] for shift in all_frames_shift]
         depth_imgs = [sample[("depth_gt", shift)] for shift in all_frames_shift]
-
-        n_rows = 2
-        n_cols = len(all_frames_shift)
-        fig, axs = plt.subplots(n_rows, n_cols)
-        for i, img in enumerate(rgb_imgs):
-            axs[0, i].imshow(img)
-            axs[0, i].set_title(f"RGB image {i}")
-            axs[0, i].axis("off")
-        for i, img in enumerate(depth_imgs):
-            axs[1, i].imshow(img, cmap="hot", interpolation="nearest")
-            axs[1, i].set_title(f"Depth image {i}")
-            axs[1, i].axis("off")
-            fig.colorbar(
-                axs[1, i].imshow(img, cmap="hot", interpolation="nearest"),
-                ax=axs[1, i],
-                location="bottom",
-            )
-        fig.tight_layout()
-        save_current_figure_and_close(Path("temp") / "sample.png")
-        raise ValueError("DEBUG")
+        save_path = Path("temp") / "sample.png"
+        save_rgb_and_depth_subplots(
+            rgb_imgs=rgb_imgs,
+            depth_imgs=depth_imgs,
+            frame_names=[f"Shift:{shift}" for shift in all_frames_shift],
+            save_path=save_path,
+        )
+        raise ValueError(f"Debugging: sample saved to {save_path}")
 
     # ---------------------------------------------------------------------------------------------------------------------
 

@@ -43,6 +43,7 @@ def val_to_yaml_format(v):
 # ----------------------------------------------------------------------------------------------------------------------
 def save_dict_to_yaml(save_path: Path, dict_to_save: dict):
     save_dict_strs = {k: val_to_yaml_format(v) for k, v in dict_to_save.items()}
+    create_folder_if_not_exists(save_path.parent)
     # Save (with overwriting) the dict as a yaml file
     with save_path.open("w") as file:
         yaml.dump(save_dict_strs, file, default_flow_style=False)
@@ -593,4 +594,26 @@ def print_if(b: bool, s: str):
         print(s)
 
 
+# --------------------------------------------------------------------------------------------------------------------
+
+def save_rgb_and_depth_subplots(rgb_imgs, depth_imgs, frame_names, save_path):
+        assert len(rgb_imgs) == len(depth_imgs) == len(frame_names)
+        n_rows = 2
+        n_cols = len(frame_names)
+        fig, axs = plt.subplots(n_rows, n_cols)
+        for i, img in enumerate(rgb_imgs):
+            axs[0, i].imshow(img)
+            axs[0, i].set_title(f"RGB image, {frame_names[i]}")
+            axs[0, i].axis("off")
+        for i, img in enumerate(depth_imgs):
+            axs[1, i].imshow(img, cmap="hot", interpolation="nearest")
+            axs[1, i].set_title(f"Depth image, {frame_names[i]}")
+            axs[1, i].axis("off")
+            fig.colorbar(
+                axs[1, i].imshow(img, cmap="hot", interpolation="nearest"),
+                ax=axs[1, i],
+                location="bottom",
+            )
+        fig.tight_layout()
+        save_current_figure_and_close(save_path)
 # --------------------------------------------------------------------------------------------------------------------
