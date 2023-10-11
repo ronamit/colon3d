@@ -12,7 +12,7 @@ from colon_nav.util.general_util import get_time_now_str
 class NetTrainer:
     def __init__(
         self,
-        save_path: Path,  # path to save the trained model
+        save_model_path: Path,  # path to save the trained model
         train_loader: DataLoader,  # training data loader
         val_loader: DataLoader,  # validation data loader
         model_info: ModelInfo,  # model info
@@ -23,7 +23,7 @@ class NetTrainer:
         n_epochs: int = 300,  # number of epochs to train
         run_name: str = "",  # name of the run
     ):
-        self.save_path = save_path
+        self.save_model_path = save_model_path
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.model_info = model_info

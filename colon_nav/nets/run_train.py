@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# from colon_nav.examine_depths import DepthExaminer
+from colon_nav.examine_depths import DepthExaminer
 from colon_nav.nets.net_trainer import NetTrainer
 from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
 from colon_nav.nets.training_utils import ModelInfo, save_model_info
@@ -24,7 +24,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/datasets/ColonNav/Train",
+        default="data/datasets/UnifiedTrainSet",
         help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py ).",
     )
     parser.add_argument(
@@ -149,7 +149,7 @@ def main():
 
     random_seed = set_rand_seed(args.seed)
     dataset_path = Path(args.dataset_path)
-    path_to_save_models = Path(args.path_to_save_models)
+    save_model_path = Path(args.path_to_save_models)
 
     load_gt_depth = train_method in {"GT_pose_and_depth", "GT_depth_only"}
     load_gt_pose = train_method in {"GT_pose_and_depth"}
@@ -162,7 +162,7 @@ def main():
         random_seed=random_seed,
     )
     save_model_info(
-        save_dir_path=path_to_save_models,
+        save_dir_path=save_model_path,
         model_info=model_info,
     )
 
@@ -176,7 +176,7 @@ def main():
         n_sample_lim = 30
         n_scenes_lim = 1
         n_epochs = 1
-        path_to_save_models = path_to_save_models / "_debug_"
+        save_model_path = save_model_path / "_debug_"
         n_workers = 0  # for debugging
         torch.autograd.set_detect_anomaly(True)
 
@@ -233,7 +233,7 @@ def main():
 
     # Run training:
     train_runner = NetTrainer(
-        save_path=path_to_save_models,
+        save_model_path=save_model_path,
         train_loader=train_loader,
         val_loader=val_loader,
         model_info=model_info,
@@ -246,46 +246,46 @@ def main():
     )
     train_runner.train()
 
-    # # --------------------------------------------------------------------------------------------------------------------
-    # # Run depth examination to calibrate the depth scale:
-    # depth_examiner = DepthExaminer(
-    #     dataset_path=dataset_path,
-    #     model_path=path_to_save_model,
-    #     save_path=path_to_save_model / "depth_exam_pre_calib",
-    #     depth_calib_method=args.depth_calib_method,
-    #     n_scenes_lim=n_scenes_lim,
-    #     save_overwrite=args.overwrite_depth_exam,
-    # )
-    # depth_calib = depth_examiner.run()
+    # --------------------------------------------------------------------------------------------------------------------
+    # Run depth examination to calibrate the depth scale:
+    depth_examiner = DepthExaminer(
+        dataset_path=dataset_path,
+        model_path=save_model_path,
+        save_path=save_model_path / "depth_exam_pre_calib",
+        depth_calib_method=args.depth_calib_method,
+        n_scenes_lim=n_scenes_lim,
+        save_overwrite=args.overwrite_depth_exam,
+    )
+    depth_calib = depth_examiner.run()
 
-    # # --------------------------------------------------------------------------------------------------------------------
-    # if args.update_depth_calib:
-    #     # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-    #     info_model_path = path_to_save_model / "model_info.yaml"
-    #     # update the model info file with the new depth_calib value:
-    #     model_info.depth_calib_type = depth_calib["depth_calib_type"]
-    #     model_info.depth_calib_a = depth_calib["depth_calib_a"]
-    #     model_info.depth_calib_b = depth_calib["depth_calib_b"]
-    #     save_model_info(
-    #         save_dir_path=path_to_save_model,
-    #         model_info=model_info,
-    #     )
-    #     print(
-    #         f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
-    #     )
+    # --------------------------------------------------------------------------------------------------------------------
+    if args.update_depth_calib:
+        # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
+        info_model_path = save_model_path / "model_info.yaml"
+        # update the model info file with the new depth_calib value:
+        model_info.depth_calib_type = depth_calib["depth_calib_type"]
+        model_info.depth_calib_a = depth_calib["depth_calib_a"]
+        model_info.depth_calib_b = depth_calib["depth_calib_b"]
+        save_model_info(
+            save_dir_path=save_model_path,
+            model_info=model_info,
+        )
+        print(
+            f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
+        )
 
-    # # --------------------------------------------------------------------------------------------------------------------
-    # # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
-    # depth_examiner = DepthExaminer(
-    #     dataset_path=dataset_path,
-    #     model_path=path_to_save_model,
-    #     depth_calib_method="none",
-    #     save_path=path_to_save_model / "depth_exam_post_calib",
-    #     n_scenes_lim=5,
-    #     n_frames_lim=5,
-    #     save_overwrite=args.overwrite_depth_exam,
-    # )
-    # depth_calib = depth_examiner.run()
+    # --------------------------------------------------------------------------------------------------------------------
+    # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
+    depth_examiner = DepthExaminer(
+        dataset_path=dataset_path,
+        model_path=save_model_path,
+        depth_calib_method="none",
+        save_path=save_model_path / "depth_exam_post_calib",
+        n_scenes_lim=5,
+        n_frames_lim=5,
+        save_overwrite=args.overwrite_depth_exam,
+    )
+    depth_calib = depth_examiner.run()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
