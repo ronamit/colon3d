@@ -1,5 +1,6 @@
 """
 Based on:  https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
++ modifications to support different input and output sizes
 """
 from collections.abc import Callable
 
@@ -15,9 +16,9 @@ class ResNet(nn.Module):
     def __init__(
         self,
         n_input_channels: int,
+        output_dim: int,
         block: type[BasicBlock | Bottleneck],
         layers: list[int],
-        output_dim: int,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,

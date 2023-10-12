@@ -4,6 +4,7 @@ import torch
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights
 
+from colon_nav.net_def.resnet import ResNet
 from colon_nav.net_train.train_utils import ModelInfo
 
 # -------------------------------------------------------------------------------------------------------------------
@@ -34,21 +35,21 @@ class EgomotionModel(nn.Module):
         output_dim = 7 * self.n_ref_imgs
 
         if model_name == "resnet18":
-            weights = ResNet18_Weights.DEFAULT
-            self.model = EgomotionModel(
+            self.model = ResNet(
                 n_input_channels=n_input_channels,
                 output_dim=output_dim,
                 block=BasicBlock,
                 layers=[2, 2, 2, 2],
             )
+            weights = ResNet18_Weights.DEFAULT
         elif model_name == "resnet50":
-            weights = ResNet50_Weights.DEFAULT
-            self.model = EgomotionModel(
+            self.model = ResNet(
                 n_input_channels=n_input_channels,
                 output_dim=output_dim,
                 block=Bottleneck,
                 layers=[3, 4, 6, 3],
             )
+            weights = ResNet50_Weights.DEFAULT
         else:
             raise ValueError(f"Unknown model name: {model_name}")
 
