@@ -127,9 +127,9 @@ class NetTrainer:
 
         # Egomotion estimation:
         # The ego-motion model gets the RGB images of the target and reference frames
-        # and outputs the relative pose change (egomotion) from the target to the reference frames
+        # We get a list of the estimated egomotion from the target to each reference frame, each is a tensor of shape [B, 7].
         # The egomotion format: (x,y,z,qw,qx,qy,qz) where (x,y,z) is the translation [mm] and (qw,qx,qy,qz) is the rotation unit quaternion.
-        tgt_to_refs_motion_est = self.egomotion_model(frames=[*ref_rgb_frames, tgt_rgb])  # [B, n_ref_imgs, 7]
+        tgt_to_refs_motion_est = self.egomotion_model(frames=[*ref_rgb_frames, tgt_rgb])
 
         return tgt_depth_est, tgt_to_refs_motion_est
 

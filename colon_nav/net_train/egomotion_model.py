@@ -93,7 +93,7 @@ class EgomotionModel(nn.Module):
         # each block represents the ego-motion from the target to the reference image :
         tgt_to_refs_motion_est = []
         # Go over all the reference frames
-        for i_ref in self.n_ref_imgs:
+        for i_ref in range(self.n_ref_imgs):
             est_motion = net_out[:, 7 * i_ref : 7 * (i_ref + 1)]  # [B, 7]
             # the first 3  parameters are translation (x,y,z) [mm]
             # the last are 4 rotation parameters (qw, qx, qy, qz) [unit quaternion] are normalized to be l2-norm = 1
