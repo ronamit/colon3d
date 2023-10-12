@@ -53,7 +53,7 @@ class NetTrainer:
         self.optimizer = torch.optim.AdamW(lr=1e-4, params=depth_model_params + egomotion_model_params)
 
         ### Initialize the learning-rate scheduler
-        # LR will be halved when the validation loss plateaus for 10 epochs
+        # LR will be multiplied by 'factor' when the validation loss plateaus for 'patience' epochs
         self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
             mode="min",
@@ -64,7 +64,7 @@ class NetTrainer:
 
         ### Initialize the tensorboard writer
         self.logger = TensorBoardWriter(
-            log_dir=Path("_runs") / self.run_name,
+            log_dir= save_model_path / "runs" / self.run_name,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
             model_info=self.model_info,

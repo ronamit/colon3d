@@ -164,6 +164,4 @@ cython_debug/
 /data
 /data_gcp
 /data_old
-runs
-_runs
 temp

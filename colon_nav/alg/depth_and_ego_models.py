@@ -1,21 +1,13 @@
 import queue
 from pathlib import Path
 
-import monodepth2.layers as monodepth2_layers
-import monodepth2.networks as monodepth2_networks
-import monodepth2.networks.depth_decoder as monodepth2_depth_decoder
-import monodepth2.networks.pose_net as monodepth2_pose_net
-import monodepth2.utils as monodepth2_utils
 import numpy as np
 import torch
-from endo_sfm.models_def.DispResNet import DispResNet as endo_sfm_DispResNet
-from endo_sfm.models_def.PoseResNet import PoseResNet as endo_sfm_PoseResNet
 
-from colon_nav.nets.data_transforms import img_to_net_in_format
 from colon_nav.nets.training_utils import load_model_model_info
 from colon_nav.util.pose_transforms import invert_pose_motion
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
-from colon_nav.util.torch_util import get_device, resize_single_image
+from colon_nav.util.torch_util import get_device
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -51,44 +43,44 @@ class DepthModel:
 
         # TODO: use @torch.compile on the models
 
-        # create the disparity\depth estimation network
-        if self.model_name == "EndoSFM":
-            self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info.num_layers, pretrained=True)
-            # load the Disparity network
-            self.disp_net_path = model_path / "DispNet_best.pt"
-            weights = torch.load(self.disp_net_path)
-            self.disp_net.load_state_dict(weights["state_dict"], strict=False)
-            self.disp_net.to(self.device)
-            self.disp_net.eval()  # switch to evaluate mode
-            self.dtype = self.disp_net.get_weight_dtype()
+        # # create the disparity\depth estimation network
+        # if self.model_name == "EndoSFM":
+        #     self.disp_net = endo_sfm_DispResNet(num_layers=self.model_info.num_layers, pretrained=True)
+        #     # load the Disparity network
+        #     self.disp_net_path = model_path / "DispNet_best.pt"
+        #     weights = torch.load(self.disp_net_path)
+        #     self.disp_net.load_state_dict(weights["state_dict"], strict=False)
+        #     self.disp_net.to(self.device)
+        #     self.disp_net.eval()  # switch to evaluate mode
+        #     self.dtype = self.disp_net.get_weight_dtype()
 
-        elif self.model_name == "MonoDepth2":
-            monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
-            encoder_path = model_path / "encoder.pth"
-            depth_decoder_path = model_path / "depth.pth"
-            # Get the ResNet-18 model for the depth encoder (ImageNet pre-trained), note the DeptNet gets 1 image as input
-            self.encoder = monodepth2_networks.resnet_encoder.ResnetEncoder(
-                num_layers=self.model_info.num_layers,
-                pretrained=True,
-                num_input_images=1,
-            )
-            self.depth_decoder = monodepth2_depth_decoder.DepthDecoder(
-                num_ch_enc=self.encoder.num_ch_enc,
-                scales=range(4),
-            )
-            loaded_dict_enc = torch.load(encoder_path)
-            filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
-            self.encoder.load_state_dict(filtered_dict_enc)
-            loaded_dict = torch.load(depth_decoder_path)
-            self.depth_decoder.load_state_dict(loaded_dict)
-            self.encoder.to(self.device)
-            self.depth_decoder.to(self.device)
-            self.encoder.eval()
-            self.depth_decoder.eval()
-            self.dtype = self.encoder.get_weight_dtype()
+        # elif self.model_name == "MonoDepth2":
+        #     monodepth2_utils.download_model_if_doesnt_exist(model_path.name, models_dir=model_path.parent)
+        #     encoder_path = model_path / "encoder.pth"
+        #     depth_decoder_path = model_path / "depth.pth"
+        #     # Get the ResNet-18 model for the depth encoder (ImageNet pre-trained), note the DeptNet gets 1 image as input
+        #     self.encoder = monodepth2_networks.resnet_encoder.ResnetEncoder(
+        #         num_layers=self.model_info.num_layers,
+        #         pretrained=True,
+        #         num_input_images=1,
+        #     )
+        #     self.depth_decoder = monodepth2_depth_decoder.DepthDecoder(
+        #         num_ch_enc=self.encoder.num_ch_enc,
+        #         scales=range(4),
+        #     )
+        #     loaded_dict_enc = torch.load(encoder_path)
+        #     filtered_dict_enc = {k: v for k, v in loaded_dict_enc.items() if k in self.encoder.state_dict()}
+        #     self.encoder.load_state_dict(filtered_dict_enc)
+        #     loaded_dict = torch.load(depth_decoder_path)
+        #     self.depth_decoder.load_state_dict(loaded_dict)
+        #     self.encoder.to(self.device)
+        #     self.depth_decoder.to(self.device)
+        #     self.encoder.eval()
+        #     self.depth_decoder.eval()
+        #     self.dtype = self.encoder.get_weight_dtype()
 
-        else:
-            raise ValueError(f"Unknown depth estimation method: {self.model_name}")
+        # else:
+        #     raise ValueError(f"Unknown depth estimation method: {self.model_name}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -108,51 +100,53 @@ class DepthModel:
         frame_height = img.shape[0]
         frame_width = img.shape[1]
 
-        # resize and change dimension order of the images to fit the network input format  # [3 x H x W]
-        img = img_to_net_in_format(
-            img=img,
-            device=self.device,
-            dtype=self.dtype,
-            add_batch_dim=True,
-            feed_height=self.feed_height,
-            feed_width=self.feed_width,
-        )
+        # # resize and change dimension order of the images to fit the network input format  # [3 x H x W]
+        # img = img_to_net_in_format(
+        #     img=img,
+        #     device=self.device,
+        #     dtype=self.dtype,
+        #     add_batch_dim=True,
+        #     feed_height=self.feed_height,
+        #     feed_width=self.feed_width,
+        # )
 
-        # estimate the disparity map
-        if self.model_name == "EndoSFM":
-            with torch.no_grad():
-                disparity_map = self.disp_net(img)  # [N x 1 x H x W]
-                # remove the n_sample and n_channels dimension
-                disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
-                # convert the disparity to depth
-                depth_map = 1 / disparity_map
+        # # estimate the disparity map
+        # if self.model_name == "EndoSFM":
+        #     with torch.no_grad():
+        #         disparity_map = self.disp_net(img)  # [N x 1 x H x W]
+        #         # remove the n_sample and n_channels dimension
+        #         disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
+        #         # convert the disparity to depth
+        #         depth_map = 1 / disparity_map
 
-        elif self.model_name == "MonoDepth2":
-            # based on monodepth2/evaluate_depth.py
-            with torch.no_grad():
-                encoded = self.encoder(img)
-                output = self.depth_decoder(encoded)
-                disparity_map = output[("disp", 0)]  # [N x 1 x H x W]
-                # remove the n_sample and n_channels dimension
-                disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
-                # convert the disparity to depth
-                _, depth_map = monodepth2_layers.disp_to_depth(
-                    disparity_map,
-                    min_depth=self.depth_lower_bound,
-                    max_depth=self.depth_upper_bound,
-                )
-        else:
-            raise ValueError(f"Unknown depth estimation method: {self.model_name}")
+        # elif self.model_name == "MonoDepth2":
+        #     # based on monodepth2/evaluate_depth.py
+        #     with torch.no_grad():
+        #         encoded = self.encoder(img)
+        #         output = self.depth_decoder(encoded)
+        #         disparity_map = output[("disp", 0)]  # [N x 1 x H x W]
+        #         # remove the n_sample and n_channels dimension
+        #         disparity_map = disparity_map.squeeze(0).squeeze(0)  # [H x W]
+        #         # convert the disparity to depth
+        #         _, depth_map = monodepth2_layers.disp_to_depth(
+        #             disparity_map,
+        #             min_depth=self.depth_lower_bound,
+        #             max_depth=self.depth_upper_bound,
+        #         )
+        # else:
+        #     raise ValueError(f"Unknown depth estimation method: {self.model_name}")
 
-        # resize to the original image size
-        depth_map = resize_single_image(
-            img=depth_map,
-            new_height=frame_height,
-            new_width=frame_width,
-        )
+        # # resize to the original image size
+        # depth_map = resize_single_image(
+        #     img=depth_map,
+        #     new_height=frame_height,
+        #     new_width=frame_width,
+        # )
 
-        # use the depth calibration to get the depth in mm
-        depth_map = self.depth_calib_a * depth_map + self.depth_calib_b
+        # # use the depth calibration to get the depth in mm
+        # depth_map = self.depth_calib_a * depth_map + self.depth_calib_b
+
+        depth_map = 0
 
         # clip the depth if needed
         if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
@@ -178,37 +172,37 @@ class EgomotionModel:
 
         # TODO: use transform
 
-        # create the egomotion estimation network
-        if self.model_name == "EndoSFM":
-            pose_net_path = model_path / "PoseNet_best.pt"
-            # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
-            self.pose_net = endo_sfm_PoseResNet(
-                num_input_images=1 + self.n_ref_imgs,
-                num_frames_to_predict_for=self.n_ref_imgs,
-                num_layers=self.model_info.num_layers,
-                pretrained=True,
-            )
-            weights = torch.load(pose_net_path)
-            self.pose_net.load_state_dict(weights["state_dict"], strict=False)
-            self.pose_net.to(self.device)
-            self.pose_net.eval()  # switch to evaluate mode
-            self.dtype = self.pose_net.get_weight_dtype()
+        # # create the egomotion estimation network
+        # if self.model_name == "EndoSFM":
+        #     pose_net_path = model_path / "PoseNet_best.pt"
+        #     # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
+        #     self.pose_net = endo_sfm_PoseResNet(
+        #         num_input_images=1 + self.n_ref_imgs,
+        #         num_frames_to_predict_for=self.n_ref_imgs,
+        #         num_layers=self.model_info.num_layers,
+        #         pretrained=True,
+        #     )
+        #     weights = torch.load(pose_net_path)
+        #     self.pose_net.load_state_dict(weights["state_dict"], strict=False)
+        #     self.pose_net.to(self.device)
+        #     self.pose_net.eval()  # switch to evaluate mode
+        #     self.dtype = self.pose_net.get_weight_dtype()
 
-        elif self.model_name == "MonoDepth2":
-            # based on monodepth2/evaluate_pose.py
-            # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
-            # the pose network gets the target image and the reference images as input and outputs the 6DoF pose parameters from target to reference images
-            self.pose_net = monodepth2_pose_net.PoseNet(
-                n_ref_imgs=self.n_ref_imgs,
-                num_layers=self.model_info.num_layers,
-            )
-            self.pose_encoder.load_state_dict(torch.load(model_path / "pose.pth"))
-            self.pose_net.to(self.device)
-            self.pose_net.eval()
-            self.dtype = self.pose_net.get_weight_dtype()
+        # # elif self.model_name == "MonoDepth2":
+        #     # based on monodepth2/evaluate_pose.py
+        #     # Get the ResNet-18 model for the pose encoder (ImageNet pre-trained)
+        #     # the pose network gets the target image and the reference images as input and outputs the 6DoF pose parameters from target to reference images
+        #     self.pose_net = monodepth2_pose_net.PoseNet(
+        #         n_ref_imgs=self.n_ref_imgs,
+        #         num_layers=self.model_info.num_layers,
+        #     )
+        #     self.pose_encoder.load_state_dict(torch.load(model_path / "pose.pth"))
+        #     self.pose_net.to(self.device)
+        #     self.pose_net.eval()
+        # #     self.dtype = self.pose_net.get_weight_dtype()
 
-        else:
-            raise ValueError(f"Unknown egomotion estimation method: {self.model_name}")
+        # else:
+        #     raise ValueError(f"Unknown egomotion estimation method: {self.model_name}")
 
     # --------------------------------------------------------------------------------------------------------------------
 
@@ -227,26 +221,26 @@ class EgomotionModel:
         self.depth_calib_a = self.model_info.depth_calib_a
 
         # resize and change dimension order of the images to fit the network input format  # [3 x H x W]
-        cur_rgb_frame = img_to_net_in_format(
-            img=cur_rgb_frame,
-            device=self.device,
-            dtype=self.dtype,
-            add_batch_dim=True,
-            feed_height=self.feed_height,
-            feed_width=self.feed_width,
-        )
+        # cur_rgb_frame = img_to_net_in_format(
+        #     img=cur_rgb_frame,
+        #     device=self.device,
+        #     dtype=self.dtype,
+        #     add_batch_dim=True,
+        #     feed_height=self.feed_height,
+        #     feed_width=self.feed_width,
+        # )
         # Create a list of the reference images (frames at t-n_ref_imgs, t-n_ref_imgs+1, ..., t-1)
         ref_imgs = []
-        for prev_img in prev_rgb_frames.queue:
-            img = img_to_net_in_format(
-                img=prev_img,
-                device=self.device,
-                dtype=self.dtype,
-                add_batch_dim=True,
-                feed_height=self.feed_height,
-                feed_width=self.feed_width,
-            )
-            ref_imgs.append(img)
+        # for prev_img in prev_rgb_frames.queue:
+        #     img = img_to_net_in_format(
+        #         img=prev_img,
+        #         device=self.device,
+        #         dtype=self.dtype,
+        #         add_batch_dim=True,
+        #         feed_height=self.feed_height,
+        #         feed_width=self.feed_width,
+        #     )
+        #     ref_imgs.append(img)
 
         if self.model_name == "EndoSFM":
             # Get the estimated egomotion from the target (current frame) image to the reference images (previous frames)

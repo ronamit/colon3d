@@ -122,12 +122,11 @@ class TensorBoardWriter:
         img_normalize_std = self.model_info.img_normalize_std
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
-        n_ref_frames = len(self.model_info.ref_frame_shifts)
         input_images = [sample[("color", shift)][ind] for shift in all_shifts]
         # Un-normalize the images:
         input_images = [img * img_normalize_std + img_normalize_mean for img in input_images]
         img_grid = torchvision.utils.make_grid(input_images)
-        self.writer.add_image(f"RGB images: {n_ref_frames} reference + target", img_grid, global_step=0)
+        self.writer.add_image(f"RGB images. Shifts: {all_shifts}", img_grid, global_step=0)
 
         # show the GT depth, if available
         if ("depth_gt", 0) in sample:
@@ -136,7 +135,7 @@ class TensorBoardWriter:
             fig, axs = plt.subplots(1, len(depth_gt_images))
             for i, img in enumerate(depth_gt_images):
                 axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest")
-                axs[i].set_title(f"Depth image {i}")
+                axs[i].set_title(f"Depth image: {all_shifts[i]}")
                 axs[i].axis("off")
                 fig.colorbar(
                     axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest"),

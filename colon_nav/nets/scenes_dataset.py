@@ -27,7 +27,6 @@ class ScenesDataset(data.Dataset):
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
         n_scenes_lim: int = 0,
-        plot_example_ind: int | None = None,
     ):
         r"""Initialize the DatasetLoader class
         Args:
@@ -45,7 +44,6 @@ class ScenesDataset(data.Dataset):
         self.dataset_type = dataset_type
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
-        self.plot_example_ind = plot_example_ind
         #  ref_frame_shifts (list[int]) The time shifts of the reference frames w.r.t. the target frame
         self.ref_frame_shifts = model_info.ref_frame_shifts
         # List of all target frames (each target frame is a dict with the scene index and the target frame index)
@@ -88,7 +86,7 @@ class ScenesDataset(data.Dataset):
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def __getitem__(self, index: int, debug: bool = True) -> dict:
+    def __getitem__(self, index: int, debug=False) -> dict:
         sample = {}
         target_id = self.target_ids[index]
         scene_index = target_id["scene_idx"]
