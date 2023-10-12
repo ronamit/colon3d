@@ -1,43 +1,14 @@
 """
 Source: https://github.com/pytorch/vision/blob/main/torchvision/models/densenet.py
 + modifications to support different input and output sizes
-
-
-
-
-@register_model()
-Densenet-169 model from
-    `Densely Connected Convolutional Networks <https://arxiv.org/abs/1608.06993>`_.
-
-    Args:
-        weights (:class:`~torchvision.models.DenseNet169_Weights`, optional): The
-            pretrained weights to use. See
-            :class:`~torchvision.models.DenseNet169_Weights` below for
-            more details, and possible values. By default, no pre-trained
-            weights are used.
-        progress (bool, optional): If True, displays a progress bar of the download to stderr. Default is True.
-        **kwargs: parameters passed to the ``torchvision.models.densenet.DenseNet``
-            base class. Please refer to the `source code
-            <https://github.com/pytorch/vision/blob/main/torchvision/models/densenet.py>`_
-            for more details about this class.
-
-    .. autoclass:: torchvision.models.DenseNet169_Weights
-        :members:
-    weights = DenseNet169_Weights.verify(weights)
-
-    return _densenet(32, (6, 12, 32, 32), 64, weights, progress, **kwargs)
 """
 
-
-import re
 from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
 from torch import Tensor, nn
-from torchvision._utils import _ovewrite_named_param
-from torchvision.models._api import WeightsEnum
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -223,7 +194,7 @@ class DenseNet(nn.Module):
         self.features.add_module("norm5", nn.BatchNorm2d(num_features))
 
         # Linear layer
-        self.classifier = nn.Linear(num_features, output_dim)
+        self.out_layer = nn.Linear(num_features, output_dim)
 
         # Official init from torch repo.
         for m in self.modules():
@@ -242,52 +213,9 @@ class DenseNet(nn.Module):
         out = F.relu(features, inplace=True)
         out = F.adaptive_avg_pool2d(out, (1, 1))
         out = torch.flatten(out, 1)
-        out = self.classifier(out)
+        out = self.out_layer(out)
         return out
 
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def _load_state_dict(model: nn.Module, weights: WeightsEnum, progress: bool) -> None:
-    # '.'s are no longer allowed in module names, but previous _DenseLayer
-    # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
-    # They are also in the checkpoints in model_urls. This pattern is used
-    # to find such keys.
-    pattern = re.compile(
-        r"^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$",
-    )
-
-    state_dict = weights.get_state_dict(progress=progress, check_hash=True)
-    for key in list(state_dict.keys()):
-        res = pattern.match(key)
-        if res:
-            new_key = res.group(1) + res.group(2)
-            state_dict[new_key] = state_dict[key]
-            del state_dict[key]
-    model.load_state_dict(state_dict)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def _densenet(
-    growth_rate: int,
-    block_config: tuple[int, int, int, int],
-    num_init_features: int,
-    weights: WeightsEnum | None,
-    progress: bool,
-    **kwargs,
-) -> DenseNet:
-    if weights is not None:
-        _ovewrite_named_param(kwargs, "num_classes", len(weights.meta["categories"]))
-
-    model = DenseNet(growth_rate, block_config, num_init_features, **kwargs)
-
-    if weights is not None:
-        _load_state_dict(model=model, weights=weights, progress=progress)
-
-    return model
 
 
 # ---------------------------------------------------------------------------------------------------------------------

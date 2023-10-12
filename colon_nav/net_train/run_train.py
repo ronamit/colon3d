@@ -56,8 +56,8 @@ def main():
     parser.add_argument(
         "--depth_model_name",
         type=str,
-        default="fcb_former",
-        choices=["fcb_former"],
+        default="FCBFormer",
+        choices=["FCBFormer"],
         help="Name of the depth model.",
     )
     parser.add_argument(

@@ -4,6 +4,7 @@ import torch
 import torchvision
 from torch import nn
 
+from colon_nav.net_def.dense_depth import DenseDepth
 from colon_nav.net_def.fcb_former import FCBFormer
 from colon_nav.net_train.train_utils import ModelInfo
 
@@ -20,15 +21,18 @@ class DepthModel(nn.Module):
         super().__init__()
         self.out_size = model_info.depth_map_size
         self.model_name = model_info.depth_model_name
+        # Create the depth model
+        if self.model_name == "DenseDepth":
+            self.model = DenseDepth()
 
-        if self.model_name == "fcb_former":
+        elif self.model_name == "FCBFormer":
             # the FCBFormer was pre-trained on 352x352 images
             self.in_resolution = 352
             self.model = FCBFormer(in_resolution=self.in_resolution)
         else:
             raise ValueError(f"Unknown depth model name: {self.model_name}")
 
-        ### Load pretrained depth model
+        ### Load pretrained weights
         if load_depth_model_path is not None:
             self.depth_model.load_state_dict(torch.load(load_depth_model_path))
 
