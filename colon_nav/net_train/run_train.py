@@ -6,9 +6,9 @@ import numpy as np
 import torch
 
 from colon_nav.examine_depths import DepthExaminer
-from colon_nav.nets.net_trainer import NetTrainer
-from colon_nav.nets.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.nets.training_utils import ModelInfo, save_model_info
+from colon_nav.net_train.net_trainer import NetTrainer
+from colon_nav.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
+from colon_nav.net_train.train_utils import ModelInfo, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -94,7 +94,7 @@ def main():
     )
     parser.add_argument(
         "--batch_size",
-        default=32,
+        default=4,
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )
@@ -143,6 +143,9 @@ def main():
     # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
     ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
 
+    # The size of the depth maps to use.
+    depth_map_size = (352, 352) # we use 352x352 as in the pre-trained FCB-Former model
+
     print(f"args={args}")
     n_workers = args.n_workers
     torch.cuda.empty_cache()
@@ -158,8 +161,8 @@ def main():
         depth_model_name=args.depth_model_name,
         egomotion_model_name=args.egomotion_model_name,
         ref_frame_shifts=ref_frame_shifts,
-        model_description=f"The training script args: {args}",
-        random_seed=random_seed,
+        depth_map_size=depth_map_size,
+        model_description=f"The training script args: {args}, random_seed: {random_seed}",
     )
     save_model_info(
         save_dir_path=save_model_path,

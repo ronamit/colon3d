@@ -121,6 +121,22 @@ def to_torch(x, num_type=None, dtype=None, device: None | torch.device | str = N
     return x
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def sample_to_gpu(sample: dict, device: torch.device | None = None) -> dict:
+    """
+    Note: this must be applied only after a sampled batch is created by the data loader.
+    See: https://github.com/pytorch/pytorch/issues/98002#issuecomment-1511972876
+    """
+    if device is None:
+        device = get_device()
+    for k, v in sample.items():
+        if isinstance(v, torch.Tensor):
+            sample[k] = to_device(v, device=device)
+    return sample
+
+
 # --------------------------------------------------------------------------------------------------------------------
 
 

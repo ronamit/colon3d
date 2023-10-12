@@ -5,10 +5,10 @@ import torch
 import torchvision
 from torchvision.transforms import Compose
 
-from colon_nav.nets.training_utils import ModelInfo
+from colon_nav.net_train.train_utils import ModelInfo
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
-from colon_nav.util.torch_util import get_device, to_device, to_torch
+from colon_nav.util.torch_util import to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -21,7 +21,6 @@ def get_train_transform(model_info: ModelInfo):
         RandomHorizontalFlip(flip_prob=0.5, model_info=model_info),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
-        CreateNetInputs(model_info=model_info),
     ]
     return Compose(transform_list)
 
@@ -36,48 +35,8 @@ def get_val_transform(model_info: ModelInfo):
         NormalizeImageChannels(model_info=model_info),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
-        CreateNetInputs(model_info=model_info),
     ]
     return Compose(transform_list)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-class CreateNetInputs:
-    def __init__(self, model_info: ModelInfo):
-        self.model_info = model_info
-        self.depth_model_feed_height = model_info.depth_model_feed_height
-        self.depth_model_feed_width = model_info.depth_model_feed_width
-        self.ego_model_feed_height = model_info.ego_model_feed_height
-        self.ego_model_feed_width = model_info.ego_model_feed_width
-        self.ref_frame_shifts = model_info.ref_frame_shifts
-
-        self.depth_in_resizer = torchvision.transforms.Resize(
-            size=(self.depth_model_feed_height, self.depth_model_feed_height),
-            antialias=True,
-        )
-        self.ego_in_resizer = torchvision.transforms.Resize(
-            size=(self.ego_model_feed_height, self.ego_model_feed_height),
-            antialias=True,
-        )
-
-    def __call__(self, sample: dict) -> dict:
-        # create the input for the depth model:
-        sample["depth_model_in"] = self.depth_in_resizer(sample[("color", 0)])
-
-        # create the input for the egomotion model:
-
-        # all frame shifts - reference and target (relative to the target frame):
-        all_shifts = [*self.ref_frame_shifts,0]
-        all_imgs = [sample[("color", shift)] for shift in all_shifts]
-        # resize the images to the feed size (if needed)
-        all_imgs = [self.ego_in_resizer(img) for img in all_imgs]
-        # concatenate the images along the channel dimension:
-        sample["ego_model_in"] = torch.cat(all_imgs, dim=0) # shape: [C, H, W]
-        return sample
-
-    # create input for the depth model:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -85,6 +44,11 @@ class ToTensors:
     def __init__(self, dtype: torch.dtype, model_info: ModelInfo):
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
+        self.depth_map_size = model_info.depth_map_size
+        self.depth_map_resizer = torchvision.transforms.Resize(
+            size=self.depth_map_size,
+            antialias=True,
+        )
 
         # All the frame shifts that we need to load from the dataset (relative to the target frame)
         self.all_frame_shifts = [*model_info.ref_frame_shifts, 0]
@@ -101,10 +65,21 @@ class ToTensors:
         for shift in self.all_frame_shifts:
             k = ("depth_gt", shift)
             if k in sample:
+                # In case we have a depth map.
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
                 # transform to channels first (HW to CHW format, with C=1)
                 sample[k] = torch.unsqueeze(sample[k], dim=0)
-                
+                # Resize the depth map to the desired size
+                sample[k] = self.depth_map_resizer(sample[k])
+            else:
+                # create a dummy depth map (with all NaN) for the target frame (CHW format)
+                sample[k] = torch.full(
+                    (1, *self.depth_map_size),
+                    fill_value=np.nan,
+                    dtype=self.dtype,
+                    device=self.device,
+                )
+
         # convert the camera intrinsics to torch tensors
         sample["K"] = to_torch(sample["K"], dtype=self.dtype, device=self.device)
 
@@ -113,7 +88,9 @@ class ToTensors:
             k = ("abs_pose", shift)
             if k in sample:
                 sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
-
+            else:
+                # create a dummy pose for the target frame with NaN values
+                sample[k] = torch.full((7,), fill_value=np.nan, dtype=self.dtype, device=self.device)
 
         # String that lists the augmentations done on the sample:
         sample["augments"] = "Augmentations: "
@@ -168,10 +145,8 @@ class RandomHorizontalFlip:
             for shift in self.all_frames_shifts:
                 # apply the pose-augmentation to the cam poses
                 # the pose format: (x,y,z,qw,qx,qy,qz)
-                sample[("abs_pose", shift)] = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose).reshape(
-                    7,
-                )
-
+                new_pose = compose_poses(pose1=sample[("abs_pose", shift)], pose2=aug_pose)
+                sample[("abs_pose", shift)] = new_pose.reshape(7)
         sample["augments"] += " flip_x, "
         return sample
 
@@ -236,21 +211,6 @@ class AddRelativePose:
                     pose2=sample[("abs_pose", shift)],  # reference frame
                 ).reshape(7)
         return sample
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def sample_to_gpu(sample: dict, device: torch.device | None = None) -> dict:
-    """
-    Note: this must be applied only after a sampled batch is created by the data loader.
-    See: https://github.com/pytorch/pytorch/issues/98002#issuecomment-1511972876
-    """
-    if device is None:
-        device = get_device()
-    for k, v in sample.items():
-        sample[k] = to_device(v, device=device)
-    return sample
 
 
 # ---------------------------------------------------------------------------------------------------------------------

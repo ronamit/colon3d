@@ -11,9 +11,10 @@ import torch
 from timm.models.vision_transformer import _cfg
 from torch import nn
 
-from colon_nav.nets import pvt_v2
+from colon_nav.net_def import pvt_v2
 from colon_nav.util.general_util import create_folder_if_not_exists
 
+# ---------------------------------------------------------------------------------------------------------------------
 
 class RB(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -100,7 +101,15 @@ class FCB(nn.Module):
                     )
                 self.dec_blocks.append(nn.Sequential(*layers))
 
+    # -----------------------------------------------------------------------------------------------------------------
+
     def forward(self, x):
+        """Forward pass of the network
+        Args:
+            x (torch.Tensor): Input tensor of shape [B, C, H, W]
+        Returns:
+            out (torch.Tensor): Output tensor of shape [B, C, H, W]
+        """
         hs = []
         h = x
         for module in self.enc_blocks:
@@ -113,6 +122,7 @@ class FCB(nn.Module):
         return h
 
 
+# ---------------------------------------------------------------------------------------------------------------------
 class TB(nn.Module):
     def __init__(self):
         super().__init__()
@@ -185,19 +195,24 @@ class TB(nn.Module):
         return h
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+
+
 class FCBFormer(nn.Module):
-    def __init__(self, size=352):
+    def __init__(self, in_resolution: int = 352):
         super().__init__()
 
         self.TB = TB()
 
-        self.FCB = FCB(in_resolution=size)
+        self.FCB = FCB(in_resolution=in_resolution)
         self.PH = nn.Sequential(
             RB(64 + 32, 64),
             RB(64, 64),
             nn.Conv2d(64, 1, kernel_size=1),
         )
-        self.up_tosize = nn.Upsample(size=size)
+        self.up_tosize = nn.Upsample(size=in_resolution, mode="bilinear")
+
+    # ---------------------------------------------------------------------------------------------------------------------
 
     def forward(self, x):
         x1 = self.TB(x)
@@ -207,3 +222,6 @@ class FCBFormer(nn.Module):
         out = self.PH(x)
 
         return out
+
+
+# ---------------------------------------------------------------------------------------------------------------------

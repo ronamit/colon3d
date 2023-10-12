@@ -5,15 +5,13 @@ from collections.abc import Callable
 
 import torch
 from torch import Tensor, nn
-from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights, conv1x1
+from torchvision.models.resnet import BasicBlock, Bottleneck, conv1x1
 from torchvision.utils import _log_api_usage_once
-
-from colon_nav.nets.training_utils import ModelInfo
 
 # -------------------------------------------------------------------------------------------------------------------
 
 
-class EgomotionResNet(nn.Module):
+class ResNet(nn.Module):
     def __init__(
         self,
         n_input_channels: int,
@@ -73,6 +71,8 @@ class EgomotionResNet(nn.Module):
                 elif isinstance(m, BasicBlock) and m.bn2.weight is not None:
                     nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
+    # -------------------------------------------------------------------------------------------------------------------
+
     def _make_layer(
         self,
         block: type[BasicBlock | Bottleneck],
@@ -121,7 +121,9 @@ class EgomotionResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def _forward_impl(self, x: Tensor) -> Tensor:
+    # -------------------------------------------------------------------------------------------------------------------
+
+    def forward(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
         x = self.conv1(x)
         x = self.bn1(x)
@@ -136,64 +138,7 @@ class EgomotionResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
-        # we got a 7-dimensional vector: 3 for translation, 4 for rotation
-        # We normalize the rotation vector to be a unit quaternion (l2-norm = 1)
-        eps = 1e-12
-        x[:, 3:] = x[:, 3:] / (torch.norm(x[:, 3:], dim=1, keepdim=True) + eps)
         return x
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self._forward_impl(x)
-
-
-# -------------------------------------------------------------------------------------------------------------------
-
-
-def get_resnet_egomotion_model(model_info: ModelInfo, pretrained=True) -> EgomotionResNet:
-    """ Get the ResNet egomotion model.
-    Args:
-        model_info: The model info object.
-        pretrained: If True, load the ImageNet pretrained weights.
-    Returns:
-        The ResNet egomotion model.
-    """
-
-    model_name = model_info.egomotion_model_name
-    ref_frame_shifts = model_info.ref_frame_shifts
-    n_ref_imgs = len(ref_frame_shifts)
-    n_input_imgs = n_ref_imgs + 1  #  reference frames & target frame
-    n_input_channels = 3 * n_input_imgs  # The RGB images are concatenated along the channel dimension
-
-    # The output of the network is a 7-dimensional vector: 3 for translation, 4 for rotation
-    # The rotation is represented by a unit quaternion (l2-norm = 1)
-    output_dim = 7
-
-    if model_name == "resnet18":
-        weights = ResNet18_Weights.DEFAULT
-        model = EgomotionResNet(n_input_channels=n_input_channels, output_dim=output_dim, block=BasicBlock, layers=[2, 2, 2, 2])
-    elif model_name == "resnet50":
-        weights = ResNet50_Weights.DEFAULT
-        model = EgomotionResNet(n_input_channels=n_input_channels, output_dim=output_dim, block=Bottleneck, layers=[3, 4, 6, 3])
-    else:
-        raise ValueError(f"Unknown model name: {model_name}")
-
-    if pretrained:
-    # Load ImageNet pretrained weights
-        weights_dict = weights.get_state_dict(progress=True)
-        conv1_weights = weights_dict["conv1.weight"]  # [out_channels, in_channels, kernel_size, kernel_size]
-
-        # We concatenate the RGB images along the channel dimension, so we need to duplicate the weights
-        #  along the input_channel dimension for n_input_imgs times:
-        conv1_weights = conv1_weights.repeat(1, n_input_imgs, 1, 1)
-
-        # Since we increased input_channel times n_input_imgs, we need to adjust the scale of the weights
-        weights_dict["conv1.weight"] = conv1_weights / n_input_imgs
-
-        # Load the weights to the model (note that the output layer is not loaded)
-        # exclude the output later, since we have a different output dimension
-        weights_dict = {k: v for k, v in weights_dict.items() if k not in {"fc.weight", "fc.bias"}}
-        model.load_state_dict(weights_dict, strict=False)
-    return model
 
 
 # -------------------------------------------------------------------------------------------------------------------

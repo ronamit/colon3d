@@ -1,14 +1,14 @@
 import torch
 from torchvision.transforms import Compose
 
-from colon_nav.nets.data_transforms import (
+from colon_nav.net_train.data_transforms import (
     AddInvIntrinsics,
     AddRelativePose,
     NormalizeImageChannels,
     RandomHorizontalFlip,
     ToTensors,
 )
-from colon_nav.nets.training_utils import DatasetMeta
+from colon_nav.net_train.train_utils import DatasetMeta
 from colon_nav.util.rotations_util import quaternion_to_axis_angle
 
 # ---------------------------------------------------------------------------------------------------------------------

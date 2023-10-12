@@ -18,30 +18,13 @@ class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
+    depth_map_size: tuple[int, int]  # (height, width) of the depth map
     img_normalize_mean: float = 0.45  # used in "normalize_image_channels"
     img_normalize_std: float = 0.225  #  used in "normalize_image_channels"
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
     model_description: str = ""
-    random_seed: int | None = None
-    # Fields that will be initialized in post-init:
-    depth_model_feed_height: int = attrs.field(init=False)
-    depth_model_feed_width: int = attrs.field(init=False)
-    ego_model_feed_height: int = attrs.field(init=False)
-    ego_model_feed_width: int = attrs.field(init=False)
-
-    def __attrs_post_init__(self):
-        if self.depth_model_name == "fcb_former":
-            self.depth_model_feed_height = 352
-            self.depth_model_feed_width = 352
-        else:
-            raise ValueError(f"Unknown depth model name: {self.depth_model_name}")
-        if self.egomotion_model_name in ["resnet18", "resnet50"]:
-            self.ego_model_feed_height = 224
-            self.ego_model_feed_width = 224
-        else:
-            raise ValueError(f"Unknown egomotion model name: {self.egomotion_model_name}")
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -7,8 +7,8 @@ import yaml
 from PIL import Image
 from torch.utils import data
 
-from colon_nav.nets.data_transforms import get_train_transform, get_val_transform
-from colon_nav.nets.training_utils import ModelInfo
+from colon_nav.net_train.data_transforms import get_train_transform, get_val_transform
+from colon_nav.net_train.train_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import save_rgb_and_depth_subplots
 from colon_nav.util.torch_util import to_default_type, to_torch
@@ -69,7 +69,6 @@ class ScenesDataset(data.Dataset):
             # set the scene index and the target frame index for each sample (later we will set the reference frames indices)
             for i_frame in range(min_tgt_frame_idx, n_frames):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
-                
 
         # Create transforms
         if self.dataset_type == "train":
@@ -87,6 +86,19 @@ class ScenesDataset(data.Dataset):
     # ---------------------------------------------------------------------------------------------------------------------
 
     def __getitem__(self, index: int, debug=False) -> dict:
+        """Get a sample from the dataset
+        Args:
+            index (int): The index of the sample in the dataset.
+            debug (bool): Whether to plot the sample data (default: False)
+        Returns:
+            sample (dict): A sample from the dataset. with fields:
+                "scene_index" (int): The index of the scene in the dataset.
+                "target_frame_idx" (int): The index of the target frame in the scene.
+                "color" (list[torch.Tensor]): The RGB images of the reference and target frame (each frame is a tensor of shape [H, W, 3])
+                "depth_gt" (list[torch.Tensor]): The ground-truth depth map of the reference and target frame (each frame is a tensor of shape [H, W])
+                "abs_pose" (list[torch.Tensor]): The ground-truth pose change between the target and the reference frames (each pose is a tensor of shape [7])
+                "K" (torch.Tensor): The camera intrinsics matrix (shape [3, 3])
+        """
         sample = {}
         target_id = self.target_ids[index]
         scene_index = target_id["scene_idx"]
@@ -103,7 +115,6 @@ class ScenesDataset(data.Dataset):
 
         sample["K"] = to_torch(intrinsics_orig)
 
-    
         # load the RGB images
         all_frames_shift = [*self.ref_frame_shifts, 0]
         for shift in all_frames_shift:
@@ -111,8 +122,8 @@ class ScenesDataset(data.Dataset):
             frame_path = scene_frames_paths[frame_idx]
             sample[("color", shift)] = Image.open(frame_path)
 
-        # load the ground-truth depth map and the ground-truth pose
-        if self.load_gt_depth or self.load_gt_pose:
+        # load the ground-truth depth map and the ground-truth poses (if available)
+        if (self.load_gt_depth or self.load_gt_pose) and (scene_path / "gt_3d_data.h5").exists():
             with h5py.File((scene_path / "gt_3d_data.h5").resolve(), "r") as h5f:
                 for shift in all_frames_shift:
                     frame_idx = target_frame_idx + shift
