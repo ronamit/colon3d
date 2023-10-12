@@ -7,7 +7,6 @@ from collections.abc import Callable
 import torch
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, conv1x1
-from torchvision.utils import _log_api_usage_once
 
 # -------------------------------------------------------------------------------------------------------------------
 
@@ -26,7 +25,6 @@ class ResNet(nn.Module):
         norm_layer: Callable[..., nn.Module] | None = None,
     ) -> None:
         super().__init__()
-        _log_api_usage_once(self)
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
