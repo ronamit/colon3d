@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from colon_nav.net_train.depth_model import DepthModel
 from colon_nav.net_train.egomotion_model import EgomotionModel
-from colon_nav.net_train.loss import loss_function
+from colon_nav.net_train.loss import LossFunc
 from colon_nav.net_train.train_utils import ModelInfo, TensorBoardWriter
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
@@ -36,6 +36,7 @@ class NetTrainer:
         self.device = get_device()
         # The loss terms to use in the loss function and their weights
         self.loss_terms_lambdas = {"depth_sup_L1": 1, "depth_sup_SSIM": 1, "trans_sup_L1_quat": 1, "rot_sup_L1_quat": 1, "rot_sup_L1_mat": 1}
+        self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas)
 
         ### Initialize the depth model
         self.depth_model = DepthModel(model_info=model_info, load_depth_model_path=load_depth_model_path)
@@ -151,8 +152,7 @@ class NetTrainer:
         list_tgt_to_refs_motion_gt = [batch[("tgt_to_ref_motion", shift)] for shift in self.ref_frame_shifts]
 
         # Compute the loss function
-        tot_loss, losses_scaled = loss_function(
-            loss_terms_lambdas=self.loss_terms_lambdas,
+        tot_loss, losses_scaled = self.loss_func(
             tgt_depth_est=tgt_depth_est,
             list_tgt_to_refs_motion_est=tgt_to_refs_motion_est,
             depth_gt=depth_gt,

@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torchvision import models
+from torchvision.models import DenseNet169_Weights
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -72,7 +73,7 @@ class Decoder(nn.Module):
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.original_model = models.densenet169(pretrained=False)
+        self.original_model = models.densenet169(weights=DenseNet169_Weights.IMAGENET1K_V1)
 
     def forward(self, x):
         features = [x]

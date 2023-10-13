@@ -12,6 +12,7 @@ from colon_nav.net_train.train_utils import ModelInfo, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 """
 If out-of-memory error occurs, try to reduce the batch size (e.g. --batch_size 4)
@@ -83,18 +84,18 @@ def main():
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=20,
+        default=40,
         help="Number of epochs to train.",
     )
     parser.add_argument(
         "--n_workers",
-        default=9,
+        default=5,
         type=int,
         help="number of data loading workers.",
     )
     parser.add_argument(
         "--batch_size",
-        default=32,
+        default=16,
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )
@@ -144,7 +145,7 @@ def main():
     ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
 
     # The size of the depth maps to use.
-    depth_map_size = (352, 352) # we use 352x352 as in the pre-trained FCB-Former model
+    depth_map_size = (352, 352)  # we use 352x352 as in the pre-trained FCB-Former model
 
     print(f"args={args}")
     n_workers = args.n_workers
