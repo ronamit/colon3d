@@ -65,7 +65,7 @@ class LossFunc(nn.Module):
 
             if "trans_sup_L1_quat" in losses:
                 # Add the L1 loss between the GT and estimated translation vectors of this ref frame (sum over the samples in the batch)
-                losses["pose_sup_L1_quat"] += nnF.l1_loss(trans_est, trans_gt, reduction="sum")
+                losses["trans_sup_L1_quat"] += nnF.l1_loss(trans_est, trans_gt, reduction="sum")
 
             if "rot_sup_L1_quat" in losses:
                 # Add the L1 loss between the GT and estimated unit quaternion of this ref frame (sum over the samples in the batch)

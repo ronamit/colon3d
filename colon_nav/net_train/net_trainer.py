@@ -35,7 +35,7 @@ class NetTrainer:
         self.ref_frame_shifts = model_info.ref_frame_shifts
         self.device = get_device()
         # The loss terms to use in the loss function and their weights
-        self.loss_terms_lambdas = {"depth_sup_L1": 1, "depth_sup_SSIM": 1, "trans_sup_L1_quat": 1, "rot_sup_L1_quat": 1, "rot_sup_L1_mat": 1}
+        self.loss_terms_lambdas = {"depth_sup_L1": 1, "depth_sup_SSIM": 0.1, "trans_sup_L1_quat": 1, "rot_sup_L1_quat": 1, "rot_sup_L1_mat": 1}
         self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas)
 
         ### Initialize the depth model
