@@ -23,12 +23,14 @@ class DepthModel(nn.Module):
         self.model_name = model_info.depth_model_name
         # Create the depth model
         if self.model_name == "DenseDepth":
+            self.in_resolution = 475 # as in the DenseDepth's MIVA team adaptation in the SimCol3D challenge.
             self.model = DenseDepth()
 
         elif self.model_name == "FCBFormer":
             # the FCBFormer was pre-trained on 352x352 images
             self.in_resolution = 352
             self.model = FCBFormer(in_resolution=self.in_resolution)
+
         else:
             raise ValueError(f"Unknown depth model name: {self.model_name}")
 

@@ -206,7 +206,7 @@ class AddRelativePose:
         if ("abs_pose", 0) in sample:
             # get the relative pose between the target and reference frames
             for shift in self.ref_frame_shifts:
-                sample[("tgt_to_ref_pose", shift)] = get_pose_delta(
+                sample[("tgt_to_ref_motion", shift)] = get_pose_delta(
                     pose1=sample[("abs_pose", 0)],  # target frame
                     pose2=sample[("abs_pose", shift)],  # reference frame
                 ).reshape(7)

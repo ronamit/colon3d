@@ -147,12 +147,16 @@ class NetTrainer:
         # Get the ground truth depth map of the target frame
         depth_gt = batch[("depth_gt", 0)]  # (B, H, W)
 
+        # Get the ground truth egomotion from the target to each reference frame
+        list_tgt_to_refs_motion_gt = [batch[("tgt_to_ref_motion", shift)] for shift in self.ref_frame_shifts]
+
         # Compute the loss function
         tot_loss, losses_scaled = loss_function(
             loss_terms_lambdas=self.loss_terms_lambdas,
             tgt_depth_est=tgt_depth_est,
             list_tgt_to_refs_motion_est=tgt_to_refs_motion_est,
             depth_gt=depth_gt,
+            list_tgt_to_refs_motion_gt = list_tgt_to_refs_motion_gt,
         )
 
         return tot_loss, losses_scaled

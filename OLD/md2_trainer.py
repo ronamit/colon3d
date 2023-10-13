@@ -252,7 +252,7 @@ class MonoDepth2Trainer:
                 # Go over all the reference frames
                 for shift in self.ref_frame_shifts:
                     # Get the ground truth pose change from target to reference frame
-                    translation_gt, axisangle_gt = poses_to_md2_format(inputs[("tgt_to_ref_pose", shift)])
+                    translation_gt, axisangle_gt = poses_to_md2_format(inputs[("tgt_to_ref_motion", shift)])
                     # Get the predicted pose change from reference to target frame
                     trans_pred = outputs[("translation", 0, shift)]
                     rot_pred = outputs[("axisangle", 0, shift)]

@@ -301,18 +301,18 @@ class EndoSFMTrainer:
                 rot_loss = 0
                 for i_ref, shift in enumerate(self.ref_frame_shifts):
                     # Get the ground-truth pose change from reference to target frame  [batch_size, ,7] (translation & quaternion)
-                    tgt_to_ref_pose_gt = batch[("tgt_to_ref_pose", shift)]
-                    tgt_to_ref_pose_gt = poses_to_enfosfm_format(
-                        tgt_to_ref_pose_gt,
+                    tgt_to_ref_motion_gt = batch[("tgt_to_ref_motion", shift)]
+                    tgt_to_ref_motion_gt = poses_to_enfosfm_format(
+                        tgt_to_ref_motion_gt,
                     )  # [batch_size, 6] (translation & axis-angle)
                     # the estimated pose changes are in axis-angle format
-                    tgt_to_ref_pose_pred = pred_poses[:, i_ref, :]  # [batch_size, 6] (translation & axis-angle)
+                    tgt_to_ref_motion_pred = pred_poses[:, i_ref, :]  # [batch_size, 6] (translation & axis-angle)
                     # add a supervised loss term for training the pose network
                     trans_loss_curr, rot_loss_curr = compute_pose_loss(
-                        trans_est=tgt_to_ref_pose_pred[:, :3],
-                        trans_gt=tgt_to_ref_pose_gt[:, :3],
-                        rot_est=tgt_to_ref_pose_pred[:, 3:],
-                        rot_gt=tgt_to_ref_pose_gt[:, 3:],
+                        trans_est=tgt_to_ref_motion_pred[:, :3],
+                        trans_gt=tgt_to_ref_motion_gt[:, :3],
+                        rot_est=tgt_to_ref_motion_pred[:, 3:],
+                        rot_gt=tgt_to_ref_motion_gt[:, 3:],
                     )
                     trans_loss += trans_loss_curr
                     rot_loss += rot_loss_curr
