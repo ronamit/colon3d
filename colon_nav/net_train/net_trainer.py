@@ -1,16 +1,17 @@
 from pathlib import Path
 
 import torch
-import torch.nn.functional as nnF
 from torch.utils.data import DataLoader
 
 from colon_nav.net_train.depth_model import DepthModel
 from colon_nav.net_train.egomotion_model import EgomotionModel
+from colon_nav.net_train.loss import loss_function
 from colon_nav.net_train.train_utils import ModelInfo, TensorBoardWriter
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
 
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 class NetTrainer:
     def __init__(
@@ -33,6 +34,8 @@ class NetTrainer:
         self.run_name = run_name or get_time_now_str()
         self.ref_frame_shifts = model_info.ref_frame_shifts
         self.device = get_device()
+        # The loss terms to use in the loss function and their weights
+        self.loss_terms_lambdas = {"depth_sup_L1": 1, "depth_sup_SSIM": 1, "trans_sup_L1_quat": 1, "rot_sup_L1_quat": 1, "rot_sup_L1_mat": 1}
 
         ### Initialize the depth model
         self.depth_model = DepthModel(model_info=model_info, load_depth_model_path=load_depth_model_path)
@@ -104,12 +107,12 @@ class NetTrainer:
     def train_one_batch(self, batch_idx: int, batch):
         """Train the network for one batch."""
         self.optimizer.zero_grad()
-        losses = self.compute_loss_func(batch)
-        losses["loss"].backward()
+        tot_loss, losses_scaled = self.compute_loss_func(batch)
+        tot_loss.backward()
         self.optimizer.step()
         print(f"  Batch {batch_idx}:")
-        print(losses, prefix="    ")
-        self.logger.writer.add_scalar("train/loss", losses["loss"].item(), self.global_step)
+        print({loss_name: loss_val.item for loss_name, loss_val in losses_scaled.items()}, prefix="    ")
+        self.logger.writer.add_scalar("train/loss", tot_loss.item(), self.global_step)
         self.global_step += 1
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -137,64 +140,22 @@ class NetTrainer:
 
     def compute_loss_func(self, batch):
         """Compute the loss function."""
+
         # Get the outputs of the networks
-        loss = 0
         tgt_depth_est, tgt_to_refs_motion_est = self.compute_outputs(batch)
 
-        # Compute the depth loss, sum over sample with available GT depth (non-NaN)
+        # Get the ground truth depth map of the target frame
         depth_gt = batch[("depth_gt", 0)]  # (B, H, W)
-        is_depth_gt_available = torch.isnan(depth_gt[:, 0, 0])  # (B)
-        depth_loss_all = nnF.mse_loss(tgt_depth_est, depth_gt, reduction="none")  # (B)
-        depth_loss = torch.sum(depth_loss_all[~is_depth_gt_available])  # scalar
-        loss += depth_loss
-        #       """Compute the loss function."""
-        # # Add optional depth loss (for the predicted depth of the target frame vs. the ground truth depth)
-        # if self.train_with_gt_depth:
-        #     # Get the ground truth depth map of the target frame at the full resolution
-        #     depth_gt = batch[("depth_gt", 0)]
 
-        #     # Get the predicted depth map  of the target frame at the full resolution
-        #     depth_pred = outputs[("depth", 0)]
+        # Compute the loss function
+        tot_loss, losses_scaled = loss_function(
+            loss_terms_lambdas=self.loss_terms_lambdas,
+            tgt_depth_est=tgt_depth_est,
+            list_tgt_to_refs_motion_est=tgt_to_refs_motion_est,
+            depth_gt=depth_gt,
+        )
 
-        #     # Compute the depth loss
-        #     depth_loss = nnF.l2_loss(depth_pred, depth_gt)
-        #     # multiply the depth loss by a factor to match the scale of the other losses
-        #     depth_loss = depth_loss * 0.5
-        #     losses["depth_loss"] = depth_loss
-        #     losses["loss"] += depth_loss
-        #     assert depth_loss.isfinite().all(), f"depth_loss is not finite: {depth_loss}"
-
-        # # Add optional pose loss (GT relative pose from target to reference frame vs. predicted)
-        # if self.train_with_gt_pose:
-        #     trans_loss_tot = 0
-        #     rot_loss_tot = 0
-        #     # Go over all the reference frames
-        #     for shift in self.ref_frame_shifts:
-        #         # Get the ground truth pose change from target to reference frame
-        #         translation_gt, axisangle_gt = poses_to_md2_format(inputs[("tgt_to_ref_pose", shift)])
-        #         # Get the predicted pose change from reference to target frame
-        #         trans_pred = outputs[("translation", 0, shift)]
-        #         rot_pred = outputs[("axisangle", 0, shift)]
-
-        #         # Compute the pose losses:
-        #         trans_loss, rot_loss = compute_pose_loss(
-        #             trans_pred=trans_pred,
-        #             trans_gt=translation_gt,
-        #             rot_pred=rot_pred,
-        #             rot_gt=axisangle_gt,
-        #         )
-        #         trans_loss_tot += trans_loss
-        #         rot_loss_tot += rot_loss
-        #     trans_loss = trans_loss_tot / self.n_ref_imgs
-        #     rot_loss = rot_loss_tot / self.n_ref_imgs
-        #     # multiply the pose losses by a factor to match the scale of the other losses
-        #     trans_loss *= 10
-        #     rot_loss *= 100
-        #     losses["trans_loss"] = trans_loss
-        #     losses["rot_loss"] = rot_loss
-        #     losses["loss"] += trans_loss + rot_loss
-
-        return loss
+        return tot_loss, losses_scaled
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -211,10 +172,10 @@ class NetTrainer:
 
     def validate_one_batch(self, batch_idx: int, batch):
         """Validate the network for one batch."""
-        losses = self.compute_loss_func(batch)
+        tot_loss, losses_scaled = self.compute_loss_func(batch)
         print(f"  Batch {batch_idx}:")
-        print(losses, prefix="    ")
-        self.logger.writer("val/loss", losses["loss"].item(), self.global_step)
+        print({loss_name: loss_val.item for loss_name, loss_val in losses_scaled.items()}, prefix="    ")
+        self.logger.writer("val/loss", tot_loss.item(), self.global_step)
 
     # ---------------------------------------------------------------------------------------------------------------------
 

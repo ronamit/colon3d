@@ -7,19 +7,19 @@ import torch
 import torch.nn.functional as nnF
 import torch.optim
 import torch.utils.data
-from torch.utils.tensorboard import SummaryWriter
-
-from colon_nav.net_train.endosfm_transforms import poses_to_enfosfm_format
-from colon_nav.net_train.loss_terms import compute_pose_loss
-from colon_nav.net_train.data_transforms import sample_to_gpu
-from colon_nav.net_train.train_utils import DatasetMeta
-from colon_nav.util.general_util import Tee, create_empty_folder, set_rand_seed
-from colon_nav.util.torch_util import get_device
 from endo_sfm.logger import AverageMeter
 from endo_sfm.loss_functions import compute_pairwise_loss, compute_smooth_loss
 from endo_sfm.models_def.DispResNet import DispResNet
 from endo_sfm.models_def.PoseResNet import PoseResNet
 from endo_sfm.utils import save_checkpoint
+from torch.utils.tensorboard import SummaryWriter
+
+from colon_nav.net_train.data_transforms import sample_to_gpu
+from colon_nav.net_train.endosfm_transforms import poses_to_enfosfm_format
+from colon_nav.net_train.loss import compute_pose_loss
+from colon_nav.net_train.train_utils import DatasetMeta
+from colon_nav.util.general_util import Tee, create_empty_folder, set_rand_seed
+from colon_nav.util.torch_util import get_device
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -147,7 +147,11 @@ class EndoSFMTrainer:
                 {"params": disp_net.parameters(), "lr": self.learning_rate},
                 {"params": pose_net.parameters(), "lr": self.learning_rate},
             ]
-            optimizer = torch.optim.AdamW(optim_params, betas=(self.momentum, self.beta), weight_decay=self.weight_decay)
+            optimizer = torch.optim.AdamW(
+                optim_params,
+                betas=(self.momentum, self.beta),
+                weight_decay=self.weight_decay,
+            )
 
             with (self.save_path / self.log_summary).open("w") as csvfile:
                 writer = csv.writer(csvfile, delimiter="\t")
@@ -259,7 +263,7 @@ class EndoSFMTrainer:
             data_time.update(time.time() - end)  # measure data loading time
             log_losses = i_batch > 0 and n_iter % self.print_freq == 0
             # The RGB images of the reference images (shifts -n_ref_imgs, ..., -1) and the target image (shift 0)
-            tgt_rgb_img = batch[("color", 0)] # RGB image of the target image (shift 0)
+            tgt_rgb_img = batch[("color", 0)]  # RGB image of the target image (shift 0)
             # RGB images of the reference images (shifts -n_ref_imgs, ..., -1)
             ref_rgb_imgs = [batch[("color", shift)] for shift in self.ref_frame_shifts]
             intrinsics_K = batch["K"]
@@ -298,14 +302,16 @@ class EndoSFMTrainer:
                 for i_ref, shift in enumerate(self.ref_frame_shifts):
                     # Get the ground-truth pose change from reference to target frame  [batch_size, ,7] (translation & quaternion)
                     tgt_to_ref_pose_gt = batch[("tgt_to_ref_pose", shift)]
-                    tgt_to_ref_pose_gt = poses_to_enfosfm_format(tgt_to_ref_pose_gt)  # [batch_size, 6] (translation & axis-angle)
+                    tgt_to_ref_pose_gt = poses_to_enfosfm_format(
+                        tgt_to_ref_pose_gt,
+                    )  # [batch_size, 6] (translation & axis-angle)
                     # the estimated pose changes are in axis-angle format
                     tgt_to_ref_pose_pred = pred_poses[:, i_ref, :]  # [batch_size, 6] (translation & axis-angle)
                     # add a supervised loss term for training the pose network
                     trans_loss_curr, rot_loss_curr = compute_pose_loss(
-                        trans_pred=tgt_to_ref_pose_pred[:, :3],
+                        trans_est=tgt_to_ref_pose_pred[:, :3],
                         trans_gt=tgt_to_ref_pose_gt[:, :3],
-                        rot_pred=tgt_to_ref_pose_pred[:, 3:],
+                        rot_est=tgt_to_ref_pose_pred[:, 3:],
                         rot_gt=tgt_to_ref_pose_gt[:, 3:],
                     )
                     trans_loss += trans_loss_curr

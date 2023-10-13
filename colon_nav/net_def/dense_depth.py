@@ -4,8 +4,11 @@ Source: https://github.com/ialhashim/DenseDepth/blob/master/PyTorch/model.py
 High Quality Monocular Depth Estimation via Transfer Learning (arXiv 2018)
 Ibraheem Alhashim and Peter Wonka
 
-See also "SimCol3D - 3D Reconstruction during Colonoscopy Challenge" - 4.5. DenseDepth adaptation by Team MIVA
+Description fro, "SimCol3D - 3D Reconstruction during Colonoscopy Challenge" - 4.5. DenseDepth adaptation by Team MIVA
 https://arxiv.org/pdf/2307.11261
+* "DenseDepth (Alhashim and Wonka, 2018) which is a fully convolutional encoder-decoder architecture with skip connections.
+* The encoder is DenseNet- 169 pre-trained on ImageNet.
+*
 """
 
 import torch

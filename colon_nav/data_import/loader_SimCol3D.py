@@ -8,6 +8,7 @@ from colon_nav.util.torch_util import np_func
 
 """
 Instructions for importing the data from the SimCol3D dataset (not needed if you use the pre-processed data):
+https://www.ucl.ac.uk/interventional-surgical-sciences/simcol3d-3d-reconstruction-during-colonoscopy-challenge
 
 * Download the dataset from https://rdr.ucl.ac.uk/articles/dataset/Simcol3D_-_3D_Reconstruction_during_Colonoscopy_Challenge_Dataset/24077763/1?file=42248541
 * Extract all folders and files to a single folder (raw_sim_data_path)

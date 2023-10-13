@@ -94,7 +94,7 @@ def main():
     )
     parser.add_argument(
         "--batch_size",
-        default=4,
+        default=32,
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )

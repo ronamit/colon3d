@@ -30,9 +30,9 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from colon_nav.net_train.loss_terms import compute_pose_loss
-from colon_nav.net_train.md2_transforms import poses_to_md2_format
 from colon_nav.net_train.data_transforms import sample_to_gpu
+from colon_nav.net_train.loss import compute_pose_loss
+from colon_nav.net_train.md2_transforms import poses_to_md2_format
 from colon_nav.net_train.train_utils import DatasetMeta
 from colon_nav.util.general_util import create_folder_if_not_exists, to_str
 from colon_nav.util.torch_util import get_device
@@ -259,9 +259,9 @@ class MonoDepth2Trainer:
 
                     # Compute the pose losses:
                     trans_loss, rot_loss = compute_pose_loss(
-                        trans_pred=trans_pred,
+                        trans_est=trans_pred,
                         trans_gt=translation_gt,
-                        rot_pred=rot_pred,
+                        rot_est=rot_pred,
                         rot_gt=axisangle_gt,
                     )
                     trans_loss_tot += trans_loss
