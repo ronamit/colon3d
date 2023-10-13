@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from colon_nav.net_train.depth_model import DepthModel
 from colon_nav.net_train.egomotion_model import EgomotionModel
-from colon_nav.net_train.loss import LossFunc
+from colon_nav.net_train.loss_func import LossFunc
 from colon_nav.net_train.train_utils import ModelInfo, TensorBoardWriter
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
