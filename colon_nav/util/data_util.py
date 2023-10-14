@@ -53,7 +53,7 @@ class SceneLoader:
         metadata_path = self.origin_scene_path / "meta_data.yaml"
         print(f"Loading meta-data from {metadata_path}")
         with (self.origin_scene_path / "meta_data.yaml").open() as file:
-            metadata = yaml.load(file, Loader=yaml.FullLoader)
+            metadata = yaml.safe_load(file)
         if fps_override is None:
             fps_override = metadata["fps"]
         self.fps = fps_override

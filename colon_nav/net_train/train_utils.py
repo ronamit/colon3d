@@ -43,8 +43,8 @@ def save_model_info(
     model_info_dict = attrs.asdict(model_info)
 
     save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info_dict)
-
-
+    print(f"Saved model info to {model_info_path}")
+    print("Model info:", model_info)
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -53,7 +53,7 @@ def load_model_model_info(path: Path) -> ModelInfo:
     if not model_info_path.exists():
         raise FileNotFoundError(f"Model info file {model_info_path} does not exist")
     with model_info_path.open("r") as f:
-        model_info = yaml.load(f, Loader=yaml.FullLoader)
+        model_info = yaml.safe_load(f)
     return ModelInfo(**model_info)
 
 

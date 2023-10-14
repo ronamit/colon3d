@@ -110,7 +110,7 @@ class ScenesDataset(data.Dataset):
 
         # get the camera intrinsics matrix
         with (scene_path / "meta_data.yaml").open() as file:
-            scene_metadata = yaml.load(file, Loader=yaml.FullLoader)
+            scene_metadata = yaml.safe_load(file)
             intrinsics_orig = get_camera_matrix(scene_metadata)
 
         sample["K"] = to_torch(intrinsics_orig)
@@ -162,7 +162,7 @@ class ScenesDataset(data.Dataset):
     def get_scene_metadata(self, i_scene: int = 0) -> dict:
         scene_path = self.scenes_paths[i_scene]
         with (scene_path / "meta_data.yaml").open() as file:
-            metadata = yaml.load(file, Loader=yaml.FullLoader)
+            metadata = yaml.safe_load(file)
         return metadata
 
 

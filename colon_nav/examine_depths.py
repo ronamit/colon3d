@@ -1,11 +1,12 @@
 import argparse
+from copy import deepcopy
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import yaml
 
 from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.net_train.train_utils import ModelInfo, load_model_model_info
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,
@@ -56,15 +57,14 @@ def main():
     )
     args = parser.parse_args()
     print(f"args={args}")
-    depth_examiner = DepthExaminer(
+
+    DepthExaminer(
         dataset_path=Path(args.dataset_path),
         model_path=Path(args.model_path),
-        save_path=Path(args.save_path),
+        save_exam_path=Path(args.save_path),
         n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
-    )
-
-    depth_examiner.run()
+    ).run()
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -75,16 +75,32 @@ class DepthExaminer:
         self,
         dataset_path: Path,
         model_path: Path,
-        save_path: Path,
+        model_info: ModelInfo | None = None,
+        save_exam_path: Path | None = None,
         depth_calib_method: str = "none",
         n_scenes_lim: int = 0,
         n_frames_lim: int = 0,
         save_overwrite: bool = True,
         frame_idx_to_show: int = 0,
     ):
+        """Initialize the depth examiner.
+        Args:
+            dataset_path: Path to the dataset of scenes.
+            model_path: Path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation.
+            model_info: The model info to use for the depth and egomotion models. If None then the model info will be loaded from the model_path.
+            save_exam_path: Path to save the results. If None then the results will not be saved.
+            depth_calib_method: The method to use for depth calibration.
+            n_scenes_lim: The number of scenes to examine, if 0 then all the scenes will be examined.
+            n_frames_lim: The number of frames to examine in each scene, if 0 then all the frames will be examined.
+            save_overwrite: If True then the results will be saved in the save_path folder, otherwise a new folder will be created.
+            frame_idx_to_show: The index of the frame to show the depth map.
+        """
         self.dataset_path = Path(dataset_path)
         self.model_path = Path(model_path)
-        self.save_path = Path(save_path)
+        if model_info is None:
+            model_info = load_model_model_info(model_path=self.model_path)
+        self.model_info = model_info
+        self.save_path = Path(save_exam_path) if save_exam_path is not None else None
         self.depth_calib_method = depth_calib_method
         self.n_scenes_lim = n_scenes_lim
         self.n_frames_lim = n_frames_lim
@@ -93,14 +109,14 @@ class DepthExaminer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def run(self):
+    def run(self) -> ModelInfo:
+        """Update the depth calibration parameters in the model info.
+        Args:
+            model_info: The model info to use for the depth and egomotion models.
+        Returns:
+            The updated model info.
+        """
         # check if the results already exist - if so then load them and return
-        results_file_path = self.save_path / "depth_exam.yaml"
-        if results_file_path.exists() and not self.save_overwrite:
-            print(f"{self.save_path} already exists...\n" + "-" * 50)
-            results = yaml.load(results_file_path.open("r"), Loader=yaml.FullLoader)
-            return results
-
         create_empty_folder(self.save_path, save_overwrite=True)
 
         with Tee(self.save_path / "examine_depths.log"):
@@ -199,7 +215,13 @@ class DepthExaminer:
             else:
                 raise ValueError(f"Unknown depth calibration method: {self.depth_calib_method}")
 
-            return depth_calib
+            # Return the updated model info
+            model_info = deepcopy(self.model_info)
+            model_info.depth_calib_type = depth_calib["depth_calib_type"]
+            model_info.depth_calib_a = depth_calib["depth_calib_a"]
+            model_info.depth_calib_b = depth_calib["depth_calib_b"]
+            
+            return model_info
 
 
 # ---------------------------------------------------------------------------------------------------------------------

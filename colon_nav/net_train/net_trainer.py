@@ -97,6 +97,8 @@ class NetTrainer:
     def train_one_epoch(self, epoch):
         """Train the network for one epoch."""
         print(f"Training epoch {epoch}:")
+        self.depth_model.train()
+        self.egomotion_model.train()
         for batch_idx, batch_cpu in enumerate(self.train_loader):
             # move the batch to the GPU
             batch = sample_to_gpu(batch_cpu, self.device)
@@ -112,7 +114,7 @@ class NetTrainer:
         tot_loss.backward()
         self.optimizer.step()
         print(f"  Batch {batch_idx}:")
-        print({loss_name: loss_val.item for loss_name, loss_val in losses_scaled.items()}, prefix="    ")
+        print("train/losses_scaled: ", {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()})
         self.logger.writer.add_scalar("train/loss", tot_loss.item(), self.global_step)
         self.global_step += 1
 
@@ -165,12 +167,28 @@ class NetTrainer:
 
     def validate(self, epoch):
         """Validate the network."""
-        self.model.eval()
+        self.depth_model.eval()
+        self.egomotion_model.eval()
         print(f"Validation epoch {epoch}:")
+        tot_loss, losses_scaled = 0, {}
         with torch.no_grad():
             for batch_idx, batch_cpu in enumerate(self.val_loader):
                 batch = sample_to_gpu(batch_cpu, self.device)
-                self.validate_one_batch(batch_idx, batch)
+                tot_loss_b, losses_scaled_b = self.validate_one_batch(batch_idx, batch)
+                # Add the loss of this batch to the total loss
+                tot_loss += tot_loss_b
+                # Add the scaled losses of this batch to the scaled losses of all batches
+                for loss_name, loss_val in losses_scaled_b.items():
+                    losses_scaled[loss_name] = losses_scaled.get(loss_name, 0) + loss_val
+        # average the loss over all batches
+        tot_loss /= len(self.val_loader)
+        # average the scaled losses over all batches
+        for loss_name in losses_scaled:
+            losses_scaled[loss_name] /= len(self.val_loader)
+        print(f"  val/tot_loss: {tot_loss:.3f}")
+        print("  val/losses_scaled: ", {loss_name: f"{loss_val:.3f}" for loss_name, loss_val in losses_scaled.items()})
+        return tot_loss
+        
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -178,8 +196,9 @@ class NetTrainer:
         """Validate the network for one batch."""
         tot_loss, losses_scaled = self.compute_loss_func(batch)
         print(f"  Batch {batch_idx}:")
-        print({loss_name: loss_val.item for loss_name, loss_val in losses_scaled.items()}, prefix="    ")
-        self.logger.writer("val/loss", tot_loss.item(), self.global_step)
+        print("val/losses_scaled: ", {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()})
+        # self.logger.writer("val/loss", tot_loss.item(), self.global_step)
+        return tot_loss, losses_scaled
 
     # ---------------------------------------------------------------------------------------------------------------------
 

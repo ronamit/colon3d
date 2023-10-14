@@ -249,45 +249,38 @@ def main():
     train_runner.train()
 
     # --------------------------------------------------------------------------------------------------------------------
-    # Run depth examination to calibrate the depth scale:
-    depth_examiner = DepthExaminer(
+    # Run depth examination to calibrate the depth scale in the
+    model_info = DepthExaminer(
         dataset_path=dataset_path,
         model_path=save_model_path,
-        save_path=save_model_path / "depth_exam_pre_calib",
+        model_info=model_info,
         depth_calib_method=args.depth_calib_method,
         n_scenes_lim=n_scenes_lim,
+        save_exam_path=save_model_path / "depth_exam_pre_calib",
         save_overwrite=args.overwrite_depth_exam,
-    )
-    depth_calib = depth_examiner.run()
+    ).run()
 
     # --------------------------------------------------------------------------------------------------------------------
     if args.update_depth_calib:
-        # the output of the depth network needs to transformed with this to get the depth in mm (based on the analysis of the true depth data in examine_depths.py)
-        info_model_path = save_model_path / "model_info.yaml"
         # update the model info file with the new depth_calib value:
-        model_info.depth_calib_type = depth_calib["depth_calib_type"]
-        model_info.depth_calib_a = depth_calib["depth_calib_a"]
-        model_info.depth_calib_b = depth_calib["depth_calib_b"]
         save_model_info(
             save_dir_path=save_model_path,
             model_info=model_info,
         )
-        print(
-            f"Updated model info file {info_model_path} with the new depth calibration value: {depth_calib}.",
-        )
+
 
     # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
-    depth_examiner = DepthExaminer(
+    DepthExaminer(
         dataset_path=dataset_path,
         model_path=save_model_path,
+        model_info=model_info,
         depth_calib_method="none",
-        save_path=save_model_path / "depth_exam_post_calib",
         n_scenes_lim=5,
         n_frames_lim=5,
+        save_exam_path=save_model_path / "depth_exam_post_calib",
         save_overwrite=args.overwrite_depth_exam,
-    )
-    depth_calib = depth_examiner.run()
+    ).run()
 
 
 # ---------------------------------------------------------------------------------------------------------------------

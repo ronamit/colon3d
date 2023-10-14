@@ -56,7 +56,7 @@ class DepthAndEgoMotionLoader:
             )
             # # number of reference images to use as input to the egomotion estimator:
             self.n_ref_imgs = self.egomotion_estimator.n_ref_imgs
-            
+
         elif egomotions_source == "ground_truth":
             print("Using loaded ground-truth egomotions")
             self.init_loaded_egomotions("gt_3d_data.h5")

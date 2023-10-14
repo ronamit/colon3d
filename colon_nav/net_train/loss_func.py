@@ -23,9 +23,9 @@ class LossFunc(nn.Module):
         """Compute the loss function.
         Args:
             loss_terms_lambdas: a dictionary of the loss terms and their weights
-            tgt_depth_est: the estimated depth map of the target frame [B x H x W]
+            tgt_depth_est: the estimated depth map of the target frame [B x 1 x H x W]
             list_tgt_to_refs_motion_est: list of the estimated egomotion from the target to each reference frame [B x 7]
-            depth_gt: the ground truth depth map of the target frame [B x H x W]
+            depth_gt: the ground truth depth map of the target frame [B x 1 x H x W]
             list_tgt_to_refs_motion_gt: list of the ground truth egomotion from the target to each reference frame [B x 7]
         Returns:
             total_loss: the total loss
@@ -38,14 +38,15 @@ class LossFunc(nn.Module):
 
         # Binary vector indicating which samples in the batch have a ground truth depth map:
         is_depth_gt = ~torch.isnan(depth_gt[:, 0, 0, 0])  # (B)
+        n_pix_depth = depth_gt[0, 0].numel()  # number of pixels in the depth map
 
         if self.loss_terms_lambdas["depth_sup_L1"] > 0:
-            # Compute the depth L1 loss (sums over all pixels in all samples in the batch)
-            losses["depth_sup_L1"] = nnF.l1_loss(tgt_depth_est[is_depth_gt], depth_gt[is_depth_gt], reduction="sum")
+            # Compute the depth L1 loss (avg over all pixels and sum all samples in the batch)
+            losses["depth_sup_L1"] = nnF.l1_loss(tgt_depth_est[is_depth_gt], depth_gt[is_depth_gt], reduction="sum") / n_pix_depth
 
         if self.loss_terms_lambdas["depth_sup_SSIM"] > 0:
-            # Compute the depth SSIM loss and sum over all samples in the batch
-            losses["depth_sup_SSIM"] = self.ssim(tgt_depth_est[is_depth_gt], depth_gt[is_depth_gt]).sum()
+            # Compute the depth SSIM loss avg over all pixels and sum all samples in the batch)
+            losses["depth_sup_SSIM"] = self.ssim(tgt_depth_est[is_depth_gt], depth_gt[is_depth_gt]).sum() / n_pix_depth
 
         # Compute the pose loss (sum over the reference frames)
         n_ref = len(list_tgt_to_refs_motion_est)
@@ -72,11 +73,10 @@ class LossFunc(nn.Module):
                 losses["rot_sup_L1_quat"] += nnF.l1_loss(rot_quat_est, rot_quat_gt, reduction="sum")
 
             if "rot_sup_L1_mat" in losses:
-                # Compute the pose loss between two poses, defined as the L1 distance between the poses in the a flattened 4x4 matrix format.
-                # The pose format: (x,y,z,qw,qx,qy,qz) where (x,y,z) is the translation [mm] and (qw,qx,qy,qz) is the rotation unit quaternion.
-                rot_mat_est = quaternions_to_rot_matrices(rot_quat_est).view(-1, 16)  # (B, 16)
-                rot_mat_gt = quaternions_to_rot_matrices(rot_quat_gt).view(-1, 16)  # (B, 16)
-                # Add the L1 loss between the GT and estimated poses for this ref frame (sum over the samples in the batch)
+                # Compute the pose loss between two poses, defined as the L1 distance between the GT and estimated flattened 3x3 rotation matrix.
+                rot_mat_est = quaternions_to_rot_matrices(rot_quat_est).view(-1, 9)  # (B, 9)
+                rot_mat_gt = quaternions_to_rot_matrices(rot_quat_gt).view(-1, 9)  # (B, 9)
+                # (sum the L1 loss over the samples in the batch)
                 losses["rot_sup_L1_mat"] += nnF.l1_loss(rot_mat_est, rot_mat_gt, reduction="sum")
 
         # Scale the losses by their weights

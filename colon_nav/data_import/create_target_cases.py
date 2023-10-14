@@ -211,7 +211,7 @@ def generate_cases_from_scene(
 
         # get the FPS:
         with (scene_path / "meta_data.yaml").open("r") as file:
-            fps = yaml.load(file, Loader=yaml.FullLoader)["fps"]
+            fps = yaml.safe_load(file)["fps"]
 
         print("Targets info:", to_str(targets_info))
         with (case_path / "targets_info.pkl").open("wb") as file:
