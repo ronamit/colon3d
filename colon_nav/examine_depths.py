@@ -220,7 +220,7 @@ class DepthExaminer:
             model_info.depth_calib_type = depth_calib["depth_calib_type"]
             model_info.depth_calib_a = depth_calib["depth_calib_a"]
             model_info.depth_calib_b = depth_calib["depth_calib_b"]
-            
+
             return model_info
 
 

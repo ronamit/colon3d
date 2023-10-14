@@ -156,3 +156,10 @@ class TensorBoardWriter:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+def sum_batch_losses(losses: dict, batch_losses: dict):
+    for loss_name, loss_val in batch_losses.items():
+        losses[loss_name] = batch_losses.get(loss_name, 0) + loss_val
+    return losses
+
+# ---------------------------------------------------------------------------------------------------------------------

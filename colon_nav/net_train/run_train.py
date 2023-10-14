@@ -261,13 +261,16 @@ def main():
     ).run()
 
     # --------------------------------------------------------------------------------------------------------------------
+    # save the model info to disk
+    save_model_info(save_dir_path=save_model_path, model_info=model_info)
+
+    # --------------------------------------------------------------------------------------------------------------------
     if args.update_depth_calib:
         # update the model info file with the new depth_calib value:
         save_model_info(
             save_dir_path=save_model_path,
             model_info=model_info,
         )
-
 
     # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)

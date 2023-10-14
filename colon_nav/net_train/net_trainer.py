@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from colon_nav.net_train.depth_model import DepthModel
 from colon_nav.net_train.egomotion_model import EgomotionModel
 from colon_nav.net_train.loss_func import LossFunc
-from colon_nav.net_train.train_utils import ModelInfo, TensorBoardWriter
+from colon_nav.net_train.train_utils import ModelInfo, TensorBoardWriter, sum_batch_losses
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
 
@@ -35,7 +35,13 @@ class NetTrainer:
         self.ref_frame_shifts = model_info.ref_frame_shifts
         self.device = get_device()
         # The loss terms to use in the loss function and their weights
-        self.loss_terms_lambdas = {"depth_sup_L1": 1, "depth_sup_SSIM": 0.1, "trans_sup_L1_quat": 1, "rot_sup_L1_quat": 1, "rot_sup_L1_mat": 1}
+        self.loss_terms_lambdas = {
+            "depth_sup_L1": 1,
+            "depth_sup_SSIM": 0.1,
+            "trans_sup_L1_quat": 1,
+            "rot_sup_L1_quat": 1,
+            "rot_sup_L1_mat": 1,
+        }
         self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas)
 
         ### Initialize the depth model
@@ -114,7 +120,10 @@ class NetTrainer:
         tot_loss.backward()
         self.optimizer.step()
         print(f"  Batch {batch_idx}:")
-        print("train/losses_scaled: ", {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()})
+        print(
+            "train/losses_scaled: ",
+            {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
+        )
         self.logger.writer.add_scalar("train/loss", tot_loss.item(), self.global_step)
         self.global_step += 1
 
@@ -158,7 +167,7 @@ class NetTrainer:
             tgt_depth_est=tgt_depth_est,
             list_tgt_to_refs_motion_est=tgt_to_refs_motion_est,
             depth_gt=depth_gt,
-            list_tgt_to_refs_motion_gt = list_tgt_to_refs_motion_gt,
+            list_tgt_to_refs_motion_gt=list_tgt_to_refs_motion_gt,
         )
 
         return tot_loss, losses_scaled
@@ -178,8 +187,7 @@ class NetTrainer:
                 # Add the loss of this batch to the total loss
                 tot_loss += tot_loss_b
                 # Add the scaled losses of this batch to the scaled losses of all batches
-                for loss_name, loss_val in losses_scaled_b.items():
-                    losses_scaled[loss_name] = losses_scaled.get(loss_name, 0) + loss_val
+                losses_scaled = sum_batch_losses(losses=losses_scaled, batch_losses=losses_scaled_b)
         # average the loss over all batches
         tot_loss /= len(self.val_loader)
         # average the scaled losses over all batches
@@ -188,7 +196,6 @@ class NetTrainer:
         print(f"  val/tot_loss: {tot_loss:.3f}")
         print("  val/losses_scaled: ", {loss_name: f"{loss_val:.3f}" for loss_name, loss_val in losses_scaled.items()})
         return tot_loss
-        
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -196,7 +203,10 @@ class NetTrainer:
         """Validate the network for one batch."""
         tot_loss, losses_scaled = self.compute_loss_func(batch)
         print(f"  Batch {batch_idx}:")
-        print("val/losses_scaled: ", {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()})
+        print(
+            "val/losses_scaled: ",
+            {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
+        )
         # self.logger.writer("val/loss", tot_loss.item(), self.global_step)
         return tot_loss, losses_scaled
 
