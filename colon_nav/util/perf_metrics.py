@@ -3,7 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.alg.tracks_loader import DetectionsTracker, get_track_angle_from_cam_sys_loc
+from colon_nav.slam.tracks_loader import DetectionsTracker, get_track_angle_from_cam_sys_loc
 from colon_nav.data_import.simulate_tracks import TargetsInfo
 from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import save_current_figure_and_close

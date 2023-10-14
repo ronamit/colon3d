@@ -7,12 +7,12 @@ import cv2
 import numpy as np
 import torch
 
-from colon_nav.alg.alg_settings import AlgorithmParam
-from colon_nav.alg.bundle_adjust import run_bundle_adjust
-from colon_nav.alg.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
-from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon_nav.alg.slam_out_analysis import AnalysisLogger
-from colon_nav.alg.tracks_loader import (
+from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.bundle_adjust import run_bundle_adjust
+from colon_nav.slam.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
+from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.slam.slam_out_analysis import AnalysisLogger
+from colon_nav.slam.tracks_loader import (
     DetectionsTracker,
     get_track_angle_from_cam_sys_loc,
     get_track_angle_from_pixel_loc,

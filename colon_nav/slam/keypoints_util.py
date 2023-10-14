@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon_nav.alg.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgorithmParam
 from colon_nav.util.general_util import print_if, to_str
 from colon_nav.util.torch_util import get_default_dtype
 

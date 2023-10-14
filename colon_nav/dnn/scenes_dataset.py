@@ -7,8 +7,8 @@ import yaml
 from PIL import Image
 from torch.utils import data
 
-from colon_nav.net_train.data_transforms import get_train_transform, get_val_transform
-from colon_nav.net_train.train_utils import ModelInfo
+from colon_nav.dnn.data_transforms import get_train_transform, get_val_transform
+from colon_nav.dnn.train_utils import ModelInfo
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import save_rgb_and_depth_subplots
 from colon_nav.util.torch_util import to_default_type, to_torch

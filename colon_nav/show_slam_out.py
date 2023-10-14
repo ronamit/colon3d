@@ -4,7 +4,7 @@ from pathlib import Path
 
 import h5py
 
-from colon_nav.alg.slam_out_analysis import plot_z_dist_from_cam
+from colon_nav.slam.slam_out_analysis import plot_z_dist_from_cam
 from colon_nav.util.data_util import get_origin_scene_path
 from colon_nav.util.general_util import ArgsHelpFormatter, Tee, create_folder_if_not_exists
 from colon_nav.util.torch_util import to_default_type, to_torch

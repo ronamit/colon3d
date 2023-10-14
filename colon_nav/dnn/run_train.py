@@ -6,9 +6,9 @@ import numpy as np
 import torch
 
 from colon_nav.examine_depths import DepthExaminer
-from colon_nav.net_train.net_trainer import NetTrainer
-from colon_nav.net_train.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.net_train.train_utils import ModelInfo, save_model_info
+from colon_nav.dnn.net_trainer import NetTrainer
+from colon_nav.dnn.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
+from colon_nav.dnn.train_utils import ModelInfo, save_model_info
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
@@ -145,7 +145,9 @@ def main():
     ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
 
     # The size of the depth maps to use.
-    depth_map_size = (352, 352)  # we use 352x352 as in the pre-trained FCB-Former model
+    # we use 352x352 as in the pre-trained FCB-Former model
+    depth_map_height = 352
+    depth_map_width = 352
 
     print(f"args={args}")
     n_workers = args.n_workers
@@ -162,7 +164,8 @@ def main():
         depth_model_name=args.depth_model_name,
         egomotion_model_name=args.egomotion_model_name,
         ref_frame_shifts=ref_frame_shifts,
-        depth_map_size=depth_map_size,
+        depth_map_height=depth_map_height,
+        depth_map_width=depth_map_width,
         model_description=f"The training script args: {args}, random_seed: {random_seed}",
     )
     save_model_info(
@@ -249,6 +252,10 @@ def main():
     train_runner.train()
 
     # --------------------------------------------------------------------------------------------------------------------
+    # save the model info to disk (so it can be used for inference)
+    save_model_info(save_dir_path=save_model_path, model_info=model_info)
+
+    # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination to calibrate the depth scale in the
     model_info = DepthExaminer(
         dataset_path=dataset_path,
@@ -259,10 +266,6 @@ def main():
         save_exam_path=save_model_path / "depth_exam_pre_calib",
         save_overwrite=args.overwrite_depth_exam,
     ).run()
-
-    # --------------------------------------------------------------------------------------------------------------------
-    # save the model info to disk
-    save_model_info(save_dir_path=save_model_path, model_info=model_info)
 
     # --------------------------------------------------------------------------------------------------------------------
     if args.update_depth_calib:

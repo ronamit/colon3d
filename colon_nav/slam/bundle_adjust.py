@@ -5,9 +5,9 @@ import numpy as np
 import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
-from colon_nav.alg.alg_settings import AlgorithmParam
-from colon_nav.alg.constraints_terms import SoftConstraints
-from colon_nav.alg.keypoints_util import KeyPointsLog
+from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.constraints_terms import SoftConstraints
+from colon_nav.slam.keypoints_util import KeyPointsLog
 from colon_nav.util.general_util import print_if
 from colon_nav.util.pose_transforms import project_world_to_image_normalized_coord
 from colon_nav.util.rotations_util import find_rotation_delta, get_rotation_angle, normalize_quaternions

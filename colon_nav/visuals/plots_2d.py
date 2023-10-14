@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from colon_nav.alg.keypoints_util import KeyPointsLog
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.keypoints_util import KeyPointsLog
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import RadialImageCropper, SceneLoader
 from colon_nav.util.general_util import (
     colors_platte,

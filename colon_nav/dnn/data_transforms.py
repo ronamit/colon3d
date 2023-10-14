@@ -5,7 +5,7 @@ import torch
 import torchvision
 from torchvision.transforms import Compose
 
-from colon_nav.net_train.train_utils import ModelInfo
+from colon_nav.dnn.train_utils import ModelInfo
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import to_torch
@@ -44,9 +44,10 @@ class ToTensors:
     def __init__(self, dtype: torch.dtype, model_info: ModelInfo):
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
-        self.depth_map_size = model_info.depth_map_size
+        self.depth_map_height = model_info.depth_map_height
+        self.depth_map_width = model_info.depth_map_width
         self.depth_map_resizer = torchvision.transforms.Resize(
-            size=self.depth_map_size,
+            size=(self.depth_map_height, self.depth_map_width),
             antialias=True,
         )
 
@@ -74,7 +75,7 @@ class ToTensors:
             else:
                 # create a dummy depth map (with all NaN) for the target frame (CHW format)
                 sample[k] = torch.full(
-                    (1, *self.depth_map_size),
+                    (1, self.depth_map_height, self.depth_map_width),
                     fill_value=np.nan,
                     dtype=self.dtype,
                     device=self.device,

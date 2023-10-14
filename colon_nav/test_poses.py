@@ -2,8 +2,8 @@ from pathlib import Path
 
 import h5py
 
-from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import compose_poses, get_identity_pose, get_pose_delta
 from colon_nav.util.torch_util import np_func, to_torch

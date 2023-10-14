@@ -3,7 +3,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.alg.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgorithmParam
 from colon_nav.util.general_util import save_current_figure_and_close
 from colon_nav.util.rotations_util import find_rotation_delta, get_rotation_angle
 from colon_nav.util.torch_util import np_func, to_numpy

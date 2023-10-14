@@ -6,8 +6,8 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,

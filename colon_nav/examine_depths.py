@@ -5,8 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon_nav.net_train.train_utils import ModelInfo, load_model_model_info
+from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.dnn.train_utils import ModelInfo, load_model_model_info
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,

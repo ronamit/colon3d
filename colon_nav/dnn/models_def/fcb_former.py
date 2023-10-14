@@ -11,10 +11,11 @@ import torch
 from timm.models.vision_transformer import _cfg
 from torch import nn
 
-from colon_nav.net_def import pvt_v2
+from colon_nav.models_def import pvt_v2
 from colon_nav.util.general_util import create_folder_if_not_exists
 
 # ---------------------------------------------------------------------------------------------------------------------
+
 
 class RB(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -41,6 +42,7 @@ class RB(nn.Module):
         h = self.in_layers(x)
         h = self.out_layers(h)
         return h + self.skip(x)
+# ---------------------------------------------------------------------------------------------------------------------
 
 
 class FCB(nn.Module):

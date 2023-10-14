@@ -4,9 +4,9 @@ import torch
 import torchvision
 from torch import nn
 
-from colon_nav.net_def.dense_depth import DenseDepth
-from colon_nav.net_def.fcb_former import FCBFormer
-from colon_nav.net_train.train_utils import ModelInfo
+from colon_nav.models_def.dense_depth import DenseDepth
+from colon_nav.models_def.fcb_former import FCBFormer
+from colon_nav.dnn.train_utils import ModelInfo
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ class DepthModel(nn.Module):
 
     def __init__(self, model_info: ModelInfo, load_depth_model_path: Path | None = None):
         super().__init__()
-        self.out_size = model_info.depth_map_size
+        self.out_size = (model_info.depth_map_height, model_info.depth_map_width)
         self.model_name = model_info.depth_model_name
         # Create the depth model
         if self.model_name == "DenseDepth":

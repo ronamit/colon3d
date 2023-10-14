@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-from colon_nav.alg.alg_settings import AlgorithmParam
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
 from colon_nav.util.torch_util import to_numpy

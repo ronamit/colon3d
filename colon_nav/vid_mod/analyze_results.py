@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import ArgsHelpFormatter, save_current_figure_and_close
 

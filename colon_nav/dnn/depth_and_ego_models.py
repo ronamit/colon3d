@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from colon_nav.net_train.train_utils import load_model_model_info
+from colon_nav.dnn.train_utils import load_model_model_info
 from colon_nav.util.pose_transforms import invert_pose_motion
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device
@@ -25,7 +25,7 @@ class DepthModel:
         self.depth_upper_bound = depth_upper_bound
 
         self.model_info = load_model_model_info(model_path)
-        self.model_name = self.model_info.model_name
+        self.model_name = self.model_info.depth_model_name
 
         # the dimensions of the input images to the network
         self.feed_width = self.model_info.feed_width
@@ -163,8 +163,8 @@ class EgomotionModel:
         print(f"Loading egomotion model from {model_path}")
         assert model_path is not None, "model_path is None"
         self.model_info = load_model_model_info(model_path)
-        self.model_name = self.model_info.model_name
-        self.n_ref_imgs = self.model_info.n_ref_imgs
+        self.model_name = self.model_info.egomotion_model_name
+        self.ref_frame_shifts = self.model_info.ref_frame_shifts
         self.device = get_device()
         # the output of the network (translation part) needs to be multiplied by this number to get the depth\ego-translations in mm (based on the analysis of sample data in examine_depths.py):
         self.depth_model_feed_width = self.model_info.depth_model_feed_width

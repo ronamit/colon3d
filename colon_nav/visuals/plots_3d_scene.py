@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.torch_util import to_numpy
 from colon_nav.visuals.animate_util import create_animation_video, create_interactive_3d_animation
 from colon_nav.visuals.create_3d_obj import plot_fov_cone

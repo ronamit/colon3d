@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import torch
 
-from colon_nav.alg.depth_and_ego_models import DepthModel, EgomotionModel
+from colon_nav.dnn.depth_and_ego_models import DepthModel, EgomotionModel
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
 from colon_nav.util.rotations_util import get_identity_quaternion, normalize_quaternions

@@ -18,7 +18,8 @@ class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    depth_map_size: tuple[int, int]  # (height, width) of the depth map
+    depth_map_height: int # The height of the depth map
+    depth_map_width: int # The width of the depth map
     img_normalize_mean: float = 0.45  # used in "normalize_image_channels"
     img_normalize_std: float = 0.225  #  used in "normalize_image_channels"
     depth_calib_type: str = "none"

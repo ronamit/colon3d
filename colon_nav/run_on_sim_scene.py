@@ -6,10 +6,10 @@ from pathlib import Path
 import attrs
 import h5py
 
-from colon_nav.alg.alg_settings import AlgorithmParam
-from colon_nav.alg.monocular_est_loader import DepthAndEgoMotionLoader
-from colon_nav.alg.slam_alg import SlamAlgRunner
-from colon_nav.alg.tracks_loader import DetectionsTracker
+from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
+from colon_nav.slam.slam_alg import SlamAlgRunner
+from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.show_slam_out import save_slam_plots
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
