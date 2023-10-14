@@ -3,7 +3,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.util.general_util import save_current_figure_and_close
 from colon_nav.util.rotations_util import find_rotation_delta, get_rotation_angle
 from colon_nav.util.torch_util import np_func, to_numpy
@@ -12,7 +12,7 @@ from colon_nav.util.torch_util import np_func, to_numpy
 
 
 class AnalysisLogger:
-    def __init__(self, alg_prm: AlgorithmParam):
+    def __init__(self, alg_prm: AlgSettings):
         # saves the per frame initial guess of the camera pose (location and rotation) from which the optimizer starts:
         self.cam_pose_guesses = np.empty((0, 7))
         # saves the per frame final optimized camera pose (location and rotation):

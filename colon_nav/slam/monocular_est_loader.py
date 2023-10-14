@@ -5,7 +5,8 @@ import h5py
 import numpy as np
 import torch
 
-from colon_nav.dnn.depth_and_ego_models import DepthModel, EgomotionModel
+from colon_nav.dnn.depth_model import DepthModel
+from colon_nav.dnn.egomotion_model import EgomotionModel
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
 from colon_nav.util.rotations_util import get_identity_quaternion, normalize_quaternions
@@ -22,8 +23,6 @@ class DepthAndEgoMotionLoader:
         depth_maps_source: str,
         egomotions_source: str,
         model_path: str | None = None,
-        depth_lower_bound: float | None = None,
-        depth_upper_bound: float | None = None,
         depth_default: float | None = None,
     ):
         """Wrapper for the depth & ego-motion estimation model.
@@ -42,8 +41,6 @@ class DepthAndEgoMotionLoader:
         self.orig_scene_path = get_origin_scene_path(scene_path)
         self.depth_maps_source = depth_maps_source
         self.egomotions_source = egomotions_source
-        self.depth_lower_bound = depth_lower_bound if depth_lower_bound is not None else 1e-2
-        self.depth_upper_bound = depth_upper_bound if depth_upper_bound is not None else 2e3
         self.depth_default = depth_default
         self.device = get_device()
         torch.cuda.empty_cache()
@@ -71,9 +68,7 @@ class DepthAndEgoMotionLoader:
 
         if depth_maps_source == "online_estimates":
             self.depth_estimator = DepthModel(
-                depth_lower_bound=self.depth_lower_bound,
-                depth_upper_bound=self.depth_upper_bound,
-                model_path=model_path,
+                load_depth_model_path=model_path,
             )
             print("Using online depth estimation")
 
@@ -249,9 +244,6 @@ class DepthAndEgoMotionLoader:
         if np.any(kps_in_cur):
             z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]]
 
-        # clip the depth
-        if self.depth_lower_bound is not None or self.depth_upper_bound is not None:
-            z_depths = torch.clamp(z_depths, min=self.depth_lower_bound, max=self.depth_upper_bound)
         return z_depths
 
     # --------------------------------------------------------------------------------------------------------------------

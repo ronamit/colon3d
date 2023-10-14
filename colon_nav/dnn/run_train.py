@@ -125,6 +125,18 @@ def main():
         help="Method to use for depth scale calibration.",
     )
     parser.add_argument(
+        "--depth_lower_bound",
+        type=float,
+        default=0.1,
+        help="lower bound to clip the the z-depth estimation (units: mm) (used in inference, afer training and calibration). If negative then no lower bound.",
+    )
+    parser.add_argument(
+        "--depth_upper_bound",
+        type=float,
+        default=200.0,
+        help="upper bound to clip the the z-depth estimation (units: mm) (used in inference, afer training and calibration). If negative then no upper bound.",
+    )
+    parser.add_argument(
         "--debug_mode",
         type=bool_arg,
         default=True,
@@ -140,6 +152,8 @@ def main():
     args = parser.parse_args()
     train_method = args.train_method
     n_ref_imgs = args.n_ref_imgs
+    depth_lower_bound = args.depth_lower_bound if args.depth_lower_bound >= 0 else None
+    depth_upper_bound = args.depth_upper_bound if args.depth_upper_bound >= 0 else None
 
     # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
     ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
@@ -261,7 +275,9 @@ def main():
         dataset_path=dataset_path,
         model_path=save_model_path,
         model_info=model_info,
-        depth_calib_method=args.depth_calib_method,
+        update_depth_calib_method=args.depth_calib_method,
+        update_depth_lower_bound=depth_lower_bound,
+        update_depth_upper_bound=depth_upper_bound,
         n_scenes_lim=n_scenes_lim,
         save_exam_path=save_model_path / "depth_exam_pre_calib",
         save_overwrite=args.overwrite_depth_exam,
@@ -281,7 +297,7 @@ def main():
         dataset_path=dataset_path,
         model_path=save_model_path,
         model_info=model_info,
-        depth_calib_method="none",
+        update_depth_calib_method="none",
         n_scenes_lim=5,
         n_frames_lim=5,
         save_exam_path=save_model_path / "depth_exam_post_calib",

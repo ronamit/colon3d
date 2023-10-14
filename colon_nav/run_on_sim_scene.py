@@ -6,11 +6,11 @@ from pathlib import Path
 import attrs
 import h5py
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.show_slam_out import save_slam_plots
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.slam.slam_alg import SlamAlgRunner
 from colon_nav.slam.tracks_loader import DetectionsTracker
-from colon_nav.show_slam_out import save_slam_plots
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
 from colon_nav.util.perf_metrics import calc_performance_metrics, plot_trajectory_metrics
@@ -188,8 +188,8 @@ def run_slam_on_scene(
         egomotions_source: The source of the egomotion.
         draw_interval: plot and save figures each draw_interval frame, if 0 then no plots are saved.
     """
-    # get the default parameters for the SLAM algorithm
-    alg_prm = AlgorithmParam()
+    # get the default hyper-param for the SLAM algorithm
+    alg_prm = AlgSettings()
     if alg_settings_override is not None:
         for k, v in alg_settings_override.items():
             setattr(alg_prm, k, v)
@@ -202,8 +202,6 @@ def run_slam_on_scene(
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
         model_path=model_path,
-        depth_lower_bound=alg_prm.depth_lower_bound,
-        depth_upper_bound=alg_prm.depth_upper_bound,
         depth_default=alg_prm.depth_default,
     )
 

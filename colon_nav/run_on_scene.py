@@ -4,11 +4,11 @@ from pathlib import Path
 
 import attrs
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.show_slam_out import save_slam_plots
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.slam.slam_alg import SlamAlgRunner
 from colon_nav.slam.tracks_loader import DetectionsTracker
-from colon_nav.show_slam_out import save_slam_plots
 from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, to_path
 
@@ -140,7 +140,7 @@ class SlamRunner:
 
         with Tee(self.save_path / "log_run_slam.txt"):  # save the prints to a file
             # get the default parameters for the SLAM algorithm
-            alg_prm = AlgorithmParam()
+            alg_prm = AlgSettings()
 
             scene_loader = SceneLoader(
                 scene_path=self.scene_path,
@@ -157,8 +157,6 @@ class SlamRunner:
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
                 model_path=to_path(self.model_path),
-                depth_lower_bound=alg_prm.depth_lower_bound,
-                depth_upper_bound=alg_prm.depth_upper_bound,
                 depth_default=alg_prm.depth_default,
             )
 

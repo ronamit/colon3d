@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import torch
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.slam.bundle_adjust import run_bundle_adjust
 from colon_nav.slam.keypoints_util import KeyPointsLog, get_kp_matchings, get_tracks_keypoints
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
@@ -37,7 +37,7 @@ class SlamAlgRunner:
 
     def __init__(
         self,
-        alg_prm: AlgorithmParam,
+        alg_prm: AlgSettings,
         scene_loader: SceneLoader,
         detections_tracker: DetectionsTracker,
         depth_and_ego_estimator: DepthAndEgoMotionLoader,

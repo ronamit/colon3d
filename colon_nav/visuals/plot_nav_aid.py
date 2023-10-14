@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader
 from colon_nav.util.general_util import colors_platte, put_unicode_text_on_img, save_video_from_frames_list
@@ -16,7 +16,7 @@ def draw_aided_nav(
     detections_tracker: DetectionsTracker,
     online_est_track_cam_loc: list,
     online_est_track_angle: list,
-    alg_prm: AlgorithmParam,
+    alg_prm: AlgSettings,
     start_frame: int,
     stop_frame: int,
     save_path=None,

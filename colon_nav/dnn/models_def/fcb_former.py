@@ -11,7 +11,7 @@ import torch
 from timm.models.vision_transformer import _cfg
 from torch import nn
 
-from colon_nav.models_def import pvt_v2
+from colon_nav.dnn.models_def import pvt_v2
 from colon_nav.util.general_util import create_folder_if_not_exists
 
 # ---------------------------------------------------------------------------------------------------------------------

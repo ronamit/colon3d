@@ -4,12 +4,11 @@ import numpy as np
 
 
 @dataclass
-class AlgorithmParam:
+class AlgSettings:
     use_bundle_adjustment: bool = True
     n_last_frames_to_opt: int = 1  # number of last frames to set camera poses and 3D points as optimization variables
-    n_last_frames_to_use: int = (
-        -1
-    )  # number of last frames to use for the bundle adjustment loss term, if -1, then use all history
+    # number of last frames to use for the bundle adjustment loss term, if -1, then use all history:
+    n_last_frames_to_use: int = -1
     optimize_each_n_frames: int = 1  # optimize each n frames
     add_penalties = False  # if True, calculate and add penalties to the cost function of the bundle adjustment (otherwise, only the reprojection error is used)
     max_vel: float = 200  # mm/s
@@ -23,8 +22,6 @@ class AlgorithmParam:
     w_lim_vel: float = 1e-2
     # default weighting for the max-angular-velocity penalty term in the bundle adjustment cost function:
     w_lim_angular_vel: float = 1e-2
-    depth_upper_bound: float = 2000  # upper bound to clip the the z-depth estimation (units: mm)
-    depth_lower_bound: float = 1e-2  # lower bound to clip the the z-depth estimation (units: mm)
     depth_default: float = 15  # default z-depth estimation, when no other data is available (units: mm)
     opt_method: str = "bfgs"  #  Optimization method, options:  "bfgs", "l-bfgs", "cg", "newton-cg",  "newton-exact", "trust-ncg", "trust-krylov", "trust-exact", "trust-constr"]
     opt_max_iter: int = 500  # maximum number of iterations for the optimization

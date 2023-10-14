@@ -77,7 +77,9 @@ class DepthExaminer:
         model_path: Path,
         model_info: ModelInfo | None = None,
         save_exam_path: Path | None = None,
-        depth_calib_method: str = "none",
+        update_depth_calib_method: str = "none",
+        update_depth_lower_bound: float | None = None,
+        update_depth_upper_bound: float | None = None,
         n_scenes_lim: int = 0,
         n_frames_lim: int = 0,
         save_overwrite: bool = True,
@@ -89,7 +91,9 @@ class DepthExaminer:
             model_path: Path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation.
             model_info: The model info to use for the depth and egomotion models. If None then the model info will be loaded from the model_path.
             save_exam_path: Path to save the results. If None then the results will not be saved.
-            depth_calib_method: The method to use for depth calibration.
+            update_depth_calib_method: The method to use for depth calibration that will be used to update the model info.
+            update_depth_lower_bound: lower bound to clip the the z-depth estimation (units: mm). If None - then no lower bound is used.
+            update_depth_upper_bound: upper bound to clip the the z-depth estimation (units: mm). If None - then no upper bound is used.
             n_scenes_lim: The number of scenes to examine, if 0 then all the scenes will be examined.
             n_frames_lim: The number of frames to examine in each scene, if 0 then all the frames will be examined.
             save_overwrite: If True then the results will be saved in the save_path folder, otherwise a new folder will be created.
@@ -101,7 +105,9 @@ class DepthExaminer:
             model_info = load_model_model_info(model_path=self.model_path)
         self.model_info = model_info
         self.save_path = Path(save_exam_path) if save_exam_path is not None else None
-        self.depth_calib_method = depth_calib_method
+        self.depth_calib_method = update_depth_calib_method
+        self.update_depth_lower_bound = update_depth_lower_bound
+        self.update_depth_upper_bound = update_depth_upper_bound
         self.n_scenes_lim = n_scenes_lim
         self.n_frames_lim = n_frames_lim
         self.save_overwrite = save_overwrite
@@ -220,6 +226,8 @@ class DepthExaminer:
             model_info.depth_calib_type = depth_calib["depth_calib_type"]
             model_info.depth_calib_a = depth_calib["depth_calib_a"]
             model_info.depth_calib_b = depth_calib["depth_calib_b"]
+            model_info.depth_lower_bound = self.update_depth_lower_bound
+            model_info.depth_upper_bound = self.update_depth_upper_bound
 
             return model_info
 

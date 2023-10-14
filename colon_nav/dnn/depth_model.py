@@ -12,9 +12,12 @@ from colon_nav.dnn.train_utils import ModelInfo
 
 
 class DepthModel(nn.Module):
-    """The depth model: wraps the FCBFormer model to resize the input and ƒoutput to the desired size.
-    Args:
-        out_size: The desired output size o„f the depth map (height, width)
+    """ Wrapper for the depth model.
+    - The input to the forward function is a batch of RGB images (B, C, H, W)
+    - The input images are resized to fit as network input.
+    - The network output depth maps are resized to the desired size.
+    - If the model_info has depth calibration parameters, the output depth maps are scaled accordingly.
+    - If given depth_lower_bound and depth_upper_bound, the output depth maps are clipped to this range.
     """
 
     def __init__(self, model_info: ModelInfo, load_depth_model_path: Path | None = None):

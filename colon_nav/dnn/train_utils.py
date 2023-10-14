@@ -18,13 +18,17 @@ class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    depth_map_height: int # The height of the depth map
-    depth_map_width: int # The width of the depth map
+    depth_map_height: int  # The height of the depth map
+    depth_map_width: int  # The width of the depth map
     img_normalize_mean: float = 0.45  # used in "normalize_image_channels"
     img_normalize_std: float = 0.225  #  used in "normalize_image_channels"
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
+    # lower bound to clip the the z-depth estimation (units: mm). If None - then no lower bound is used:
+    depth_lower_bound: float | None = None
+    # upper bound to clip the the z-depth estimation (units: mm). If None - then no upper bound is used:
+    depth_upper_bound: float | None = None
     model_description: str = ""
 
 
@@ -46,6 +50,8 @@ def save_model_info(
     save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info_dict)
     print(f"Saved model info to {model_info_path}")
     print("Model info:", model_info)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -158,9 +164,11 @@ class TensorBoardWriter:
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+
 def sum_batch_losses(losses: dict, batch_losses: dict):
     for loss_name, loss_val in batch_losses.items():
         losses[loss_name] = batch_losses.get(loss_name, 0) + loss_val
     return losses
+
 
 # ---------------------------------------------------------------------------------------------------------------------

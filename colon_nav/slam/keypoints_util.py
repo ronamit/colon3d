@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.util.general_util import print_if, to_str
 from colon_nav.util.torch_util import get_default_dtype
 
@@ -147,7 +147,7 @@ def get_kp_matchings(
     descriptors_A,
     descriptors_B,
     kp_matcher,
-    alg_prm: AlgorithmParam,
+    alg_prm: AlgSettings,
     print_now: bool = True,
 ):
     """

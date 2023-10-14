@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torchmin  # https://github.com/rfeinman/pytorch-minimize # type: ignore  # noqa: PGH003
 
-from colon_nav.slam.alg_settings import AlgorithmParam
+from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.slam.constraints_terms import SoftConstraints
 from colon_nav.slam.keypoints_util import KeyPointsLog
 from colon_nav.util.general_util import print_if
@@ -16,6 +16,7 @@ from colon_nav.util.torch_util import concat_list_to_tensor, get_device, get_val
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda out of memory error
 
 # --------------------------------------------------------------------------------------------------------------------
+
 
 @torch.compile
 def compute_cost_function(
@@ -31,7 +32,7 @@ def compute_cost_function(
     n_cam_poses_opt: int,
     n_points_3d_opt: int,
     penalizer: SoftConstraints,
-    alg_prm: AlgorithmParam,
+    alg_prm: AlgSettings,
     scene_metadata: dict,
 ):
     """
@@ -166,7 +167,7 @@ def run_bundle_adjust(
     p3d_inds_per_frame: list,
     frames_inds_to_opt: list,
     earliest_frame_to_use: int,
-    alg_prm: AlgorithmParam,
+    alg_prm: AlgSettings,
     fps: float,
     scene_metadata: dict,
     verbose: int = 2,
