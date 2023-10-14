@@ -4,7 +4,7 @@ import torch
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights
 
-from colon_nav.models_def.resnet import ResNet
+from colon_nav.dnn.models_def.resnet import ResNet
 from colon_nav.dnn.train_utils import ModelInfo
 
 # -------------------------------------------------------------------------------------------------------------------

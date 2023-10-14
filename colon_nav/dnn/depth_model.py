@@ -4,17 +4,17 @@ import torch
 import torchvision
 from torch import nn
 
-from colon_nav.models_def.dense_depth import DenseDepth
-from colon_nav.models_def.fcb_former import FCBFormer
+from colon_nav.dnn.models_def.dense_depth import DenseDepth
+from colon_nav.dnn.models_def.fcb_former import FCBFormer
 from colon_nav.dnn.train_utils import ModelInfo
 
 # ---------------------------------------------------------------------------------------------------------------------
 
 
 class DepthModel(nn.Module):
-    """The depth model: wraps the FCBFormer model to resize the input and output to the desired size.
+    """The depth model: wraps the FCBFormer model to resize the input and ƒoutput to the desired size.
     Args:
-        out_size: The desired output size of the depth map (height, width)
+        out_size: The desired output size o„f the depth map (height, width)
     """
 
     def __init__(self, model_info: ModelInfo, load_depth_model_path: Path | None = None):
@@ -23,7 +23,7 @@ class DepthModel(nn.Module):
         self.model_name = model_info.depth_model_name
         # Create the depth model
         if self.model_name == "DenseDepth":
-            self.in_resolution = 475 # as in the DenseDepth's MIVA team adaptation in the SimCol3D challenge.
+            self.in_resolution = 475  # as in the DenseDepth's MIVA team adaptation in the SimCol3D challenge.
             self.model = DenseDepth()
 
         elif self.model_name == "FCBFormer":
