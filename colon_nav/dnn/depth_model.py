@@ -25,8 +25,9 @@ class DepthModel(nn.Module):
         - The output depth maps are calibrated and clipped according to the model_info.
     """
 
-    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, mode: str):
+    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, is_train: bool):
         super().__init__()
+        self.is_train = is_train
         self.device = device or get_device()
         self.out_size = (model_info.depth_map_height, model_info.depth_map_width)
         self.model_name = model_info.depth_model_name
@@ -37,11 +38,11 @@ class DepthModel(nn.Module):
             # RGB values are first rescaled to [0.0, 1.0] and then normalized using:
             chan_nrm_mean = [0.485, 0.456, 0.406]
             chan_nrm_std = [0.229, 0.224, 0.225]
-            self.in_resolution = 320 # 475
+            self.in_resolution = 320  # 475
             self.depth_model = DenseDepth()
 
         elif self.model_name == "FCBFormer":
-            self.in_resolution = 320 # 352
+            self.in_resolution = 320  # 352
             self.depth_model = FCBFormer(in_resolution=self.in_resolution)
             # RGB values are first scaled to [0,1] and then to [-1, 1] with (x - 0.5) / 0.5
             chan_nrm_mean = [0.5, 0.5, 0.5]
@@ -74,12 +75,10 @@ class DepthModel(nn.Module):
         self.to(self.device)
 
         # Set the model to train or eval mode
-        if mode == "train":
+        if self.is_train:
             self.train()
-        elif mode == "eval":
-            self.eval()
         else:
-            raise ValueError(f"Unknown mode: {mode}")
+            self.eval()
 
         # The depth calibration parameters
         self.depth_calib_type = model_info.depth_calib_type
@@ -100,18 +99,25 @@ class DepthModel(nn.Module):
         # Apply channels normalization
         x = self.channel_normalizer(x)
 
-        out = self.depth_model(x)
+        # Apply the depth model
+        if self.is_train:
+            out = self.depth_model(x)
+        else:
+            with torch.no_grad():
+                out = self.depth_model(x)
+
+        # Resize the output depth map to the desired size
         out = self.output_resizer(out)
 
         # Apply depth calibration
-        if self.depth_calib_type == "linear":
+        if self.depth_calib_type == "affine":
             out = self.depth_calib_a * out + self.depth_calib_b
         elif self.depth_calib_type == "none":
             pass
         else:
             raise ValueError(f"Unknown depth calibration type: {self.depth_calib_type}")
 
-        # Apply depth clipping
+        # Apply depth clippingx
         if self.depth_lower_bound is not None:
             out = torch.clamp(out, min=self.depth_lower_bound)
         if self.depth_upper_bound is not None:

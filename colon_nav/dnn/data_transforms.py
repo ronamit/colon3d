@@ -60,24 +60,22 @@ class ToTensors:
     def __call__(self, sample: dict) -> dict:
         # convert the images to torch tensors
         for shift in self.all_frame_shifts:
-            k = ("color", shift)
-            sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
-            # transform RGB images to channels first (HWC to CHW format)
-            sample[k] = torch.permute(sample[k], (2, 0, 1))
+            key = ("color", shift)
+            # transform RGB images to channels first (HWC to CHW format) tensors
+            sample[key] = rgb_image_to_torch(sample[key], dtype=self.dtype, device=self.device)
 
         # convert the depth maps to torch tensors
         for shift in self.all_frame_shifts:
-            k = ("depth_gt", shift)
-            if k in sample:
+            key = ("depth_gt", shift)
+            if key in sample:
                 # In case we have a depth map.
-                sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
                 # transform to channels first (HW to CHW format, with C=1)
-                sample[k] = torch.unsqueeze(sample[k], dim=0)
+                sample[key] = depth_map_to_torch(sample[key], dtype=self.dtype, device=self.device)
                 # Resize the depth map to the desired size
-                sample[k] = self.depth_map_resizer(sample[k])
+                sample[key] = self.depth_map_resizer(sample[key])
             else:
                 # create a dummy depth map (with all NaN) for the target frame (CHW format)
-                sample[k] = torch.full(
+                sample[key] = torch.full(
                     (1, self.depth_map_height, self.depth_map_width),
                     fill_value=np.nan,
                     dtype=self.dtype,
@@ -89,12 +87,12 @@ class ToTensors:
 
         # convert the absolute camera poses to torch tensors
         for shift in self.all_frame_shifts:
-            k = ("abs_pose", shift)
-            if k in sample:
-                sample[k] = to_torch(sample[k], dtype=self.dtype, device=self.device)
+            key = ("abs_pose", shift)
+            if key in sample:
+                sample[key] = to_torch(sample[key], dtype=self.dtype, device=self.device)
             else:
                 # create a dummy pose for the target frame with NaN values
-                sample[k] = torch.full((7,), fill_value=np.nan, dtype=self.dtype, device=self.device)
+                sample[key] = torch.full((7,), fill_value=np.nan, dtype=self.dtype, device=self.device)
 
         # String that lists the augmentations done on the sample:
         sample["augments"] = "Augmentations: "
@@ -188,6 +186,26 @@ class AddRelativePose:
                     pose2=sample[("abs_pose", shift)],  # reference frame
                 ).reshape(7)
         return sample
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def rgb_image_to_torch(rgb_img: np.ndarray, dtype: torch.dtype, device: torch.device) -> torch.Tensor:
+    rgb_img = to_torch(rgb_img, dtype=dtype, device=device)
+    # transform RGB images to channels first (HWC to CHW format)
+    rgb_img = torch.permute(rgb_img, (2, 0, 1))
+    return rgb_img
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+def depth_map_to_torch(depth_map: np.ndarray, dtype: torch.dtype, device: torch.device) -> torch.Tensor:
+    depth_map = to_torch(depth_map, dtype=dtype, device=device)
+    # transform to channels first (HW to CHW format, with C=1)
+    depth_map = torch.unsqueeze(depth_map, dim=0)
+    return depth_map
 
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -50,7 +50,7 @@ class NetTrainer:
             model_info=model_info,
             load_model_path=load_depth_model_path,
             device=self.device,
-            mode="train",
+            is_train=True,
         )
 
         ### Initial the egomotion model
@@ -58,7 +58,7 @@ class NetTrainer:
             model_info=model_info,
             load_model_path=load_egomotion_model_path,
             device=self.device,
-            mode="train",
+            is_train=True,
         )
 
         ### Initialize the optimizer
@@ -91,7 +91,7 @@ class NetTrainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def run_training(self):
+    def train(self):
         """Train the network."""
         self.global_step = 0
         for epoch in range(self.n_epochs):

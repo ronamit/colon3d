@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import torch
 
+from colon_nav.dnn.data_transforms import rgb_image_to_torch
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
 from colon_nav.dnn.train_utils import load_model_model_info
@@ -44,6 +45,7 @@ class DepthAndEgoMotionLoader:
         self.egomotions_source = egomotions_source
         self.depth_default = depth_default
         self.device = get_device()
+        self.dtype = get_default_dtype(num_type="float_m")
         torch.cuda.empty_cache()
         if model_path is not None:
             self.model_info = load_model_model_info(model_path=model_path)
@@ -57,7 +59,7 @@ class DepthAndEgoMotionLoader:
                 model_info=self.model_info,
                 load_model_path=model_path,
                 device=self.device,
-                mode="eval",
+                is_train=False,
             )
             # # number of reference images to use as input to the egomotion estimator:
             self.n_ref_imgs = self.egomotion_estimator.n_ref_imgs
@@ -79,7 +81,7 @@ class DepthAndEgoMotionLoader:
                 model_info=self.model_info,
                 load_model_path=model_path,
                 device=self.device,
-                mode="eval",
+                is_train=False,
             )
             print("Using online depth estimation")
 
@@ -127,25 +129,32 @@ class DepthAndEgoMotionLoader:
         self,
         frame_idx: int,
         rgb_frame: np.ndarray | None = None,
-    ):
+    ) -> torch.Tensor:
         """Get the estimated z-depth map at a given frame.
-        Notes: we assume process_new_frame was called before this function on this frame index.
+        Args:
+            frame_idx: the frame index,
+            rgb_frame: the RGB frame [H,W,3]
         Returns:
-            depth_map: the depth estimation map [depth_map_width x depth_map_height] (units: mm)
+            depth_map: the depth estimation map [depth_map_H, depth_map_W] (units: mm)
         Note:
             the size of the depth_map might be different than the size of the RGB image.
         """
         if self.depth_maps_source == "none":
             # return the default depth map
-            depth_map = torch.ones(*rgb_frame.shape[:2], device=get_device()) * self.depth_default
+            depth_map = torch.ones(*rgb_frame.shape[:2], device=self.device) * self.depth_default
 
         elif self.depth_maps_source in ["ground_truth", "loaded_estimates"]:
             buffer_idx = self.depth_maps_buffer_frame_inds.index(frame_idx)
             depth_map = self.depth_maps_buffer[buffer_idx]
 
         elif self.depth_maps_source == "online_estimates":
+            rgb_frame = rgb_image_to_torch(rgb_img=rgb_frame, dtype=self.dtype, device=self.device)
+            # Add a batch dimension
+            rgb_frame = rgb_frame.unsqueeze(0)
+            # Apply the depth estimator
             depth_map = self.depth_estimator(rgb_frame)
-
+            # Remove the batch dimension and the channel dimension
+            depth_map = depth_map.squeeze(dim=(0, 1))
         else:
             raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")
         return depth_map
@@ -192,13 +201,13 @@ class DepthAndEgoMotionLoader:
 
         # In case we estimate the egomotion online, we use the egomotion estimator
         elif self.egomotions_source == "online_estimates":
+
+            # TODO: create appropriate data structure for the egomotion estimator (e.g. queue + add batch dimension to each frame and remove from out)
+
             egomotion = self.egomotion_estimator.estimate_egomotion(
                 cur_rgb_frame=cur_rgb_frame,
                 prev_rgb_frames=prev_rgb_frames,
             )
-            egomotion = to_torch(egomotion, device="default")
-            # normalize the quaternion (in case it is not normalized)
-            egomotion[3:] = normalize_quaternions(egomotion[3:])
 
         else:
             raise ValueError(f"Unknown egomotions source: {self.egomotions_source}")

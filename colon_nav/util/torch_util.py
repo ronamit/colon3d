@@ -230,25 +230,6 @@ def pseudo_huber_loss_on_x_sqr(x_sqr, delta=1.0):
     return losses
 
 
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def resize_single_image(
-    img: torch.Tensor,
-    new_height: int,
-    new_width: int,
-) -> torch.Tensor:
-    """Resize an image that is in a torch tensor format.
-    img: single input image [height x width] or [n_channels x height x width]
-    new_height: the new height
-    new_width: the new width
-    """
-    img = img.unsqueeze(0)  # add batch dimension
-    resizer = torchvision.transforms.Resize((new_height, new_width), antialias=True)
-    resized_img = resizer(img)
-    resized_img = resized_img.squeeze(0)  # remove batch dimension
-    return resized_img
-
 
 # --------------------------------------------------------------------------------------------------------------------
 

@@ -25,8 +25,9 @@ class EgomotionModel(nn.Module):
         - The input images are resized to fit as network input.
     """
 
-    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, mode: str):
+    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, is_train: bool):
         super().__init__()
+        self.is_train = is_train
         self.device = device or get_device()
         model_name = model_info.egomotion_model_name
         ref_frame_shifts = model_info.ref_frame_shifts
@@ -49,7 +50,7 @@ class EgomotionModel(nn.Module):
                 layers=[2, 2, 2, 2],
             )
             weights = ResNet18_Weights.DEFAULT
-            self.in_resolution = 320 # 224
+            self.in_resolution = 320  # 224
             # RGB values are first rescaled to [0.0, 1.0] and then normalized using:
             chan_nrm_mean = [0.485, 0.456, 0.406]
             chan_nrm_std = [0.229, 0.224, 0.225]
@@ -63,7 +64,7 @@ class EgomotionModel(nn.Module):
                 layers=[3, 4, 6, 3],
             )
             weights = ResNet50_Weights.DEFAULT
-            self.in_resolution = 320 # 224
+            self.in_resolution = 320  # 224
             # RGB values are first rescaled to [0.0, 1.0] and then normalized using:
             chan_nrm_mean = [0.485, 0.456, 0.406]
             chan_nrm_std = [0.229, 0.224, 0.225]
@@ -107,12 +108,10 @@ class EgomotionModel(nn.Module):
         self.to(self.device)
 
         # Set the model to train or eval mode
-        if mode == "train":
+        if self.is_train:
             self.train()
-        elif mode == "eval":
-            self.eval()
         else:
-            raise ValueError(f"Unknown mode: {mode}")
+            self.eval()
 
         # The depth_calib_a parameter is used to scale the translation parameters (x,y,z) to be mm distance units
         self.depth_calib_type = model_info.depth_calib_type
@@ -140,16 +139,27 @@ class EgomotionModel(nn.Module):
 
         # concatenate the RGB images along the channel dimension
         x = torch.cat(frames, dim=1)  # [B, 3*(1+n_ref_imgs), H, W]
-        # forward pass
+
+        # Apply the egomotion model:
+        if self.is_train:
+            net_out = self.egomotion_model(x)
+        else:
+            with torch.no_grad():
+                net_out = self.egomotion_model(x)
+
         net_out = self.egomotion_model(x)  # [B, 7*n_ref_imgs]
+
         # The output of the network is a vector of length 7*n_ref_imgs : n_ref_imgs blocks of length 7.
         # each block represents the ego-motion from the target to the reference image :
         tgt_to_refs_motion_est = []
         # Go over all the reference frames
         for i_ref in range(self.n_ref_imgs):
             cur_block_start = 7 * i_ref
-            est_trans = net_out[:, cur_block_start:(cur_block_start+3)]  # [B, 3] translation (x,y,z) [mm]
-            est_rot = net_out[:, (cur_block_start+3):(cur_block_start+7)]  # [B, 4] rotation (qw,qx,qy,qz) unit quaternion
+            est_trans = net_out[:, cur_block_start : (cur_block_start + 3)]  # [B, 3] translation (x,y,z) [mm]
+            est_rot = net_out[
+                :,
+                (cur_block_start + 3) : (cur_block_start + 7),
+            ]  # [B, 4] rotation (qw,qx,qy,qz) unit quaternion
             # Normalize the rotation quaternion:
             eps = 1e-12
             est_rot = est_rot / (torch.norm(est_rot, dim=-1, keepdim=True) + eps)

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from skimage.transform import resize
 
 from colon_nav.dnn.train_utils import ModelInfo, load_model_model_info
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
@@ -15,7 +16,7 @@ from colon_nav.util.general_util import (
     create_empty_folder,
     save_current_figure_and_close,
 )
-from colon_nav.util.torch_util import resize_single_image, to_numpy
+from colon_nav.util.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 # plot for each example - the first frame ground truth and estimated of depth maps
@@ -167,7 +168,7 @@ class DepthExaminer:
                 n_frames = scene_loader.n_frames
                 for i_frame in range(n_frames):
                     # Compute GT and estimated depth maps
-                    gt_depths = compute_depths(
+                    gt_depth_map = compute_depth_map(
                         depth_loader=gt_depth_loader,
                         scene_loader=scene_loader,
                         frame_idx=i_frame,
@@ -176,7 +177,7 @@ class DepthExaminer:
                         fig_label="gt",
                         make_plots=(i_frame == self.frame_idx_to_show),
                     )
-                    est_depths = compute_depths(
+                    est_depth_map = compute_depth_map(
                         depth_loader=est_depth_loader,
                         scene_loader=scene_loader,
                         frame_idx=i_frame,
@@ -185,9 +186,13 @@ class DepthExaminer:
                         fig_label="est",
                         make_plots=(i_frame == self.frame_idx_to_show),
                     )
+
+                    # Resize the estimated depth map to the ground truth depth map size (bilinear interpolation)
+                    est_depth_map = resize(image=est_depth_map, output_shape=gt_depth_map.shape, order=1)
+
                     # flatten the depth maps
-                    gt_depths = gt_depths.flatten()
-                    est_depths = est_depths.flatten()
+                    gt_depths = gt_depth_map.flatten()
+                    est_depths = est_depth_map.flatten()
                     n_pix_new = len(gt_depths)
                     # update the depth statistics
                     n_pix_tot += n_pix_new
@@ -235,7 +240,7 @@ class DepthExaminer:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def compute_depths(
+def compute_depth_map(
     depth_loader: DepthAndEgoMotionLoader,
     scene_loader: SceneLoader,
     frame_idx: int,
@@ -244,25 +249,14 @@ def compute_depths(
     fig_label: str,
     make_plots: bool = False,
 ):
-    rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx)
-    depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame)
+    rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx) # (H, W, 3)
+    depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame) # (depth_map_H, depth_map_W)
+    depth_map = to_numpy(depth_map, num_type="float_m")
 
     if make_plots:
         # resize to the original image size
-        depth_map_resized = resize_single_image(
-            img=depth_map,
-            new_height=rgb_frame.shape[0],
-            new_width=rgb_frame.shape[1],
-        )
-        # resize to the original image size
-        depth_map = resize_single_image(
-            img=depth_map,
-            new_height=rgb_frame.shape[0],
-            new_width=rgb_frame.shape[1],
-        )
-        depth_map_resized = to_numpy(depth_map_resized, num_type="float_m")
         plt.figure()
-        plt.imshow(depth_map_resized)
+        plt.imshow(depth_map)
         plt.colorbar()
         fig_name = f"{scene_name}_depth_{fig_label}_{frame_idx}"
         plt.title(fig_name)
@@ -275,7 +269,6 @@ def compute_depths(
         plt.title(fig_name)
         save_current_figure_and_close(save_path / fig_name)
 
-    depth_map = to_numpy(depth_map, num_type="float_m")
     return depth_map
 
 

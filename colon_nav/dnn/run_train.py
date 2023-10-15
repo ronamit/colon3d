@@ -263,7 +263,7 @@ def main():
         n_epochs=n_epochs,
         run_name="",
     )
-    train_runner.run_training()
+    train_runner.train()
 
     # --------------------------------------------------------------------------------------------------------------------
     # save the model info to disk (so it can be used for inference)
