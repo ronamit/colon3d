@@ -1,27 +1,33 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 import torch
+import torchvision
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, ResNet50_Weights
 
 from colon_nav.dnn.models_def.resnet import ResNet
 from colon_nav.dnn.train_utils import ModelInfo
+from colon_nav.util.torch_util import get_device
 
 # -------------------------------------------------------------------------------------------------------------------
 
 
 class EgomotionModel(nn.Module):
-    """ResNet egomotion model.
+    """Wrapper for the egomotion model.
     Args:
-        model_info: The model info object.
-        pretrained: If True, load the ImageNet pretrained weights.
-        load_egomotion_model_path: If not None, load the weights from this path.
+        - model_info: ModelInfo object
+        - load_model_path: Path to a pretrained model to load. If None, then the model is initialized using ImageNet pre-trained weights.
+        - device: The device to use for the model
+        - mode: "train" or "eval"
+    Notes:
+        - The input to the forward function is a list of RGB images (B, C, H, W) as tensors, the list corresponds to the reference frames and the target frame (last element).
+        - The input images are resized to fit as network input.
     """
 
-    def __init__(self, model_info: ModelInfo, imagent_pretrained=True, load_egomotion_model_path: Path | None = None):
+    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, mode: str):
         super().__init__()
-        self.model_info = model_info
-        self.imagent_pretrained = imagent_pretrained
+        self.device = device or get_device()
         model_name = model_info.egomotion_model_name
         ref_frame_shifts = model_info.ref_frame_shifts
         self.n_ref_imgs = len(ref_frame_shifts)
@@ -35,26 +41,37 @@ class EgomotionModel(nn.Module):
         output_dim = 7 * self.n_ref_imgs
 
         if model_name == "resnet18":
-            self.model = ResNet(
+            # see https://pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html#torchvision.models.resnet18
+            self.egomotion_model = ResNet(
                 n_input_channels=n_input_channels,
                 output_dim=output_dim,
                 block=BasicBlock,
                 layers=[2, 2, 2, 2],
             )
             weights = ResNet18_Weights.DEFAULT
+            self.in_resolution = 320 # 224
+            # RGB values are first rescaled to [0.0, 1.0] and then normalized using:
+            chan_nrm_mean = [0.485, 0.456, 0.406]
+            chan_nrm_std = [0.229, 0.224, 0.225]
+
         elif model_name == "resnet50":
-            self.model = ResNet(
+            # see https://pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html
+            self.egomotion_model = ResNet(
                 n_input_channels=n_input_channels,
                 output_dim=output_dim,
                 block=Bottleneck,
                 layers=[3, 4, 6, 3],
             )
             weights = ResNet50_Weights.DEFAULT
+            self.in_resolution = 320 # 224
+            # RGB values are first rescaled to [0.0, 1.0] and then normalized using:
+            chan_nrm_mean = [0.485, 0.456, 0.406]
+            chan_nrm_std = [0.229, 0.224, 0.225]
         else:
             raise ValueError(f"Unknown model name: {model_name}")
 
-        # Load ImageNet pretrained weights
-        if imagent_pretrained and load_egomotion_model_path is None:
+        # Load ImageNet pretrained weights, if no model_path is given
+        if load_model_path is None:
             weights_dict = weights.get_state_dict(progress=True)
             conv1_weights = weights_dict["conv1.weight"]  # [out_channels, in_channels, kernel_size, kernel_size]
 
@@ -68,39 +85,96 @@ class EgomotionModel(nn.Module):
             # Load the weights to the model (note that the output layer is not loaded)
             # exclude the output later, since we have a different output dimension
             weights_dict = {k: v for k, v in weights_dict.items() if k not in {"fc.weight", "fc.bias"}}
-            self.model.load_state_dict(weights_dict, strict=False)
+            self.egomotion_model.load_state_dict(weights_dict, strict=False)
 
-        # Load pretrained egomotion model from a checkpoint
-        if load_egomotion_model_path is not None:
-            self.model.load_state_dict(torch.load(load_egomotion_model_path))
+        else:
+            # Load pretrained egomotion model from a checkpoint
+            self.egomotion_model.load_state_dict(torch.load(load_model_path / "egomotion_model.pth"))
+
+        # We resize the input images to fit as network input
+        self.input_resizer = torchvision.transforms.Resize(
+            size=(self.in_resolution, self.in_resolution),
+            antialias=True,
+        )
+
+        self.channel_normalizer = torchvision.transforms.Normalize(
+            mean=chan_nrm_mean,
+            std=chan_nrm_std,
+            inplace=False,
+        )
+
+        # Move to device
+        self.to(self.device)
+
+        # Set the model to train or eval mode
+        if mode == "train":
+            self.train()
+        elif mode == "eval":
+            self.eval()
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        # The depth_calib_a parameter is used to scale the translation parameters (x,y,z) to be mm distance units
+        self.depth_calib_type = model_info.depth_calib_type
+        self.depth_calib_a = model_info.depth_calib_a
 
     # -------------------------------------------------------------------------------------------------------------------
 
-    def forward(self, frames: list[Tensor]) -> Tensor:
+    def forward(self, frames: Sequence[Tensor]) -> Tensor:
         """Forward pass of the network.
         Args:
-            frames: list of [B, 3, H, W] tensors, where B is the batch size, H and W are the image height and width.
+            frames: Sequence of [B, 3, H, W] tensors, where B is the batch size, H and W are the image height and width. The values are in the range [0,1].
                 The first elements in the list are the RGB images of the reference frames, and the last element is the RGB image of the target frame.
         Returns:
             List of the estimated ego-motion from the target to each reference frame. (list of [B, 7] tensors)
             The ego-motion format: 3 translation parameters (x,y,z) [mm], 4 rotation parameters (qw, qx, qy, qz) [unit quaternion]
         """
+        # Resize each image in the frames list to fit as network input
+        frames = [self.input_resizer(frame) for frame in frames]
+
+        # Normalize the image values from [0,255] to [0,1]
+        frames = [frame / 255.0 for frame in frames]
+
+        # Apply channels normalization
+        frames = [self.channel_normalizer(frame) for frame in frames]
+
         # concatenate the RGB images along the channel dimension
         x = torch.cat(frames, dim=1)  # [B, 3*(1+n_ref_imgs), H, W]
         # forward pass
-        net_out = self.model(x)  # [B, 7*n_ref_imgs]
+        net_out = self.egomotion_model(x)  # [B, 7*n_ref_imgs]
         # The output of the network is a vector of length 7*n_ref_imgs : n_ref_imgs blocks of length 7.
         # each block represents the ego-motion from the target to the reference image :
         tgt_to_refs_motion_est = []
         # Go over all the reference frames
         for i_ref in range(self.n_ref_imgs):
-            est_motion = net_out[:, 7 * i_ref : 7 * (i_ref + 1)]  # [B, 7]
-            # the first 3  parameters are translation (x,y,z) [mm]
-            # the last are 4 rotation parameters (qw, qx, qy, qz) [unit quaternion] are normalized to be l2-norm = 1
+            cur_block_start = 7 * i_ref
+            est_trans = net_out[:, cur_block_start:(cur_block_start+3)]  # [B, 3] translation (x,y,z) [mm]
+            est_rot = net_out[:, (cur_block_start+3):(cur_block_start+7)]  # [B, 4] rotation (qw,qx,qy,qz) unit quaternion
+            # Normalize the rotation quaternion:
             eps = 1e-12
-            est_motion = est_motion / (torch.norm(est_motion[:, 3:], dim=-1, keepdim=True) + eps)
+            est_rot = est_rot / (torch.norm(est_rot, dim=-1, keepdim=True) + eps)
+
+            # Apply distance units calibration for the translation estimate
+            if self.depth_calib_type == "linear":
+                est_trans = est_trans * self.depth_calib_a
+            elif self.depth_calib_type == "none":
+                pass
+            else:
+                raise ValueError(f"Unknown depth calibration type: {self.depth_calib_type}")
+
+            est_motion = torch.cat((est_trans, est_rot), dim=-1)  # [B, 7]
             tgt_to_refs_motion_est.append(est_motion)
+
         return tgt_to_refs_motion_est
+
+    # -------------------------------------------------------------------------------------------------------------------
+
+    def save_model(self, save_model_path: Path):
+        """Save the model to a checkpoint.
+        Args:
+            model_path: The path to save the model to.
+        """
+        torch.save(self.egomotion_model.state_dict(), save_model_path / "egomotion_model.pth")
 
 
 # -------------------------------------------------------------------------------------------------------------------

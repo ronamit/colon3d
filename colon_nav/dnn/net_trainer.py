@@ -46,17 +46,20 @@ class NetTrainer:
         self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas)
 
         ### Initialize the depth model
-        self.depth_model = DepthModel(model_info=model_info, load_depth_model_path=load_depth_model_path)
+        self.depth_model = DepthModel(
+            model_info=model_info,
+            load_model_path=load_depth_model_path,
+            device=self.device,
+            mode="train",
+        )
 
         ### Initial the egomotion model
         self.egomotion_model = EgomotionModel(
             model_info=model_info,
-            load_egomotion_model_path=load_egomotion_model_path,
+            load_model_path=load_egomotion_model_path,
+            device=self.device,
+            mode="train",
         )
-
-        # Move the models to the GPU
-        self.depth_model = self.depth_model.to(self.device)
-        self.egomotion_model = self.egomotion_model.to(self.device)
 
         ### Initialize the optimizer
         depth_model_params = list(self.depth_model.parameters())
@@ -88,7 +91,7 @@ class NetTrainer:
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def train(self):
+    def run_training(self):
         """Train the network."""
         self.global_step = 0
         for epoch in range(self.n_epochs):
@@ -98,6 +101,11 @@ class NetTrainer:
             # self.checkpoint_manager.step()
 
             # TODO: plot example image grid + depth output + info to tensorboard - see https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html
+
+        # Save the model
+        self.depth_model.save_model(save_model_path=self.save_model_path)
+        self.egomotion_model.save_model(save_model_path=self.save_model_path)
+        print(f"Saved model to {self.save_model_path}")
 
     # ---------------------------------------------------------------------------------------------------------------------
 

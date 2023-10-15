@@ -7,6 +7,7 @@ import torch
 
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
+from colon_nav.dnn.train_utils import load_model_model_info
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
 from colon_nav.util.rotations_util import get_identity_quaternion, normalize_quaternions
@@ -44,12 +45,19 @@ class DepthAndEgoMotionLoader:
         self.depth_default = depth_default
         self.device = get_device()
         torch.cuda.empty_cache()
+        if model_path is not None:
+            self.model_info = load_model_model_info(model_path=model_path)
+        else:
+            self.model_info = None
 
         # Initialize egomotions
         if egomotions_source == "online_estimates":
             print("Using online egomotion estimator")
             self.egomotion_estimator = EgomotionModel(
-                model_path=model_path,
+                model_info=self.model_info,
+                load_model_path=model_path,
+                device=self.device,
+                mode="eval",
             )
             # # number of reference images to use as input to the egomotion estimator:
             self.n_ref_imgs = self.egomotion_estimator.n_ref_imgs
@@ -68,7 +76,10 @@ class DepthAndEgoMotionLoader:
 
         if depth_maps_source == "online_estimates":
             self.depth_estimator = DepthModel(
-                load_depth_model_path=model_path,
+                model_info=self.model_info,
+                load_model_path=model_path,
+                device=self.device,
+                mode="eval",
             )
             print("Using online depth estimation")
 
@@ -133,7 +144,7 @@ class DepthAndEgoMotionLoader:
             depth_map = self.depth_maps_buffer[buffer_idx]
 
         elif self.depth_maps_source == "online_estimates":
-            depth_map = self.depth_estimator.estimate_depth_map(rgb_frame)
+            depth_map = self.depth_estimator(rgb_frame)
 
         else:
             raise ValueError(f"Unknown depth maps source: {self.depth_maps_source}")

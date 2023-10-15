@@ -20,8 +20,6 @@ class ModelInfo:
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
     depth_map_height: int  # The height of the depth map
     depth_map_width: int  # The width of the depth map
-    img_normalize_mean: float = 0.45  # used in "normalize_image_channels"
-    img_normalize_std: float = 0.225  #  used in "normalize_image_channels"
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0
@@ -55,8 +53,8 @@ def save_model_info(
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def load_model_model_info(path: Path) -> ModelInfo:
-    model_info_path = path / "model_info.yaml"
+def load_model_model_info(model_path: Path) -> ModelInfo:
+    model_info_path = model_path / "model_info.yaml"
     if not model_info_path.exists():
         raise FileNotFoundError(f"Model info file {model_info_path} does not exist")
     with model_info_path.open("r") as f:
@@ -108,13 +106,10 @@ class TensorBoardWriter:
         data_loader = self.train_loader if dataset_name == "train" else self.val_loader
         sample = next(iter(data_loader))
         ind = 0  # index of the sample in the batch
-        img_normalize_mean = self.model_info.img_normalize_mean
-        img_normalize_std = self.model_info.img_normalize_std
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
         input_images = [sample[("color", shift)][ind] for shift in all_shifts]
-        # Un-normalize the images:
-        input_images = [img * img_normalize_std + img_normalize_mean for img in input_images]
+
         img_grid = torchvision.utils.make_grid(input_images)
         self.writer.add_image(f"RGB images. Shifts: {all_shifts}", img_grid, global_step=0)
 

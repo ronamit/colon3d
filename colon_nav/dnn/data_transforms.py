@@ -12,12 +12,16 @@ from colon_nav.util.torch_util import to_torch
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+"""
+    Note: channel normalization is done in the model wrapper classes, not in the data transforms.
+"""
+# ---------------------------------------------------------------------------------------------------------------------
+
 
 def get_train_transform(model_info: ModelInfo):
     # set data transforms
     transform_list = [
         ToTensors(dtype=torch.float32, model_info=model_info),
-        NormalizeImageChannels(model_info=model_info),
         RandomHorizontalFlip(flip_prob=0.5, model_info=model_info),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
@@ -32,7 +36,6 @@ def get_val_transform(model_info: ModelInfo):
     # set data transforms
     transform_list = [
         ToTensors(dtype=torch.float32, model_info=model_info),
-        NormalizeImageChannels(model_info=model_info),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
     ]
@@ -161,33 +164,6 @@ class AddInvIntrinsics:
     def __call__(self, sample):
         if "K" in sample:
             sample["inv_K"] = torch.linalg.inv(sample["K"])
-        return sample
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-def normalize_image_channels(img: torch.Tensor, img_normalize_mean: float = 0.45, img_normalize_std: float = 0.225):
-    # normalize the values from [0,255] to [0, 1]
-    img = img / 255
-    # normalize the values to the mean and std of the ImageNet dataset
-    img = (img - img_normalize_mean) / img_normalize_std
-    return img
-
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
-class NormalizeImageChannels:
-    def __init__(self, model_info: ModelInfo):
-        # Normalize the image channels to the mean and std of the ImageNet dataset
-        self.mean = model_info.img_normalize_mean
-        self.std = model_info.img_normalize_std
-        self.all_frames_shifts = [*model_info.ref_frame_shifts, 0]
-
-    def __call__(self, sample: dict):
-        for shift in self.all_frames_shifts:
-            sample[("color", shift)] = normalize_image_channels(sample[("color", shift)], self.mean, self.std)
         return sample
 
 
