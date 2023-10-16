@@ -28,9 +28,9 @@ class NetTrainer:
         self.save_model_path = save_model_path
         self.train_loader = train_loader
         self.val_loader = val_loader
+        train_set = self.train_loader.dataset
+        depth_map_size = train_set.depth_map_size
         self.model_info = model_info
-        self.depth_map_height = model_info.depth_map_height
-        self.depth_map_width = model_info.depth_map_width
         self.n_epochs = n_epochs
         self.run_name = run_name or get_time_now_str()
         self.ref_frame_shifts = model_info.ref_frame_shifts
@@ -51,6 +51,7 @@ class NetTrainer:
             load_model_path=load_depth_model_path,
             device=self.device,
             is_train=True,
+            depth_map_size=depth_map_size,
         )
 
         ### Initial the egomotion model

@@ -24,8 +24,9 @@ class DepthAndEgoMotionLoader:
         scene_loader: SceneLoader,
         depth_maps_source: str,
         egomotions_source: str,
-        model_path: str | None = None,
+        depth_map_size: tuple[int, int] | None = None,
         depth_default: float | None = None,
+        model_path: str | None = None,
     ):
         """Wrapper for the depth & ego-motion estimation model.
 
@@ -39,6 +40,7 @@ class DepthAndEgoMotionLoader:
                 if 'online_estimates' then the egomotion will be estimated online by the algorithm
                 if 'loaded_estimates' then the egomotion estimations will be loaded,
                 if 'none' then no egomotion will not be used,
+            depth_map_size: the size of the depth map (H, W) (the depth maps will be resized to this size), If None - use the original RGB image size in the scene.
         """
         self.orig_scene_path = get_origin_scene_path(scene_path)
         self.depth_maps_source = depth_maps_source
@@ -47,6 +49,10 @@ class DepthAndEgoMotionLoader:
         self.device = get_device()
         self.dtype = get_default_dtype(num_type="float_m")
         torch.cuda.empty_cache()
+
+        # We resize the depth maps to this size:
+        self.depth_map_size = depth_map_size or scene_loader.orig_rgb_img_size
+
         if model_path is not None:
             self.model_info = load_model_model_info(model_path=model_path)
         else:
@@ -82,6 +88,7 @@ class DepthAndEgoMotionLoader:
                 load_model_path=model_path,
                 device=self.device,
                 is_train=False,
+                depth_map_size=self.depth_map_size,
             )
             print("Using online depth estimation")
 

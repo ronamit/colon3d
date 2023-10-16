@@ -18,10 +18,10 @@ from colon_nav.util.torch_util import to_torch
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_train_transform(model_info: ModelInfo):
+def get_train_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], depth_map_size: tuple[int, int]):
     # set data transforms
     transform_list = [
-        ToTensors(dtype=torch.float32, model_info=model_info),
+        ToTensors(dtype=torch.float32, model_info=model_info, rgb_img_size=rgb_img_size, depth_map_size=depth_map_size),
         RandomHorizontalFlip(flip_prob=0.5, model_info=model_info),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
@@ -32,10 +32,10 @@ def get_train_transform(model_info: ModelInfo):
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_val_transform(model_info: ModelInfo):
+def get_val_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], depth_map_size:  tuple[int, int]):
     # set data transforms
     transform_list = [
-        ToTensors(dtype=torch.float32, model_info=model_info),
+        ToTensors(dtype=torch.float32, model_info=model_info, rgb_img_size=rgb_img_size, depth_map_size=depth_map_size),
         AddRelativePose(model_info=model_info),
         AddInvIntrinsics(),
     ]
@@ -44,13 +44,15 @@ def get_val_transform(model_info: ModelInfo):
 
 # ---------------------------------------------------------------------------------------------------------------------
 class ToTensors:
-    def __init__(self, dtype: torch.dtype, model_info: ModelInfo):
+    def __init__(self, dtype: torch.dtype, model_info: ModelInfo, rgb_img_size: tuple[int, int], depth_map_size: tuple[int, int]):
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
-        self.depth_map_height = model_info.depth_map_height
-        self.depth_map_width = model_info.depth_map_width
         self.depth_map_resizer = torchvision.transforms.Resize(
-            size=(self.depth_map_height, self.depth_map_width),
+            size=depth_map_size,
+            antialias=True,
+        )
+        self.rgb_img_resizer = torchvision.transforms.Resize(
+            size=rgb_img_size,
             antialias=True,
         )
 
@@ -63,6 +65,8 @@ class ToTensors:
             key = ("color", shift)
             # transform RGB images to channels first (HWC to CHW format) tensors
             sample[key] = rgb_image_to_torch(sample[key], dtype=self.dtype, device=self.device)
+            # Resize the RGB images to the desired size
+            sample[key] = self.rgb_img_resizer(sample[key])
 
         # convert the depth maps to torch tensors
         for shift in self.all_frame_shifts:

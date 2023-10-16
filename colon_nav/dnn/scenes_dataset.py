@@ -27,6 +27,10 @@ class ScenesDataset(data.Dataset):
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
         n_scenes_lim: int = 0,
+        rgb_img_height = 475,
+        rgb_img_width = 475,
+        depth_map_height = 475,
+        depth_map_width = 475,
     ):
         r"""Initialize the DatasetLoader class
         Args:
@@ -36,14 +40,19 @@ class ScenesDataset(data.Dataset):
             load_gt_pose (bool): Whether to add the ground-truth pose change between from target to the reference frames,  each sample (default: False)
             transforms: transforms to apply to each sample  (in order)
             n_sample_lim (int): Limit the number of samples to load (for debugging) if 0 then no limit
+            rgb_img_height, rgb_img_width (int): The height and width of the RGB images are resized to to keep the training batches uniform
+            depth_map_height, depth_map_width (int): The height and width of the depth map that the GT depth maps and the DepthNet output are resized to
         """
         self.scenes_paths = scenes_paths
         if n_scenes_lim > 0:
             self.scenes_paths = self.scenes_paths[:n_scenes_lim]
+        print(f"Dataset type; {dataset_type}, n_scenes: {len(self.scenes_paths)}")
         self.model_info = model_info
         self.dataset_type = dataset_type
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
+        self.rgb_img_size = (rgb_img_height, rgb_img_width)
+        self.depth_map_size = (depth_map_height, depth_map_width)
         #  ref_frame_shifts (list[int]) The time shifts of the reference frames w.r.t. the target frame
         self.ref_frame_shifts = model_info.ref_frame_shifts
         # List of all target frames (each target frame is a dict with the scene index and the target frame index)
@@ -72,9 +81,9 @@ class ScenesDataset(data.Dataset):
 
         # Create transforms
         if self.dataset_type == "train":
-            self.transform = get_train_transform(model_info=model_info)
+            self.transform = get_train_transform(model_info=model_info, rgb_img_size=self.rgb_img_size, depth_map_size=self.depth_map_size)
         elif self.dataset_type == "val":
-            self.transform = get_val_transform(model_info=model_info)
+            self.transform = get_val_transform(model_info=model_info, rgb_img_size=self.rgb_img_size, depth_map_size=self.depth_map_size)
         else:
             raise ValueError(f"Unknown dataset type: {self.dataset_type}")
 
@@ -187,10 +196,8 @@ def get_scenes_dataset_random_split(dataset_path: Path, validation_ratio: float)
     random.shuffle(all_scenes_paths)
     n_all_scenes = len(all_scenes_paths)
     n_train_scenes = int(n_all_scenes * (1 - validation_ratio))
-    n_val_scenes = n_all_scenes - n_train_scenes
     train_scenes_paths = all_scenes_paths[:n_train_scenes]
     val_scenes_paths = all_scenes_paths[n_train_scenes:]
-    print(f"Number of training scenes {n_train_scenes}, validation scenes {n_val_scenes}")
     return train_scenes_paths, val_scenes_paths
 
 

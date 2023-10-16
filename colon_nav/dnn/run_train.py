@@ -89,13 +89,13 @@ def main():
     )
     parser.add_argument(
         "--n_workers",
-        default=5,
+        default=9,
         type=int,
         help="number of data loading workers.",
     )
     parser.add_argument(
         "--batch_size",
-        default=16,
+        default=32,
         type=int,
         help="mini-batch size, decrease this if out of memory",
     )
@@ -158,11 +158,6 @@ def main():
     # Set the reference frames time shifts w.r.t.the target frame (-n_ref_imgs, ..., -1)
     ref_frame_shifts = np.arange(-n_ref_imgs, 0).tolist()
 
-    # The size of the depth maps to use.
-    # we use 352x352 as in the pre-trained FCB-Former model
-    depth_map_height = 352
-    depth_map_width = 352
-
     print(f"args={args}")
     n_workers = args.n_workers
     torch.cuda.empty_cache()
@@ -178,8 +173,6 @@ def main():
         depth_model_name=args.depth_model_name,
         egomotion_model_name=args.egomotion_model_name,
         ref_frame_shifts=ref_frame_shifts,
-        depth_map_height=depth_map_height,
-        depth_map_width=depth_map_width,
         model_description=f"The training script args: {args}, random_seed: {random_seed}",
     )
     save_model_info(
@@ -194,8 +187,8 @@ def main():
 
     if args.debug_mode:
         print("Running in debug mode!!!!")
-        n_sample_lim = 30
-        n_scenes_lim = 1
+        n_sample_lim = 20
+        n_scenes_lim = 10
         n_epochs = 1
         save_model_path = save_model_path / "_debug_"
         n_workers = 0  # for debugging

@@ -18,8 +18,6 @@ class ModelInfo:
     depth_model_name: str
     egomotion_model_name: str
     ref_frame_shifts: list[int]  # The time shifts of the reference frames w.r.t. the target frame
-    depth_map_height: int  # The height of the depth map
-    depth_map_width: int  # The width of the depth map
     depth_calib_type: str = "none"
     depth_calib_a: float = 1.0
     depth_calib_b: float = 0.0

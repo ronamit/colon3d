@@ -20,12 +20,12 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data_gcp/datasets/real_videos/Example_4",
+        default="data_gcp/datasets/ColonNav/Test/Scene_00022/",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/results/real_videos/Example_4_new",
+        default="data/results/temp_run_on_scene",
         help="path to the save outputs",
     )
     parser.add_argument(
@@ -156,8 +156,8 @@ class SlamRunner:
                 scene_loader=scene_loader,
                 depth_maps_source=self.depth_maps_source,
                 egomotions_source=self.egomotions_source,
-                model_path=to_path(self.model_path),
                 depth_default=alg_prm.depth_default,
+                model_path=to_path(self.model_path),
             )
 
             # Run the SLAM algorithm

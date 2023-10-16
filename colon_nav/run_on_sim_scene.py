@@ -201,8 +201,8 @@ def run_slam_on_scene(
         scene_loader=scene_loader,
         depth_maps_source=depth_maps_source,
         egomotions_source=egomotions_source,
-        model_path=model_path,
         depth_default=alg_prm.depth_default,
+        model_path=model_path,
     )
 
     # Run the SLAM algorithm

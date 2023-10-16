@@ -113,6 +113,8 @@ class SceneLoader:
         else:
             print(f"Using only the first {self.n_frames} frames of the video...")
 
+        self.orig_rgb_img_size = (self.orig_cam_info.frame_width, self.orig_cam_info.frame_height)
+
     # --------------------------------------------------------------------------------------------------------------------
 
     def frames_generator(self, frame_type="alg_input"):
@@ -258,10 +260,6 @@ def get_all_scenes_paths_in_dir(dataset_path: Path, with_targets: bool):
                 out_paths += get_all_scenes_paths_in_dir(sub_dir, with_targets=with_targets)
     out_paths.sort()
     return out_paths
-
-# --------------------------------------------------------------------------------------------------------------------
-
-
 
 # --------------------------------------------------------------------------------------------------------------------
 

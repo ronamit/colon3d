@@ -89,6 +89,7 @@ class DepthExaminer:
         """Initialize the depth examiner.
         Args:
             dataset_path: Path to the dataset of scenes.
+            depth_map_size: The depth maps will be resized to this size.
             model_path: Path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation.
             model_info: The model info to use for the depth and egomotion models. If None then the model info will be loaded from the model_path.
             save_exam_path: Path to save the results. If None then the results will not be saved.

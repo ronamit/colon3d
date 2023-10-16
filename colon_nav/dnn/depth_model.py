@@ -18,6 +18,7 @@ class DepthModel(nn.Module):
         - load_model_path: Path to a pretrained model to load. If None, then the model is initialized using ImageNet pre-trained weights.
         - device: The device to use for the model
         - mode: "train" or "eval"
+        - depth_map_size: The size of the output depth map (H, W)
     Notes:
         - The input to the forward function is a batch of RGB images (B, C, H, W)
         - The input images are resized to fit as network input.
@@ -25,11 +26,11 @@ class DepthModel(nn.Module):
         - The output depth maps are calibrated and clipped according to the model_info.
     """
 
-    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, is_train: bool):
+    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, is_train: bool, depth_map_size: tuple[int, int]):
         super().__init__()
         self.is_train = is_train
         self.device = device or get_device()
-        self.out_size = (model_info.depth_map_height, model_info.depth_map_width)
+        self.depth_map_size = depth_map_size
         self.model_name = model_info.depth_model_name
         # Create the depth model
         if self.model_name == "DenseDepth":
@@ -62,7 +63,7 @@ class DepthModel(nn.Module):
         )
         # We resize the output depth map to the desired size
         self.output_resizer = torchvision.transforms.Resize(
-            size=self.out_size,
+            size=self.depth_map_size,
             antialias=True,
         )
         self.channel_normalizer = torchvision.transforms.Normalize(
