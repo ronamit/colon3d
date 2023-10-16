@@ -8,7 +8,7 @@ from colon_nav.dnn.data_transforms import (
     RandomHorizontalFlip,
     ToTensors,
 )
-from colon_nav.dnn.train_utils import DatasetMeta
+from colon_nav.dnn.log_utils import DatasetMeta
 from colon_nav.util.rotations_util import quaternion_to_axis_angle
 
 # ---------------------------------------------------------------------------------------------------------------------

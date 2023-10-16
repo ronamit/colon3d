@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 from colon_nav.dnn.data_transforms import sample_to_gpu
 from colon_nav.dnn.endosfm_transforms import poses_to_enfosfm_format
 from colon_nav.dnn.loss_func import compute_pose_loss
-from colon_nav.dnn.train_utils import DatasetMeta
+from colon_nav.dnn.log_utils import DatasetMeta
 from colon_nav.util.general_util import Tee, create_empty_folder, set_rand_seed
 from colon_nav.util.torch_util import get_device
 

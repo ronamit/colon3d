@@ -8,7 +8,7 @@ import torch
 from colon_nav.dnn.data_transforms import rgb_image_to_torch
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
-from colon_nav.dnn.train_utils import load_model_model_info
+from colon_nav.dnn.model_info import load_model_model_info
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
 from colon_nav.util.rotations_util import get_identity_quaternion, normalize_quaternions

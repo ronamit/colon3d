@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from colon_nav.dnn.train_utils import load_model_model_info
+from colon_nav.dnn.model_info import load_model_model_info
 from colon_nav.util.pose_transforms import invert_pose_motion
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device

@@ -5,9 +5,9 @@ from torch.utils.data import DataLoader
 
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
+from colon_nav.dnn.log_utils import TensorBoardWriter, sum_batch_losses
 from colon_nav.dnn.loss_func import LossFunc
 from colon_nav.dnn.model_info import ModelInfo
-from colon_nav.dnn.train_utils import TensorBoardWriter, sum_batch_losses
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
 
@@ -199,6 +199,10 @@ class NetTrainer:
                 losses_scaled[loss_name] /= len(self.val_loader)
         print(f"  val/tot_loss: {tot_loss:.3f}")
         print("  val/losses_scaled: ", {loss_name: f"{loss_val:.3f}" for loss_name, loss_val in losses_scaled.items()})
+        # Write the losses to the the TensorBoard writer
+        self.logger.writer.add_scalar("val/loss", tot_loss.item(), global_step=self.global_step)
+        for loss_name, loss_val in losses_scaled.items():
+            self.logger.writer.add_scalar(f"val/{loss_name}", loss_val.item(), global_step=self.global_step)
         return tot_loss
 
     # ---------------------------------------------------------------------------------------------------------------------
@@ -216,7 +220,7 @@ class NetTrainer:
             self.logger.writer.add_scalar(f"train/{loss_name}", loss_val.item(), global_step=self.global_step)
         if print_to_console:
             print(f"  global_step: {self.global_step}")
-            print(f"  train/tot_loss: {tot_loss.item():.3f}")
+            print(f"  train/loss: {tot_loss.item():.3f}")
             print(
                 "  Loss terms:  ",
                 {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},

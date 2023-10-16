@@ -1,46 +1,12 @@
 from pathlib import Path
 
-import attrs
 import torch
-import yaml
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from colon_nav.dnn.model_info import ModelInfo
-from colon_nav.util.general_util import save_dict_to_yaml, to_str
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def save_model_info(
-    save_dir_path: Path,
-    model_info: ModelInfo,
-    overwrite: bool = True,
-):
-    model_info_path = save_dir_path / "model_info.yaml"
-    if model_info_path.exists() and not overwrite:
-        print(f"Model info file {model_info_path} already exists, overwriting")
-        model_info_path.unlink()
-
-    model_info_dict = attrs.asdict(model_info)
-
-    save_dict_to_yaml(save_path=model_info_path, dict_to_save=model_info_dict)
-    print(f"Saved model info to {model_info_path}")
-    print("Model info:", model_info)
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-
-
-def load_model_model_info(model_path: Path) -> ModelInfo:
-    model_info_path = model_path / "model_info.yaml"
-    if not model_info_path.exists():
-        raise FileNotFoundError(f"Model info file {model_info_path} does not exist")
-    with model_info_path.open("r") as f:
-        model_info = yaml.safe_load(f)
-    return ModelInfo(**model_info)
-
+from colon_nav.util.general_util import to_str
 
 # ---------------------------------------------------------------------------------------------------------------------
 

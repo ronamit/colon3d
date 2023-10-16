@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
 
-from colon_nav.dnn.model_info import ModelInfo
-from colon_nav.dnn.train_utils import load_model_model_info
+from colon_nav.dnn.model_info import ModelInfo, load_model_model_info
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
@@ -143,7 +142,7 @@ class DepthExaminer:
             sum_gt_depth_times_est_depth = 0
 
             for i_scene in range(n_scenes):
-                print(f"Runing depth examination for scene {i_scene + 1}/{n_scenes}..."")
+                print(f"Runing depth examination for scene {i_scene + 1}/{n_scenes}...")
                 scene_path = scenes_paths[i_scene]
                 scene_name = scene_path.name
                 # get frames loader for current scene

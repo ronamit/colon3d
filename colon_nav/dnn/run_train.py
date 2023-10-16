@@ -5,10 +5,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from colon_nav.dnn.model_info import ModelInfo
+from colon_nav.dnn.model_info import ModelInfo, save_model_info
 from colon_nav.dnn.net_trainer import NetTrainer
 from colon_nav.dnn.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.dnn.train_utils import save_model_info
 from colon_nav.examine_depths import DepthExaminer
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
