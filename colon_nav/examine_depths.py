@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
 
-from colon_nav.dnn.train_utils import ModelInfo, load_model_model_info
+from colon_nav.dnn.model_info import ModelInfo
+from colon_nav.dnn.train_utils import load_model_model_info
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
@@ -142,6 +143,7 @@ class DepthExaminer:
             sum_gt_depth_times_est_depth = 0
 
             for i_scene in range(n_scenes):
+                print(f"Runing depth examination for scene {i_scene + 1}/{n_scenes}..."")
                 scene_path = scenes_paths[i_scene]
                 scene_name = scene_path.name
                 # get frames loader for current scene
@@ -250,8 +252,11 @@ def compute_depth_map(
     fig_label: str,
     make_plots: bool = False,
 ):
-    rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx) # (H, W, 3)
-    depth_map = depth_loader.get_depth_map_at_frame(frame_idx=frame_idx, rgb_frame=rgb_frame) # (depth_map_H, depth_map_W)
+    rgb_frame = scene_loader.get_frame_at_index(frame_idx=frame_idx)  # (H, W, 3)
+    depth_map = depth_loader.get_depth_map_at_frame(
+        frame_idx=frame_idx,
+        rgb_frame=rgb_frame,
+    )  # (depth_map_H, depth_map_W)
     depth_map = to_numpy(depth_map, num_type="float_m")
 
     if make_plots:

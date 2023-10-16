@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
 from colon_nav.dnn.loss_func import LossFunc
-from colon_nav.dnn.train_utils import ModelInfo, TensorBoardWriter, sum_batch_losses
+from colon_nav.dnn.model_info import ModelInfo
+from colon_nav.dnn.train_utils import TensorBoardWriter, sum_batch_losses
 from colon_nav.util.general_util import get_time_now_str
 from colon_nav.util.torch_util import get_device, sample_to_gpu
 
@@ -43,7 +44,7 @@ class NetTrainer:
             "rot_sup_L1_quat": 1,
             "rot_sup_L1_mat": 1,
         }
-        self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas)
+        self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas, ref_frame_shifts=self.ref_frame_shifts)
 
         ### Initialize the depth model
         self.depth_model = DepthModel(
@@ -97,8 +98,9 @@ class NetTrainer:
         self.global_step = 0
         for epoch in range(self.n_epochs):
             self.train_one_epoch(epoch)
-            val_loss = self.validate(epoch)
+            val_loss = self.validate()
             self.lr_scheduler.step(metrics=val_loss)
+
             # self.checkpoint_manager.step()
 
             # TODO: plot example image grid + depth output + info to tensorboard - see https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html
@@ -112,34 +114,48 @@ class NetTrainer:
 
     def train_one_epoch(self, epoch):
         """Train the network for one epoch."""
-        print(f"Training epoch {epoch}:")
+        print(f"Epoch #{epoch}:")
         self.depth_model.train()
         self.egomotion_model.train()
         for batch_idx, batch_cpu in enumerate(self.train_loader):
             # move the batch to the GPU
             batch = sample_to_gpu(batch_cpu, self.device)
             # train the networks for one batch
-            self.train_one_batch(batch_idx, batch)
+            outputs = self.train_one_batch(batch_idx, batch)
+
+        # Print sample images to tensorboard (every epoch)
+        self.logger.plot_sample(
+            sample=batch_cpu,
+            is_train=True,
+            outputs=outputs,
+            global_step=self.global_step,
+        )
 
     # ---------------------------------------------------------------------------------------------------------------------
 
     def train_one_batch(self, batch_idx: int, batch):
         """Train the network for one batch."""
         self.optimizer.zero_grad()
-        tot_loss, losses_scaled = self.compute_loss_func(batch)
+
+        # Get networks outputs
+        outputs = self.compute_outputs(batch)
+
+        # Compute the loss function
+        tot_loss, losses_scaled, outputs = self.loss_func(batch=batch, outputs=outputs)
+
+        # Backpropagate the loss
         tot_loss.backward()
         self.optimizer.step()
-        print(f"  Batch {batch_idx}:")
-        print(
-            "train/losses_scaled: ",
-            {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
-        )
-        self.logger.writer.add_scalar("train/loss", tot_loss.item(), self.global_step)
+
+        # Log the loss
+        self.write_train_log(tot_loss=tot_loss, losses_scaled=losses_scaled, print_to_console=batch_idx % 10 == 0)
+
         self.global_step += 1
+        return outputs
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def compute_outputs(self, batch):
+    def compute_outputs(self, batch: dict) -> dict[str, torch.Tensor]:
         """Compute the outputs of the networks."""
         # The RGB images of the reference frames
         tgt_rgb = batch[("color", 0)]  # (B, 3, H, W)
@@ -156,71 +172,54 @@ class NetTrainer:
         # The egomotion format: (x,y,z,qw,qx,qy,qz) where (x,y,z) is the translation [mm] and (qw,qx,qy,qz) is the rotation unit quaternion.
         tgt_to_refs_motion_est = self.egomotion_model(frames=[*ref_rgb_frames, tgt_rgb])
 
-        return tgt_depth_est, tgt_to_refs_motion_est
+        outputs = {"tgt_depth_est": tgt_depth_est, "list_tgt_to_refs_motion_est": tgt_to_refs_motion_est}
+        return outputs
 
     # ---------------------------------------------------------------------------------------------------------------------
 
-    def compute_loss_func(self, batch):
-        """Compute the loss function."""
-
-        # Get the outputs of the networks
-        tgt_depth_est, tgt_to_refs_motion_est = self.compute_outputs(batch)
-
-        # Get the ground truth depth map of the target frame
-        depth_gt = batch[("depth_gt", 0)]  # (B, H, W)
-
-        # Get the ground truth egomotion from the target to each reference frame
-        list_tgt_to_refs_motion_gt = [batch[("tgt_to_ref_motion", shift)] for shift in self.ref_frame_shifts]
-
-        # Compute the loss function
-        tot_loss, losses_scaled = self.loss_func(
-            tgt_depth_est=tgt_depth_est,
-            list_tgt_to_refs_motion_est=tgt_to_refs_motion_est,
-            depth_gt=depth_gt,
-            list_tgt_to_refs_motion_gt=list_tgt_to_refs_motion_gt,
-        )
-
-        return tot_loss, losses_scaled
-
-    # ---------------------------------------------------------------------------------------------------------------------
-
-    def validate(self, epoch):
-        """Validate the network."""
+    def validate(self):
+        """Calculate the average loss of the model on the validation set."""
         self.depth_model.eval()
         self.egomotion_model.eval()
-        print(f"Validation epoch {epoch}:")
+        print("Validation:")
         tot_loss, losses_scaled = 0, {}
         with torch.no_grad():
-            for batch_idx, batch_cpu in enumerate(self.val_loader):
+            for batch_cpu in self.val_loader:
                 batch = sample_to_gpu(batch_cpu, self.device)
-                tot_loss_b, losses_scaled_b = self.validate_one_batch(batch_idx, batch)
+                outputs = self.compute_outputs(batch)
+                tot_loss_b, losses_scaled_b, outputs = self.loss_func(batch=batch, outputs=outputs)
                 # Add the loss of this batch to the total loss
                 tot_loss += tot_loss_b
                 # Add the scaled losses of this batch to the scaled losses of all batches
                 losses_scaled = sum_batch_losses(losses=losses_scaled, batch_losses=losses_scaled_b)
-        # average the loss over all batches
-        tot_loss /= len(self.val_loader)
-        # average the scaled losses over all batches
-        for loss_name in losses_scaled:
-            losses_scaled[loss_name] /= len(self.val_loader)
+            # average the loss over all batches
+            tot_loss /= len(self.val_loader)
+            # average the scaled losses over all batches
+            for loss_name in losses_scaled:
+                losses_scaled[loss_name] /= len(self.val_loader)
         print(f"  val/tot_loss: {tot_loss:.3f}")
         print("  val/losses_scaled: ", {loss_name: f"{loss_val:.3f}" for loss_name, loss_val in losses_scaled.items()})
         return tot_loss
 
     # ---------------------------------------------------------------------------------------------------------------------
-
-    def validate_one_batch(self, batch_idx: int, batch):
-        """Validate the network for one batch."""
-        tot_loss, losses_scaled = self.compute_loss_func(batch)
-        print(f"  Batch {batch_idx}:")
-        print(
-            "val/losses_scaled: ",
-            {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
-        )
-        # self.logger.writer("val/loss", tot_loss.item(), self.global_step)
-        return tot_loss, losses_scaled
+    def write_train_log(
+        self,
+        tot_loss: torch.Tensor,
+        losses_scaled: dict[str, torch.Tensor],
+        print_to_console: bool = True,
+    ):
+        """Write the loss to the the TensorBoard writer and print to console."""
+        lr = self.optimizer.param_groups[0]["lr"]
+        self.logger.writer.add_scalar("train/loss", tot_loss.item(), global_step=self.global_step)
+        self.logger.writer.add_scalar("train/lr", lr, global_step=self.global_step)
+        for loss_name, loss_val in losses_scaled.items():
+            self.logger.writer.add_scalar(f"train/{loss_name}", loss_val.item(), global_step=self.global_step)
+        if print_to_console:
+            print(f"  global_step: {self.global_step}")
+            print(f"  train/tot_loss: {tot_loss.item():.3f}")
+            print(
+                "  Loss terms:  ",
+                {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
+            )
 
     # ---------------------------------------------------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------------------------------------------------

@@ -5,9 +5,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.dnn.net_trainer import NetTrainer
 from colon_nav.dnn.scenes_dataset import ScenesDataset, get_scenes_dataset_random_split
-from colon_nav.dnn.train_utils import ModelInfo, save_model_info
+from colon_nav.dnn.train_utils import save_model_info
 from colon_nav.examine_depths import DepthExaminer
 from colon_nav.util.general_util import ArgsHelpFormatter, bool_arg, get_path, set_rand_seed
 
@@ -160,11 +161,14 @@ def main():
 
     print(f"args={args}")
     n_workers = args.n_workers
+    batch_size = args.batch_size
     torch.cuda.empty_cache()
 
     random_seed = set_rand_seed(args.seed)
     dataset_path = Path(args.dataset_path)
     save_model_path = Path(args.path_to_save_models)
+    update_depth_calib = args.update_depth_calib
+    depth_calib_method = args.depth_calib_method
 
     load_gt_depth = train_method in {"GT_pose_and_depth", "GT_depth_only"}
     load_gt_pose = train_method in {"GT_pose_and_depth"}
@@ -229,7 +233,7 @@ def main():
     # training loader
     train_loader = torch.utils.data.DataLoader(
         train_set,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=n_workers,
         pin_memory=True,
@@ -238,7 +242,7 @@ def main():
     # validation loader
     val_loader = torch.utils.data.DataLoader(
         validation_dataset,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=n_workers,
         pin_memory=True,
@@ -246,7 +250,7 @@ def main():
     )
 
     # Run training:
-    train_runner = NetTrainer(
+    NetTrainer(
         save_model_path=save_model_path,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -255,8 +259,7 @@ def main():
         load_egomotion_model_path=get_path(args.load_egomotion_model_path),
         n_epochs=n_epochs,
         run_name="",
-    )
-    train_runner.train()
+    ).train()
 
     # --------------------------------------------------------------------------------------------------------------------
     # save the model info to disk (so it can be used for inference)
@@ -268,7 +271,7 @@ def main():
         dataset_path=dataset_path,
         model_path=save_model_path,
         model_info=model_info,
-        update_depth_calib_method=args.depth_calib_method,
+        update_depth_calib_method=depth_calib_method,
         update_depth_lower_bound=depth_lower_bound,
         update_depth_upper_bound=depth_upper_bound,
         n_scenes_lim=n_scenes_lim,
@@ -277,7 +280,7 @@ def main():
     ).run()
 
     # --------------------------------------------------------------------------------------------------------------------
-    if args.update_depth_calib:
+    if update_depth_calib:
         # update the model info file with the new depth_calib value:
         save_model_info(
             save_dir_path=save_model_path,

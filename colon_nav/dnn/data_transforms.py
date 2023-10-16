@@ -5,7 +5,7 @@ import torch
 import torchvision
 from torchvision.transforms import Compose
 
-from colon_nav.dnn.train_utils import ModelInfo
+from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.util.pose_transforms import compose_poses, get_pose, get_pose_delta
 from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import to_torch
@@ -18,7 +18,7 @@ from colon_nav.util.torch_util import to_torch
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_train_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], depth_map_size: tuple[int, int]):
+def get_train_transform(model_info: ModelInfo, rgb_img_size: tuple[int, int], depth_map_size: tuple[int, int]):
     # set data transforms
     transform_list = [
         ToTensors(dtype=torch.float32, model_info=model_info, rgb_img_size=rgb_img_size, depth_map_size=depth_map_size),
@@ -32,7 +32,7 @@ def get_train_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], d
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def get_val_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], depth_map_size:  tuple[int, int]):
+def get_val_transform(model_info: ModelInfo, rgb_img_size: tuple[int, int], depth_map_size: tuple[int, int]):
     # set data transforms
     transform_list = [
         ToTensors(dtype=torch.float32, model_info=model_info, rgb_img_size=rgb_img_size, depth_map_size=depth_map_size),
@@ -44,7 +44,13 @@ def get_val_transform(model_info: ModelInfo, rgb_img_size:  tuple[int, int], dep
 
 # ---------------------------------------------------------------------------------------------------------------------
 class ToTensors:
-    def __init__(self, dtype: torch.dtype, model_info: ModelInfo, rgb_img_size: tuple[int, int], depth_map_size: tuple[int, int]):
+    def __init__(
+        self,
+        dtype: torch.dtype,
+        model_info: ModelInfo,
+        rgb_img_size: tuple[int, int],
+        depth_map_size: tuple[int, int],
+    ):
         self.device = torch.device("cpu")  # we use the CPU to allow for multi-processing
         self.dtype = dtype
         self.depth_map_resizer = torchvision.transforms.Resize(

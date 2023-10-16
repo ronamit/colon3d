@@ -4,9 +4,9 @@ import torch
 import torchvision
 from torch import nn
 
+from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.dnn.models_def.dense_depth import DenseDepth
 from colon_nav.dnn.models_def.fcb_former import FCBFormer
-from colon_nav.dnn.train_utils import ModelInfo
 from colon_nav.util.torch_util import get_device
 
 # ---------------------------------------------------------------------------------------------------------------------

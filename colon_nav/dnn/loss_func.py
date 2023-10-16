@@ -8,29 +8,37 @@ from colon_nav.util.rotations_util import quaternions_to_rot_matrices
 
 class LossFunc(nn.Module):
     # --------------------------------------------------------------------------------------------------------------------
-    def __init__(self, loss_terms_lambdas: dict):
+    def __init__(self, loss_terms_lambdas: dict, ref_frame_shifts: list[int]):
         super().__init__()
         self.loss_terms_lambdas = loss_terms_lambdas
+        self.ref_frame_shifts = ref_frame_shifts
         self.ssim = SSIM() # the SSIM loss
 
     # --------------------------------------------------------------------------------------------------------------------
     def forward(self,
-        tgt_depth_est: torch.Tensor,
-        list_tgt_to_refs_motion_est: list[torch.Tensor],
-        depth_gt: torch.Tensor,
-        list_tgt_to_refs_motion_gt: list[torch.Tensor],
+        batch: dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Compute the loss function.
         Args:
             loss_terms_lambdas: a dictionary of the loss terms and their weights
-            tgt_depth_est: the estimated depth map of the target frame [B x 1 x H x W]
-            list_tgt_to_refs_motion_est: list of the estimated egomotion from the target to each reference frame [B x 7]
             depth_gt: the ground truth depth map of the target frame [B x 1 x H x W]
             list_tgt_to_refs_motion_gt: list of the ground truth egomotion from the target to each reference frame [B x 7]
         Returns:
             total_loss: the total loss
             losses: a dictionary of the losses
         """
+
+        # Get the ground truth depth map of the target frame
+        depth_gt = batch[("depth_gt", 0)]  # (B, H, W)
+
+        # Get the ground truth egomotion from the target to each reference frame
+        list_tgt_to_refs_motion_gt = [batch[("tgt_to_ref_motion", shift)] for shift in self.ref_frame_shifts]
+
+        #  tgt_depth_est: the estimated depth map of the target frame [B x 1 x H x W]
+        tgt_depth_est = outputs["tgt_depth_est"]
+        #  list_tgt_to_refs_motion_est: list of the estimated egomotion from the target to each reference frame [B x 7]
+        list_tgt_to_refs_motion_est = outputs["list_tgt_to_refs_motion_est"]
         losses = {}
         for loss_name, loss_lambda in self.loss_terms_lambdas.items():
             if loss_lambda > 0:
@@ -84,7 +92,7 @@ class LossFunc(nn.Module):
         # sum all the scaled losses
         tot_loss = sum(losses_scaled.values())
         assert tot_loss.isfinite(), f"total_loss is not finite: {tot_loss}"
-        return tot_loss, losses_scaled
+        return tot_loss, losses_scaled, outputs
 
 
 # --------------------------------------------------------------------------------------------------------------------
