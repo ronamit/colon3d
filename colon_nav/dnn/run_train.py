@@ -274,6 +274,7 @@ def main():
         update_depth_lower_bound=depth_lower_bound,
         update_depth_upper_bound=depth_upper_bound,
         n_scenes_lim=n_scenes_lim,
+        n_frames_lim=n_sample_lim,
         save_exam_path=save_model_path / "depth_exam_pre_calib",
         save_overwrite=args.overwrite_depth_exam,
     ).run()

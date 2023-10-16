@@ -80,6 +80,13 @@ class TensorBoardWriter:
         if outputs is not None:
             tgt_depth_est = outputs["tgt_depth_est"][0].detach().cpu().numpy()
             axs[2, -1].imshow(tgt_depth_est[0, :, :], cmap="hot", interpolation="nearest")
+            # add colorbar at the bottom of the image
+            fig.colorbar(
+                axs[2, -1].imshow(tgt_depth_est[0, :, :], cmap="hot", interpolation="nearest"),
+                ax=axs[2, -1],
+                shrink=0.6,
+                location="bottom",
+            )
 
         fig.tight_layout()
         self.writer.add_figure("Sample images", fig, global_step=global_step)
