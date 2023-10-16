@@ -2,7 +2,6 @@ from pathlib import Path
 
 import attrs
 import torch
-import torchvision
 import yaml
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -84,7 +83,7 @@ class TensorBoardWriter:
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
-        self.show_data()
+        self.show_sample_data()
         if show_graph:
             self.visualize_graph()
 
@@ -100,34 +99,35 @@ class TensorBoardWriter:
         self.writer.add_graph(self.egomotion_model, ego_model_input)
         self.writer.close()
 
-    def show_data(self, dataset_name="train") -> None:
+    def show_sample_data(self, dataset_name="train") -> None:
         data_loader = self.train_loader if dataset_name == "train" else self.val_loader
         sample = next(iter(data_loader))
         ind = 0  # index of the sample in the batch
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
-        input_images = [sample[("color", shift)][ind] for shift in all_shifts]
+        n_images = len(all_shifts)
+        rgb_images = [sample[("color", shift)][ind] for shift in all_shifts]
+        depth_gt_images = [sample[("depth_gt", shift)][ind] for shift in all_shifts]
+        fig, axs = plt.subplots(2, n_images)
+        for i in range(n_images):
+            img = rgb_images[i].permute(1, 2, 0).cpu().numpy().astype("uint8")
+            axs[0, i].imshow(img, interpolation="nearest")
+            axs[0, i].set_title(f"RGB image: {all_shifts[i]}")
+            axs[0, i].axis("off")
+            img = depth_gt_images[i].cpu().numpy()
+            axs[1, i].imshow(img[0, :, :], cmap="hot", interpolation="nearest")
+            axs[1, i].set_title(f"Depth image: {all_shifts[i]}")
+            axs[1, i].axis("off")
+            # add colorbar at the bottom of the image
+            fig.colorbar(
+                axs[1, i].imshow(img[0, :, :], cmap="hot", interpolation="nearest"),
+                ax=axs[1, i],
+                shrink=0.6,
+                location="bottom",
+            )
 
-        img_grid = torchvision.utils.make_grid(input_images)
-        self.writer.add_image(f"RGB images. Shifts: {all_shifts}", img_grid, global_step=0)
-
-        # show the GT depth, if available
-        if ("depth_gt", 0) in sample:
-            depth_gt_images = [sample[("depth_gt", shift)][ind] for shift in all_shifts]
-            # create a heatmap subplot with scale, for each depth image
-            fig, axs = plt.subplots(1, len(depth_gt_images))
-            for i, img in enumerate(depth_gt_images):
-                axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest")
-                axs[i].set_title(f"Depth image: {all_shifts[i]}")
-                axs[i].axis("off")
-                fig.colorbar(
-                    axs[i].imshow(img[0, :, :], cmap="hot", interpolation="nearest"),
-                    ax=axs[i],
-                    location="bottom",
-                )
-
-            fig.tight_layout()
-            self.writer.add_figure("GT depth images", fig)
+        fig.tight_layout()
+        self.writer.add_figure("Sample images", fig)
 
         # Print the sample source info:
         dataset = data_loader.dataset

@@ -39,7 +39,7 @@ pip3 install -U torch torchvision torchaudio
 * Install  additional packages:
 
 ```bash
- python -m pip install lightning tensorflow tensorboard  pytorch-minimize
+ python -m pip install lightning tensorflow tensorrt tensorboard  pytorch-minimize
 ```
 
 * Final step:
