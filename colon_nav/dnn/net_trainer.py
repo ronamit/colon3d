@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
-from colon_nav.dnn.log_utils import TensorBoardWriter, sum_batch_losses
+from colon_nav.dnn.log_utils import TensorBoardWriter, add_to_dict_vals
 from colon_nav.dnn.loss_func import LossFunc
 from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.util.general_util import get_time_now_str
@@ -45,6 +45,7 @@ class NetTrainer:
             "rot_sup_L1_mat": 1,
         }
         self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas, ref_frame_shifts=self.ref_frame_shifts)
+        self.log_freq = 100  # print the running average of train losses to console every this number of batches\steps
 
         ### Initialize the depth model
         self.depth_model = DepthModel(
@@ -81,6 +82,7 @@ class NetTrainer:
         ### Initialize the tensorboard writer
         self.logger = TensorBoardWriter(
             log_dir=save_model_path / "runs" / self.run_name,
+            log_freq=self.log_freq,
             train_loader=self.train_loader,
             val_loader=self.val_loader,
             model_info=self.model_info,
@@ -108,7 +110,7 @@ class NetTrainer:
         # Save the model
         self.depth_model.save_model(save_model_path=self.save_model_path)
         self.egomotion_model.save_model(save_model_path=self.save_model_path)
-        print(f"Saved model to {self.save_model_path}")
+        print(f"Finished training, model saved to {self.save_model_path}")
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -117,11 +119,36 @@ class NetTrainer:
         print(f"Epoch #{epoch}:")
         self.depth_model.train()
         self.egomotion_model.train()
-        for batch_idx, batch_cpu in enumerate(self.train_loader):
+        running_loss = 0.0
+        for _batch_idx, batch_cpu in enumerate(self.train_loader):
             # move the batch to the GPU
             batch = sample_to_gpu(batch_cpu, self.device)
+
             # train the networks for one batch
-            outputs = self.train_one_batch(batch_idx, batch)
+            # Zero the parameter gradients
+            self.optimizer.zero_grad()
+
+            # Get networks outputs
+            outputs = self.compute_outputs(batch)
+
+            # Compute the loss function
+            tot_loss, loss_terms, outputs = self.loss_func(batch=batch, outputs=outputs)
+
+            # Backpropagate the loss
+            tot_loss.backward()
+            self.optimizer.step()
+
+            # add the loss of this batch to the running loss
+            running_loss += tot_loss.item()
+
+            # Log the loss
+            self.logger.update_running_train_loss(
+                tot_loss=tot_loss,
+                loss_terms=loss_terms,
+                global_step=self.global_step,
+            )
+
+            self.global_step += 1
 
         # Print sample images to tensorboard (every epoch)
         self.logger.plot_sample(
@@ -130,28 +157,6 @@ class NetTrainer:
             outputs=outputs,
             global_step=self.global_step,
         )
-
-    # ---------------------------------------------------------------------------------------------------------------------
-
-    def train_one_batch(self, batch_idx: int, batch):
-        """Train the network for one batch."""
-        self.optimizer.zero_grad()
-
-        # Get networks outputs
-        outputs = self.compute_outputs(batch)
-
-        # Compute the loss function
-        tot_loss, losses_scaled, outputs = self.loss_func(batch=batch, outputs=outputs)
-
-        # Backpropagate the loss
-        tot_loss.backward()
-        self.optimizer.step()
-
-        # Log the loss
-        self.write_train_log(tot_loss=tot_loss, losses_scaled=losses_scaled, print_to_console=batch_idx % 10 == 0)
-
-        self.global_step += 1
-        return outputs
 
     # ---------------------------------------------------------------------------------------------------------------------
 
@@ -191,7 +196,7 @@ class NetTrainer:
                 # Add the loss of this batch to the total loss
                 tot_loss += tot_loss_b
                 # Add the scaled losses of this batch to the scaled losses of all batches
-                losses_scaled = sum_batch_losses(losses=losses_scaled, batch_losses=losses_scaled_b)
+                losses_scaled = add_to_dict_vals(dict_orig=losses_scaled, dict_to_add=losses_scaled_b)
             # average the loss over all batches
             tot_loss /= len(self.val_loader)
             # average the scaled losses over all batches

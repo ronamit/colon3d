@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.util.general_util import to_str
+from colon_nav.util.torch_util import to_numpy
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -15,6 +16,7 @@ class TensorBoardWriter:
     def __init__(
         self,
         log_dir: Path,
+        log_freq: int,
         train_loader: DataLoader,
         val_loader: DataLoader,
         model_info: ModelInfo,
@@ -24,6 +26,7 @@ class TensorBoardWriter:
     ) -> None:
         self.writer = SummaryWriter(log_dir=log_dir)
         self.writer.add_text("Model info", str(model_info), global_step=0)
+        self.log_freq = log_freq
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.train_set = train_loader.dataset
@@ -34,6 +37,10 @@ class TensorBoardWriter:
         self.model_info = model_info
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
+
+        self.running_loss = 0.0
+        self.running_loss_terms = {}
+
         if show_graph:
             self.visualize_graph()
         # Show some sample data before training:
@@ -41,7 +48,7 @@ class TensorBoardWriter:
         self.plot_sample(sample, is_train=True, global_step=0)
 
     # -----------------------------------------------------------------------------------------------------------------
-    def visualize_graph(self) -> None:
+    def visualize_graph(self):
         sample = next(iter(self.val_loader))
         depth_model_input = sample["depth_model_in"]
         ego_model_input = sample["ego_model_in"]
@@ -51,7 +58,27 @@ class TensorBoardWriter:
 
     # -----------------------------------------------------------------------------------------------------------------
 
-    def plot_sample(self, sample: dict, is_train: bool, global_step: int, outputs: dict | None = None) -> None:
+    def update_running_train_loss(
+        self,
+        tot_loss: torch.Tensor,
+        loss_terms: dict[str, float],
+        global_step: int,
+    ):
+        self.running_loss += to_numpy(tot_loss)
+        self.running_loss_terms = add_to_dict_vals(self.running_loss_terms, loss_terms)
+        if global_step % self.log_freq == 0:
+            # log the averaged running loss
+            running_loss = self.running_loss / self.log_freq
+            self.writer.add_scalar("train/loss", running_loss, global_step=global_step)
+            for loss_name, loss_val in self.running_loss_terms.items():
+                self.writer.add_scalar(f"train/{loss_name}", loss_val / self.log_freq, global_step=global_step)
+            # reset the running loss
+            self.running_loss = 0.0
+            self.running_loss_terms = {}
+
+    # -----------------------------------------------------------------------------------------------------------------
+
+    def plot_sample(self, sample: dict, is_train: bool, global_step: int, outputs: dict | None = None):
         ind = 0  # index of the sample in the batch
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
@@ -120,10 +147,10 @@ class TensorBoardWriter:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-def sum_batch_losses(losses: dict, batch_losses: dict):
-    for loss_name, loss_val in batch_losses.items():
-        losses[loss_name] = batch_losses.get(loss_name, 0) + loss_val
-    return losses
+def add_to_dict_vals(dict_orig: dict, dict_to_add: dict):
+    for name, val in dict_to_add.items():
+        dict_orig[name] = dict_to_add.get(name, 0.0) + val
+    return dict_orig
 
 
 # ---------------------------------------------------------------------------------------------------------------------

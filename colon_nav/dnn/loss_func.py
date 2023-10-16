@@ -3,6 +3,7 @@ import torch.nn.functional as nnF
 from torch import nn
 
 from colon_nav.util.rotations_util import quaternions_to_rot_matrices
+from colon_nav.util.torch_util import to_numpy
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -91,8 +92,10 @@ class LossFunc(nn.Module):
         losses_scaled = {loss_name: val * self.loss_terms_lambdas[loss_name] for loss_name, val in losses.items()}
         # sum all the scaled losses
         tot_loss = sum(losses_scaled.values())
+
+        loss_terms = {loss_name: to_numpy(val) for loss_name, val in losses.items()}
         assert tot_loss.isfinite(), f"total_loss is not finite: {tot_loss}"
-        return tot_loss, losses_scaled, outputs
+        return tot_loss, loss_terms, outputs
 
 
 # --------------------------------------------------------------------------------------------------------------------

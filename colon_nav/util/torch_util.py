@@ -75,7 +75,7 @@ def to_numpy(x, num_type=None, dtype=None):
     if isinstance(x, list):
         return [to_numpy(v) for v in x]
     if isinstance(x, torch.Tensor):
-        return x.numpy(force=True).astype(dtype)
+        return x.detach().numpy(force=True).astype(dtype)
     if isinstance(x, PIL.Image.Image):
         return np.array(x).astype(dtype)
     return x
