@@ -76,9 +76,9 @@ def main():
         "Note that a loaded pretrained model must be compatible with the depth_model_name and n_ref_imgs.",
     )
     parser.add_argument(
-        "--path_to_save_models",
+        "--save_model_path",
         type=str,
-        default="data_gcp/models/Model_New",
+        default="data_gcp/models/Model_V1",
         help="Path to save the trained models.",
     )
     parser.add_argument(
@@ -165,7 +165,7 @@ def main():
 
     random_seed = set_rand_seed(args.seed)
     dataset_path = Path(args.dataset_path)
-    save_model_path = Path(args.path_to_save_models)
+    save_model_path = Path(args.save_model_path)
     update_depth_calib = args.update_depth_calib
     depth_calib_method = args.depth_calib_method
 

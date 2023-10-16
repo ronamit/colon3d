@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import torch
@@ -8,6 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.util.general_util import to_str
 from colon_nav.util.torch_util import to_numpy
+
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
 
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -72,6 +75,9 @@ class TensorBoardWriter:
             self.writer.add_scalar("train/loss", running_loss, global_step=global_step)
             for loss_name, loss_val in self.running_loss_terms.items():
                 self.writer.add_scalar(f"train/{loss_name}", loss_val / self.log_freq, global_step=global_step)
+            # prints
+            print(f"Train loss: {running_loss:.4f}")
+            print('Loss terms', self.running_loss_terms)
             # reset the running loss
             self.running_loss = 0.0
             self.running_loss_terms = {}
