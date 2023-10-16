@@ -25,6 +25,7 @@ class NetTrainer:
         load_egomotion_model_path: Path | None = None,  # path to load a pretrained egomotion model
         n_epochs: int = 300,  # number of epochs to train
         run_name: str = "",  # name of the run
+        log_freq: int = 10,  # print the running average of train losses to console every this number of batches\steps
     ):
         self.save_model_path = save_model_path
         self.train_loader = train_loader
@@ -45,7 +46,7 @@ class NetTrainer:
             "rot_sup_L1_mat": 1,
         }
         self.loss_func = LossFunc(loss_terms_lambdas=self.loss_terms_lambdas, ref_frame_shifts=self.ref_frame_shifts)
-        self.log_freq = 100  # print the running average of train losses to console every this number of batches\steps
+        self.log_freq = log_freq  # print the running average of train losses to console every this number of batches\steps
 
         ### Initialize the depth model
         self.depth_model = DepthModel(

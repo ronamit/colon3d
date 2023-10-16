@@ -50,7 +50,7 @@ def main():
     parser.add_argument(
         "--egomotion_model_name",
         type=str,
-        default="resnet50",
+        default="resnet18",
         choices=["resnet18", "resnet50"],
         help="Name of the egomotion model.",
     )
@@ -78,7 +78,7 @@ def main():
     parser.add_argument(
         "--path_to_save_models",
         type=str,
-        default="data_gcp/models/TEMP",
+        default="data_gcp/models/Model_New",
         help="Path to save the trained models.",
     )
     parser.add_argument(
