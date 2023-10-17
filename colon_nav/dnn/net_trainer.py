@@ -119,10 +119,12 @@ class NetTrainer:
 
     def train_one_epoch(self, epoch):
         """Train the network for one epoch."""
-        print(f"Epoch #{epoch}:")
+        print("-" * 20, f" Epoch #{epoch}:")
+
         self.depth_model.train()
         self.egomotion_model.train()
         running_loss = 0.0
+
         for _batch_idx, batch_cpu in enumerate(self.train_loader):
             # move the batch to the GPU
             batch = sample_to_gpu(batch_cpu, self.device)
@@ -189,7 +191,6 @@ class NetTrainer:
         """Calculate the average loss of the model on the validation set."""
         self.depth_model.eval()
         self.egomotion_model.eval()
-        print("Validation:")
         tot_loss, losses_scaled = 0, {}
         with torch.no_grad():
             for batch_cpu in self.val_loader:
@@ -214,6 +215,7 @@ class NetTrainer:
         return tot_loss
 
     # ---------------------------------------------------------------------------------------------------------------------
+    
     def write_train_log(
         self,
         tot_loss: torch.Tensor,
@@ -230,7 +232,7 @@ class NetTrainer:
             print(f"  global_step: {self.global_step}")
             print(f"  train/loss: {tot_loss.item():.3f}")
             print(
-                "  Loss terms:  ",
+                "train/losses_scaled  ",
                 {loss_name: f"{loss_val.item():.3f}" for loss_name, loss_val in losses_scaled.items()},
             )
 

@@ -58,7 +58,7 @@ def main():
         "--depth_model_name",
         type=str,
         default="DenseDepth",
-        choices=["FCBFormer"],
+        choices=["FCBFormer", "DenseDepth"],
         help="Name of the depth model.",
     )
     parser.add_argument(
@@ -78,13 +78,13 @@ def main():
     parser.add_argument(
         "--save_model_path",
         type=str,
-        default="data_gcp/models/Model_V1",
+        default="data_gcp/models/Model_V2",
         help="Path to save the trained models.",
     )
     parser.add_argument(
         "--n_epochs",
         type=int,
-        default=40,
+        default=300,
         help="Number of epochs to train.",
     )
     parser.add_argument(
@@ -100,24 +100,6 @@ def main():
         help="mini-batch size, decrease this if out of memory",
     )
     parser.add_argument(
-        "--overwrite_model",
-        type=bool_arg,
-        default=True,
-        help="If True then overwrite the save model if it already exists in the save path.",
-    )
-    parser.add_argument(
-        "--overwrite_depth_exam",
-        type=bool_arg,
-        default=True,
-        help="If True then overwrite the depth examination if it already exists in the save path.",
-    )
-    parser.add_argument(
-        "--update_depth_calib",
-        type=bool_arg,
-        default=True,
-        help="If True then update the depth scale in the model info file based on the depth examination.",
-    )
-    parser.add_argument(
         "--depth_calib_method",
         type=str,
         choices=["affine", "linear", "none"],
@@ -128,19 +110,19 @@ def main():
         "--depth_lower_bound",
         type=float,
         default=0.1,
-        help="lower bound to clip the the z-depth estimation (units: mm) (used in inference, afer training and calibration). If negative then no lower bound.",
+        help="lower bound to clip the the z-depth estimation (units: mm). If negative then no lower bound.  (used only in inference, afer training and calibration).",
     )
     parser.add_argument(
         "--depth_upper_bound",
         type=float,
         default=200.0,
-        help="upper bound to clip the the z-depth estimation (units: mm) (used in inference, afer training and calibration). If negative then no upper bound.",
+        help="upper bound to clip the the z-depth estimation (units: mm) If negative then no upper bound  (used only in inference, afer training and calibration).",
     )
     parser.add_argument(
         "--debug_mode",
         type=bool_arg,
         default=True,
-        help="If True, then use a small dataset and 1 epoch for debugging",
+        help="If True, then use a small dataset and less epochs for debugging",
     )
     parser.add_argument(
         "--seed",
@@ -166,7 +148,6 @@ def main():
     random_seed = set_rand_seed(args.seed)
     dataset_path = Path(args.dataset_path)
     save_model_path = Path(args.save_model_path)
-    update_depth_calib = args.update_depth_calib
     depth_calib_method = args.depth_calib_method
 
     load_gt_depth = train_method in {"GT_pose_and_depth", "GT_depth_only"}
@@ -191,7 +172,7 @@ def main():
     if args.debug_mode:
         print("Running in debug mode!!!!")
         n_sample_lim = 20
-        n_scenes_lim = 10
+        n_scenes_lim = 3
         n_epochs = 1
         save_model_path = save_model_path / "_debug_"
         n_workers = 0  # for debugging
@@ -276,16 +257,15 @@ def main():
         n_scenes_lim=n_scenes_lim,
         n_frames_lim=n_sample_lim,
         save_exam_path=save_model_path / "depth_exam_pre_calib",
-        save_overwrite=args.overwrite_depth_exam,
+        save_overwrite=True,
     ).run()
 
     # --------------------------------------------------------------------------------------------------------------------
-    if update_depth_calib:
-        # update the model info file with the new depth_calib value:
-        save_model_info(
-            save_dir_path=save_model_path,
-            model_info=model_info,
-        )
+    # update the model info file with the new depth_calib value:
+    save_model_info(
+        save_dir_path=save_model_path,
+        model_info=model_info,
+    )
 
     # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
@@ -297,7 +277,7 @@ def main():
         n_scenes_lim=5,
         n_frames_lim=5,
         save_exam_path=save_model_path / "depth_exam_post_calib",
-        save_overwrite=args.overwrite_depth_exam,
+        save_overwrite=True,
     ).run()
 
 

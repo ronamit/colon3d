@@ -28,7 +28,6 @@ from colon_nav.util.rotations_util import get_identity_quaternion
 from colon_nav.util.torch_util import get_default_dtype, get_device, to_numpy
 from colon_nav.visuals.plots_2d import draw_kp_on_img, draw_matches
 
-torch.set_default_dtype(get_default_dtype())
 # ---------------------------------------------------------------------------------------------------------------------
 
 

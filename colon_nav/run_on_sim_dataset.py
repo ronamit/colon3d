@@ -69,13 +69,6 @@ def main():
         "if 'none' then no egomotion will not be used,",
     )
     parser.add_argument(
-        "--depth_and_egomotion_method",
-        type=str,
-        default="EndoSFM",
-        choices=["EndoSFM", "MonoDepth2", "SC_DepthV3"],
-        help="The method used for depth and egomotion estimation (to be used for the case of online estimation))",
-    )
-    parser.add_argument(
         "--model_path",
         type=str,
         default="data_gcp/models/EndoSFM_orig",
@@ -136,7 +129,6 @@ class SlamOnDatasetRunner:
     save_raw_outputs: bool = False
     depth_maps_source: str = "none"
     egomotions_source: str = "none"
-    depth_and_egomotion_method: str | None = None
     model_path: str | Path | None = None
     alg_fov_ratio: float = 0
     n_frames_lim: int = 0
@@ -207,7 +199,6 @@ class SlamOnDatasetRunner:
                     alg_fov_ratio=self.alg_fov_ratio,
                     depth_maps_source=self.depth_maps_source,
                     egomotions_source=self.egomotions_source,
-                    model_name=self.depth_and_egomotion_method,
                     model_path=to_path(self.model_path),
                     alg_settings_override=self.alg_settings_override,
                     example_name=scene_name,

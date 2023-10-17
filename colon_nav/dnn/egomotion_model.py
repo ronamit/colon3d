@@ -107,6 +107,8 @@ class EgomotionModel(nn.Module):
         # Move to device
         self.to(self.device)
 
+        print("Egomotion model weights type:", self.egomotion_model.named_parameters().__next__()[1].dtype)
+
         # Set the model to train or eval mode
         if self.is_train:
             self.train()
@@ -122,11 +124,11 @@ class EgomotionModel(nn.Module):
     def forward(self, frames: Sequence[Tensor]) -> Tensor:
         """Forward pass of the network.
         Args:
-            frames: Sequence of [B, 3, H, W] tensors, where B is the batch size, H and W are the image height and width. The values are in the range [0,1].
+            frames: Sequence of [B, 3, H, W] tensors, where B is the batch size, H and W are the image height and width. The image values are in the range [0,255].
                 The first elements in the list are the RGB images of the reference frames, and the last element is the RGB image of the target frame.
         Returns:
             List of the estimated ego-motion from the target to each reference frame. (list of [B, 7] tensors)
-            The ego-motion format: 3 translation parameters (x,y,z) [mm], 4 rotation parameters (qw, qx, qy, qz) [unit quaternion]
+            The ego-motion format: 3 translation parameters (x,y,z) [mm], 4 rotation parameters (qw, qx, qy, qz) [unit-quaternion]
         """
         # Resize each image in the frames list to fit as network input
         frames = [self.input_resizer(frame) for frame in frames]

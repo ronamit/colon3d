@@ -32,7 +32,7 @@ def main():
     parser.add_argument(
         "--save_path",
         type=str,
-        default="data/results/ColonNav/temp1",
+        default="data/results/SLAM_Temp",
         help="Path to the save outputs",
     )
     parser.add_argument(
@@ -70,7 +70,7 @@ def main():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="data_gcp/models/TEMP/debug",  # EndoSFM_orig | MonoDepth2_orig | EndoSFM_GTD
+        default="data_gcp/models/Model_V1",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -82,7 +82,7 @@ def main():
     parser.add_argument(
         "--n_frames_lim",
         type=int,
-        default=10,
+        default=30,
         help="upper limit on the number of frames used, if 0 then all frames are used",
     )
     parser.add_argument(

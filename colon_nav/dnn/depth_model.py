@@ -54,7 +54,8 @@ class DepthModel(nn.Module):
 
         ### Load pretrained weights
         if load_model_path is not None:
-            self.depth_model.load_state_dict(torch.load(load_model_path / "depth_model.pth"))
+            loaded_state = torch.load(load_model_path / "depth_model.pth")
+            self.depth_model.load_state_dict(loaded_state)
 
         # We resize the input images to fit as network input
         self.input_resizer = torchvision.transforms.Resize(
@@ -81,6 +82,8 @@ class DepthModel(nn.Module):
         else:
             self.eval()
 
+        print("Depth model weights type:", self.depth_model.named_parameters().__next__()[1].dtype)
+
         # The depth calibration parameters
         self.depth_calib_type = model_info.depth_calib_type
         self.depth_calib_a = model_info.depth_calib_a
@@ -91,6 +94,13 @@ class DepthModel(nn.Module):
     # ---------------------------------------------------------------------------------------------------------------------
 
     def forward(self, x):
+        """Forward pass of the depth model.
+        Arg:
+            x: a batch of RGB images (B, C, H, W) (values in [0,255])
+        Returns:
+            out: the output depth map (B, 1, H, W) (units: mm)
+        """
+            
         # Apply input image resizing
         x = self.input_resizer(x)
 
