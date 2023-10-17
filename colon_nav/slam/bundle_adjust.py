@@ -18,7 +18,6 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # prevent cuda 
 # --------------------------------------------------------------------------------------------------------------------
 
 
-@torch.compile
 def compute_cost_function(
     x: torch.Tensor,
     cam_poses: torch.Tensor,

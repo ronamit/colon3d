@@ -10,7 +10,7 @@ from colon_nav.dnn.depth_model import DepthModel
 from colon_nav.dnn.egomotion_model import EgomotionModel
 from colon_nav.dnn.model_info import load_model_model_info
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
-from colon_nav.util.pose_transforms import transform_rectilinear_image_norm_coords_to_pixel
+from colon_nav.util.pose_transforms import invert_pose_motion, transform_rectilinear_image_norm_coords_to_pixel
 from colon_nav.util.rotations_util import get_identity_quaternion, normalize_quaternions
 from colon_nav.util.torch_util import get_default_dtype, get_device, to_default_type, to_torch
 
@@ -155,11 +155,11 @@ class DepthAndEgoMotionLoader:
             depth_map = self.depth_maps_buffer[buffer_idx]
 
         elif self.depth_maps_source == "online_estimates":
-            rgb_frame = rgb_image_to_torch(rgb_img=rgb_frame, dtype=self.dtype, device=self.device)
-            # Add a batch dimension
-            rgb_frame = rgb_frame.unsqueeze(0)
+            # Convert to torch tensor format [B, C, H, W] (B=1, C=3)
+            rgb_frame = rgb_image_to_torch(rgb_img=rgb_frame, dtype=self.dtype, device=self.device).unsqueeze(0)
             # Apply the depth estimator
-            depth_map = self.depth_estimator(rgb_frame)
+            with torch.no_grad():
+                depth_map = self.depth_estimator(rgb_frame)
             # Remove the batch dimension and the channel dimension
             depth_map = depth_map.squeeze(dim=(0, 1))
         else:
@@ -184,7 +184,8 @@ class DepthAndEgoMotionLoader:
             curr_frame: the current RGB frame,
             prev_frames: the previous RGB frames (in a queue with max length of n_ref_imgs),
         Returns:
-            egomotion: the egomotion (units: mm, mm, mm, -, -, -, -)
+            egomotion: the egomotion: (x,y,z,qw,qx,qy,qz): (translation in mm, rotation in unit-quaternion)
+                from the previous frame to the current frame, defined in the previous frame system.
         Notes: we assume process_new_frame was called before this function on this frame index.
         """
         self.float_torch_dtype = get_default_dtype(package="torch", num_type="float_m")
@@ -209,12 +210,20 @@ class DepthAndEgoMotionLoader:
 
         # In case we estimate the egomotion online, we use the egomotion estimator
         elif self.egomotions_source == "online_estimates":
-            # TODO: create appropriate data structure for the egomotion estimator (e.g. queue + add batch dimension to each frame and remove from out)
-
-            egomotion = self.egomotion_estimator.estimate_egomotion(
-                cur_rgb_frame=cur_rgb_frame,
-                prev_rgb_frames=prev_rgb_frames,
-            )
+            # Create appropriate data structure for the egomotion estimator:
+            # frames: Sequence of [B, 3, H, W] tensors, where B is the batch size, H and W are the image height and width. The image values are in the range [0,255].
+            # The first elements in the list are the RGB images of the reference frames, and the last element is the RGB image of the target frame.
+            frames = [*list(prev_rgb_frames.queue), cur_rgb_frame]
+            # Convert to torch tensor format [B, C, H, W] (B=1, C=3)
+            frames = [rgb_image_to_torch(rgb_img=rgb_frame, dtype=self.dtype, device=self.device).unsqueeze(0) for rgb_frame in frames]
+            with torch.no_grad():
+                # Apply the egomotion estimator
+                tgt_to_refs_motion_est = self.egomotion_estimator.forward(frames=frames)
+            #   tgt_to_refs_motion_est:   List of the estimated ego-motion from the target to each reference frame. (list of [B, 7] tensors)
+            # The ego-motion format: 3 translation parameters (x,y,z) [mm], 4 rotation parameters (qw, qx, qy, qz) [unit-quaternion]
+            cur_to_prev_motion_est = tgt_to_refs_motion_est[-1][0]  # [7] (x,y,z,qw,qx,qy,qz)
+            # Get the reverse egomotion (from the previous frame to the current frame)
+            egomotion = invert_pose_motion(cur_to_prev_motion_est)
 
         else:
             raise ValueError(f"Unknown egomotions source: {self.egomotions_source}")
