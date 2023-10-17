@@ -19,7 +19,7 @@ class LossFunc(nn.Module):
     def forward(self,
         batch: dict[str, torch.Tensor],
         outputs: dict[str, torch.Tensor],
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, dict[str, float], dict[str, torch.Tensor]]:
         """Compute the loss function.
         Args:
             loss_terms_lambdas: a dictionary of the loss terms and their weights

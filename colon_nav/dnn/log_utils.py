@@ -38,6 +38,7 @@ class TensorBoardWriter:
         assert len(self.val_loader) > 0, "Validation data loader is empty"
         print(f"Saving tensorboard logs to {log_dir}")
         self.model_info = model_info
+        self.ref_frame_shifts = model_info.ref_frame_shifts
         self.depth_model = depth_model
         self.egomotion_model = egomotion_model
 
@@ -48,7 +49,7 @@ class TensorBoardWriter:
             self.visualize_graph()
         # Show some sample data before training:
         sample = next(iter(self.train_loader))
-        self.plot_sample(sample, is_train=True, global_step=0)
+        self.show_sample(sample, is_train=True, global_step=0)
 
     # -----------------------------------------------------------------------------------------------------------------
     def visualize_graph(self):
@@ -77,20 +78,29 @@ class TensorBoardWriter:
                 self.writer.add_scalar(f"train/{loss_name}", loss_val / self.log_freq, global_step=global_step)
             # prints
             print(f"Train loss: {running_loss:.4f}")
-            print('Loss terms', self.running_loss_terms)
+            print("Loss terms", self.running_loss_terms)
             # reset the running loss
             self.running_loss = 0.0
             self.running_loss_terms = {}
 
     # -----------------------------------------------------------------------------------------------------------------
 
-    def plot_sample(self, sample: dict, is_train: bool, global_step: int, outputs: dict | None = None):
-        ind = 0  # index of the sample in the batch
+    def show_sample(self, batch: dict, is_train: bool, global_step: int,  ind: int = 0, outputs: dict | None = None):
+        """Show a sample from the dataset, along with the model outputs (save to tensorboard).
+        Arg:
+            batch: a batch of samples from the dataset
+            is_train: whether the sample is from the training set or the validation set
+            global_step: the global step of the training
+            ind: the index of the sample in the batch
+            outputs: the model outputs (if None, then the outputs are not shown)
+        """
+
+
         # Take the RGB images from the first example in the batch
         all_shifts = [*self.model_info.ref_frame_shifts, 0]
         n_images = len(all_shifts)
-        rgb_images = [sample[("color", shift)][ind] for shift in all_shifts]
-        depth_gt_images = [sample[("depth_gt", shift)][ind] for shift in all_shifts]
+        rgb_images = [batch[("color", shift)][ind] for shift in all_shifts]
+        depth_gt_images = [batch[("depth_gt", shift)][ind] for shift in all_shifts]
         n_rows = 2 if outputs is None else 3
         fig, axs = plt.subplots(n_rows, n_images)
         for i in range(n_images):
@@ -127,24 +137,37 @@ class TensorBoardWriter:
         # Print the sample source info:
         dataset = self.train_set if is_train else self.val_set
         scenes_paths = dataset.scenes_paths
-        scene_index = sample["scene_index"][ind]
-        target_frame_index = sample["target_frame_idx"][ind]
+        scene_index = batch["scene_index"][ind]
+        target_frame_index = batch["target_frame_idx"][ind]
         fps = dataset.get_scene_metadata()["fps"]
         self.writer.add_text(
             "Sample source",
             f"Scene index: {scene_index}, target frame index: {target_frame_index}, Scene path: {scenes_paths[scene_index]}, target frame time: {to_str(target_frame_index/fps, precision=4)} [s]",
             global_step=global_step,
         )
-        # show the GT poses, if available,
-        if ("abs_pose", 0) in sample:
-            text_string = ""
-            for shift in all_shifts:
-                pose = sample[("abs_pose", shift)][ind]
-                text_string += f"Shift {shift}: translation: {to_str(pose[:3], precision=4)} [mm], rotation: {to_str(pose[3:], precision=4)} [unit-quaternion]<br>"
-            self.writer.add_text("GT poses", text_string=text_string, global_step=global_step)
+
+        # Print the ground truth and estimated egomotion:
+        # Get the ground truth egomotion from the target to each reference frame
+        list_tgt_to_refs_motion_gt = [batch[("tgt_to_ref_motion", shift)] for shift in self.ref_frame_shifts]
+        # Get the estimated egomotion from the target to each reference frame
+        if outputs:
+            list_tgt_to_refs_motion_est = to_numpy(outputs["list_tgt_to_refs_motion_est"][0])
+        text_string = "GT egomotion (target to each ref frame):<br>"
+        for i_ref, shift in enumerate(self.ref_frame_shifts):
+            gt_motion =  list_tgt_to_refs_motion_gt[i_ref][ind]
+            gt_trans = gt_motion[:3]
+            gt_rot_quat = gt_motion[3:]
+            text_string += f"Frame {shift}:"
+            text_string += f"GT trans {to_str(gt_trans, precision=4)} [mm], GT rot_quat: {to_str(gt_rot_quat, precision=4)}<br>"
+            if outputs:
+                est_motion = list_tgt_to_refs_motion_est[i_ref]
+                est_trans = est_motion[:3]
+                est_rot_quat = est_motion[3:]
+                text_string += f"Est. trans {to_str(est_trans, precision=4)} [mm], GT rot_quat: {to_str(est_rot_quat, precision=4)}<br>"
+        self.writer.add_text("Egomotion", text_string=text_string, global_step=global_step)
 
         # print the list of augmentation transforms done on the sample:
-        self.writer.add_text("Augmentation transforms", str(sample["augments"][ind]), global_step=global_step)
+        self.writer.add_text("Augmentation transforms", str(batch["augments"][ind]), global_step=global_step)
 
         # save updates to disk
         self.writer.flush()
