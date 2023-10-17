@@ -12,7 +12,7 @@ from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.slam.slam_alg import SlamAlgRunner
 from colon_nav.slam.tracks_loader import DetectionsTracker
 from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
-from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder
+from colon_nav.util.general_util import ArgsHelpFormatter, Tee, bool_arg, create_empty_folder, to_str
 from colon_nav.util.perf_metrics import calc_performance_metrics, plot_trajectory_metrics
 from colon_nav.util.torch_util import to_default_type
 
@@ -251,7 +251,7 @@ def run_slam_on_scene(
     )
     plot_trajectory_metrics(metrics_per_frame=metrics_per_frame, save_path=save_path / "trajectory_metrics.png")
     metrics_stats["example_name"] = example_name
-    print(f"Summary metrics stats: {metrics_stats}")
+    print(f"Summary metrics stats: {to_str(metrics_stats, precision=4)}")
 
     # Save the metrics to a file
     metrics_file_path = save_path / "metrics_stats.pkl"

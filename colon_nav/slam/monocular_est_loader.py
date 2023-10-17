@@ -159,7 +159,7 @@ class DepthAndEgoMotionLoader:
             rgb_frame = rgb_image_to_torch(rgb_img=rgb_frame, dtype=self.dtype, device=self.device).unsqueeze(0)
             # Apply the depth estimator
             with torch.no_grad():
-                depth_map = self.depth_estimator(rgb_frame)
+                depth_map = self.depth_estimator.forward(rgb_frame)
             # Remove the batch dimension and the channel dimension
             depth_map = depth_map.squeeze(dim=(0, 1))
         else:
@@ -221,6 +221,7 @@ class DepthAndEgoMotionLoader:
                 tgt_to_refs_motion_est = self.egomotion_estimator.forward(frames=frames)
             #   tgt_to_refs_motion_est:   List of the estimated ego-motion from the target to each reference frame. (list of [B, 7] tensors)
             # The ego-motion format: 3 translation parameters (x,y,z) [mm], 4 rotation parameters (qw, qx, qy, qz) [unit-quaternion]
+            # The last element is the ego-motion from the target to the last reference frame.
             cur_to_prev_motion_est = tgt_to_refs_motion_est[-1][0]  # [7] (x,y,z,qw,qx,qy,qz)
             # Get the reverse egomotion (from the previous frame to the current frame)
             egomotion = invert_pose_motion(cur_to_prev_motion_est)
