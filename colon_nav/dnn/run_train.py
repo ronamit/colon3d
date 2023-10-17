@@ -78,7 +78,7 @@ def main():
     parser.add_argument(
         "--save_model_path",
         type=str,
-        default="data_gcp/models/Model_V2",
+        default="data_gcp/models/ColonNavModel",
         help="Path to save the trained models.",
     )
     parser.add_argument(
