@@ -20,7 +20,6 @@ dependencies:
   - yaml=0.2.5
   - matplotlib=3.7.2
   - pip>=21.3.2
-  - scikit-image=0.20.0
   - pillow=9.4.0
   - sympy=1.11.1
   - libtiff=4.5.1
@@ -28,7 +27,7 @@ dependencies:
   - intel-openmp
   - conda-forge::ncurses
   - pip:
-      - opencv-python==4.8.0.76
+      - opencv-python-headless==4.8.1.78
       - kornia==0.6.12
       - configargparse==1.5.5
       - scipy==1.11.2

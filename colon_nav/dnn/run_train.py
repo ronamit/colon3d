@@ -192,7 +192,7 @@ def main():
     train_set = ScenesDataset(
         scenes_paths=train_scenes_paths,
         model_info=model_info,
-        dataset_type="train",
+        split_name="train",
         n_sample_lim=n_sample_lim,
         load_gt_depth=load_gt_depth,
         load_gt_pose=load_gt_pose,
@@ -202,7 +202,7 @@ def main():
     validation_dataset = ScenesDataset(
         scenes_paths=val_scenes_paths,
         model_info=model_info,
-        dataset_type="val",
+        split_name="val",
         n_sample_lim=n_sample_lim,
         load_gt_depth=True,
         load_gt_pose=True,

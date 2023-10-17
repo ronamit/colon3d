@@ -22,7 +22,7 @@ class ScenesDataset(data.Dataset):
         self,
         scenes_paths: list,
         model_info: ModelInfo,
-        dataset_type: str,
+        split_name: str,
         n_sample_lim: int = 0,
         load_gt_depth: bool = False,
         load_gt_pose: bool = False,
@@ -46,9 +46,9 @@ class ScenesDataset(data.Dataset):
         self.scenes_paths = scenes_paths
         if n_scenes_lim > 0:
             self.scenes_paths = self.scenes_paths[:n_scenes_lim]
-        print(f"Dataset type; {dataset_type}, n_scenes: {len(self.scenes_paths)}")
+        print(f"Dataset type; {split_name}, n_scenes: {len(self.scenes_paths)}")
         self.model_info = model_info
-        self.dataset_type = dataset_type
+        self.split_name = split_name
         self.load_gt_depth = load_gt_depth
         self.load_gt_pose = load_gt_pose
         self.rgb_img_size = (rgb_img_height, rgb_img_width)
@@ -80,12 +80,12 @@ class ScenesDataset(data.Dataset):
                 self.target_ids.append({"scene_idx": i_scene, "target_frame_idx": i_frame})
 
         # Create transforms
-        if self.dataset_type == "train":
+        if self.split_name == "train":
             self.transform = get_train_transform(model_info=model_info, rgb_img_size=self.rgb_img_size, depth_map_size=self.depth_map_size)
-        elif self.dataset_type == "val":
+        elif self.split_name == "val":
             self.transform = get_val_transform(model_info=model_info, rgb_img_size=self.rgb_img_size, depth_map_size=self.depth_map_size)
         else:
-            raise ValueError(f"Unknown dataset type: {self.dataset_type}")
+            raise ValueError(f"Unknown dataset type: {self.split_name}")
 
     # ---------------------------------------------------------------------------------------------------------------------
 

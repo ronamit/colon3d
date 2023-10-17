@@ -92,9 +92,8 @@ class LossFunc(nn.Module):
         losses_scaled = {loss_name: val * self.loss_terms_lambdas[loss_name] for loss_name, val in losses.items()}
         # sum all the scaled losses
         tot_loss = sum(losses_scaled.values())
-
-        loss_terms = {loss_name: to_numpy(val) for loss_name, val in losses.items()}
         assert tot_loss.isfinite(), f"total_loss is not finite: {tot_loss}"
+        loss_terms = {loss_name: to_numpy(val) for loss_name, val in losses_scaled.items()}
         return tot_loss, loss_terms, outputs
 
 
