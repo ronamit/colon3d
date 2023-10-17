@@ -21,6 +21,7 @@ from colon_nav.util.torch_util import (
     assert_same_sample_num,
     get_default_dtype,
     np_func,
+    to_default_type,
     to_device,
     to_numpy,
 )
@@ -125,7 +126,7 @@ def transform_rectilinear_image_norm_coords_to_pixel(
     points_pix = np.stack((x_pix, y_pix), axis=1)
 
     # Round to nearest pixel
-    points_pix = points_pix.round().astype(int)
+    points_pix = to_default_type(points_pix.round(), num_type="int")
 
     if im_height is not None:
         # clip the y value

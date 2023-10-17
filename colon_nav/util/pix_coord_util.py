@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from colon_nav.util.camera_info import CamInfo
-from colon_nav.util.torch_util import to_numpy
+from colon_nav.util.torch_util import get_default_dtype, to_numpy
 
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -14,7 +14,12 @@ class PixelCoordNormalizer:
     """
 
     def __init__(self, cam_info: CamInfo):
-        self.cam_K_mat = np.array([[cam_info.fx, 0, cam_info.cx], [0, cam_info.fy, cam_info.cy], [0, 0, 1]])
+        self.int_dtype = get_default_dtype(package="numpy", num_type="int")
+        self.float_dtype = get_default_dtype(package="numpy", num_type="float")
+        self.cam_K_mat = np.array(
+            [[cam_info.fx, 0, cam_info.cx], [0, cam_info.fy, cam_info.cy], [0, 0, 1]],
+            dtype=self.float_dtype,
+        )
         self.cam_K_mat_inv = np.linalg.inv(self.cam_K_mat)
         self.cam_distort_param = cam_info.distort_pram
         self.frame_width = cam_info.frame_width
@@ -58,9 +63,10 @@ class PixelCoordNormalizer:
             is_valid = np.sum(np.abs(nrm_coords), axis=1) < upper_lim
         else:
             # in case of rectilinear camera, the normalized coordinates are:
-            points2d_ext = np.hstack((points2d, np.ones((n_points, 1))))
+            points2d_ext = np.stack([points2d[:, 0], points2d[:, 1], np.ones(n_points, dtype=self.int_dtype)], axis=1)
             nrm_coords = self.cam_K_mat_inv @ points2d_ext.T
             nrm_coords = nrm_coords[:2, :].T
+            nrm_coords = nrm_coords.astype(self.float_dtype)
             is_valid = np.ones(n_points, dtype=bool)
 
         return nrm_coords, is_valid

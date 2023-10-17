@@ -119,7 +119,7 @@ class NetTrainer:
 
     def train_one_epoch(self, epoch):
         """Train the network for one epoch."""
-        print("-" * 20, f" Epoch #{epoch}:")
+        print(f"--- Epoch #{epoch}:")
 
         self.depth_model.train()
         self.egomotion_model.train()

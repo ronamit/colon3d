@@ -187,7 +187,8 @@ class DepthAndEgoMotionLoader:
             egomotion: the egomotion (units: mm, mm, mm, -, -, -, -)
         Notes: we assume process_new_frame was called before this function on this frame index.
         """
-        dtype = get_default_dtype()
+        self.float_torch_dtype = get_default_dtype(package="torch", num_type="float_m")
+        self.int_np_dtype = get_default_dtype(package="numpy", num_type="int")
         n_ref_imgs = self.n_ref_imgs
         n_prev_rgb_frames = prev_rgb_frames.qsize()
 
@@ -195,7 +196,7 @@ class DepthAndEgoMotionLoader:
         # In case we haven't seen yet enough frames to feed the PoseNet, we output the identity egomotion.
         if self.egomotions_source == "none" or n_prev_rgb_frames < n_ref_imgs:
             # default value = identity egomotion (no motion)
-            egomotion = torch.zeros((7), dtype=dtype, device=self.device)
+            egomotion = torch.zeros((7), dtype=self.float_torch_dtype, device=self.device)
             egomotion[3:] = get_identity_quaternion()
 
         # In case we use pre-computed egomotions, we just load the egomotion from the buffer
@@ -208,7 +209,6 @@ class DepthAndEgoMotionLoader:
 
         # In case we estimate the egomotion online, we use the egomotion estimator
         elif self.egomotions_source == "online_estimates":
-
             # TODO: create appropriate data structure for the egomotion estimator (e.g. queue + add batch dimension to each frame and remove from out)
 
             egomotion = self.egomotion_estimator.estimate_egomotion(
@@ -262,9 +262,9 @@ class DepthAndEgoMotionLoader:
 
         # get the depth estimation at the queried point from the saved depth maps
         z_depths = torch.zeros((n_points), device=device, dtype=dtype)
-        kp_frame_inds = np.array(kp_frame_inds)
+        kp_frame_inds = np.array(kp_frame_inds, dtype=self.int_np_dtype)
         kps_in_cur = kp_frame_inds == cur_frame_idx
-        kps_in_prev = kp_frame_inds == cur_frame_idx - 1
+        kps_in_prev = kp_frame_inds == (cur_frame_idx - 1)
         assert kps_in_cur.sum() + kps_in_prev.sum() == n_points, "sanity check XOR should be true for all points"
         if np.any(kps_in_prev):
             z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]]

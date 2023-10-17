@@ -3,6 +3,7 @@ import numpy as np
 
 from colon_nav.slam.alg_settings import AlgSettings
 from colon_nav.util.general_util import print_if, to_str
+from colon_nav.util.pix_coord_util import PixelCoordNormalizer
 from colon_nav.util.torch_util import get_default_dtype
 
 np_dtype = get_default_dtype("numpy")
@@ -15,7 +16,7 @@ class KeyPointsLog:
     Note: invalid keypoints are discarded.
     """
 
-    def __init__(self, alg_view_pix_normalizer) -> None:
+    def __init__(self, alg_view_pix_normalizer: PixelCoordNormalizer) -> None:
         self.map_kp_to_p3d_idx = {}  # maps a keypoint (frame_idx, x, y,) its 3D point index
         self.map_kp_to_type = (
             {}
@@ -221,9 +222,10 @@ def get_kp_matchings(
 
     matched_A_kps = []
     matched_B_kps = []
+    dtype = get_default_dtype(package="numpy", num_type="int")
     for match in good_matches:
-        kp_A = np.round(keypoints_A[match.queryIdx].pt).astype(int)
-        kp_B = np.round(keypoints_B[match.trainIdx].pt).astype(int)
+        kp_A = np.round(keypoints_A[match.queryIdx].pt).astype(dtype)
+        kp_B = np.round(keypoints_B[match.trainIdx].pt).astype(dtype)
         matched_A_kps.append(kp_A)
         matched_B_kps.append(kp_B)
     return matched_A_kps, matched_B_kps
