@@ -104,6 +104,8 @@ Examples:
 
 * colon_nav.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
 
+* colon_nav.run_SimCol3D_exps : Running all experiments on the SimCol3D dataset.
+
 * colon_nav.nets.run_train:  Train depth & egomotion estimators using training data.
 
 * colon_nav.run_on_scene: Run the algorithm on a single scene.
