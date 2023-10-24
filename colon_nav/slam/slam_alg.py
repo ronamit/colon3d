@@ -413,7 +413,7 @@ class SlamAlgRunner:
             # Loop that runs the bundle adjustment until no more KPs are discarded
             n_invalid_kps = -1
             i_repeat = 0
-            while n_invalid_kps != 0:
+            while n_invalid_kps != 0 and i_repeat < alg_prm.max_bundle_adjustment_repeats:
                 print_if(print_now, f"Running bundle adjustment. Repeat #{i_repeat}")
                 self.cam_poses, self.points_3d, self.kp_log, n_invalid_kps = run_bundle_adjust(
                     cam_poses=self.cam_poses,

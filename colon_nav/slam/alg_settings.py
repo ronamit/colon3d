@@ -43,3 +43,4 @@ class AlgSettings:
     kp_reproject_err_threshold: float = 5.0
     # if True then use the trivial solution yo navigation aid - if track goes out of view, use the last navigation angle:
     use_trivial_nav_aid: bool = False
+    max_bundle_adjustment_repeats: int = 3  # maximum number of bundle adjustment repeats
