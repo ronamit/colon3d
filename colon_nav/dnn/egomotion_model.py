@@ -167,7 +167,7 @@ class EgomotionModel(nn.Module):
             est_rot = est_rot / (torch.norm(est_rot, dim=-1, keepdim=True) + eps)
 
             # Apply distance units calibration for the translation estimate
-            if self.depth_calib_type == "linear":
+            if self.depth_calib_type == "affine":
                 est_trans = est_trans * self.depth_calib_a
             elif self.depth_calib_type == "none":
                 pass

@@ -79,6 +79,8 @@ class DepthAndEgoMotionLoader:
             print("Using loaded estimated egomotions")
             self.init_loaded_egomotions("est_depth_and_egomotion.h5")
             self.n_ref_imgs = 0  # no need for reference images
+        elif egomotions_source == "none":
+            self.n_ref_imgs = 0
         else:
             raise ValueError(f"Unknown egomotions source: {egomotions_source}")
 
