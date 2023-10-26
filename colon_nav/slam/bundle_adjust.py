@@ -148,13 +148,11 @@ def compute_cost_function(
         }
     # sum the cost components
     tot_cost = 0
-    max_loss = 1e6
     for cost_name, cost_term in cost_components.items():
         if is_finite(cost_term):
             tot_cost += cost_term
         else:
-            tot_cost += max_loss
-            print(f"cost term is not finite: {cost_name}={cost_term}, setting it to {max_loss}")
+            raise ValueError(f"Cost term {cost_name} is not finite, optimization failed, reverting to init values")
 
     return tot_cost, cost_components, reproject_dists_sqr
 
@@ -289,8 +287,7 @@ def run_bundle_adjust(
         )
     except ValueError as e:
         print_if(print_now, f"Optimization failed: {e}")
-        n_invalid_kps 
-        return cam_poses, points_3d, kp_log, n_invalid_kps
+        return cam_poses, points_3d, kp_log, 0
     print_if(print_now, f"Optimization took {time.time() - t0:.1f} seconds")
     with torch.no_grad():
         tot_cost, cost_components, reproject_dists_sqr = compute_cost_function(result.x, **cost_fun_kwargs)
