@@ -45,12 +45,6 @@ def main():
         help="The number of scenes to examine, if 0 then all the scenes will be examined",
     )
     parser.add_argument(
-        "--save_overwrite",
-        type=bool_arg,
-        default=True,
-        help="If True then the results will be saved in the save_path folder, otherwise a new folder will be created",
-    )
-    parser.add_argument(
         "--update_model_info",
         type=bool_arg,
         default=True,
@@ -66,7 +60,7 @@ def main():
         model_path=model_path,
         save_exam_path=model_path / "depth_exam" /"pre_calib",
         n_scenes_lim=args.n_scenes_lim,
-        save_overwrite=args.save_overwrite,
+        save_overwrite=True,
     ).run()
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -75,7 +69,9 @@ def main():
         save_model_info(
             save_dir_path=model_path,
             model_info=model_info,
+            overwrite=True,
         )
+        print(f"New model info: {model_info}")
 
     # --------------------------------------------------------------------------------------------------------------------
     # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
@@ -89,6 +85,8 @@ def main():
         save_exam_path=model_path/ "depth_exam" /"post_calib",
         save_overwrite=True,
     ).run()
+
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 

@@ -191,7 +191,20 @@ def main():
             ).run()
         save_unified_results_table(base_results_path)
 
-
+        # --------------------------------------------------------------------------------------------------------------------
+        # Trivial navigation - No bundle-adjustment and no estimations - just use the track's last seen angle
+        # --------------------------------------------------------------------------------------------------------------------
+        exp_name = "trivial_nav"
+        if not exp_list or exp_name in exp_list:
+            SlamOnDatasetRunner(
+                dataset_path=dataset_path,
+                save_path=base_results_path / exp_name,
+                depth_maps_source="none",
+                egomotions_source="none",
+                alg_settings_override={"use_bundle_adjustment": False, "use_trivial_nav_aid": True},
+                **common_args,
+            ).run()
+        save_unified_results_table(base_results_path)
 # --------------------------------------------------------------------------------------------------------------------
 
 
