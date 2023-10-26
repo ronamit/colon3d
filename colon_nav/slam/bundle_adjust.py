@@ -150,11 +150,13 @@ def compute_cost_function(
         }
     # sum the cost components
     tot_cost = 0
+    max_loss = 1e6
     for cost_name, cost_term in cost_components.items():
         if is_finite(cost_term):
             tot_cost += cost_term
         else:
-            raise Warning(f"cost term is not finite: {cost_name}={cost_term}")
+            tot_cost += max_loss
+            print(f"cost term is not finite: {cost_name}={cost_term}, setting it to {max_loss}")
 
     return tot_cost, cost_components, reproject_dists_sqr
 
