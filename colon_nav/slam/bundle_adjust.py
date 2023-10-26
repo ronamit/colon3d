@@ -48,7 +48,10 @@ def compute_cost_function(
     """
     if  not torch.isfinite(input=x).all():
         print("Warning: optimization vector has non-finite values, returning a large cost")
-        return 1e6, {}, None
+        tot_cost = torch.tensor(1e6, device=get_device())
+        cost_components = {}
+        reproject_dists_sqr = torch.ones(kp_nrm_u.shape[0], device=get_device()) * 1e6
+        return tot_cost, cost_components, reproject_dists_sqr
     fx = scene_metadata["fx"]
     fy = scene_metadata["fy"]
 
