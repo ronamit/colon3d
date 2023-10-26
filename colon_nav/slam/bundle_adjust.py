@@ -47,11 +47,7 @@ def compute_cost_function(
         cost:  the cost function value for the given optimization vector x.
     """
     if  not torch.isfinite(input=x).all():
-        print("Warning: optimization vector has non-finite values, returning a large cost")
-        tot_cost = torch.tensor(1e6, device=get_device())
-        cost_components = {}
-        reproject_dists_sqr = torch.ones(kp_nrm_u.shape[0], device=get_device()) * 1e6
-        return tot_cost, cost_components, reproject_dists_sqr
+        raise ValueError("Optimization vector x is not finite, optimization failed, reverting to init values")
     fx = scene_metadata["fx"]
     fy = scene_metadata["fy"]
 
@@ -281,7 +277,7 @@ def run_bundle_adjust(
     # run the optimization
     print_if(print_now, f"Running optimization for frames: {frames_inds_to_opt}...")
     t0 = time.time()
-    if alg_prm.opt_method in {"bfgs", "l-bfgs", "cg", "newton-cg", "newton-exact", "trust-ncg"}:
+    try:
         result = torchmin.minimize(
             fun=cost_function,
             x0=x0,
@@ -291,8 +287,10 @@ def run_bundle_adjust(
             disp=verbose,
             options={"xtol": alg_prm.opt_x_tol, "gtol": alg_prm.opt_g_tol, "line_search": alg_prm.opt_line_search},
         )
-    else:
-        raise ValueError(f"Unknown opt_method: {alg_prm.opt_method}")
+    except ValueError as e:
+        print_if(print_now, f"Optimization failed: {e}")
+        n_invalid_kps 
+        return cam_poses, points_3d, kp_log, n_invalid_kps
     print_if(print_now, f"Optimization took {time.time() - t0:.1f} seconds")
     with torch.no_grad():
         tot_cost, cost_components, reproject_dists_sqr = compute_cost_function(result.x, **cost_fun_kwargs)
