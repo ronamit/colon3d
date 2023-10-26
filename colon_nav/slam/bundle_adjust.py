@@ -48,7 +48,7 @@ def compute_cost_function(
     """
     if  not torch.isfinite(input=x).all():
         # Change the optimization vector to be finite in the infinite coords
-        x[~torch.isfinite(input=x)] = 0
+        x[~torch.isfinite(input=x)] *= 0
         print("Warning: optimization vector has non-finite values, setting them to zero")
     fx = scene_metadata["fx"]
     fy = scene_metadata["fy"]
