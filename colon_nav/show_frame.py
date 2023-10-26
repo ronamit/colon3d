@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--scene_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/Test/Scene_00000/Test/Target_Cases/Case_0000",
+        default="data/datasets/ColonNav/Test/Scene_00000/Test/Target_Cases/Case_0000",
         help="Path to the scene folder",
     )
     parser.add_argument(
@@ -65,7 +65,7 @@ def main():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="data_gcp/models/EndoSFM_orig",
+        default="data/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     args = parser.parse_args()

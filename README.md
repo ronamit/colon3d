@@ -58,15 +58,15 @@ First, login to your GCP user and project.
 To get all the stored data for the project, run:
 
 ```bash
-gcloud storage cp -r  gs://col_nav/data_gcp  .
+gcloud storage cp -r  gs://col_nav/data  .
 ```
 
 The folder includes the following subfolders:
 
-* data_gcp/raw_datasets - raw datasets from external sources
-* data_gcp/datasets -  datasets, after processing, prepared to be used by the code
-* data_gcp/results - saved results of the experiments
-* data_gcp/models - saved weights of trained models
+* data/raw_datasets - raw datasets from external sources
+* data/datasets -  datasets, after processing, prepared to be used by the code
+* data/results - saved results of the experiments
+* data/models - saved weights of trained models
 
 ## Folder structure
 
@@ -76,11 +76,6 @@ By default, the code will save outputs to the following folders:
 * data/results - results of the experiments
 * data/models - weights of trained models
 
-To save an output for long term use, copy it from "data" folder to the "data_gcp" folder, and upload fhe folder to the cloud (after deleting previous results in that path):
-
-```bash
-gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOLDER
-```
 
 ## Code usage
 
@@ -93,11 +88,11 @@ gcloud storage cp -r  data_gcp/PATH_TO_FOLDER  gs://col_nav/data_gcp/PATH_TO_FOL
 Examples:
 
 ```bash
-  python -m colon_nav.data_import.import_dataset  --sim_name "ColonNav" --load_dataset_path "data_gcp/raw_datasets/ColonNav" --save_dataset_path "data/datasets/ColonNav"
+  python -m colon_nav.data_import.import_dataset  --sim_name "ColonNav" --load_dataset_path "data/raw_datasets/ColonNav" --save_dataset_path "data/datasets/ColonNav"
 ```
 
 ```bash
-  python -m colon_nav.data_import.import_dataset  --sim_name "SimCol3D" --load_dataset_path "data_gcp/raw_datasets/SimCol3D" --save_dataset_path "data/datasets/SimCol3D"
+  python -m colon_nav.data_import.import_dataset  --sim_name "SimCol3D" --load_dataset_path "data/raw_datasets/SimCol3D" --save_dataset_path "data/datasets/SimCol3D"
 ```
 
 * Create unified training dataset: # TODO: add script

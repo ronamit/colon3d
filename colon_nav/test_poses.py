@@ -8,7 +8,7 @@ from colon_nav.util.data_util import SceneLoader, get_origin_scene_path
 from colon_nav.util.pose_transforms import compose_poses, get_identity_pose, get_pose_delta
 from colon_nav.util.torch_util import np_func, to_torch
 
-scene_path = Path("data_gcp/datasets/ColonNav/Test/Scene_00000")
+scene_path = Path("data/datasets/ColonNav/Test/Scene_00000")
 
 scene_loader = SceneLoader(scene_path=scene_path, n_frames_lim=0, alg_fov_ratio=0)
 detections_tracker = DetectionsTracker(scene_path=scene_path, scene_loader=scene_loader)

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.transform import resize
 
-from colon_nav.dnn.model_info import ModelInfo, load_model_model_info
+from colon_nav.dnn.model_info import ModelInfo, load_model_model_info, save_model_info
 from colon_nav.slam.monocular_est_loader import DepthAndEgoMotionLoader
 from colon_nav.util.data_util import SceneLoader, get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
@@ -29,19 +29,13 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data/sim_data/TrainData",
+        default="data/datasets/ColonNav/Test",
         help="Path to the dataset of scenes.",
-    )
-    parser.add_argument(
-        "--save_path",
-        type=str,
-        default="data/models/MonoDepth2_orig/examination_result",
-        help="Path to save the results.",
     )
     parser.add_argument(
         "-model_path",
         type=str,
-        default="data_gcp/models/EndoSFM_tuned_v2",
+        default="data/models/EndoSFM_orig",
         help="path to the saved depth and egomotion model (PoseNet and DepthNet) to be used for the case of online estimation",
     )
     parser.add_argument(
@@ -56,17 +50,45 @@ def main():
         default=True,
         help="If True then the results will be saved in the save_path folder, otherwise a new folder will be created",
     )
+    parser.add_argument(
+        "--update_model_info",
+        type=bool_arg,
+        default=True,
+        help="If True then the model info will be updated with the depth calibration parameters",
+    )
     args = parser.parse_args()
     print(f"args={args}")
+    model_path = Path(args.model_path)
+    dataset_path=Path(args.dataset_path)
 
-    DepthExaminer(
-        dataset_path=Path(args.dataset_path),
-        model_path=Path(args.model_path),
-        save_exam_path=Path(args.save_path),
+    model_info = DepthExaminer(
+        dataset_path=dataset_path,
+        model_path=model_path,
+        save_exam_path=model_path / "depth_exam" /"pre_calib",
         n_scenes_lim=args.n_scenes_lim,
         save_overwrite=args.save_overwrite,
     ).run()
 
+    # --------------------------------------------------------------------------------------------------------------------
+    # update the model info file with the new depth_calib value:
+    if args.update_model_info:
+        save_model_info(
+            save_dir_path=model_path,
+            model_info=model_info,
+        )
+
+    # --------------------------------------------------------------------------------------------------------------------
+    # Run depth examination after updating the depth scale \ calibration: (only for small number of frames)
+    DepthExaminer(
+        dataset_path=dataset_path,
+        model_path=model_path,
+        model_info=model_info,
+        update_depth_calib_method="none",
+        n_scenes_lim=5,
+        n_frames_lim=5,
+        save_exam_path=model_path/ "depth_exam" /"post_calib",
+        save_overwrite=True,
+    ).run()
 
 # ---------------------------------------------------------------------------------------------------------------------
 

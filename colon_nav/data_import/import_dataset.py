@@ -39,7 +39,7 @@ def main():
     parser.add_argument(
         "--load_dataset_path",
         type=str,
-        default="data_gcp/raw_datasets/SimCol3D",  #  ColonNav  | SimCol3D |
+        default="data/raw_datasets/SimCol3D",  #  ColonNav  | SimCol3D |
         help="The path to the folder with the raw simulated scenes to load.",
     )
     parser.add_argument(

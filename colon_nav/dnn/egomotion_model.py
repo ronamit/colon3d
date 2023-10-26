@@ -8,6 +8,7 @@ from torchvision.models.resnet import BasicBlock, Bottleneck, ResNet18_Weights, 
 
 from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.dnn.models_def.resnet import ResNet
+from colon_nav.util.rotations_util import axis_angle_to_quaternion
 from colon_nav.util.torch_util import get_device
 
 # -------------------------------------------------------------------------------------------------------------------
@@ -30,16 +31,23 @@ class EgomotionModel(nn.Module):
         self.is_train = is_train
         self.device = device or get_device()
         model_name = model_info.egomotion_model_name
+        self.egomotion_output_type = model_info.egomotion_output_type
         ref_frame_shifts = model_info.ref_frame_shifts
         self.n_ref_imgs = len(ref_frame_shifts)
         self.n_input_imgs = self.n_ref_imgs + 1  #  reference frames & target frame
         n_input_channels = 3 * self.n_input_imgs  # The RGB images are concatenated along the channel dimension
 
-        # The output of the network is a vector of length 7*n_ref_imgs : n_ref_imgs blocks of length 7.
-        # each block represents the ego-motion from the target to the reference image :
-        # 3 translation parameters (x,y,z) [mm]
-        # 4 rotation parameters (qw, qx, qy, qz) [unit quaternion]
-        output_dim = 7 * self.n_ref_imgs
+        if self.egomotion_output_type == "quaternion":
+            # In this case the output of the network is a vector of length 7*n_ref_imgs : n_ref_imgs blocks of length 7.
+            # each block represents the ego-motion from the target to the reference image (x,y,z,qw,qx,qy,qz) [mm, unit quaternion]
+            self.rot_len = 4
+        elif self.egomotion_output_type == "axis_angle":
+            # In this case the output of the network is a vector of length 6*n_ref_imgs : n_ref_imgs blocks of length 6.
+            # each block represents the ego-motion from the target to the reference image (x,y,z,ax,ay,az) [mm, axis-angle]
+            self.rot_len = 3
+
+        self.egomotion_len = 3 + self.rot_len
+        output_dim = self.egomotion_len * self.n_ref_imgs
 
         if model_name == "resnet18":
             # see https://pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html#torchvision.models.resnet18
@@ -90,7 +98,7 @@ class EgomotionModel(nn.Module):
 
         else:
             # Load pretrained egomotion model from a checkpoint
-            self.egomotion_model.load_state_dict(torch.load(load_model_path / "egomotion_model.pth"))
+            self.egomotion_model.load_state_dict(torch.load(load_model_path / "egomotion_model.pth"), strict=False)
 
         # We resize the input images to fit as network input
         self.input_resizer = torchvision.transforms.Resize(
@@ -149,22 +157,27 @@ class EgomotionModel(nn.Module):
             with torch.no_grad():
                 net_out = self.egomotion_model(x)
 
-        net_out = self.egomotion_model(x)  # [B, 7*n_ref_imgs]
+        net_out = self.egomotion_model(x)  # [B, egomotion_len*n_ref_imgs]
 
-        # The output of the network is a vector of length 7*n_ref_imgs : n_ref_imgs blocks of length 7.
+        # The output of the network is a vector of n_ref_imgs blocks of length egomotion_len.
         # each block represents the ego-motion from the target to the reference image :
         tgt_to_refs_motion_est = []
         # Go over all the reference frames
         for i_ref in range(self.n_ref_imgs):
-            cur_block_start = 7 * i_ref
+            cur_block_start = self.egomotion_len * i_ref
             est_trans = net_out[:, cur_block_start : (cur_block_start + 3)]  # [B, 3] translation (x,y,z) [mm]
             est_rot = net_out[
                 :,
-                (cur_block_start + 3) : (cur_block_start + 7),
-            ]  # [B, 4] rotation (qw,qx,qy,qz) unit quaternion
-            # Normalize the rotation quaternion:
-            eps = 1e-12
-            est_rot = est_rot / (torch.norm(est_rot, dim=-1, keepdim=True) + eps)
+                (cur_block_start + 3) : (cur_block_start + self.egomotion_len),
+            ]  # [B, egomotion_len] rotation (quaternion or axis-angle)
+
+            if self.egomotion_output_type == "quaternion":
+                # Normalize the rotation quaternion:
+                eps = 1e-12
+                est_rot = est_rot / (torch.norm(est_rot, dim=-1, keepdim=True) + eps)
+            elif self.egomotion_output_type == "axis_angle":
+                # change to unit quaternion format
+                est_rot = axis_angle_to_quaternion(est_rot)
 
             # Apply distance units calibration for the translation estimate
             if self.depth_calib_type == "affine":

@@ -12,14 +12,14 @@ def main():
     parser.add_argument(
         "--load_path",
         type=str,
-        default="data_gcp/raw_datasets/Zhang22",
+        default="data/raw_datasets/Zhang22",
         help="Path to load raw dataset ",
     )
     parser.add_argument(
         "--save_path",
         type=str,
         help="The path to save the prepared dataset",
-        default="data_gcp/datasets/Zhang22",
+        default="data/datasets/Zhang22",
     )
     parser.add_argument(
         "--save_overwrite",

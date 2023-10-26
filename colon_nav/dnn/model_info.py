@@ -21,6 +21,8 @@ class ModelInfo:
     # upper bound to clip the the z-depth estimation (units: mm). If None - then no upper bound is used:
     depth_upper_bound: float | None = None
     model_description: str = ""
+    depth_output_type: str =  "depth" # inv_depth or depth
+    egomotion_output_type: str = "quaternion" # axis_angle or quaternion
 
 
 # ---------------------------------------------------------------------------------------------------------------------

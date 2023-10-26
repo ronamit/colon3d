@@ -6,6 +6,7 @@ from torch import nn
 
 from colon_nav.dnn.model_info import ModelInfo
 from colon_nav.dnn.models_def.dense_depth import DenseDepth
+from colon_nav.dnn.models_def.EndoSFM_DispResNet import DispResNet
 from colon_nav.dnn.models_def.fcb_former import FCBFormer
 from colon_nav.util.torch_util import get_device
 
@@ -26,12 +27,21 @@ class DepthModel(nn.Module):
         - The output depth maps are calibrated and clipped according to the model_info.
     """
 
-    def __init__(self, model_info: ModelInfo, load_model_path: Path | None, device: torch.device, is_train: bool, depth_map_size: tuple[int, int]):
+    def __init__(
+        self,
+        model_info: ModelInfo,
+        load_model_path: Path | None,
+        device: torch.device,
+        is_train: bool,
+        depth_map_size: tuple[int, int],
+    ):
         super().__init__()
         self.is_train = is_train
         self.device = device or get_device()
         self.depth_map_size = depth_map_size
         self.model_name = model_info.depth_model_name
+        self.depth_output_type = model_info.depth_output_type
+
         # Create the depth model
         if self.model_name == "DenseDepth":
             # The DenseDepth uses DenseNet-169 as encoder (pre-trained on ImageNet)
@@ -49,12 +59,22 @@ class DepthModel(nn.Module):
             chan_nrm_mean = [0.5, 0.5, 0.5]
             chan_nrm_std = [0.5, 0.5, 0.5]
 
+        elif self.model_name == "DispResnet":
+            # The disparity model of EndoSFMLearner
+            self.depth_model = DispResNet(pretrained=load_model_path is None)
+            assert self.depth_output_type == "inv_depth"  # The output of the model is inv_depth
+            self.in_resolution = 320 # as in the original model
+            chan_nrm_mean = [0.45, 0.45, 0.45]
+            chan_nrm_std = [0.225, 0.225, 0.225]
         else:
             raise ValueError(f"Unknown depth model name: {self.model_name}")
+            
 
         ### Load pretrained weights
         if load_model_path is not None:
             loaded_state = torch.load(load_model_path / "depth_model.pth")
+            if "state_dict" in loaded_state:
+                loaded_state = loaded_state["state_dict"]
             self.depth_model.load_state_dict(loaded_state)
 
         # We resize the input images to fit as network input
@@ -100,7 +120,7 @@ class DepthModel(nn.Module):
         Returns:
             out: the output depth map (B, 1, H, W) (units: mm)
         """
-            
+
         # Apply input image resizing
         x = self.input_resizer(x)
 
@@ -119,6 +139,13 @@ class DepthModel(nn.Module):
 
         # Resize the output depth map to the desired size
         out = self.output_resizer(out)
+
+        if self.depth_output_type == "inv_depth":
+            out = 1.0 / out
+        elif self.depth_output_type == "depth":
+            pass
+        else:
+            raise NotImplementedError(f"Unknown depth output type: {self.depth_output_type}")
 
         # Apply depth calibration
         if self.depth_calib_type == "affine":

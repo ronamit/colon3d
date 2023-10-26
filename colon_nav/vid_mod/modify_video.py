@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--load_scene_path",
         type=str,
-        default="data_gcp/datasets/real_videos/Example_4",
+        default="data/datasets/real_videos/Example_4",
         help="Path to load scene",
     )
     parser.add_argument(

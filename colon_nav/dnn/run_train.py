@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/UnifiedTrainSet",
+        default="data/datasets/UnifiedTrainSet",
         help="Path to the dataset of scenes used for training (not raw data, i.e., output of import_dataset.py ).",
     )
     parser.add_argument(
@@ -78,7 +78,7 @@ def main():
     parser.add_argument(
         "--save_model_path",
         type=str,
-        default="data_gcp/models/ColonNavModel",
+        default="data/models/ColonNavModel",
         help="Path to save the trained models.",
     )
     parser.add_argument(

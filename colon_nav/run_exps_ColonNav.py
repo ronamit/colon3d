@@ -31,7 +31,7 @@ def main():
     parser.add_argument(
         "--dataset_path",
         type=str,
-        default="data_gcp/datasets/ColonNav/Test",
+        default="data/datasets/ColonNav/Test",
         help="Path to the dataset of scenes (not raw).",
     )
     parser.add_argument(
@@ -43,7 +43,7 @@ def main():
     parser.add_argument(
         "--models_base_path",
         type=str,
-        default="data_gcp/models",
+        default="data/models",
     )
     parser.add_argument(
         "--save_overwrite",

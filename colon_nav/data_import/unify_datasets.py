@@ -5,7 +5,7 @@ from colon_nav.util.general_util import create_empty_folder
 
 # --------------------------------------------------------------------------------------------------------------------
 
-input_dataset_paths = ["data_gcp/datasets/SimCol3D/Train", "data_gcp/datasets/ColonNav/Train"]
+input_dataset_paths = ["data/datasets/SimCol3D/Train", "data/datasets/ColonNav/Train"]
 
 output_dataset_path = "data/datasets/UnifiedTrainSet"
 

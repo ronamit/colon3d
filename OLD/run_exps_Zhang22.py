@@ -12,7 +12,7 @@ parser.add_argument(
     "--dataset_path",
     type=str,
     help="Path to a dataset of scenes.",
-    default="data_gcp/datasets/Zhang22",
+    default="data/datasets/Zhang22",
 )
 parser.add_argument(
     "--results_base_path",
@@ -23,7 +23,7 @@ parser.add_argument(
 parser.add_argument(
     "--models_base_path",
     type=str,
-    default="data_gcp/models",
+    default="data/models",
 )
 parser.add_argument(
     "--save_overwrite",
