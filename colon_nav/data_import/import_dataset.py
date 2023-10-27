@@ -15,7 +15,6 @@ from colon_nav.util.general_util import (
     load_rgb_image,
     save_depth_video,
     save_dict_to_yaml,
-    save_rgb_and_depth_subplots,
     save_rgb_image,
     save_video_from_func,
 )
@@ -33,20 +32,20 @@ def main():
     parser.add_argument(
         "--sim_name",
         type=str,
-        default="SimCol3D",
+        default="ColonNav",
         choices=["ColonNav", "SimCol3D"],
         help="The name of the simulator that generated the data.",
     )
     parser.add_argument(
         "--load_dataset_path",
         type=str,
-        default="data/raw_datasets/SimCol3D",  #  ColonNav  | SimCol3D |
+        default="data/raw_datasets/ColonNav",  #  ColonNav  | SimCol3D |
         help="The path to the folder with the raw simulated scenes to load.",
     )
     parser.add_argument(
         "--save_dataset_path",
         type=str,
-        default="data/datasets/SimCol3D",  #  ColonNav | SimCol3D |
+        default="data/datasets/ColonNav",  #  ColonNav | SimCol3D |
         help="The path to the folder where the processed dataset will be saved.",
     )
     parser.add_argument(
@@ -68,18 +67,6 @@ def main():
         help="The random seed to use for creating the cases with targets (for the ColonNav dataset).",
     )
     parser.add_argument(
-        "--limit_n_scenes",
-        type=int,
-        default=0,
-        help="The number maximal number of scenes to process, if 0 all scenes will be processed",
-    )
-    parser.add_argument(
-        "--limit_n_frames",
-        type=int,
-        default=0,
-        help="The number maximal number of frames to take from each scenes, if 0 all frames will be processed",
-    )
-    parser.add_argument(
         "--fps_override",
         type=float,
         default=0.0,
@@ -98,19 +85,32 @@ def main():
         help="If True, the script will run in debug mode",
     )
     args = parser.parse_args()
+    # --------------------------------------------------------------------------------------------------------------------
+
+    save_dataset_path = Path(args.save_dataset_path)
+    limit_n_scenes = 0  # num cases to run the algorithm on
+    limit_n_frames = 0  # num frames to run the algorithm on from each scene.
+    n_cases_per_scene = args.n_cases_per_scene
+
+    if args.debug_mode:
+        print("Running in debug mode!!!!")
+        limit_n_scenes = 1  # num cases to run the algorithm on
+        limit_n_frames = 0  # num frames to run the algorithm on from each scene.
+        n_cases_per_scene = 1
+        save_dataset_path = save_dataset_path / "debug"
+
     print(f"args={args}")
     sim_importer = SimImporter(
         sim_name=args.sim_name,
         load_dataset_path=args.load_dataset_path,
-        save_dataset_path=args.save_dataset_path,
+        save_dataset_path=save_dataset_path,
         splits=args.splits,
-        n_cases_per_scene=args.n_cases_per_scene,
+        n_cases_per_scene=n_cases_per_scene,
         rand_seed=args.rand_seed,
-        limit_n_scenes=args.limit_n_scenes,
-        limit_n_frames=args.limit_n_frames,
+        limit_n_scenes=limit_n_scenes,
+        limit_n_frames=limit_n_frames,
         world_sys_to_first_cam=args.world_sys_to_first_cam,
         fps_override=args.fps_override,
-        debug_mode=args.debug_mode,
     )
     save_scene_paths_per_split = sim_importer.run()
     print(f"Done importing the splits: {list(save_scene_paths_per_split.keys())}.")
@@ -133,7 +133,6 @@ class SimImporter:
         limit_n_frames: int = 0,
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
-        debug_mode: bool = False,
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
         Args:
@@ -150,7 +149,6 @@ class SimImporter:
         self.limit_n_scenes = limit_n_scenes
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
-        self.debug_mode = debug_mode
         self.sim_name = sim_name
         self.n_cases_per_scene = n_cases_per_scene
         self.rand_seed = rand_seed
@@ -170,6 +168,16 @@ class SimImporter:
         for split_name in self.splits_list:
             print(f"Processing split: {split_name}")
             save_scene_paths_per_split[split_name] = self.import_split(split_name)
+
+        if self.sim_name == "ColonNav":
+            print(f"Creating cases with targets for each scene in the ColonNav dataset at {self.save_dataset_path}.")
+            cases_creator = TargetCasesCreator(
+                sim_data_path=self.save_dataset_path,
+                n_cases_per_scene=self.n_cases_per_scene,
+                rand_seed=self.rand_seed,
+            )
+            cases_creator.run()
+
         return save_scene_paths_per_split
 
     # --------------------------------------------------------------------------------------------------------------------
@@ -293,26 +301,16 @@ class SimImporter:
             )
 
         print(f"Done creating {n_scenes} scenes in {save_split_path}")
-
-        if self.sim_name == "ColonNav":
-            print("Create cases with targets for each scene in the ColonNav dataset")
-            cases_creator = TargetCasesCreator(
-                sim_data_path=self.save_dataset_path,
-                n_cases_per_scene=self.n_cases_per_scene,
-                rand_seed=self.rand_seed,
-            )
-            cases_creator.run()
-
-        if self.debug_mode:
-            example_frame_idx = 55
-            shifts = [-2, -1, 0]
-            save_rgb_and_depth_subplots(
-                rgb_imgs=[load_rgb_image(load_rgb_frames_paths[example_frame_idx + shift]) for shift in shifts],
-                depth_imgs=[z_depth_frames[example_frame_idx + shift] for shift in shifts],
-                frame_names=[f"Shift: {shift}" for shift in shifts],
-                save_path=Path("temp") / "rgb_depth_example.png",
-            )
-            raise ValueError("DEBUG MODE")
+        # if self.debug_mode:
+        #     example_frame_idx = 55
+        #     shifts = [-2, -1, 0]
+        #     save_rgb_and_depth_subplots(
+        #         rgb_imgs=[load_rgb_image(load_rgb_frames_paths[example_frame_idx + shift]) for shift in shifts],
+        #         depth_imgs=[z_depth_frames[example_frame_idx + shift] for shift in shifts],
+        #         frame_names=[f"Shift: {shift}" for shift in shifts],
+        #         save_path=Path("temp") / "rgb_depth_example.png",
+        #     )
+        #     raise ValueError("DEBUG MODE")
         return scenes_save_paths
 
 

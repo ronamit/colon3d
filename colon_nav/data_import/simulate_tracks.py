@@ -89,7 +89,7 @@ def generate_targets(
         targets_centers_3d = np_func(unproject_image_normalized_coord_to_world)(
             points_nrm=targets_centers_nrm,
             z_depths=pixels_depth,
-            cam_poses=gt_cam_poses[inspected_frame_idx],
+            cam_poses=gt_cam_poses[inspected_frame_idx, :],
         )
         # Determine the size of the ball around the target center:
         targets_radiuses = rng.uniform(min_target_radius_mm, max_target_radius_mm, size=n_targets)

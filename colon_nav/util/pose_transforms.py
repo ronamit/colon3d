@@ -222,6 +222,8 @@ def unproject_image_normalized_coord_to_world(
     """
     points_nrm = assert_2d_tensor(points_nrm, 2)
     z_depths = assert_1d_tensor(z_depths)
+    if cam_poses.ndim == 1:
+        cam_poses = cam_poses.unsqueeze(0)
     cam_poses = assert_2d_tensor(cam_poses, 7)
     assert_same_sample_num((points_nrm, z_depths, cam_poses))
     points3d_cam_sys = unproject_image_normalized_coord_to_cam_sys(points_nrm=points_nrm, z_depths=z_depths)

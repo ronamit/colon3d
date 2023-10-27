@@ -61,6 +61,7 @@ def load_sim_raw(load_base_path: Path, limit_n_scenes: int, limit_n_frames, fps_
     scene_idx = -1
     frame_idx = -1
     n_scenes = 0
+    print(f"Extracting data from the captures in {metadata_dir_path}")
     for capture in captures:
         frame_idx += 1
         rgb_file_path = load_base_path / capture["filename"]
