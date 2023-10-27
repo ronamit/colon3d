@@ -216,6 +216,7 @@ def generate_cases_from_scene(
         print("Targets info:", to_str(targets_info))
         with (case_path / "targets_info.pkl").open("wb") as file:
             pickle.dump(targets_info, file)
+            
         # also save the targets info to a text file:
         with (case_path / "targets_info.txt").open("w") as file:
             file.write("Targets info: " + to_str(targets_info) + "\n")

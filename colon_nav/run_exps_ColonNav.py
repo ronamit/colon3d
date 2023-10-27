@@ -61,7 +61,7 @@ def main():
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed, results will be saved to a debug folder",
-        default=False,
+        default=True,
     )
     parser.add_argument(
         "--exp_list",
@@ -109,6 +109,7 @@ def main():
             "n_frames_lim": n_frames_lim,
             "n_scenes_lim": n_scenes_lim,
             "save_overwrite": save_overwrite,
+            "load_scenes_with_targets": True,  # Load cases with targets added to the original scenes
             "print_interval": print_interval,
         }
 

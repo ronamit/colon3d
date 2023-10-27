@@ -244,7 +244,7 @@ def get_all_scenes_paths_in_dir(dataset_path: Path, with_targets: bool):
     Note: if no case targets are available for some scene, then the scene itself is returned.
     """
     out_paths = []
-    origin_scenes_paths = list(dataset_path.glob("Scene_*"))
+    origin_scenes_paths = list(dataset_path.rglob("Scene_*"))
     origin_scenes_paths.sort()
     for scene_path in origin_scenes_paths:
         if with_targets and (scene_path / "Target_Cases").is_dir():
@@ -252,13 +252,6 @@ def get_all_scenes_paths_in_dir(dataset_path: Path, with_targets: bool):
             out_paths += cases_paths
         else:
             out_paths.append(scene_path)
-    # in case there are no Scenes_* sub-directories, try to load the scenes from the sub-directories of the dataset_path
-    if len(out_paths) == 0:
-        print(f"Loading scenes from the sub-directories of {dataset_path}")
-        for sub_dir in dataset_path.iterdir():
-            if sub_dir.is_dir():
-                out_paths += get_all_scenes_paths_in_dir(sub_dir, with_targets=with_targets)
-    out_paths.sort()
     return out_paths
 
 # --------------------------------------------------------------------------------------------------------------------

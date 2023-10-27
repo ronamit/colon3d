@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 
 from colon_nav.data_import import loader_ColonNav, loader_SimCol3D
+from colon_nav.data_import.create_target_cases import TargetCasesCreator
 from colon_nav.util.data_util import get_all_scenes_paths_in_dir
 from colon_nav.util.general_util import (
     ArgsHelpFormatter,
@@ -54,7 +55,18 @@ def main():
         default="Train,Test",
         help="The splits subfolders to load and save (Train, Test, or both), separated by comma.",
     )
-
+    parser.add_argument(
+        "--n_cases_per_scene",
+        type=int,
+        default=5,
+        help="The number of cases with targets to create for each scene (for the ColonNav dataset).",
+    )
+    parser.add_argument(
+        "--rand_seed",
+        type=int,
+        default=0,
+        help="The random seed to use for creating the cases with targets (for the ColonNav dataset).",
+    )
     parser.add_argument(
         "--limit_n_scenes",
         type=int,
@@ -80,12 +92,6 @@ def main():
         help="If True, the world coordinate system will be set to the first camera pose (the first camera pose will be at zero location and unit rotation)",
     )
     parser.add_argument(
-        "--save_overwrite",
-        type=bool_arg,
-        default=True,
-        help="If True,the output folder will be overwritten if it already exists",
-    )
-    parser.add_argument(
         "--debug_mode",
         type=bool_arg,
         default=False,
@@ -98,11 +104,12 @@ def main():
         load_dataset_path=args.load_dataset_path,
         save_dataset_path=args.save_dataset_path,
         splits=args.splits,
+        n_cases_per_scene=args.n_cases_per_scene,
+        rand_seed=args.rand_seed,
         limit_n_scenes=args.limit_n_scenes,
         limit_n_frames=args.limit_n_frames,
         world_sys_to_first_cam=args.world_sys_to_first_cam,
         fps_override=args.fps_override,
-        save_overwrite=args.save_overwrite,
         debug_mode=args.debug_mode,
     )
     save_scene_paths_per_split = sim_importer.run()
@@ -120,11 +127,12 @@ class SimImporter:
         load_dataset_path: str,
         save_dataset_path: str,
         splits: str = "Train,Test",
+        n_cases_per_scene: int = 5,
+        rand_seed: int = 0,
         limit_n_scenes: int = 0,
         limit_n_frames: int = 0,
         world_sys_to_first_cam: bool = True,
         fps_override: float = 0.0,
-        save_overwrite: bool = True,
         debug_mode: bool = False,
     ):
         """Imports the simulated scenes from the raw data to the processed data format.
@@ -142,9 +150,10 @@ class SimImporter:
         self.limit_n_scenes = limit_n_scenes
         self.world_sys_to_first_cam = world_sys_to_first_cam
         self.fps_override = fps_override
-        self.save_overwrite = save_overwrite
         self.debug_mode = debug_mode
         self.sim_name = sim_name
+        self.n_cases_per_scene = n_cases_per_scene
+        self.rand_seed = rand_seed
         self.splits_list = splits.split(",")
         assert len(self.splits_list) > 0, "No splits were given"
         assert all(
@@ -168,7 +177,7 @@ class SimImporter:
     def import_split(self, split_name):
         # The path to save this split of the dataset
         save_split_path = self.save_dataset_path / split_name
-        is_created = create_empty_folder(save_split_path, save_overwrite=self.save_overwrite)
+        is_created = create_empty_folder(save_split_path, save_overwrite=True)
         if not is_created:
             # in this case the dataset already exists, so we will load it instead of creating it
             scenes_save_paths = get_all_scenes_paths_in_dir(save_split_path, with_targets=True)
@@ -284,6 +293,15 @@ class SimImporter:
             )
 
         print(f"Done creating {n_scenes} scenes in {save_split_path}")
+
+        if self.sim_name == "ColonNav":
+            print("Create cases with targets for each scene in the ColonNav dataset")
+            cases_creator = TargetCasesCreator(
+                sim_data_path=self.save_dataset_path,
+                n_cases_per_scene=self.n_cases_per_scene,
+                rand_seed=self.rand_seed,
+            )
+            cases_creator.run()
 
         if self.debug_mode:
             example_frame_idx = 55

@@ -85,6 +85,7 @@ By default, the code will save outputs to the following folders:
 * We outline below the main run scripts in the code. See the scripts for more details on the run options.
 
 ** colon_nav.data_import.import_dataset : Importing raw dataset to the format used by our code.
+Note that for the ColonNav dataset, the script will also create cases with different world targets per scene (see paper for more details).
 Examples:
 
 ```bash

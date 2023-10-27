@@ -22,12 +22,6 @@ def main():
         default="data/datasets/Zhang22",
     )
     parser.add_argument(
-        "--save_overwrite",
-        type=bool_arg,
-        default=True,
-        help="If True then scenes folders will be overwritten if they already exists",
-    )
-    parser.add_argument(
         "--debug_mode",
         type=bool_arg,
         help="If true, only one scene will be processed",
@@ -62,7 +56,6 @@ def main():
             save_dataset_path=save_path,
             limit_n_scenes=limit_n_scenes,
             limit_n_frames=limit_n_frames,
-            save_overwrite=save_overwrite,
             source_name="Zhang22",
         ).run()
 
