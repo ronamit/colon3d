@@ -96,11 +96,15 @@ Examples:
   python -m colon_nav.data_import.import_dataset  --sim_name "SimCol3D" --load_dataset_path "data/raw_datasets/SimCol3D" --save_dataset_path "data/datasets/SimCol3D"
 ```
 
-* Create unified training dataset: # TODO: add script
+<!-- * Create unified training dataset: # TODO: add script -->
 
-* colon_nav.run_ColonNav_exps : Running all experiments on the ColonNav dataset.
+* Running all experiments on the ColonNav dataset.
+  
+  ```bash
+    python run_exps_ColonNav.py 
+  ```
 
-* colon_nav.run_SimCol3D_exps : Running all experiments on the SimCol3D dataset.
+<!-- * colon_nav.run_SimCol3D_exps : Running all experiments on the SimCol3D dataset. -->
 
 * colon_nav.nets.run_train:  Train depth & egomotion estimators using training data.
 

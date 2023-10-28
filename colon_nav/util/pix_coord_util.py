@@ -22,6 +22,9 @@ class PixelCoordNormalizer:
         )
         self.cam_K_mat_inv = np.linalg.inv(self.cam_K_mat)
         self.cam_distort_param = cam_info.distort_pram
+        # convert to float_dtype
+        if self.cam_distort_param is not None:
+            self.cam_distort_param = np.array(self.cam_distort_param, dtype=self.float_dtype)
         self.frame_width = cam_info.frame_width
         self.frame_height = cam_info.frame_height
         self.is_fish_eye = self.cam_distort_param is not None and not np.allclose(self.cam_distort_param, 0)
@@ -98,8 +101,9 @@ class PixelCoordNormalizer:
             points2d: 2D points in the distorted image (shape: (2), units: pixels)
         """
         # set the translation & rotation to zero
-        rot = np.array([[[0.0, 0.0, 0.0]]])
-        trans = np.array([[[0.0, 0.0, 0.0]]])
+
+        rot = np.array([[[0.0, 0.0, 0.0]]], dtype=self.float_dtype)
+        trans = np.array([[[0.0, 0.0, 0.0]]], dtype=self.float_dtype)
         points3d = to_numpy(points3d)
         if points3d.ndim == 1:
             points3d = points3d[np.newaxis, :]

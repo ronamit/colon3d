@@ -34,7 +34,7 @@ def get_default_dtype(package="torch", num_type=None):
     num_type = num_type or "float"
     if package == "torch":
         if num_type == "float":
-            return torch.float32
+            return torch.float64
         if num_type == "float_m":
             return torch.float32
         if num_type == "int":
@@ -42,7 +42,7 @@ def get_default_dtype(package="torch", num_type=None):
         raise ValueError(f"Unknown num_type: {num_type}")
     if package == "numpy":
         if num_type == "float":
-            return np.float32
+            return np.float64
         if num_type == "float_m":
             return np.float32
         if num_type == "int":

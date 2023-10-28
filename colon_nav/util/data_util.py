@@ -252,6 +252,7 @@ def get_all_scenes_paths_in_dir(dataset_path: Path, with_targets: bool):
             out_paths += cases_paths
         else:
             out_paths.append(scene_path)
+    out_paths.sort()
     return out_paths
 
 # --------------------------------------------------------------------------------------------------------------------

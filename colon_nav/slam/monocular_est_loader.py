@@ -274,14 +274,16 @@ class DepthAndEgoMotionLoader:
 
         # get the depth estimation at the queried point from the saved depth maps
         z_depths = torch.zeros((n_points), device=device, dtype=dtype)
-        kp_frame_inds = np.array(kp_frame_inds, dtype=self.int_np_dtype)
+        kp_frame_inds = np.array(kp_frame_inds, dtype=int)
         kps_in_cur = kp_frame_inds == cur_frame_idx
         kps_in_prev = kp_frame_inds == (cur_frame_idx - 1)
         assert kps_in_cur.sum() + kps_in_prev.sum() == n_points, "sanity check XOR should be true for all points"
         if np.any(kps_in_prev):
-            z_depths[kps_in_prev] = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]]
+            depths_prev = prev_depth_frame[y[kps_in_prev], x[kps_in_prev]]
+            z_depths[kps_in_prev] = depths_prev.to(device=device, dtype=dtype)
         if np.any(kps_in_cur):
-            z_depths[kps_in_cur] = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]]
+            depths_cur = cur_depth_frame[y[kps_in_cur], x[kps_in_cur]]
+            z_depths[kps_in_cur] = depths_cur.to(device=device, dtype=dtype)
 
         return z_depths
 
